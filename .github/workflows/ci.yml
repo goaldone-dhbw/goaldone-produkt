@@ -35,6 +35,11 @@ jobs:
       pull-requests: write
     steps:
       - uses: actions/checkout@v4
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
       - name: Use Node.js 22.x
         uses: actions/setup-node@v4
         with:
@@ -47,13 +52,13 @@ jobs:
         run: cd frontend && npm run generate-api
       - name: Run Tests
         run: cd frontend && npm run test:ci
-      - name: Publish Jest Test Results
+      - name: Publish Vitest Test Results
         uses: dorny/test-reporter@v1
         if: always()
         with:
-          name: Jest Tests
+          name: Vitest Tests
           path: frontend/junit.xml
-          reporter: jest-junit
+          reporter: java-junit
       - name: Upload Coverage
         uses: actions/upload-artifact@v4
         with:

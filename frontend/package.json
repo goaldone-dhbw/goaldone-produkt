@@ -6,8 +6,8 @@
     "start": "ng serve",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
-    "test": "jest",
-    "test:ci": "jest --ci --coverage --reporters=default --reporters=jest-junit",
+    "test": "ng test",
+    "test:ci": "ng test --watch=false",
     "generate-api": "openapi-generator-cli generate -i ../api-spec/openapi.yaml -g typescript-angular -o src/app/api"
   },
   "private": true,
@@ -18,21 +18,23 @@
     "@angular/core": "^21.2.0",
     "@angular/forms": "^21.2.0",
     "@angular/platform-browser": "^21.2.0",
+    "@angular/platform-browser-dynamic": "^21.2.0",
     "@angular/router": "^21.2.0",
     "rxjs": "~7.8.0",
-    "tslib": "^2.3.0"
+    "tslib": "^2.3.0",
+    "zone.js": "~0.15.0"
   },
   "devDependencies": {
     "@angular/build": "^21.2.7",
     "@angular/cli": "^21.2.7",
     "@angular/compiler-cli": "^21.2.0",
     "@openapitools/openapi-generator-cli": "^2.31.1",
-    "@types/jest": "^30.0.0",
-    "jest": "^30.3.0",
-    "jest-junit": "^16.0.0",
-    "jest-preset-angular": "^16.1.4",
+    "@types/node": "^25.6.0",
+    "@vitest/coverage-v8": "^4.1.4",
+    "@vitest/ui": "^4.1.4",
+    "jsdom": "^29.0.2",
     "prettier": "^3.8.1",
-    "ts-jest": "^29.4.9",
-    "typescript": "~5.9.2"
+    "typescript": "~5.9.0",
+    "vitest": "^4.1.4"
   }
 }
