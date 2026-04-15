@@ -2,13 +2,14 @@ name: CI
 
 on:
   push:
-    branches: [ main ]
   pull_request:
-    branches: [ main ]
+    branches: [ master ]
 
 jobs:
   backend:
     runs-on: ubuntu-latest
+    permissions:
+      checks: write
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK 21
@@ -17,11 +18,19 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
           cache: maven
-      - name: Build with Maven
+      - name: Build and Test with Maven
         run: cd backend && ./mvnw clean install
+      - name: Publish Test Report
+        uses: scacap/action-surefire-report@v1
+        if: always()
+        with:
+          report_paths: '**/target/surefire-reports/TEST-*.xml'
 
   frontend:
     runs-on: ubuntu-latest
+    permissions:
+      checks: write
+      pull-requests: write
     steps:
       - uses: actions/checkout@v4
       - name: Use Node.js 22.x
@@ -34,7 +43,15 @@ jobs:
         run: cd frontend && npm ci
       - name: Generate API client
         run: cd frontend && npm run generate-api
-      - name: Build
-        run: cd frontend && npm run build
-      - name: Test
-        run: cd frontend && npm test -- --run
+      - name: Run Tests
+        run: cd frontend && npm run test:ci
+      - name: Publish Jest Test Results
+        uses: EnricoMi/publish-unit-test-results-action@v2
+        if: always()
+        with:
+          files: frontend/junit.xml
+      - name: Upload Coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-coverage
+          path: frontend/coverage/
