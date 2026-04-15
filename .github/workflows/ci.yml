@@ -19,12 +19,14 @@ jobs:
           distribution: 'temurin'
           cache: maven
       - name: Build and Test with Maven
-        run: cd backend && ./mvnw clean install
+        run: cd backend && ./mvnw clean install -Dspring.profiles.active=local
       - name: Publish Test Report
-        uses: scacap/action-surefire-report@v1
+        uses: dorny/test-reporter@v1
         if: always()
         with:
-          report_paths: '**/target/surefire-reports/TEST-*.xml'
+          name: Maven Surefire Tests
+          path: '**/target/surefire-reports/TEST-*.xml'
+          reporter: java-junit
 
   frontend:
     runs-on: ubuntu-latest
@@ -46,10 +48,12 @@ jobs:
       - name: Run Tests
         run: cd frontend && npm run test:ci
       - name: Publish Jest Test Results
-        uses: EnricoMi/publish-unit-test-results-action@v2
+        uses: dorny/test-reporter@v1
         if: always()
         with:
-          files: frontend/junit.xml
+          name: Jest Tests
+          path: frontend/junit.xml
+          reporter: jest-junit
       - name: Upload Coverage
         uses: actions/upload-artifact@v4
         with:

@@ -10,11 +10,7 @@ spring:
     console:
       enabled: true
   jpa:
-    hibernate:
-      ddl-auto: validate
     show-sql: true
     properties:
       hibernate:
         format_sql: true
-  liquibase:
-    change-log: classpath:db/changelog/db.changelog-master.xml
