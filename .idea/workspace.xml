@@ -4,7 +4,10 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="33e17ea6-9527-4888-9611-97e8641f4316" name="Changes" comment="feat: add OpenAPI client generation and health check endpoints" />
+    <list default="true" id="33e17ea6-9527-4888-9611-97e8641f4316" name="Changes" comment="feat: add Docker Compose infrastructure for Zitadel IdP setup&#10;&#10;- Create docker-compose.yml with Traefik, PostgreSQL, and Zitadel services&#10;   - Traefik configured for reverse proxy with Let's Encrypt (Cloudflare DNS challenge)&#10;   - PostgreSQL with named volume for persistent data storage&#10;   - Zitadel with initial organization and superadmin account setup&#10;   - gRPC passthrough configuration for Zitadel API compatibility&#10;   - .env.example for all required configuration variables&#10;   - .gitignore to prevent committing sensitive environment files&#10;   - Comprehensive README with setup, deployment, and troubleshooting guides&#10;&#10;   This implements the VPS infrastructure foundation for authentication.&#10;   OIDC application configuration will be handled in a subsequent ticket.">
+      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -16,24 +19,29 @@
     </persistenceIdMap>
   </component>
   <component name="EmbeddingIndexingInfo">
-    <option name="cachedIndexableFilesCount" value="52" />
+    <option name="cachedIndexableFilesCount" value="85" />
     <option name="fileBasedEmbeddingIndicesEnabled" value="true" />
   </component>
   <component name="Git.Settings">
+    <option name="RECENT_BRANCH_BY_REPOSITORY">
+      <map>
+        <entry key="$PROJECT_DIR$" value="master" />
+      </map>
+    </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
-  <component name="GitHubPullRequestSearchHistory"><![CDATA[{
-  "lastFilter": {
-    "state": "OPEN",
-    "assignee": "Joinsider"
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {
+    &quot;state&quot;: &quot;OPEN&quot;,
+    &quot;assignee&quot;: &quot;Joinsider&quot;
   }
-}]]></component>
-  <component name="GithubPullRequestsUISettings"><![CDATA[{
-  "selectedUrlAndAccountId": {
-    "url": "git@github.com:goaldone-dhbw/goaldone-produkt.git",
-    "accountId": "12dc97a5-eb03-49fa-9b29-a007dcd5af4b"
+}</component>
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;git@github.com:goaldone-dhbw/goaldone-produkt.git&quot;,
+    &quot;accountId&quot;: &quot;12dc97a5-eb03-49fa-9b29-a007dcd5af4b&quot;
   }
-}]]></component>
+}</component>
   <component name="MavenImportPreferences">
     <option name="generalSettings">
       <MavenGeneralSettings>
@@ -45,10 +53,10 @@
     <commands />
     <urls />
   </component>
-  <component name="ProjectColorInfo"><![CDATA[{
-  "customColor": "",
-  "associatedIndex": 5
-}]]></component>
+  <component name="ProjectColorInfo">{
+  &quot;customColor&quot;: &quot;&quot;,
+  &quot;associatedIndex&quot;: 5
+}</component>
   <component name="ProjectId" id="3CPBek0JclxSbqfNFYAElDJGQqP" />
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
@@ -68,7 +76,8 @@
     "SHARE_PROJECT_CONFIGURATION_FILES": "true",
     "cidr.known.project.marker": "true",
     "codeWithMe.voiceChat.enabledByDefault": "false",
-    "git-widget-placeholder": "#1 on initial-project-setup",
+    "git-widget-placeholder": "setup-infrastructure",
+    "git.auto.fetch.suggestion.counter": "1",
     "kotlin-language-version-configured": "true",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
@@ -83,12 +92,6 @@
   }
 }]]></component>
   <component name="RunManager" selected="npm.test">
-    <configuration default="true" type="AppleRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" EMULATE_TERMINAL="false" PASS_PARENT_ENVS_2="true" IS_LOCATION_SIMULATION_SUPPORTED="false" IS_LOCATION_SIMULATION_ALLOWED="true" APPLICATION_LANGUAGE="IDELaunchSchemeLanguageUseSystemLanguage" APPLICATION_REGION="" DEVELOPMENT_TEAM="${TEAM_ID}" MAKE_ACTIVE="TRUE" SHOULD_DEBUG_EXTENSIONS="false">
-      <embedded_app_extension_list />
-      <method v="2">
-        <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
-      </method>
-    </configuration>
     <configuration name="BackendApplication" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot" nameIsGenerated="true">
       <module name="backend" />
       <option name="SPRING_BOOT_MAIN_CLASS" value="de.goaldone.backend.BackendApplication" />
@@ -119,7 +122,8 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1776277422969</updated>
-      <workItem from="1776277424985" duration="761000" />
+      <workItem from="1776277424985" duration="1129000" />
+      <workItem from="1776278573651" duration="357000" />
     </task>
     <task id="LOCAL-00001" summary="Reinitialize frontend">
       <option name="closed" value="true" />
@@ -137,7 +141,23 @@
       <option name="project" value="LOCAL" />
       <updated>1776278182641</updated>
     </task>
-    <option name="localTasksCounter" value="3" />
+    <task id="LOCAL-00003" summary="chore: rename CI jobs for clarity and update workspace configuration">
+      <option name="closed" value="true" />
+      <created>1776278283441</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1776278283441</updated>
+    </task>
+    <task id="LOCAL-00004" summary="feat: add Docker Compose infrastructure for Zitadel IdP setup&#10;&#10;- Create docker-compose.yml with Traefik, PostgreSQL, and Zitadel services&#10;   - Traefik configured for reverse proxy with Let's Encrypt (Cloudflare DNS challenge)&#10;   - PostgreSQL with named volume for persistent data storage&#10;   - Zitadel with initial organization and superadmin account setup&#10;   - gRPC passthrough configuration for Zitadel API compatibility&#10;   - .env.example for all required configuration variables&#10;   - .gitignore to prevent committing sensitive environment files&#10;   - Comprehensive README with setup, deployment, and troubleshooting guides&#10;&#10;   This implements the VPS infrastructure foundation for authentication.&#10;   OIDC application configuration will be handled in a subsequent ticket.">
+      <option name="closed" value="true" />
+      <created>1776278893268</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1776278893268</updated>
+    </task>
+    <option name="localTasksCounter" value="5" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -157,7 +177,9 @@
   <component name="VcsManagerConfiguration">
     <MESSAGE value="Reinitialize frontend" />
     <MESSAGE value="feat: add OpenAPI client generation and health check endpoints" />
-    <option name="LAST_COMMIT_MESSAGE" value="feat: add OpenAPI client generation and health check endpoints" />
+    <MESSAGE value="chore: rename CI jobs for clarity and update workspace configuration" />
+    <MESSAGE value="feat: add Docker Compose infrastructure for Zitadel IdP setup&#10;&#10;- Create docker-compose.yml with Traefik, PostgreSQL, and Zitadel services&#10;   - Traefik configured for reverse proxy with Let's Encrypt (Cloudflare DNS challenge)&#10;   - PostgreSQL with named volume for persistent data storage&#10;   - Zitadel with initial organization and superadmin account setup&#10;   - gRPC passthrough configuration for Zitadel API compatibility&#10;   - .env.example for all required configuration variables&#10;   - .gitignore to prevent committing sensitive environment files&#10;   - Comprehensive README with setup, deployment, and troubleshooting guides&#10;&#10;   This implements the VPS infrastructure foundation for authentication.&#10;   OIDC application configuration will be handled in a subsequent ticket." />
+    <option name="LAST_COMMIT_MESSAGE" value="feat: add Docker Compose infrastructure for Zitadel IdP setup&#10;&#10;- Create docker-compose.yml with Traefik, PostgreSQL, and Zitadel services&#10;   - Traefik configured for reverse proxy with Let's Encrypt (Cloudflare DNS challenge)&#10;   - PostgreSQL with named volume for persistent data storage&#10;   - Zitadel with initial organization and superadmin account setup&#10;   - gRPC passthrough configuration for Zitadel API compatibility&#10;   - .env.example for all required configuration variables&#10;   - .gitignore to prevent committing sensitive environment files&#10;   - Comprehensive README with setup, deployment, and troubleshooting guides&#10;&#10;   This implements the VPS infrastructure foundation for authentication.&#10;   OIDC application configuration will be handled in a subsequent ticket." />
   </component>
   <component name="github-copilot-workspace">
     <instructionFileLocations>
