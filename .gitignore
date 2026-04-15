@@ -3,3 +3,7 @@ docker-compose.yml
 docker-compose.yaml
 compose.yml
 compose.yaml
+GEMINI.md
+CLAUDE.md
+.planning/
+.claude/
