@@ -7,10 +7,19 @@ servers:
   - url: http://localhost:8080/api/v1
     description: Local development server
 
+tags:
+  - name: health
+    description: Health check operations
+  - name: tasks
+    description: Task management operations
+
 paths:
   /health:
     get:
+      tags:
+        - health
       summary: Health Check
+      operationId: getHealth
       responses:
         '200':
           description: OK
@@ -25,7 +34,10 @@ paths:
 
   /tasks:
     get:
+      tags:
+        - tasks
       summary: List Tasks
+      operationId: listTasks
       responses:
         '200':
           description: A list of tasks
@@ -36,7 +48,10 @@ paths:
                 items:
                   $ref: '#/components/schemas/Task'
     post:
+      tags:
+        - tasks
       summary: Create Task
+      operationId: createTask
       requestBody:
         required: true
         content:
