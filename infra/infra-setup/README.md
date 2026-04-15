@@ -4,15 +4,15 @@ This directory contains the Docker Compose configuration for the Goaldone infras
 
 ## Stack Overview
 
-- **Traefik**: Reverse proxy + Let's Encrypt automation (DNS challenge via Cloudflare)
+- **Traefik**: Reverse proxy + Let's Encrypt automation (HTTP-01 challenge)
 - **PostgreSQL**: Database for Zitadel (identity provider)
 - **Zitadel**: OpenID Connect (OIDC) provider for authentication
 
 ## Prerequisites
 
 - Docker Engine 20.10+ and Docker Compose 2.0+
-- A domain name with Cloudflare DNS (for Let's Encrypt DNS challenge)
-- Cloudflare API token with `Zone:DNS:Edit` permission for your domain
+- A domain name pointing to this VPS (A/AAAA records)
+- Public internet access on ports 80 and 443 (required for HTTP-01 Let's Encrypt validation)
 
 ## Setup Instructions
 
@@ -24,9 +24,8 @@ cp .env.example .env
 
 Edit `.env` and fill in the following:
 
-- **DOMAIN**: Your domain (e.g., `goaldone.de`)
-- **ACME_EMAIL**: Email for Let's Encrypt certificates
-- **CF_DNS_API_TOKEN**: Cloudflare API token with DNS edit permission
+- **DOMAIN**: Your domain pointing to this VPS (e.g., `goaldone.de`)
+- **ACME_EMAIL**: Email for Let's Encrypt certificate notifications
 - **POSTGRES_PASSWORD**: Strong password for PostgreSQL
 - **ZITADEL_MASTERKEY**: Random 32-character key for Zitadel encryption
 - **ZITADEL_FIRSTINSTANCE_ORG_HUMAN_PASSWORD**: Initial superadmin password (can be changed later)
@@ -42,6 +41,10 @@ ssh user@vps
 
 # Navigate to the directory
 cd /path/to/goaldone/infra-setup
+
+# Verify domain DNS points to VPS
+nslookup auth.goaldone.de
+# Should return this VPS's IP address
 
 # Start services
 docker compose up -d
@@ -123,7 +126,11 @@ Check Traefik logs:
 docker compose logs traefik | grep -i acme
 ```
 
-Verify Cloudflare API token has correct permissions and domain is using Cloudflare DNS.
+Verify:
+- Domain DNS resolves correctly to this VPS: `nslookup auth.goaldone.de`
+- Ports 80 and 443 are publicly accessible from the internet
+- Firewall rules allow inbound HTTP/HTTPS traffic
+- No rate limiting issues (Let's Encrypt has strict rate limits)
 
 ### Database locked / corruption
 
