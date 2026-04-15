@@ -10,13 +10,14 @@ describe('App', () => {
 
   it('should create the app', () => {
     const fixture = TestBed.createComponent(App);
-    expect(fixture.componentInstance).toBeTruthy();
+    const app = fixture.componentInstance;
+    expect(app).toBeTruthy();
   });
 
   it('should render title', async () => {
     const fixture = TestBed.createComponent(App);
     await fixture.whenStable();
     const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('h1')?.textContent).toContain('Hello, goaldone-frontend');
+    expect(compiled.querySelector('h1')?.textContent).toContain('Hello, frontend');
   });
 });

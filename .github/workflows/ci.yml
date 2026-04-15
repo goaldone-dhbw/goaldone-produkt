@@ -58,8 +58,9 @@ jobs:
         if: always()
         with:
           name: Vitest Tests
-          path: frontend/junit.xml
+          path: 'frontend/**/junit.xml'
           reporter: java-junit
+          fail-on-error: false
       - name: Upload Coverage
         uses: actions/upload-artifact@v4
         with:
