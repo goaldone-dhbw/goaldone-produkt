@@ -43,7 +43,7 @@ ssh user@vps
 cd /path/to/goaldone/infra-setup
 
 # Verify domain DNS points to VPS
-nslookup auth.goaldone.de
+nslookup sso.goaldone.de
 # Should return this VPS's IP address
 
 # Start services
@@ -60,12 +60,12 @@ docker compose ps
 docker compose logs -f zitadel
 
 # Test HTTPS (should show valid Let's Encrypt certificate)
-curl -I https://auth.goaldone.de
+curl -I https://sso.goaldone.de
 ```
 
 ### 4. Access Zitadel
 
-1. Open browser to `https://auth.goaldone.de`
+1. Open browser to [https://sso.goaldone.de/ui/console](https://sso.goaldone.de/ui/console)
 2. Log in with:
    - **Username**: `superadmin@goaldone.de`
    - **Password**: Value of `ZITADEL_FIRSTINSTANCE_ORG_HUMAN_PASSWORD` from `.env`
@@ -131,33 +131,3 @@ Verify:
 - Ports 80 and 443 are publicly accessible from the internet
 - Firewall rules allow inbound HTTP/HTTPS traffic
 - No rate limiting issues (Let's Encrypt has strict rate limits)
-
-### Database locked / corruption
-
-This should never happen with named volumes, but if needed:
-
-```bash
-# Backup data
-docker volume inspect infra-setup_postgres-data  # Shows mount point
-# Then manually inspect or delete if absolutely necessary
-
-# Full reset (WARNING: deletes all data)
-docker compose down -v
-docker compose up -d
-```
-
-## Environment File Security
-
-**NEVER commit `.env` to version control.** The `.gitignore` file in this directory prevents accidental commits, but always verify before pushing:
-
-```bash
-git status  # Should show .env as ignored
-```
-
-## Next Steps
-
-Once the infrastructure is running:
-
-1. Configure OIDC applications (separate ticket)
-2. Connect frontend/backend to Zitadel for authentication
-3. Monitor container health in production
