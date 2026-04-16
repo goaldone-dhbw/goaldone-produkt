@@ -4,13 +4,15 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="33e17ea6-9527-4888-9611-97e8641f4316" name="Changes" comment="feat: update environment configuration and enhance README for Docker Compose setup&#10;&#10;- Add .env.example files for development and production environments&#10;- Update .gitignore to include additional environment files&#10;- Expand README with quick start guide and deployment instructions">
-      <change afterPath="$PROJECT_DIR$/infra/infra-setup/.env-example" afterDir="false" />
+    <list default="true" id="33e17ea6-9527-4888-9611-97e8641f4316" name="Changes" comment="feat: add Docker Compose setup for ZITADEL with environment configuration and README updates">
+      <change beforePath="$PROJECT_DIR$/.idea/compiler.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/compiler.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/infra/infra-setup/.env.example" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/infra/infra-setup/.gitignore" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/infra/infra-setup/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/infra/infra-setup/README.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/infra/infra-setup/docker-compose.yml" beforeDir="false" afterPath="$PROJECT_DIR$/infra/infra-setup/docker-compose.yml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/api-spec/openapi.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/api-spec/openapi.yaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/backend/pom.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/src/main/resources/application-local.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/main/resources/application-local.yaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/src/main/resources/application.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/main/resources/application.yaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/src/main/resources/db/changelog/db.changelog-master.xml" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/main/resources/db/changelog/db.changelog-master.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/src/test/java/de/goaldone/backend/BackendApplicationTests.java" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/test/java/de/goaldone/backend/BackendApplicationTests.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -23,7 +25,7 @@
     </persistenceIdMap>
   </component>
   <component name="EmbeddingIndexingInfo">
-    <option name="cachedIndexableFilesCount" value="89" />
+    <option name="cachedIndexableFilesCount" value="88" />
     <option name="fileBasedEmbeddingIndicesEnabled" value="true" />
   </component>
   <component name="Git.Settings">
@@ -66,36 +68,42 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
-    &quot;Notification.DisplayName-DoNotAsk-DatabaseConfigFileWatcher.found&quot;: &quot;New/updated database configurations found&quot;,
-    &quot;Notification.DoNotAsk-DatabaseConfigFileWatcher.found&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.MCP Project settings loaded&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.cidr.known.project.marker&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.readMode.enableVisualFormatting&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
-    &quot;SHARE_PROJECT_CONFIGURATION_FILES&quot;: &quot;true&quot;,
-    &quot;cidr.known.project.marker&quot;: &quot;true&quot;,
-    &quot;codeWithMe.voiceChat.enabledByDefault&quot;: &quot;false&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;setup-infrastructure&quot;,
-    &quot;git.auto.fetch.suggestion.counter&quot;: &quot;2&quot;,
-    &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
-    &quot;last_opened_file_path&quot;: &quot;/Users/johannes/IdeaProjects/goaldone/goaldone-projekt/documentation/01-project-setup&quot;,
-    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
-    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
-    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
-    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
-    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;npm.test.executor&quot;: &quot;Run&quot;,
-    &quot;prettierjs.PrettierConfiguration.Package&quot;: &quot;/Users/johannes/IdeaProjects/goaldone/goaldone-projekt/frontend/node_modules/prettier&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.pluginManager&quot;,
-    &quot;ts.external.directory.path&quot;: &quot;/Users/johannes/IdeaProjects/goaldone/goaldone-projekt/frontend/node_modules/typescript/lib&quot;,
-    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "JUnit.All Backend Tests.executor": "Run",
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "Notification.DisplayName-DoNotAsk-DatabaseConfigFileWatcher.found": "New/updated database configurations found",
+    "Notification.DoNotAsk-DatabaseConfigFileWatcher.found": "true",
+    "RequestMappingsPanelOrder0": "0",
+    "RequestMappingsPanelOrder1": "1",
+    "RequestMappingsPanelWidth0": "75",
+    "RequestMappingsPanelWidth1": "75",
+    "RunOnceActivity.MCP Project settings loaded": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.cidr.known.project.marker": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "RunOnceActivity.readMode.enableVisualFormatting": "true",
+    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
+    "SHARE_PROJECT_CONFIGURATION_FILES": "true",
+    "Spring Boot.BackendApplication Local.executor": "Run",
+    "cidr.known.project.marker": "true",
+    "codeWithMe.voiceChat.enabledByDefault": "false",
+    "git-widget-placeholder": "oidc-setup",
+    "git.auto.fetch.suggestion.counter": "2",
+    "kotlin-language-version-configured": "true",
+    "last_opened_file_path": "/Users/johannes/IdeaProjects/goaldone/goaldone-projekt/documentation/01-project-setup",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "npm.test.executor": "Run",
+    "prettierjs.PrettierConfiguration.Package": "/Users/johannes/IdeaProjects/goaldone/goaldone-projekt/frontend/node_modules/prettier",
+    "settings.editor.selected.configurable": "preferences.pluginManager",
+    "ts.external.directory.path": "/Users/johannes/IdeaProjects/goaldone/goaldone-projekt/frontend/node_modules/typescript/lib",
+    "vue.rearranger.settings.migration": "true"
   }
-}</component>
+}]]></component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="$PROJECT_DIR$/documentation/01-project-setup" />
@@ -104,8 +112,26 @@
       <recent name="$PROJECT_DIR$/infra/infra-setup" />
     </key>
   </component>
-  <component name="RunManager" selected="npm.test">
-    <configuration name="BackendApplication" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot" nameIsGenerated="true">
+  <component name="RunManager" selected="JUnit.All Backend Tests">
+    <configuration default="true" type="AppleRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" EMULATE_TERMINAL="false" PASS_PARENT_ENVS_2="true" IS_LOCATION_SIMULATION_SUPPORTED="false" IS_LOCATION_SIMULATION_ALLOWED="true" APPLICATION_LANGUAGE="IDELaunchSchemeLanguageUseSystemLanguage" APPLICATION_REGION="" DEVELOPMENT_TEAM="${TEAM_ID}" MAKE_ACTIVE="TRUE" SHOULD_DEBUG_EXTENSIONS="false">
+      <embedded_app_extension_list />
+      <method v="2">
+        <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="All Backend Tests" type="JUnit" factoryName="JUnit">
+      <module name="goaldone-projekt" />
+      <option name="ALTERNATIVE_JRE_PATH" value="zulu-21" />
+      <option name="PACKAGE_NAME" value="de.goaldone.backend" />
+      <option name="MAIN_CLASS_NAME" value="" />
+      <option name="METHOD_NAME" value="" />
+      <option name="TEST_OBJECT" value="package" />
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="BackendApplication Local" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot">
+      <option name="ACTIVE_PROFILES" value="local" />
       <module name="backend" />
       <option name="SPRING_BOOT_MAIN_CLASS" value="de.goaldone.backend.BackendApplication" />
       <method v="2">
@@ -122,6 +148,11 @@
       <envs />
       <method v="2" />
     </configuration>
+    <list>
+      <item itemvalue="JUnit.All Backend Tests" />
+      <item itemvalue="npm.test" />
+      <item itemvalue="Spring Boot.BackendApplication Local" />
+    </list>
     <recent_temporary>
       <list>
         <item itemvalue="npm.test" />
@@ -139,6 +170,7 @@
       <workItem from="1776278573651" duration="357000" />
       <workItem from="1776286790774" duration="4388000" />
       <workItem from="1776333883274" duration="3000" />
+      <workItem from="1776350283414" duration="1248000" />
     </task>
     <task id="LOCAL-00001" summary="Reinitialize frontend">
       <option name="closed" value="true" />
@@ -172,7 +204,15 @@
       <option name="project" value="LOCAL" />
       <updated>1776278893268</updated>
     </task>
-    <option name="localTasksCounter" value="5" />
+    <task id="LOCAL-00005" summary="feat: add Docker Compose setup for ZITADEL with environment configuration and README updates">
+      <option name="closed" value="true" />
+      <created>1776351012899</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1776351012899</updated>
+    </task>
+    <option name="localTasksCounter" value="6" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -194,7 +234,8 @@
     <MESSAGE value="feat: add OpenAPI client generation and health check endpoints" />
     <MESSAGE value="chore: rename CI jobs for clarity and update workspace configuration" />
     <MESSAGE value="feat: add Docker Compose infrastructure for Zitadel IdP setup&#10;&#10;- Create docker-compose.yml with Traefik, PostgreSQL, and Zitadel services&#10;   - Traefik configured for reverse proxy with Let's Encrypt (Cloudflare DNS challenge)&#10;   - PostgreSQL with named volume for persistent data storage&#10;   - Zitadel with initial organization and superadmin account setup&#10;   - gRPC passthrough configuration for Zitadel API compatibility&#10;   - .env.example for all required configuration variables&#10;   - .gitignore to prevent committing sensitive environment files&#10;   - Comprehensive README with setup, deployment, and troubleshooting guides&#10;&#10;   This implements the VPS infrastructure foundation for authentication.&#10;   OIDC application configuration will be handled in a subsequent ticket." />
-    <option name="LAST_COMMIT_MESSAGE" value="feat: add Docker Compose infrastructure for Zitadel IdP setup&#10;&#10;- Create docker-compose.yml with Traefik, PostgreSQL, and Zitadel services&#10;   - Traefik configured for reverse proxy with Let's Encrypt (Cloudflare DNS challenge)&#10;   - PostgreSQL with named volume for persistent data storage&#10;   - Zitadel with initial organization and superadmin account setup&#10;   - gRPC passthrough configuration for Zitadel API compatibility&#10;   - .env.example for all required configuration variables&#10;   - .gitignore to prevent committing sensitive environment files&#10;   - Comprehensive README with setup, deployment, and troubleshooting guides&#10;&#10;   This implements the VPS infrastructure foundation for authentication.&#10;   OIDC application configuration will be handled in a subsequent ticket." />
+    <MESSAGE value="feat: add Docker Compose setup for ZITADEL with environment configuration and README updates" />
+    <option name="LAST_COMMIT_MESSAGE" value="feat: add Docker Compose setup for ZITADEL with environment configuration and README updates" />
   </component>
   <component name="github-copilot-workspace">
     <instructionFileLocations>

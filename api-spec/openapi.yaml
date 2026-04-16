@@ -12,6 +12,8 @@ tags:
     description: Health check operations
   - name: tasks
     description: Task management operations
+  - name: test
+    description: Test operations
 
 paths:
   /health:
@@ -20,6 +22,7 @@ paths:
         - health
       summary: Health Check
       operationId: getHealth
+      security: []
       responses:
         '200':
           description: OK
@@ -66,8 +69,70 @@ paths:
               schema:
                 $ref: '#/components/schemas/Task'
 
+  /api/test/me:
+    get:
+      tags:
+        - test
+      summary: Get current user info
+      operationId: getCurrentUserInfo
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserInfoResponse'
+        '401':
+          description: Unauthorized
+
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
   schemas:
+    UserInfoResponse:
+      type: object
+      required:
+        - userId
+        - zitadelSub
+        - email
+        - organizationId
+        - zitadelOrganizationId
+      properties:
+        userId:
+          type: string
+          format: uuid
+          description: Local user ID from the shadow record
+        zitadelSub:
+          type: string
+          description: sub claim from JWT (Zitadel user ID)
+        email:
+          type: string
+          format: email
+        firstName:
+          type: string
+          nullable: true
+        lastName:
+          type: string
+          nullable: true
+        organizationId:
+          type: string
+          format: uuid
+          description: Local organization ID from the shadow record
+        zitadelOrganizationId:
+          type: string
+          description: Organization ID from Zitadel
+        roles:
+          type: array
+          items:
+            type: string
+          description: Roles from JWT claim (not mirrored in DB)
+
     Task:
       type: object
       properties:
@@ -89,3 +154,6 @@ components:
           type: string
         description:
           type: string
+
+security:
+  - bearerAuth: []
