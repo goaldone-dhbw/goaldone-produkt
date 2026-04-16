@@ -4,16 +4,13 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="33e17ea6-9527-4888-9611-97e8641f4316" name="Changes" comment="feat: integrate Zitadel OAuth2/OIDC for user authentication and authorization&#10;&#10;- Implement user info retrieval from Zitadel&#10;- Add auth guard for route protection&#10;- Configure environment variables for local development&#10;- Update application configuration for OAuth2 client&#10;- Create setup script for environment configuration&#10;- Remove unused user profile fields from the database">
-      <change afterPath="$PROJECT_DIR$/frontend/src/app/GoaldoneTheme.ts" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/frontend/src/app/features/test-page/test-page.component.html" afterDir="false" />
+    <list default="true" id="33e17ea6-9527-4888-9611-97e8641f4316" name="Changes" comment="feat: add start page and integrate PrimeNG theme&#10;&#10;- Create StartPageComponent with routing&#10;- Implement GoaldoneTheme for PrimeNG&#10;- Update app configuration to include PrimeNG providers&#10;- Refactor TestPageComponent to use external template&#10;- Add user info display and logout functionality in TestPageComponent">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/package-lock.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/package.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/app/app.config.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/app/app.config.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/app/app.html" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/app/app.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/app/app.routes.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/app/app.routes.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/app/features/test-page/test-page.component.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/app/features/test-page/test-page.component.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/src/main/java/de/goaldone/backend/config/SecurityConfig.java" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/main/java/de/goaldone/backend/config/SecurityConfig.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/src/test/java/de/goaldone/backend/controller/TestControllerIntegrationTest.java" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/test/java/de/goaldone/backend/controller/TestControllerIntegrationTest.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/app/app.spec.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/app/app.spec.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/app/core/auth/auth.service.spec.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/app/core/auth/auth.service.spec.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/app/features/startpage/start-page.component.spec.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/app/features/startpage/start-page.component.spec.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -125,7 +122,7 @@
       <recent name="$PROJECT_DIR$/infra/infra-setup" />
     </key>
   </component>
-  <component name="RunManager" selected="npm.start">
+  <component name="RunManager" selected="JUnit.All Backend Tests">
     <configuration default="true" type="Application" factoryName="Application">
       <method v="2">
         <option name="Make" enabled="true" />
@@ -138,6 +135,21 @@
       <option name="MAIN_CLASS_NAME" value="" />
       <option name="METHOD_NAME" value="" />
       <option name="TEST_OBJECT" value="package" />
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="TestControllerIntegrationTest" type="JUnit" factoryName="JUnit" temporary="true" nameIsGenerated="true">
+      <module name="backend" />
+      <extension name="coverage">
+        <pattern>
+          <option name="PATTERN" value="de.goaldone.backend.controller.*" />
+          <option name="ENABLED" value="true" />
+        </pattern>
+      </extension>
+      <option name="PACKAGE_NAME" value="de.goaldone.backend.controller" />
+      <option name="MAIN_CLASS_NAME" value="de.goaldone.backend.controller.TestControllerIntegrationTest" />
+      <option name="TEST_OBJECT" value="class" />
       <method v="2">
         <option name="Make" enabled="true" />
       </method>
@@ -175,12 +187,14 @@
     </configuration>
     <list>
       <item itemvalue="JUnit.All Backend Tests" />
+      <item itemvalue="JUnit.TestControllerIntegrationTest" />
       <item itemvalue="npm.start" />
       <item itemvalue="npm.test" />
       <item itemvalue="Spring Boot.BackendApplication Local" />
     </list>
     <recent_temporary>
       <list>
+        <item itemvalue="JUnit.TestControllerIntegrationTest" />
         <item itemvalue="npm.start" />
         <item itemvalue="npm.test" />
       </list>
@@ -198,7 +212,7 @@
       <workItem from="1776286790774" duration="4388000" />
       <workItem from="1776333883274" duration="3000" />
       <workItem from="1776350283414" duration="7924000" />
-      <workItem from="1776361435346" duration="1883000" />
+      <workItem from="1776361435346" duration="2642000" />
     </task>
     <task id="LOCAL-00001" summary="Reinitialize frontend">
       <option name="closed" value="true" />
@@ -256,7 +270,15 @@
       <option name="project" value="LOCAL" />
       <updated>1776360931397</updated>
     </task>
-    <option name="localTasksCounter" value="8" />
+    <task id="LOCAL-00008" summary="feat: add start page and integrate PrimeNG theme&#10;&#10;- Create StartPageComponent with routing&#10;- Implement GoaldoneTheme for PrimeNG&#10;- Update app configuration to include PrimeNG providers&#10;- Refactor TestPageComponent to use external template&#10;- Add user info display and logout functionality in TestPageComponent">
+      <option name="closed" value="true" />
+      <created>1776370573405</created>
+      <option name="number" value="00008" />
+      <option name="presentableId" value="LOCAL-00008" />
+      <option name="project" value="LOCAL" />
+      <updated>1776370573405</updated>
+    </task>
+    <option name="localTasksCounter" value="9" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -281,7 +303,8 @@
     <MESSAGE value="feat: add Docker Compose setup for ZITADEL with environment configuration and README updates" />
     <MESSAGE value="feat: implement JIT provisioning for users and organizations with security configuration updates" />
     <MESSAGE value="feat: integrate Zitadel OAuth2/OIDC for user authentication and authorization&#10;&#10;- Implement user info retrieval from Zitadel&#10;- Add auth guard for route protection&#10;- Configure environment variables for local development&#10;- Update application configuration for OAuth2 client&#10;- Create setup script for environment configuration&#10;- Remove unused user profile fields from the database" />
-    <option name="LAST_COMMIT_MESSAGE" value="feat: integrate Zitadel OAuth2/OIDC for user authentication and authorization&#10;&#10;- Implement user info retrieval from Zitadel&#10;- Add auth guard for route protection&#10;- Configure environment variables for local development&#10;- Update application configuration for OAuth2 client&#10;- Create setup script for environment configuration&#10;- Remove unused user profile fields from the database" />
+    <MESSAGE value="feat: add start page and integrate PrimeNG theme&#10;&#10;- Create StartPageComponent with routing&#10;- Implement GoaldoneTheme for PrimeNG&#10;- Update app configuration to include PrimeNG providers&#10;- Refactor TestPageComponent to use external template&#10;- Add user info display and logout functionality in TestPageComponent" />
+    <option name="LAST_COMMIT_MESSAGE" value="feat: add start page and integrate PrimeNG theme&#10;&#10;- Create StartPageComponent with routing&#10;- Implement GoaldoneTheme for PrimeNG&#10;- Update app configuration to include PrimeNG providers&#10;- Refactor TestPageComponent to use external template&#10;- Add user info display and logout functionality in TestPageComponent" />
   </component>
   <component name="github-copilot-workspace">
     <instructionFileLocations>

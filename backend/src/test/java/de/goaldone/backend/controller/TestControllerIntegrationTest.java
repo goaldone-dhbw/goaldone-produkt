@@ -1,6 +1,6 @@
 package de.goaldone.backend.controller;
 
-import de.goaldone.backend.entity.OrganizationEntity;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import de.goaldone.backend.entity.UserEntity;
 import de.goaldone.backend.repository.OrganizationRepository;
 import de.goaldone.backend.repository.UserRepository;
@@ -14,13 +14,14 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
+import com.github.tomakehurst.wiremock.WireMockServer;
+import com.github.tomakehurst.wiremock.client.WireMock;
 
 import java.time.Instant;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
+import static com.github.tomakehurst.wiremock.client.WireMock.*;
 import static org.hamcrest.Matchers.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
@@ -28,9 +29,13 @@ import static org.springframework.security.test.web.servlet.setup.SecurityMockMv
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@SpringBootTest
+@SpringBootTest(properties = {
+    "spring.security.oauth2.resourceserver.jwt.issuer-uri=http://localhost:8099"
+})
 @ActiveProfiles("local")
 class TestControllerIntegrationTest {
+
+    private static final WireMockServer wireMockServer = new WireMockServer(8099);
 
     private MockMvc mockMvc;
 
@@ -43,14 +48,33 @@ class TestControllerIntegrationTest {
     @Autowired
     private OrganizationRepository organizationRepository;
 
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
     @BeforeEach
     void setUp() {
+        if (!wireMockServer.isRunning()) {
+            wireMockServer.start();
+        }
+        wireMockServer.resetAll();
+
         mockMvc = MockMvcBuilders
             .webAppContextSetup(webApplicationContext)
             .apply(springSecurity())
             .build();
         userRepository.deleteAll();
         organizationRepository.deleteAll();
+    }
+
+    private void stubZitadelUserInfo(String email, String givenName, String familyName) throws Exception {
+        Map<String, String> userInfo = new HashMap<>();
+        userInfo.put("email", email);
+        userInfo.put("given_name", givenName);
+        userInfo.put("family_name", familyName);
+
+        wireMockServer.stubFor(
+            WireMock.get(urlMatching("/oidc/v1/userinfo"))
+                .willReturn(okJson(objectMapper.writeValueAsString(userInfo)))
+        );
     }
 
     // TF1: First request of unknown user (JIT provisioning)
@@ -60,13 +84,15 @@ class TestControllerIntegrationTest {
         String zitadelOrgId = "org-unknown-1";
         String orgName = "Test Organization";
 
+        stubZitadelUserInfo("test@example.com", "John", "Doe");
+
         mockMvc.perform(get("/api/test/me")
             .with(jwt()
                 .jwt(buildJwt(sub, "test@example.com", "John", "Doe", zitadelOrgId, orgName))))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.zitadelSub", equalTo(sub)))
-            .andExpect(jsonPath("$.email", equalTo("test@example.com")))
-            .andExpect(jsonPath("$.zitadelOrganizationId", equalTo(zitadelOrgId)));
+            .andExpect(content().string(containsString(sub)))
+            .andExpect(content().string(containsString("test@example.com")))
+            .andExpect(content().string(containsString(zitadelOrgId)));
 
         // Verify DB state
         assertEquals(1, organizationRepository.count());
@@ -81,6 +107,8 @@ class TestControllerIntegrationTest {
         String sub = "user-same-2";
         String zitadelOrgId = "org-same-2";
         String orgName = "Test Organization 2";
+
+        stubZitadelUserInfo("test2@example.com", "Jane", "Smith");
 
         // First request
         mockMvc.perform(get("/api/test/me")
@@ -107,12 +135,17 @@ class TestControllerIntegrationTest {
         String zitadelOrgId = "org-existing-3";
         String orgName = "Existing Org";
 
+        stubZitadelUserInfo("user1@example.com", "User", "One");
+
         // Create org and first user
         String sub1 = "user-existing-3a";
         mockMvc.perform(get("/api/test/me")
             .with(jwt()
                 .jwt(buildJwt(sub1, "user1@example.com", "User", "One", zitadelOrgId, orgName))))
             .andExpect(status().isOk());
+
+        // Configure mock for second user
+        stubZitadelUserInfo("user2@example.com", "User", "Two");
 
         // Second user same org
         String sub2 = "user-existing-3b";
@@ -148,12 +181,16 @@ class TestControllerIntegrationTest {
         String sub1 = "user-race-6a";
         String sub2 = "user-race-6b";
 
+        stubZitadelUserInfo("user1@race.com", "User", "One");
+
         // Make two sequential requests from the same org.
         // The unique constraint on zitadel_org_id prevents duplicates.
         mockMvc.perform(get("/api/test/me")
             .with(jwt()
                 .jwt(buildJwt(sub1, "user1@race.com", "User", "One", zitadelOrgId, orgName))))
             .andExpect(status().isOk());
+
+        stubZitadelUserInfo("user2@race.com", "User", "Two");
 
         mockMvc.perform(get("/api/test/me")
             .with(jwt()

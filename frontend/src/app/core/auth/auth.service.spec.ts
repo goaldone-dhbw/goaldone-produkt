@@ -50,7 +50,7 @@ describe('AuthService', () => {
 
       expect(oauthService.configure).toHaveBeenCalledWith(
         expect.objectContaining({
-          scope: 'openid profile email offline_access',
+          scope: 'openid profile email offline_access urn:zitadel:iam:user:resourceowner',
           responseType: 'code',
           useSilentRefresh: false,
         })
