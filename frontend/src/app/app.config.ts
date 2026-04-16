@@ -10,13 +10,23 @@ import { provideOAuthClient } from 'angular-oauth2-oidc';
 import { routes } from './app.routes';
 import { authInterceptor } from './core/auth/auth.interceptor';
 import { AuthService } from './core/auth/auth.service';
-import { BASE_PATH } from './api/variables';
+import { BASE_PATH } from './api';
+import { providePrimeNG } from 'primeng/config';
+import { GoaldoneTheme } from './GoaldoneTheme';
 
 export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
     provideRouter(routes),
     provideHttpClient(withInterceptors([authInterceptor])),
+    providePrimeNG({
+      theme: {
+        preset: GoaldoneTheme,
+        options: {
+          darkModeSelector: '[data-theme="dark"]',
+        },
+      },
+    }),
     provideOAuthClient(),
     // Read BASE_PATH at runtime from window.__env (set by env.js before app boots)
     {

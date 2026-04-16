@@ -1,80 +1,18 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, inject, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { TestService } from '../../api/api/test.service';
-import { UserInfoResponse } from '../../api/model/userInfoResponse';
+import { TestService, UserInfoResponse } from '../../api';
 import { AuthService } from '../../core/auth/auth.service';
 
 @Component({
   selector: 'app-test-page',
   standalone: true,
   imports: [CommonModule],
-  template: `
-    <div class="p-8">
-      <h1 class="text-2xl font-bold mb-6">Test Page</h1>
-
-      <div class="mb-6">
-        <button
-          (click)="logout()"
-          class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
-        >
-          Logout
-        </button>
-      </div>
-
-      <div *ngIf="loading" class="text-lg text-gray-600">Loading...</div>
-
-      <div *ngIf="error" class="p-4 bg-red-100 border border-red-400 text-red-700 rounded">
-        <p class="font-bold">Error</p>
-        <p>{{ error }}</p>
-      </div>
-
-      <div *ngIf="userInfo && !loading" class="p-6 bg-white border border-gray-300 rounded">
-        <h2 class="text-xl font-bold mb-4">User Info</h2>
-        <dl class="space-y-2">
-          <div>
-            <dt class="font-semibold text-gray-700">User ID:</dt>
-            <dd class="text-gray-900">{{ userInfo.userId }}</dd>
-          </div>
-          <div>
-            <dt class="font-semibold text-gray-700">Zitadel Sub:</dt>
-            <dd class="text-gray-900">{{ userInfo.zitadelSub }}</dd>
-          </div>
-          <div>
-            <dt class="font-semibold text-gray-700">Email:</dt>
-            <dd class="text-gray-900">{{ userInfo.email }}</dd>
-          </div>
-          <div>
-            <dt class="font-semibold text-gray-700">First Name:</dt>
-            <dd class="text-gray-900">{{ userInfo.firstName }}</dd>
-          </div>
-          <div>
-            <dt class="font-semibold text-gray-700">Last Name:</dt>
-            <dd class="text-gray-900">{{ userInfo.lastName }}</dd>
-          </div>
-          <div>
-            <dt class="font-semibold text-gray-700">Organization ID:</dt>
-            <dd class="text-gray-900">{{ userInfo.organizationId }}</dd>
-          </div>
-          <div>
-            <dt class="font-semibold text-gray-700">Zitadel Organization ID:</dt>
-            <dd class="text-gray-900">{{ userInfo.zitadelOrganizationId }}</dd>
-          </div>
-          <div *ngIf="userInfo.roles && userInfo.roles.length > 0">
-            <dt class="font-semibold text-gray-700">Roles:</dt>
-            <dd class="text-gray-900">
-              <ul class="list-disc list-inside">
-                <li *ngFor="let role of userInfo.roles">{{ role }}</li>
-              </ul>
-            </dd>
-          </div>
-        </dl>
-      </div>
-    </div>
-  `,
+  templateUrl: './test-page.component.html',
 })
 export class TestPageComponent implements OnInit {
   private testService = inject(TestService);
   private authService = inject(AuthService);
+  private cdr = inject(ChangeDetectorRef);
 
   loading = false;
   error: string | null = null;
@@ -91,10 +29,12 @@ export class TestPageComponent implements OnInit {
       next: (data) => {
         this.userInfo = data;
         this.loading = false;
+        this.cdr.detectChanges();
       },
       error: (err) => {
         this.error = err.message || 'Failed to fetch user info';
         this.loading = false;
+        this.cdr.detectChanges();
       },
     });
   }
