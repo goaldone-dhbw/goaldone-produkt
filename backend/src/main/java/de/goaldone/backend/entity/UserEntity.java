@@ -9,9 +9,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 @Entity
-@Table(name = "users", uniqueConstraints = {
-    @UniqueConstraint(name = "uq_users_org_email", columnNames = {"organization_id", "email"})
-})
+@Table(name = "users")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -24,15 +22,6 @@ public class UserEntity {
 
     @Column(name = "organization_id", nullable = false)
     private UUID organizationId;
-
-    @Column(nullable = false, length = 255)
-    private String email;
-
-    @Column(name = "first_name", length = 255)
-    private String firstName;
-
-    @Column(name = "last_name", length = 255)
-    private String lastName;
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;

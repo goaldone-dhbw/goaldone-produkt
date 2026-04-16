@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "scripts": {
     "ng": "ng",
+    "setup-env": "node scripts/setup-env.js",
     "start": "ng serve",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
@@ -19,6 +20,7 @@
     "@angular/forms": "^21.2.0",
     "@angular/platform-browser": "^21.2.0",
     "@angular/router": "^21.2.0",
+    "angular-oauth2-oidc": "^20.0.2",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0"
   },

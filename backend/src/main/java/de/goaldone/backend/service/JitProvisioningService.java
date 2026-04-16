@@ -35,10 +35,7 @@ public class JitProvisioningService {
             return;
         }
 
-        // Extract user claims from JWT
-        String email = jwt.getClaimAsString("email");
-        String firstName = jwt.getClaimAsString("given_name");
-        String lastName = jwt.getClaimAsString("family_name");
+        // Extract org claims from JWT
         String zitadelOrgId = jwt.getClaimAsString("urn:zitadel:iam:user:resourceowner:id");
         String orgName = jwt.getClaimAsString("urn:zitadel:iam:user:resourceowner:name");
 
@@ -51,9 +48,6 @@ public class JitProvisioningService {
         newUser.setId(UUID.randomUUID());
         newUser.setZitadelSub(sub);
         newUser.setOrganizationId(org.getId());
-        newUser.setEmail(email);
-        newUser.setFirstName(firstName);
-        newUser.setLastName(lastName);
         newUser.setCreatedAt(Instant.now());
         newUser.setLastSeenAt(Instant.now());
 

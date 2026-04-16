@@ -7,6 +7,10 @@ spring:
   h2:
     console:
       enabled: true
+  logging:
+    level:
+      org.springframework.security: DEBUG
+      org.springframework.security.oauth2: TRACE
   jpa:
     show-sql: true
     properties:
