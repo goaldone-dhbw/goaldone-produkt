@@ -5,8 +5,11 @@
         xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
         http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
-    <include file="changes/001-create-user-and-org-shadow-tables.xml" relativeToChangelogFile="true"/>
-    <include file="changes/002-remove-user-profile-columns.xml" relativeToChangelogFile="true"/>
-
+    <changeSet id="002" author="goaldone">
+        <dropUniqueConstraint tableName="users" constraintName="uq_users_org_email"/>
+        <dropColumn tableName="users" columnName="email"/>
+        <dropColumn tableName="users" columnName="first_name"/>
+        <dropColumn tableName="users" columnName="last_name"/>
+    </changeSet>
 
 </databaseChangeLog>
