@@ -1,0 +1,68 @@
+info:
+  name: Unlink an account
+  type: http
+  seq: 1
+  tags:
+    - account-linking
+
+http:
+  method: DELETE
+  url: "{{baseUrl}}/accounts/links/:accountId"
+  params:
+    - name: accountId
+      value: ""
+      type: path
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+examples:
+  - name: 204 Response
+    description: Unlinked successfully
+    request:
+      url: "{{baseUrl}}/accounts/links/:accountId"
+      method: DELETE
+      params:
+        - name: accountId
+          value: ""
+          type: path
+    response:
+      status: 204
+      statusText: No Content
+      body:
+        type: text
+        data: ""
+  - name: 400 Response
+    description: Not linked
+    request:
+      url: "{{baseUrl}}/accounts/links/:accountId"
+      method: DELETE
+      params:
+        - name: accountId
+          value: ""
+          type: path
+    response:
+      status: 400
+      statusText: Bad Request
+      body:
+        type: text
+        data: ""
+  - name: 403 Response
+    description: Forbidden
+    request:
+      url: "{{baseUrl}}/accounts/links/:accountId"
+      method: DELETE
+      params:
+        - name: accountId
+          value: ""
+          type: path
+    response:
+      status: 403
+      statusText: Forbidden
+      body:
+        type: text
+        data: ""

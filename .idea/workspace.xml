@@ -4,10 +4,11 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="33e17ea6-9527-4888-9611-97e8641f4316" name="Changes" comment="Implement user identity linking: add exception classes, repositories, services, and controllers for account linking functionality">
+    <list default="true" id="33e17ea6-9527-4888-9611-97e8641f4316" name="Changes" comment="feat: enhance account linking functionality with new endpoints and user organization resolution">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/api-spec/openapi.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/api-spec/openapi.yaml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/src/main/resources/application.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/main/resources/application.yaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/api-testing/Goaldone-produkt/collections/GoalDone API - 1/accounts/folder.yml" beforeDir="false" afterPath="$PROJECT_DIR$/api-testing/Goaldone-produkt/collections/GoalDone API - 1/accounts/folder.yml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/api-testing/Goaldone-produkt/collections/GoalDone API - 1/health/folder.yml" beforeDir="false" afterPath="$PROJECT_DIR$/api-testing/Goaldone-produkt/collections/GoalDone API - 1/health/folder.yml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/api-testing/Goaldone-produkt/collections/GoalDone API - 1/users/folder.yml" beforeDir="false" afterPath="$PROJECT_DIR$/api-testing/Goaldone-produkt/collections/GoalDone API - 1/users/folder.yml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -218,7 +219,7 @@
       <workItem from="1776333883274" duration="3000" />
       <workItem from="1776350283414" duration="7924000" />
       <workItem from="1776361435346" duration="2642000" />
-      <workItem from="1776407861739" duration="2486000" />
+      <workItem from="1776407861739" duration="6981000" />
     </task>
     <task id="LOCAL-00001" summary="Reinitialize frontend">
       <option name="closed" value="true" />
@@ -292,7 +293,23 @@
       <option name="project" value="LOCAL" />
       <updated>1776409892624</updated>
     </task>
-    <option name="localTasksCounter" value="10" />
+    <task id="LOCAL-00010" summary="Implement user identity linking: add exception classes, repositories, services, and controllers for account linking functionality">
+      <option name="closed" value="true" />
+      <created>1776410503986</created>
+      <option name="number" value="00010" />
+      <option name="presentableId" value="LOCAL-00010" />
+      <option name="project" value="LOCAL" />
+      <updated>1776410503986</updated>
+    </task>
+    <task id="LOCAL-00011" summary="feat: enhance account linking functionality with new endpoints and user organization resolution">
+      <option name="closed" value="true" />
+      <created>1776415481091</created>
+      <option name="number" value="00011" />
+      <option name="presentableId" value="LOCAL-00011" />
+      <option name="project" value="LOCAL" />
+      <updated>1776415481091</updated>
+    </task>
+    <option name="localTasksCounter" value="12" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -319,7 +336,8 @@
     <MESSAGE value="feat: integrate Zitadel OAuth2/OIDC for user authentication and authorization&#10;&#10;- Implement user info retrieval from Zitadel&#10;- Add auth guard for route protection&#10;- Configure environment variables for local development&#10;- Update application configuration for OAuth2 client&#10;- Create setup script for environment configuration&#10;- Remove unused user profile fields from the database" />
     <MESSAGE value="feat: add start page and integrate PrimeNG theme&#10;&#10;- Create StartPageComponent with routing&#10;- Implement GoaldoneTheme for PrimeNG&#10;- Update app configuration to include PrimeNG providers&#10;- Refactor TestPageComponent to use external template&#10;- Add user info display and logout functionality in TestPageComponent" />
     <MESSAGE value="Implement user identity linking: add exception classes, repositories, services, and controllers for account linking functionality" />
-    <option name="LAST_COMMIT_MESSAGE" value="Implement user identity linking: add exception classes, repositories, services, and controllers for account linking functionality" />
+    <MESSAGE value="feat: enhance account linking functionality with new endpoints and user organization resolution" />
+    <option name="LAST_COMMIT_MESSAGE" value="feat: enhance account linking functionality with new endpoints and user organization resolution" />
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
     <SUITE FILE_PATH="coverage/goaldone_projekt$Alle_Tests.ic" NAME="Alle Tests Coverage Results" MODIFIED="1776409853184" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="idea" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="true">

@@ -140,6 +140,7 @@
                                 <useTags>true</useTags>
                                 <skipDefaultInterface>true</skipDefaultInterface>
                                 <unhandledException>true</unhandledException>
+                                <contextPath>/</contextPath>
                             </configOptions>
                         </configuration>
                     </execution>
