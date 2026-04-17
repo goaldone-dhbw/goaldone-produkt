@@ -3,8 +3,8 @@ variables:
   - name: baseUrl
     value: http://localhost:8080/api/v1
   - name: authorizationUrl
-    value: https://sso.goaldone.de/oauth/v2/authorize
+    value: https://sso.dev.goaldone.de/oauth/v2/authorize
   - name: tokenUrl
-    value: https://sso.goaldone.de/oauth/v2/token
+    value: https://sso.dev.goaldone.de/oauth/v2/token
   - secret: true
     name: clientId

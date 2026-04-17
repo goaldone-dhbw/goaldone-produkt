@@ -6,9 +6,7 @@
   <component name="ChangeListManager">
     <list default="true" id="33e17ea6-9527-4888-9611-97e8641f4316" name="Changes" comment="feat: enhance account linking functionality with new endpoints and user organization resolution">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/api-testing/Goaldone-produkt/collections/GoalDone API - 1/accounts/folder.yml" beforeDir="false" afterPath="$PROJECT_DIR$/api-testing/Goaldone-produkt/collections/GoalDone API - 1/accounts/folder.yml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/api-testing/Goaldone-produkt/collections/GoalDone API - 1/health/folder.yml" beforeDir="false" afterPath="$PROJECT_DIR$/api-testing/Goaldone-produkt/collections/GoalDone API - 1/health/folder.yml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/api-testing/Goaldone-produkt/collections/GoalDone API - 1/users/folder.yml" beforeDir="false" afterPath="$PROJECT_DIR$/api-testing/Goaldone-produkt/collections/GoalDone API - 1/users/folder.yml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/api-testing/Goaldone-produkt/collections/GoalDone API - 1/environments/Local.yml" beforeDir="false" afterPath="$PROJECT_DIR$/api-testing/Goaldone-produkt/collections/GoalDone API - 1/environments/Local.yml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -27,8 +25,15 @@
     </selectedModels>
   </component>
   <component name="EmbeddingIndexingInfo">
-    <option name="cachedIndexableFilesCount" value="124" />
+    <option name="cachedIndexableFilesCount" value="175" />
     <option name="fileBasedEmbeddingIndicesEnabled" value="true" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Exception" />
+      </list>
+    </option>
   </component>
   <component name="Git.Settings">
     <option name="RECENT_BRANCH_BY_REPOSITORY">
@@ -70,48 +75,48 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "JUnit.All Backend Tests.executor": "Run",
-    "JUnit.Alle Tests.executor": "Coverage",
-    "ModuleVcsDetector.initialDetectionPerformed": "true",
-    "Notification.DisplayName-DoNotAsk-DatabaseConfigFileWatcher.found": "New/updated database configurations found",
-    "Notification.DoNotAsk-DatabaseConfigFileWatcher.found": "true",
-    "RequestMappingsPanelOrder0": "0",
-    "RequestMappingsPanelOrder1": "1",
-    "RequestMappingsPanelWidth0": "75",
-    "RequestMappingsPanelWidth1": "75",
-    "RunOnceActivity.MCP Project settings loaded": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
-    "RunOnceActivity.cidr.known.project.marker": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "RunOnceActivity.readMode.enableVisualFormatting": "true",
-    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
-    "SHARE_PROJECT_CONFIGURATION_FILES": "true",
-    "Spring Boot.BackendApplication Local.executor": "Run",
-    "cidr.known.project.marker": "true",
-    "codeWithMe.voiceChat.enabledByDefault": "false",
-    "git-widget-placeholder": "link-users",
-    "git.auto.fetch.suggestion.counter": "3",
-    "kotlin-language-version-configured": "true",
-    "last_opened_file_path": "/Users/johannes/IdeaProjects/goaldone/goaldone-projekt/frontend/src/app",
-    "node.js.detected.package.eslint": "true",
-    "node.js.detected.package.tslint": "true",
-    "node.js.selected.package.eslint": "(autodetect)",
-    "node.js.selected.package.tslint": "(autodetect)",
-    "nodejs_package_manager_path": "npm",
-    "npm.start.executor": "Run",
-    "npm.test.executor": "Run",
-    "prettierjs.PrettierConfiguration.Package": "/Users/johannes/IdeaProjects/goaldone/goaldone-projekt/frontend/node_modules/prettier",
-    "project.structure.last.edited": "Modules",
-    "project.structure.proportion": "0.15",
-    "project.structure.side.proportion": "0.2",
-    "settings.editor.selected.configurable": "preferences.pluginManager",
-    "ts.external.directory.path": "/Users/johannes/IdeaProjects/goaldone/goaldone-projekt/frontend/node_modules/typescript/lib",
-    "vue.rearranger.settings.migration": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;JUnit.All Backend Tests.executor&quot;: &quot;Run&quot;,
+    &quot;JUnit.Alle Tests.executor&quot;: &quot;Coverage&quot;,
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;Notification.DisplayName-DoNotAsk-DatabaseConfigFileWatcher.found&quot;: &quot;New/updated database configurations found&quot;,
+    &quot;Notification.DoNotAsk-DatabaseConfigFileWatcher.found&quot;: &quot;true&quot;,
+    &quot;RequestMappingsPanelOrder0&quot;: &quot;0&quot;,
+    &quot;RequestMappingsPanelOrder1&quot;: &quot;1&quot;,
+    &quot;RequestMappingsPanelWidth0&quot;: &quot;75&quot;,
+    &quot;RequestMappingsPanelWidth1&quot;: &quot;75&quot;,
+    &quot;RunOnceActivity.MCP Project settings loaded&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.cidr.known.project.marker&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.readMode.enableVisualFormatting&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
+    &quot;SHARE_PROJECT_CONFIGURATION_FILES&quot;: &quot;true&quot;,
+    &quot;Spring Boot.BackendApplication Local.executor&quot;: &quot;Run&quot;,
+    &quot;cidr.known.project.marker&quot;: &quot;true&quot;,
+    &quot;codeWithMe.voiceChat.enabledByDefault&quot;: &quot;false&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;link-users&quot;,
+    &quot;git.auto.fetch.suggestion.counter&quot;: &quot;3&quot;,
+    &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;/Users/johannes/IdeaProjects/goaldone/goaldone-projekt/frontend/src/app&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;npm.start.executor&quot;: &quot;Run&quot;,
+    &quot;npm.test.executor&quot;: &quot;Run&quot;,
+    &quot;prettierjs.PrettierConfiguration.Package&quot;: &quot;/Users/johannes/IdeaProjects/goaldone/goaldone-projekt/frontend/node_modules/prettier&quot;,
+    &quot;project.structure.last.edited&quot;: &quot;Modules&quot;,
+    &quot;project.structure.proportion&quot;: &quot;0.15&quot;,
+    &quot;project.structure.side.proportion&quot;: &quot;0.2&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.pluginManager&quot;,
+    &quot;ts.external.directory.path&quot;: &quot;/Users/johannes/IdeaProjects/goaldone/goaldone-projekt/frontend/node_modules/typescript/lib&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
-}]]></component>
+}</component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="$PROJECT_DIR$/frontend/src/app" />
@@ -121,11 +126,10 @@
       <recent name="$PROJECT_DIR$/infra/infra-setup" />
     </key>
   </component>
-  <component name="RunManager" selected="Spring Boot.BackendApplication Local">
-    <configuration default="true" type="AppleRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" EMULATE_TERMINAL="false" PASS_PARENT_ENVS_2="true" IS_LOCATION_SIMULATION_SUPPORTED="false" IS_LOCATION_SIMULATION_ALLOWED="true" APPLICATION_LANGUAGE="IDELaunchSchemeLanguageUseSystemLanguage" APPLICATION_REGION="" DEVELOPMENT_TEAM="${TEAM_ID}" MAKE_ACTIVE="TRUE" SHOULD_DEBUG_EXTENSIONS="false">
-      <embedded_app_extension_list />
+  <component name="RunManager" selected="npm.start">
+    <configuration default="true" type="Application" factoryName="Application">
       <method v="2">
-        <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
+        <option name="Make" enabled="true" />
       </method>
     </configuration>
     <configuration name="Alle Tests" type="JUnit" factoryName="JUnit" temporary="true">
@@ -163,7 +167,7 @@
     <configuration name="BackendApplication Local" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot">
       <option name="ACTIVE_PROFILES" value="local" />
       <envs>
-        <env name="ZITADEL_ISSUER_URI" value="https://sso.goaldone.de" />
+        <env name="ZITADEL_ISSUER_URI" value="https://sso.dev.goaldone.de" />
       </envs>
       <module name="backend" />
       <option name="SPRING_BOOT_MAIN_CLASS" value="de.goaldone.backend.BackendApplication" />
@@ -192,16 +196,16 @@
       <method v="2" />
     </configuration>
     <list>
-      <item itemvalue="JUnit.Alle Tests" />
       <item itemvalue="JUnit.TestControllerIntegrationTest (1)" />
+      <item itemvalue="JUnit.Alle Tests" />
       <item itemvalue="npm.start" />
       <item itemvalue="npm.test" />
       <item itemvalue="Spring Boot.BackendApplication Local" />
     </list>
     <recent_temporary>
       <list>
-        <item itemvalue="JUnit.Alle Tests" />
         <item itemvalue="npm.start" />
+        <item itemvalue="JUnit.Alle Tests" />
         <item itemvalue="npm.test" />
       </list>
     </recent_temporary>
@@ -219,7 +223,8 @@
       <workItem from="1776333883274" duration="3000" />
       <workItem from="1776350283414" duration="7924000" />
       <workItem from="1776361435346" duration="2642000" />
-      <workItem from="1776407861739" duration="6981000" />
+      <workItem from="1776407861739" duration="7176000" />
+      <workItem from="1776418027450" duration="4016000" />
     </task>
     <task id="LOCAL-00001" summary="Reinitialize frontend">
       <option name="closed" value="true" />
@@ -309,7 +314,15 @@
       <option name="project" value="LOCAL" />
       <updated>1776415481091</updated>
     </task>
-    <option name="localTasksCounter" value="12" />
+    <task id="LOCAL-00012" summary="feat: enhance account linking functionality with new endpoints and user organization resolution">
+      <option name="closed" value="true" />
+      <created>1776415869394</created>
+      <option name="number" value="00012" />
+      <option name="presentableId" value="LOCAL-00012" />
+      <option name="project" value="LOCAL" />
+      <updated>1776415869394</updated>
+    </task>
+    <option name="localTasksCounter" value="13" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
