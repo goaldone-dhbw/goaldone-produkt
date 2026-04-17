@@ -6,3 +6,13 @@ spring:
   jpa:
     hibernate:
       ddl-auto: validate
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${ZITADEL_ISSUER_URI:http://localhost:8080}
+
+app:
+  cors:
+    allowed-origins:
+      - http://localhost:4200
