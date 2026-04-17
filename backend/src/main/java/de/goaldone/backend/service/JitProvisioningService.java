@@ -1,9 +1,11 @@
 package de.goaldone.backend.service;
 
 import de.goaldone.backend.entity.OrganizationEntity;
-import de.goaldone.backend.entity.UserEntity;
+import de.goaldone.backend.entity.UserAccountEntity;
+import de.goaldone.backend.entity.UserIdentityEntity;
 import de.goaldone.backend.repository.OrganizationRepository;
-import de.goaldone.backend.repository.UserRepository;
+import de.goaldone.backend.repository.UserAccountRepository;
+import de.goaldone.backend.repository.UserIdentityRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -19,7 +21,8 @@ import java.util.UUID;
 @Slf4j
 public class JitProvisioningService {
 
-    private final UserRepository userRepository;
+    private final UserAccountRepository userAccountRepository;
+    private final UserIdentityRepository userIdentityRepository;
     private final OrganizationRepository organizationRepository;
 
     @Transactional
@@ -27,11 +30,11 @@ public class JitProvisioningService {
         String sub = jwt.getSubject();
 
         // Check if user already exists
-        if (userRepository.findByZitadelSub(sub).isPresent()) {
+        if (userAccountRepository.findByZitadelSub(sub).isPresent()) {
             // Update last_seen_at
-            UserEntity user = userRepository.findByZitadelSub(sub).get();
+            UserAccountEntity user = userAccountRepository.findByZitadelSub(sub).get();
             user.setLastSeenAt(Instant.now());
-            userRepository.save(user);
+            userAccountRepository.save(user);
             return;
         }
 
@@ -43,16 +46,23 @@ public class JitProvisioningService {
         OrganizationEntity org = organizationRepository.findByZitadelOrgId(zitadelOrgId)
             .orElseGet(() -> createOrganization(zitadelOrgId, orgName));
 
-        // Create user
-        UserEntity newUser = new UserEntity();
+        // Create user identity
+        UserIdentityEntity identity = new UserIdentityEntity();
+        identity.setId(UUID.randomUUID());
+        identity.setCreatedAt(Instant.now());
+        userIdentityRepository.save(identity);
+
+        // Create user account
+        UserAccountEntity newUser = new UserAccountEntity();
         newUser.setId(UUID.randomUUID());
         newUser.setZitadelSub(sub);
         newUser.setOrganizationId(org.getId());
+        newUser.setUserIdentityId(identity.getId());
         newUser.setCreatedAt(Instant.now());
         newUser.setLastSeenAt(Instant.now());
 
-        userRepository.save(newUser);
-        log.info("Provisioned new user {} in organization {}", sub, org.getId());
+        userAccountRepository.save(newUser);
+        log.info("Provisioned new user {} in organization {} with identity {}", sub, org.getId(), identity.getId());
     }
 
     private OrganizationEntity createOrganization(String zitadelOrgId, String orgName) {
