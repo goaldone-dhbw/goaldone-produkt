@@ -90,7 +90,7 @@ class TestControllerIntegrationTest {
 
         stubZitadelUserInfo("test@example.com", "John", "Doe");
 
-        mockMvc.perform(get("/api/test/me")
+        mockMvc.perform(get("/test/me")
             .with(jwt()
                 .jwt(buildJwt(sub, "test@example.com", "John", "Doe", zitadelOrgId, orgName))))
             .andExpect(status().isOk())
@@ -115,13 +115,13 @@ class TestControllerIntegrationTest {
         stubZitadelUserInfo("test2@example.com", "Jane", "Smith");
 
         // First request
-        mockMvc.perform(get("/api/test/me")
+        mockMvc.perform(get("/test/me")
             .with(jwt()
                 .jwt(buildJwt(sub, "test2@example.com", "Jane", "Smith", zitadelOrgId, orgName))))
             .andExpect(status().isOk());
 
         // Second request
-        mockMvc.perform(get("/api/test/me")
+        mockMvc.perform(get("/test/me")
             .with(jwt()
                 .jwt(buildJwt(sub, "test2@example.com", "Jane", "Smith", zitadelOrgId, orgName))))
             .andExpect(status().isOk());
@@ -143,7 +143,7 @@ class TestControllerIntegrationTest {
 
         // Create org and first user
         String sub1 = "user-existing-3a";
-        mockMvc.perform(get("/api/test/me")
+        mockMvc.perform(get("/test/me")
             .with(jwt()
                 .jwt(buildJwt(sub1, "user1@example.com", "User", "One", zitadelOrgId, orgName))))
             .andExpect(status().isOk());
@@ -153,7 +153,7 @@ class TestControllerIntegrationTest {
 
         // Second user same org
         String sub2 = "user-existing-3b";
-        mockMvc.perform(get("/api/test/me")
+        mockMvc.perform(get("/test/me")
             .with(jwt()
                 .jwt(buildJwt(sub2, "user2@example.com", "User", "Two", zitadelOrgId, orgName))))
             .andExpect(status().isOk());
@@ -167,7 +167,7 @@ class TestControllerIntegrationTest {
     // TF4: Request without authorization header
     @Test
     void testRequestWithoutAuthorizationHeader() throws Exception {
-        mockMvc.perform(get("/api/test/me"))
+        mockMvc.perform(get("/test/me"))
             .andExpect(status().isUnauthorized());
 
         // Verify no DB writes
@@ -189,14 +189,14 @@ class TestControllerIntegrationTest {
 
         // Make two sequential requests from the same org.
         // The unique constraint on zitadel_org_id prevents duplicates.
-        mockMvc.perform(get("/api/test/me")
+        mockMvc.perform(get("/test/me")
             .with(jwt()
                 .jwt(buildJwt(sub1, "user1@race.com", "User", "One", zitadelOrgId, orgName))))
             .andExpect(status().isOk());
 
         stubZitadelUserInfo("user2@race.com", "User", "Two");
 
-        mockMvc.perform(get("/api/test/me")
+        mockMvc.perform(get("/test/me")
             .with(jwt()
                 .jwt(buildJwt(sub2, "user2@race.com", "User", "Two", zitadelOrgId, orgName))))
             .andExpect(status().isOk());
