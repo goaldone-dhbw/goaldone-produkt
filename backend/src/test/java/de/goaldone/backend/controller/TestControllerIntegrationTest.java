@@ -33,7 +33,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
     "spring.security.oauth2.resourceserver.jwt.issuer-uri=http://localhost:8099"
 })
 @ActiveProfiles("local")
-class TestControllerIntegrationTest {
+public class TestControllerIntegrationTest {
 
     private static final WireMockServer wireMockServer = new WireMockServer(8099);
 
@@ -176,6 +176,26 @@ class TestControllerIntegrationTest {
     }
 
 
+    // TF5: Null orgName fallback to zitadelOrgId
+    @Test
+    void testNullOrgNameFallsBackToOrgId() throws Exception {
+        String zitadelOrgId = "org-null-name-5";
+        String sub = "user-null-name-5";
+
+        stubZitadelUserInfo("test@example.com", "Test", "User");
+
+        // Build JWT without orgName claim (null)
+        mockMvc.perform(get("/test/me")
+            .with(jwt()
+                .jwt(buildJwtWithoutOrgName(sub, "test@example.com", "Test", "User", zitadelOrgId))))
+            .andExpect(status().isOk());
+
+        // Verify organization was created with name equal to zitadelOrgId
+        var org = organizationRepository.findByZitadelOrgId(zitadelOrgId).orElseThrow();
+        assertEquals(zitadelOrgId, org.getName());
+        assertEquals(1, organizationRepository.count());
+    }
+
     // TF6: Race condition during org creation
     @Test
     void testRaceConditionOrgCreation() throws Exception {
@@ -205,6 +225,29 @@ class TestControllerIntegrationTest {
         // and 2 user records
         assertEquals(1, organizationRepository.count());
         assertEquals(2, userAccountRepository.count());
+    }
+
+    private Jwt buildJwtWithoutOrgName(String sub, String email, String givenName, String familyName,
+                                        String zitadelOrgId) {
+        Map<String, Object> rolesClaim = new HashMap<>();
+        rolesClaim.put("admin", Map.of());
+
+        JwtClaimsSet claims = JwtClaimsSet.builder()
+            .subject(sub)
+            .issuedAt(Instant.now())
+            .expiresAt(Instant.now().plusSeconds(3600))
+            .issuer("http://localhost:8080")
+            .claim("email", email)
+            .claim("given_name", givenName)
+            .claim("family_name", familyName)
+            .claim("urn:zitadel:iam:user:resourceowner:id", zitadelOrgId)
+            .claim("urn:zitadel:iam:org:project:roles", rolesClaim)
+            .build();
+
+        return Jwt.withTokenValue("token")
+            .claims(c -> c.putAll(claims.getClaims()))
+            .headers(h -> h.put("alg", "HS256"))
+            .build();
     }
 
     private Jwt buildJwt(String sub, String email, String givenName, String familyName,
