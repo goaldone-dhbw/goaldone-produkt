@@ -4,10 +4,10 @@ import de.goaldone.backend.api.TestApi;
 import de.goaldone.backend.client.ZitadelUserInfo;
 import de.goaldone.backend.client.ZitadelUserInfoClient;
 import de.goaldone.backend.entity.OrganizationEntity;
-import de.goaldone.backend.entity.UserEntity;
+import de.goaldone.backend.entity.UserAccountEntity;
 import de.goaldone.backend.model.UserInfoResponse;
 import de.goaldone.backend.repository.OrganizationRepository;
-import de.goaldone.backend.repository.UserRepository;
+import de.goaldone.backend.repository.UserAccountRepository;
 import lombok.RequiredArgsConstructor;
 import org.openapitools.jackson.nullable.JsonNullable;
 import org.springframework.http.ResponseEntity;
@@ -23,7 +23,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class TestController implements TestApi {
 
-    private final UserRepository userRepository;
+    private final UserAccountRepository userAccountRepository;
     private final OrganizationRepository organizationRepository;
     private final ZitadelUserInfoClient zitadelUserInfoClient;
 
@@ -36,7 +36,7 @@ public class TestController implements TestApi {
 
         Jwt jwt = (Jwt) auth.getPrincipal();
 
-        UserEntity user = userRepository.findByZitadelSub(jwt.getSubject())
+        UserAccountEntity user = userAccountRepository.findByZitadelSub(jwt.getSubject())
             .orElseThrow(() -> new RuntimeException("User not found after JIT provisioning"));
 
         OrganizationEntity org = organizationRepository.findById(user.getOrganizationId())

@@ -14,6 +14,10 @@ tags:
     description: Task management operations
   - name: test
     description: Test operations
+  - name: account-linking
+    description: Account linking operations
+  - name: user-accounts
+    description: User account management
 
 paths:
   /health:
@@ -35,101 +39,6 @@ paths:
                     type: string
                     example: UP
 
-  /tasks:
-    get:
-      tags:
-        - tasks
-      summary: List Tasks
-      operationId: listTasks
-      responses:
-        '200':
-          description: A list of tasks
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Task'
-    post:
-      tags:
-        - tasks
-      summary: Create Task
-      operationId: createTask
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/TaskCreate'
-      responses:
-        '201':
-          description: Created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Task'
-
-  /schedule:
-    get:
-      tags: [schedule]
-      summary: Aktuellen Plan für einen Zeitraum abrufen
-      description: |
-        Gibt den Plan für den angegebenen Zeitraum als **unified Response** zurück.
-        Die Antwort enthält zwei Arten von Einträgen, erkennbar am `source`-Feld:
-
-        - `source: ONE_TIME` – echte `ScheduleEntry`-Objekte aus der Datenbank
-          (einmalige Tasks). Das Feld `entryId` ist gesetzt und wird für
-          PATCH-Aktionen (complete, pin, unpin) benötigt.
-
-        - `source: RECURRING` – virtuelle Vorkommen, server-seitig on-the-fly
-          aus `RecurringTemplate`-Regeln berechnet. Kein DB-Eintrag –
-          stattdessen sind `templateId` und `occurrenceDate` gesetzt.
-          Aktionen über `POST /schedule/recurring/{templateId}/exceptions`.
-
-        Beide Typen werden nach Datum und Uhrzeit sortiert zurückgegeben.
-      operationId: getSchedule
-      parameters:
-        - name: from
-          in: query
-          required: true
-          description: Startdatum (ISO 8601)
-          schema:
-            type: string
-            format: date
-            example: "2026-04-07"
-        - name: to
-          in: query
-          required: true
-          description: Enddatum (ISO 8601)
-          schema:
-            type: string
-            format: date
-            example: "2026-04-11"
-      responses:
-        '200':
-          description: Wochenplan
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ScheduleResponse'
-    post:
-      tags: [schedule]
-      summary: Generate Schedule
-      operationId: generateSchedule
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/GenerateScheduleRequest'
-      responses:
-        '200':
-          description: Generated Schedule
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ScheduleResponse'
-
   /api/test/me:
     get:
       tags:
@@ -147,6 +56,83 @@ paths:
                 $ref: '#/components/schemas/UserInfoResponse'
         '401':
           description: Unauthorized
+
+  /accounts/links/request:
+    post:
+      tags:
+        - account-linking
+      summary: Request an account link token
+      operationId: requestAccountLink
+      security:
+        - bearerAuth: []
+      responses:
+        '201':
+          description: Link token created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LinkTokenResponse'
+
+  /accounts/links/confirm:
+    post:
+      tags:
+        - account-linking
+      summary: Confirm an account link
+      operationId: confirmAccountLink
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LinkConfirmRequest'
+      responses:
+        '204':
+          description: Linked successfully
+        '409':
+          description: Conflict - Already linked or same organization
+        '410':
+          description: Token expired
+
+  /accounts/links/{accountId}:
+    delete:
+      tags:
+        - account-linking
+      summary: Unlink an account
+      operationId: unlinkAccount
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Unlinked successfully
+        '400':
+          description: Not linked
+        '403':
+          description: Forbidden
+
+  /users/accounts:
+    get:
+      tags:
+        - user-accounts
+      summary: Get all accounts for current user identity
+      operationId: getMyAccounts
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountListResponse'
 
 components:
   securitySchemes:
@@ -216,171 +202,53 @@ components:
         description:
           type: string
 
-security:
-  - bearerAuth: []
-
-    ScheduleResponse:
+    LinkTokenResponse:
       type: object
+      required:
+        - linkToken
+        - expiresAt
       properties:
-        generatedAt:
+        linkToken:
+          type: string
+          format: uuid
+        expiresAt:
           type: string
           format: date-time
-          description: "Zeitstempel der letzten Plan-Generierung"
-        from:
-          type: string
-          format: date
-        to:
-          type: string
-          format: date
-          description: "Letzter tatsächlich eingeplanter Tag. Wird dynamisch vom Algorithmus bestimmt."
-        totalWorkMinutes:
-          type: integer
-          description: "Summe aller eingeplanten Arbeitsminuten im Zeitraum"
-        warnings:
-          type: array
-          description: |
-            Warnungen des Planungsalgorithmus. Leer wenn kein Problem erkannt wurde.
-            Mögliche Einträge:
-            - `"deadline-missed:uuid"` – Einmaliger Task konnte vor seiner Deadline
-              nicht vollständig eingeplant werden. Das verfügbare Tagesbudget
-              (nach Abzug von RecurringTemplates, Pausen und Pinned/Completed Entries)
-              reichte nicht aus, um den Task rechtzeitig zu platzieren.
-          items:
-            type: string
-          example:
-            - "deadline-missed:3fa85f64-5717-4562-b3fc-2c963f66afa6"
-        entries:
-          type: array
-          items:
-            $ref: '#/components/schemas/ScheduleEntry'
-      required: [generatedAt, from, to, totalWorkMinutes, warnings, entries]
 
-    ScheduleEntry:
+    LinkConfirmRequest:
       type: object
-      description: |
-        Ein Zeitblock im Kalender. Kann ein echter DB-Eintrag (`source: ONE_TIME`)
-        oder ein virtuell berechnetes Vorkommen eines RecurringTemplate (`source: RECURRING`) sein.
-        Das `source`-Feld bestimmt, welche Felder gesetzt sind und welche Endpunkte
-        das Frontend für Aktionen aufrufen muss.
+      required:
+        - linkToken
       properties:
-        source:
-          type: string
-          enum: [ONE_TIME, RECURRING]
-          description: |
-            Diskriminator-Feld.
-            - `ONE_TIME`: echter ScheduleEntry in der DB. `entryId` ist gesetzt.
-              Aktionen über `PATCH /schedule/{entryId}/complete|pin|unpin`.
-            - `RECURRING`: virtuelles Vorkommen, on-the-fly berechnet. `templateId`
-              und `occurrenceDate` sind gesetzt.
-              Aktionen über `POST /schedule/recurring/{templateId}/exceptions`.
-        entryId:
+        linkToken:
           type: string
           format: uuid
-          nullable: true
-          description: |
-            Nur gesetzt wenn `source = ONE_TIME`.
-            Wird für `PATCH /schedule/{entryId}/complete`, `/pin` und `/unpin` benötigt.
-        templateId:
-          type: string
-          format: uuid
-          nullable: true
-          description: |
-            Nur gesetzt wenn `source = RECURRING`.
-            Wird für `POST /schedule/recurring/{templateId}/exceptions` benötigt.
-        occurrenceDate:
-          type: string
-          format: date
-          nullable: true
-          description: |
-            Nur gesetzt wenn `source = RECURRING`.
-            Identifiziert das konkrete Vorkommen für RecurringException-Operationen.
-          example: "2026-04-07"
-        date:
-          type: string
-          format: date
-          description: "Datum des Eintrags (bei RESCHEDULED das neue Datum)"
-          example: "2026-04-07"
-        startTime:
-          type: string
-          pattern: '^([01]\d|2[0-3]):[0-5]\d$'
-          example: "09:00"
-        endTime:
-          type: string
-          pattern: '^([01]\d|2[0-3]):[0-5]\d$'
-          example: "10:30"
-        type:
-          type: string
-          enum: [TASK, BREAK]
-        isCompleted:
-          type: boolean
-          default: false
-          description: |
-            Gibt an, ob dieser Block abgehakt wurde.
-            - `ONE_TIME`: gesetzt via `PATCH /schedule/{entryId}/complete`
-            - `RECURRING`: gesetzt via `POST /schedule/recurring/{templateId}/exceptions`
-              mit `type: COMPLETED`
-        isPinned:
-          type: boolean
-          default: false
-          description: |
-            Gibt an, ob dieser Block fixiert wurde.
-            - `ONE_TIME`: gesetzt via `PATCH /schedule/{entryId}/pin`
-            - `RECURRING`: gesetzt via `POST /schedule/recurring/{templateId}/exceptions`
-              mit `type: PINNED`
-        taskId:
-          type: string
-          format: uuid
-          nullable: true
-          description: "Gesetzt wenn type = TASK"
-        taskTitle:
-          type: string
-          nullable: true
-          description: "Gesetzt wenn type = TASK (Convenience-Feld)"
-        breakId:
-          type: string
-          format: uuid
-          nullable: true
-          description: "Gesetzt wenn type = BREAK (nur bei source = ONE_TIME)"
-        breakLabel:
-          type: string
-          nullable: true
-          description: "Gesetzt wenn type = BREAK (Convenience-Feld)"
-        templateTitle:
-          type: string
-          nullable: true
-          description: "Nur gesetzt wenn source = RECURRING (Convenience-Feld)"
-      required: [source, date, startTime, endTime, type, isCompleted, isPinned]
 
-    GenerateScheduleRequest:
+    AccountResponse:
       type: object
+      required:
+        - accountId
+        - organizationId
+        - organizationName
       properties:
-        goaldoneUserId:
+        accountId:
           type: string
           format: uuid
-          description: The Goaldone User ID
-        accountIds:
+        organizationId:
+          type: string
+          format: uuid
+        organizationName:
+          type: string
+
+    AccountListResponse:
+      type: object
+      required:
+        - accounts
+      properties:
+        accounts:
           type: array
           items:
-            type: string
-            format: uuid
-          description: List of Account IDs
-        from:
-          type: string
-          format: date
-          description: |
-            Startdatum der Planung (ISO 8601). Der Algorithmus plant ab diesem Datum
-            so viele Tage wie nötig, bis alle einmaligen Tasks eingeplant sind.
-            Das Enddatum ergibt sich dynamisch aus der Response (`to`-Feld).
-            Empfehlung: Montag, damit vollständige Wochen geplant werden.
-          example: "2026-04-07"
-        maxDailyWorkMinutes:
-          type: integer
-          default: 240
-          minimum: 30
-          maximum: 480
-          description: |
-            Maximale kognitive Arbeitszeit pro Tag in Minuten (Default: 240 = 4h).
-            RecurringTemplate-Dauer wird zusätzlich abgezogen – das effektive
-            Budget für einmalige Tasks kann also kleiner sein.
-          example: 240
-      required: [goaldoneUserId, accountIds, from]
+            $ref: '#/components/schemas/AccountResponse'
+
+security:
+  - bearerAuth: []

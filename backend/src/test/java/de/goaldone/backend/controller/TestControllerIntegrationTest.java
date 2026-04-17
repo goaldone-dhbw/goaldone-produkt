@@ -1,9 +1,9 @@
 package de.goaldone.backend.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import de.goaldone.backend.entity.UserEntity;
+import de.goaldone.backend.entity.UserAccountEntity;
 import de.goaldone.backend.repository.OrganizationRepository;
-import de.goaldone.backend.repository.UserRepository;
+import de.goaldone.backend.repository.UserAccountRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,13 +37,17 @@ class TestControllerIntegrationTest {
 
     private static final WireMockServer wireMockServer = new WireMockServer(8099);
 
+    public static WireMockServer getSharedWireMockServer() {
+        return wireMockServer;
+    }
+
     private MockMvc mockMvc;
 
     @Autowired
     private WebApplicationContext webApplicationContext;
 
     @Autowired
-    private UserRepository userRepository;
+    private UserAccountRepository userAccountRepository;
 
     @Autowired
     private OrganizationRepository organizationRepository;
@@ -61,7 +65,7 @@ class TestControllerIntegrationTest {
             .webAppContextSetup(webApplicationContext)
             .apply(springSecurity())
             .build();
-        userRepository.deleteAll();
+        userAccountRepository.deleteAll();
         organizationRepository.deleteAll();
     }
 
@@ -96,8 +100,8 @@ class TestControllerIntegrationTest {
 
         // Verify DB state
         assertEquals(1, organizationRepository.count());
-        assertEquals(1, userRepository.count());
-        assertTrue(userRepository.findByZitadelSub(sub).isPresent());
+        assertEquals(1, userAccountRepository.count());
+        assertTrue(userAccountRepository.findByZitadelSub(sub).isPresent());
         assertTrue(organizationRepository.findByZitadelOrgId(zitadelOrgId).isPresent());
     }
 
@@ -124,8 +128,8 @@ class TestControllerIntegrationTest {
 
         // Verify no duplicate records
         assertEquals(1, organizationRepository.count());
-        assertEquals(1, userRepository.count());
-        UserEntity user = userRepository.findByZitadelSub(sub).orElseThrow();
+        assertEquals(1, userAccountRepository.count());
+        UserAccountEntity user = userAccountRepository.findByZitadelSub(sub).orElseThrow();
         assertNotNull(user.getLastSeenAt());
     }
 
@@ -156,8 +160,8 @@ class TestControllerIntegrationTest {
 
         // Verify
         assertEquals(1, organizationRepository.count());
-        assertEquals(2, userRepository.count());
-        assertTrue(userRepository.findByZitadelSub(sub2).isPresent());
+        assertEquals(2, userAccountRepository.count());
+        assertTrue(userAccountRepository.findByZitadelSub(sub2).isPresent());
     }
 
     // TF4: Request without authorization header
@@ -168,7 +172,7 @@ class TestControllerIntegrationTest {
 
         // Verify no DB writes
         assertEquals(0, organizationRepository.count());
-        assertEquals(0, userRepository.count());
+        assertEquals(0, userAccountRepository.count());
     }
 
 
@@ -200,7 +204,7 @@ class TestControllerIntegrationTest {
         // Verify exactly 1 org record (due to unique constraint on zitadel_org_id)
         // and 2 user records
         assertEquals(1, organizationRepository.count());
-        assertEquals(2, userRepository.count());
+        assertEquals(2, userAccountRepository.count());
     }
 
     private Jwt buildJwt(String sub, String email, String givenName, String familyName,
