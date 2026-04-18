@@ -1,6 +1,7 @@
 package de.goaldone.backend.config;
 
 import de.goaldone.backend.filter.JitProvisioningFilter;
+import de.goaldone.backend.service.JitProvisioningService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -10,8 +11,8 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
+import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -27,14 +28,13 @@ public class SecurityConfig {
     @Value("${app.cors.allowed-origins:http://localhost:4200}")
     private List<String> allowedOrigins;
 
-    private final JitProvisioningFilter jitProvisioningFilter;
-
-    public SecurityConfig(JitProvisioningFilter jitProvisioningFilter) {
-        this.jitProvisioningFilter = jitProvisioningFilter;
+    @Bean
+    public JitProvisioningFilter jitProvisioningFilter(JitProvisioningService jitProvisioningService) {
+        return new JitProvisioningFilter(jitProvisioningService);
     }
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain filterChain(HttpSecurity http, JitProvisioningFilter jitProvisioningFilter) throws Exception {
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(AbstractHttpConfigurer::disable)
@@ -46,7 +46,7 @@ public class SecurityConfig {
                 .oauth2ResourceServer(oauth2 -> oauth2
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter()))
                 )
-                .addFilterAfter(jitProvisioningFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterAfter(jitProvisioningFilter, BearerTokenAuthenticationFilter.class);
         return http.build();
     }
 

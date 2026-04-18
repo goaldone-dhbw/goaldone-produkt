@@ -1,0 +1,76 @@
+info:
+  name: Confirm an account link
+  type: http
+  seq: 1
+  tags:
+    - account-linking
+
+http:
+  method: POST
+  url: "{{baseUrl}}/accounts/links/confirm"
+  body:
+    type: json
+    data: |-
+      {
+        "linkToken": ""
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+examples:
+  - name: 204 Response
+    description: Linked successfully
+    request:
+      url: "{{baseUrl}}/accounts/links/confirm"
+      method: POST
+      body:
+        type: json
+        data: |-
+          {
+            "linkToken": ""
+          }
+    response:
+      status: 204
+      statusText: No Content
+      body:
+        type: text
+        data: ""
+  - name: 409 Response
+    description: Conflict - Already linked or same organization
+    request:
+      url: "{{baseUrl}}/accounts/links/confirm"
+      method: POST
+      body:
+        type: json
+        data: |-
+          {
+            "linkToken": ""
+          }
+    response:
+      status: 409
+      statusText: Conflict
+      body:
+        type: text
+        data: ""
+  - name: 410 Response
+    description: Token expired
+    request:
+      url: "{{baseUrl}}/accounts/links/confirm"
+      method: POST
+      body:
+        type: json
+        data: |-
+          {
+            "linkToken": ""
+          }
+    response:
+      status: 410
+      statusText: Gone
+      body:
+        type: text
+        data: ""

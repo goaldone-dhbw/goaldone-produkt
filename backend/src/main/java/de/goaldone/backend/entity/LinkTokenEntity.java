@@ -9,23 +9,20 @@ import java.time.Instant;
 import java.util.UUID;
 
 @Entity
-@Table(name = "users")
+@Table(name = "link_tokens")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class UserEntity {
+public class LinkTokenEntity {
     @Id
-    private UUID id;
+    private UUID token;
 
-    @Column(name = "zitadel_sub", nullable = false, unique = true, length = 64)
-    private String zitadelSub;
+    @Column(name = "initiator_account_id", nullable = false)
+    private UUID initiatorAccountId;
 
-    @Column(name = "organization_id", nullable = false)
-    private UUID organizationId;
+    @Column(name = "expires_at", nullable = false)
+    private Instant expiresAt;
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
-
-    @Column(name = "last_seen_at")
-    private Instant lastSeenAt;
 }

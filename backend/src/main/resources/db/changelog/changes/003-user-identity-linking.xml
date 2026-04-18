@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.1.xsd">
+
+    <changeSet id="003" author="claude">
+        <comment>User identity linking: rename users table, add user_identities and link_tokens</comment>
+
+        <!-- Step 1: Drop the FK constraint first (must be done before dropping the index) -->
+        <dropForeignKeyConstraint baseTableName="users" constraintName="fk_users_org"/>
+
+        <!-- Step 2: Drop the organization index -->
+        <dropIndex tableName="users" indexName="idx_users_org"/>
+
+        <!-- Step 3: Rename users table to user_accounts -->
+        <renameTable oldTableName="users" newTableName="user_accounts"/>
+
+        <!-- Step 4: Recreate the organization FK constraint on the renamed table -->
+        <addForeignKeyConstraint
+                baseTableName="user_accounts"
+                baseColumnNames="organization_id"
+                referencedTableName="organizations"
+                referencedColumnNames="id"
+                constraintName="fk_users_org"/>
+
+        <!-- Step 5: Create user_identities table -->
+        <createTable tableName="user_identities">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="created_at" type="TIMESTAMP" defaultValueComputed="NOW()">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <!-- Step 6: Add user_identity_id column to user_accounts (prototype has no data, add as NOT NULL directly) -->
+        <addColumn tableName="user_accounts">
+            <column name="user_identity_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+
+        <!-- Step 7: Add FK constraint for user_identity_id -->
+        <addForeignKeyConstraint
+                baseTableName="user_accounts"
+                baseColumnNames="user_identity_id"
+                referencedTableName="user_identities"
+                referencedColumnNames="id"
+                constraintName="fk_user_accounts_identity"/>
+
+        <!-- Step 8: Create index on user_identity_id -->
+        <createIndex tableName="user_accounts" indexName="idx_user_accounts_identity">
+            <column name="user_identity_id"/>
+        </createIndex>
+
+        <!-- Step 9: Recreate organization index with new table name -->
+        <createIndex tableName="user_accounts" indexName="idx_user_accounts_org">
+            <column name="organization_id"/>
+        </createIndex>
+
+        <!-- Step 10: Create link_tokens table -->
+        <createTable tableName="link_tokens">
+            <column name="token" type="UUID">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="initiator_account_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="expires_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="TIMESTAMP" defaultValueComputed="NOW()">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <!-- Step 11: Add FK constraint for initiator_account_id with ON DELETE CASCADE -->
+        <addForeignKeyConstraint
+                baseTableName="link_tokens"
+                baseColumnNames="initiator_account_id"
+                referencedTableName="user_accounts"
+                referencedColumnNames="id"
+                constraintName="fk_link_tokens_initiator"
+                onDelete="CASCADE"/>
+
+        <!-- Step 12: Create index on expires_at for cleanup queries -->
+        <createIndex tableName="link_tokens" indexName="idx_link_tokens_expires">
+            <column name="expires_at"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>

@@ -4,12 +4,14 @@ import de.goaldone.backend.api.TestApi;
 import de.goaldone.backend.client.ZitadelUserInfo;
 import de.goaldone.backend.client.ZitadelUserInfoClient;
 import de.goaldone.backend.entity.OrganizationEntity;
-import de.goaldone.backend.entity.UserEntity;
+import de.goaldone.backend.entity.UserAccountEntity;
 import de.goaldone.backend.model.UserInfoResponse;
 import de.goaldone.backend.repository.OrganizationRepository;
-import de.goaldone.backend.repository.UserRepository;
+import de.goaldone.backend.repository.UserAccountRepository;
+import de.goaldone.backend.service.CurrentUserResolver;
 import lombok.RequiredArgsConstructor;
 import org.openapitools.jackson.nullable.JsonNullable;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -23,9 +25,12 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class TestController implements TestApi {
 
-    private final UserRepository userRepository;
+    private final UserAccountRepository userAccountRepository;
     private final OrganizationRepository organizationRepository;
     private final ZitadelUserInfoClient zitadelUserInfoClient;
+
+    @Autowired
+    private CurrentUserResolver currentUserResolver;
 
     @Override
     public ResponseEntity<UserInfoResponse> getCurrentUserInfo() throws Exception {
@@ -36,21 +41,23 @@ public class TestController implements TestApi {
 
         Jwt jwt = (Jwt) auth.getPrincipal();
 
-        UserEntity user = userRepository.findByZitadelSub(jwt.getSubject())
-            .orElseThrow(() -> new RuntimeException("User not found after JIT provisioning"));
+        UserAccountEntity user = currentUserResolver.resolveCurrentAccount();
 
-        OrganizationEntity org = organizationRepository.findById(user.getOrganizationId())
-            .orElseThrow(() -> new RuntimeException("Organization not found"));
+        OrganizationEntity org = currentUserResolver.resolveCurrentOrganization();
 
-        ZitadelUserInfo userInfo = zitadelUserInfoClient.getUserInfo(jwt.getTokenValue());
-        List<String> roles = extractRoles(jwt);
 
+        List<String> roles = List.of();
+        ZitadelUserInfo userInfo;
         UserInfoResponse response = new UserInfoResponse();
+        if(jwt != null) {
+            userInfo = zitadelUserInfoClient.getUserInfo(jwt.getTokenValue());
+            roles = extractRoles(jwt);
+            response.setZitadelSub(jwt.getSubject());
+            response.setEmail(userInfo.email());
+            response.setFirstName(JsonNullable.of(userInfo.givenName()));
+            response.setLastName(JsonNullable.of(userInfo.familyName()));
+        }
         response.setUserId(user.getId());
-        response.setZitadelSub(jwt.getSubject());
-        response.setEmail(userInfo.email());
-        response.setFirstName(JsonNullable.of(userInfo.givenName()));
-        response.setLastName(JsonNullable.of(userInfo.familyName()));
         response.setOrganizationId(user.getOrganizationId());
         response.setZitadelOrganizationId(org.getZitadelOrgId());
         response.setRoles(roles);

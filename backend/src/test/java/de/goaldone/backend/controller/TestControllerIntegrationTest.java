@@ -1,9 +1,9 @@
 package de.goaldone.backend.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import de.goaldone.backend.entity.UserEntity;
+import de.goaldone.backend.entity.UserAccountEntity;
 import de.goaldone.backend.repository.OrganizationRepository;
-import de.goaldone.backend.repository.UserRepository;
+import de.goaldone.backend.repository.UserAccountRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,9 +33,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
     "spring.security.oauth2.resourceserver.jwt.issuer-uri=http://localhost:8099"
 })
 @ActiveProfiles("local")
-class TestControllerIntegrationTest {
+public class TestControllerIntegrationTest {
 
     private static final WireMockServer wireMockServer = new WireMockServer(8099);
+
+    public static WireMockServer getSharedWireMockServer() {
+        return wireMockServer;
+    }
 
     private MockMvc mockMvc;
 
@@ -43,7 +47,7 @@ class TestControllerIntegrationTest {
     private WebApplicationContext webApplicationContext;
 
     @Autowired
-    private UserRepository userRepository;
+    private UserAccountRepository userAccountRepository;
 
     @Autowired
     private OrganizationRepository organizationRepository;
@@ -61,7 +65,7 @@ class TestControllerIntegrationTest {
             .webAppContextSetup(webApplicationContext)
             .apply(springSecurity())
             .build();
-        userRepository.deleteAll();
+        userAccountRepository.deleteAll();
         organizationRepository.deleteAll();
     }
 
@@ -86,7 +90,7 @@ class TestControllerIntegrationTest {
 
         stubZitadelUserInfo("test@example.com", "John", "Doe");
 
-        mockMvc.perform(get("/api/test/me")
+        mockMvc.perform(get("/test/me")
             .with(jwt()
                 .jwt(buildJwt(sub, "test@example.com", "John", "Doe", zitadelOrgId, orgName))))
             .andExpect(status().isOk())
@@ -96,8 +100,8 @@ class TestControllerIntegrationTest {
 
         // Verify DB state
         assertEquals(1, organizationRepository.count());
-        assertEquals(1, userRepository.count());
-        assertTrue(userRepository.findByZitadelSub(sub).isPresent());
+        assertEquals(1, userAccountRepository.count());
+        assertTrue(userAccountRepository.findByZitadelSub(sub).isPresent());
         assertTrue(organizationRepository.findByZitadelOrgId(zitadelOrgId).isPresent());
     }
 
@@ -111,21 +115,21 @@ class TestControllerIntegrationTest {
         stubZitadelUserInfo("test2@example.com", "Jane", "Smith");
 
         // First request
-        mockMvc.perform(get("/api/test/me")
+        mockMvc.perform(get("/test/me")
             .with(jwt()
                 .jwt(buildJwt(sub, "test2@example.com", "Jane", "Smith", zitadelOrgId, orgName))))
             .andExpect(status().isOk());
 
         // Second request
-        mockMvc.perform(get("/api/test/me")
+        mockMvc.perform(get("/test/me")
             .with(jwt()
                 .jwt(buildJwt(sub, "test2@example.com", "Jane", "Smith", zitadelOrgId, orgName))))
             .andExpect(status().isOk());
 
         // Verify no duplicate records
         assertEquals(1, organizationRepository.count());
-        assertEquals(1, userRepository.count());
-        UserEntity user = userRepository.findByZitadelSub(sub).orElseThrow();
+        assertEquals(1, userAccountRepository.count());
+        UserAccountEntity user = userAccountRepository.findByZitadelSub(sub).orElseThrow();
         assertNotNull(user.getLastSeenAt());
     }
 
@@ -139,7 +143,7 @@ class TestControllerIntegrationTest {
 
         // Create org and first user
         String sub1 = "user-existing-3a";
-        mockMvc.perform(get("/api/test/me")
+        mockMvc.perform(get("/test/me")
             .with(jwt()
                 .jwt(buildJwt(sub1, "user1@example.com", "User", "One", zitadelOrgId, orgName))))
             .andExpect(status().isOk());
@@ -149,28 +153,48 @@ class TestControllerIntegrationTest {
 
         // Second user same org
         String sub2 = "user-existing-3b";
-        mockMvc.perform(get("/api/test/me")
+        mockMvc.perform(get("/test/me")
             .with(jwt()
                 .jwt(buildJwt(sub2, "user2@example.com", "User", "Two", zitadelOrgId, orgName))))
             .andExpect(status().isOk());
 
         // Verify
         assertEquals(1, organizationRepository.count());
-        assertEquals(2, userRepository.count());
-        assertTrue(userRepository.findByZitadelSub(sub2).isPresent());
+        assertEquals(2, userAccountRepository.count());
+        assertTrue(userAccountRepository.findByZitadelSub(sub2).isPresent());
     }
 
     // TF4: Request without authorization header
     @Test
     void testRequestWithoutAuthorizationHeader() throws Exception {
-        mockMvc.perform(get("/api/test/me"))
+        mockMvc.perform(get("/test/me"))
             .andExpect(status().isUnauthorized());
 
         // Verify no DB writes
         assertEquals(0, organizationRepository.count());
-        assertEquals(0, userRepository.count());
+        assertEquals(0, userAccountRepository.count());
     }
 
+
+    // TF5: Null orgName fallback to zitadelOrgId
+    @Test
+    void testNullOrgNameFallsBackToOrgId() throws Exception {
+        String zitadelOrgId = "org-null-name-5";
+        String sub = "user-null-name-5";
+
+        stubZitadelUserInfo("test@example.com", "Test", "User");
+
+        // Build JWT without orgName claim (null)
+        mockMvc.perform(get("/test/me")
+            .with(jwt()
+                .jwt(buildJwtWithoutOrgName(sub, "test@example.com", "Test", "User", zitadelOrgId))))
+            .andExpect(status().isOk());
+
+        // Verify organization was created with name equal to zitadelOrgId
+        var org = organizationRepository.findByZitadelOrgId(zitadelOrgId).orElseThrow();
+        assertEquals(zitadelOrgId, org.getName());
+        assertEquals(1, organizationRepository.count());
+    }
 
     // TF6: Race condition during org creation
     @Test
@@ -185,14 +209,14 @@ class TestControllerIntegrationTest {
 
         // Make two sequential requests from the same org.
         // The unique constraint on zitadel_org_id prevents duplicates.
-        mockMvc.perform(get("/api/test/me")
+        mockMvc.perform(get("/test/me")
             .with(jwt()
                 .jwt(buildJwt(sub1, "user1@race.com", "User", "One", zitadelOrgId, orgName))))
             .andExpect(status().isOk());
 
         stubZitadelUserInfo("user2@race.com", "User", "Two");
 
-        mockMvc.perform(get("/api/test/me")
+        mockMvc.perform(get("/test/me")
             .with(jwt()
                 .jwt(buildJwt(sub2, "user2@race.com", "User", "Two", zitadelOrgId, orgName))))
             .andExpect(status().isOk());
@@ -200,7 +224,30 @@ class TestControllerIntegrationTest {
         // Verify exactly 1 org record (due to unique constraint on zitadel_org_id)
         // and 2 user records
         assertEquals(1, organizationRepository.count());
-        assertEquals(2, userRepository.count());
+        assertEquals(2, userAccountRepository.count());
+    }
+
+    private Jwt buildJwtWithoutOrgName(String sub, String email, String givenName, String familyName,
+                                        String zitadelOrgId) {
+        Map<String, Object> rolesClaim = new HashMap<>();
+        rolesClaim.put("admin", Map.of());
+
+        JwtClaimsSet claims = JwtClaimsSet.builder()
+            .subject(sub)
+            .issuedAt(Instant.now())
+            .expiresAt(Instant.now().plusSeconds(3600))
+            .issuer("http://localhost:8080")
+            .claim("email", email)
+            .claim("given_name", givenName)
+            .claim("family_name", familyName)
+            .claim("urn:zitadel:iam:user:resourceowner:id", zitadelOrgId)
+            .claim("urn:zitadel:iam:org:project:roles", rolesClaim)
+            .build();
+
+        return Jwt.withTokenValue("token")
+            .claims(c -> c.putAll(claims.getClaims()))
+            .headers(h -> h.put("alg", "HS256"))
+            .build();
     }
 
     private Jwt buildJwt(String sub, String email, String givenName, String familyName,
