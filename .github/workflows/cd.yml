@@ -37,7 +37,8 @@ jobs:
         id: backend-version
         run: |
           # Find all backend version tags, sort, get the latest
-          LATEST=$(git tag -l "backend/v*" --sort=-version:refname | head -1 || echo "backend/v0.0.0")
+          LATEST=$(git tag -l "backend/v*" --sort=-version:refname | head -1)
+          LATEST=${LATEST:-backend/v0.0.0}
           echo "Latest backend tag: $LATEST"
 
           # Extract version number (e.g., "0.0.0" from "backend/v0.0.0")
@@ -67,7 +68,8 @@ jobs:
         id: frontend-version
         run: |
           # Find all frontend version tags, sort, get the latest
-          LATEST=$(git tag -l "frontend/v*" --sort=-version:refname | head -1 || echo "frontend/v0.0.0")
+          LATEST=$(git tag -l "frontend/v*" --sort=-version:refname | head -1)
+          LATEST=${LATEST:-frontend/v0.0.0}
           echo "Latest frontend tag: $LATEST"
 
           # Extract version number
