@@ -44,7 +44,7 @@ extensions:
     openapi:
       - sourceUrl: ../../../../api-spec/openapi.yaml
         groupBy: path
-        lastSyncDate: 2026-04-17T08:07:34.939Z
-        specHash: be2678aeadde70859136f1c5de129ea0
+        lastSyncDate: 2026-04-19T18:33:18.788Z
+        specHash: bed8f2f419a64658b64e8ae28eb9fe47
         autoCheck: true
         autoCheckInterval: 5

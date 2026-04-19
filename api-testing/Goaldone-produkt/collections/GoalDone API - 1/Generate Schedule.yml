@@ -1,0 +1,79 @@
+info:
+  name: Generate Schedule
+  type: http
+  seq: 2
+  tags:
+    - schedule
+
+http:
+  method: POST
+  url: "{{baseUrl}}/schedule"
+  body:
+    type: json
+    data: |-
+      {
+        "goaldoneUserId": "",
+        "accountIds": [],
+        "from": "2026-04-07",
+        "maxDailyWorkMinutes": 240
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+examples:
+  - name: 200 Response
+    description: Generated Schedule
+    request:
+      url: "{{baseUrl}}/schedule"
+      method: POST
+      body:
+        type: json
+        data: |-
+          {
+            "goaldoneUserId": "",
+            "accountIds": [],
+            "from": "2026-04-07",
+            "maxDailyWorkMinutes": 240
+          }
+    response:
+      status: 200
+      statusText: OK
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "generatedAt": "",
+            "from": "",
+            "to": "",
+            "totalWorkMinutes": 0,
+            "warnings": [
+              "deadline-missed:3fa85f64-5717-4562-b3fc-2c963f66afa6"
+            ],
+            "entries": [
+              {
+                "source": "ONE_TIME",
+                "entryId": "",
+                "templateId": "",
+                "occurrenceDate": "2026-04-07",
+                "date": "2026-04-07",
+                "startTime": "09:00",
+                "endTime": "10:30",
+                "type": "TASK",
+                "isCompleted": false,
+                "isPinned": false,
+                "taskId": "",
+                "taskTitle": "",
+                "breakId": "",
+                "breakLabel": "",
+                "templateTitle": ""
+              }
+            ]
+          }
