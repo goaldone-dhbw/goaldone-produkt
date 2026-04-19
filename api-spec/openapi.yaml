@@ -134,9 +134,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/AccountListResponse'
 
-  /schedule:
+  /schedules/{accountId}:
     get:
-      tags: [schedule]
+      tags: [schedules]
       summary: Aktuellen Plan für einen Zeitraum abrufen
       description: |
         Gibt den Plan für den angegebenen Zeitraum als **unified Response** zurück.
@@ -152,7 +152,85 @@ paths:
           Aktionen über `POST /schedule/recurring/{templateId}/exceptions`.
 
         Beide Typen werden nach Datum und Uhrzeit sortiert zurückgegeben.
-      operationId: getSchedule
+      operationId: getSingleAccountSchedule
+      parameters:
+        - name: from
+          in: query
+          required: true
+          description: Startdatum (ISO 8601)
+          schema:
+            type: string
+            format: date
+            example: "2026-04-07"
+        - name: to
+          in: query
+          required: true
+          description: Enddatum (ISO 8601)
+          schema:
+            type: string
+            format: date
+            example: "2026-04-11"
+        - name: accountId
+          in: path
+          required: true
+          description: Account ID for which to generate the schedule
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Wochenplan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduleResponse'
+    post:
+      tags: [schedules]
+      summary: Generate Schedule
+      operationId: generateSingleAccountSchedule
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          description: Account ID for which to generate the schedule
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateScheduleRequest'
+      responses:
+        '200':
+          description: Generated Schedule
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduleResponse'
+
+  /schedules/all:
+    get:
+      tags: [schedules]
+      summary: Aktuellen Plan für einen Zeitraum abrufen
+      description: |
+        Gibt den Plan für den angegebenen Zeitraum als **unified Response** zurück.
+        Die Antwort enthält zwei Arten von Einträgen, erkennbar am `source`-Feld:
+
+        - `source: ONE_TIME` – echte `ScheduleEntry`-Objekte aus der Datenbank
+          (einmalige Tasks). Das Feld `entryId` ist gesetzt und wird für
+          PATCH-Aktionen (complete, pin, unpin) benötigt.
+
+        - `source: RECURRING` – virtuelle Vorkommen, server-seitig on-the-fly
+          aus `RecurringTemplate`-Regeln berechnet. Kein DB-Eintrag –
+          stattdessen sind `templateId` und `occurrenceDate` gesetzt.
+          Aktionen über `POST /schedule/recurring/{templateId}/exceptions`.
+
+        Beide Typen werden nach Datum und Uhrzeit sortiert zurückgegeben.
+      operationId: getAllAccountsSchedule
       parameters:
         - name: from
           in: query
@@ -178,9 +256,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/ScheduleResponse'
     post:
-      tags: [schedule]
+      tags: [schedules]
       summary: Generate Schedule
-      operationId: generateSchedule
+      operationId: generateAllAccountsSchedule
+      security:
+        - bearerAuth: []
       requestBody:
         required: true
         content:
@@ -446,16 +526,6 @@ components:
     GenerateScheduleRequest:
       type: object
       properties:
-        goaldoneUserId:
-          type: string
-          format: uuid
-          description: The Goaldone User ID
-        accountIds:
-          type: array
-          items:
-            type: string
-            format: uuid
-          description: List of Account IDs
         from:
           type: string
           format: date
