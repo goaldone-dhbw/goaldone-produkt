@@ -311,9 +311,6 @@ components:
           items:
             $ref: '#/components/schemas/AccountResponse'
 
-security:
-  - bearerAuth: []
-
     ScheduleResponse:
       type: object
       properties:
@@ -479,3 +476,6 @@ security:
             Budget für einmalige Tasks kann also kleiner sein.
           example: 240
       required: [goaldoneUserId, accountIds, from]
+
+security:
+  - bearerAuth: []
