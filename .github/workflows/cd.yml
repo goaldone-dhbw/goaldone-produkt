@@ -93,6 +93,39 @@ jobs:
           git push origin ${{ steps.frontend-version.outputs.tag }}
 
       # ======================================================================
+      # Update version numbers in code and commit
+      # ======================================================================
+      - name: Set up SSH for deploy key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H github.com >> ~/.ssh/known_hosts
+
+      - name: Configure git to use SSH
+        run: |
+          git config --global url."git@github.com:".insteadOf "https://github.com/"
+
+      - name: Update version files
+        run: |
+          BACKEND_VER="${{ steps.backend-version.outputs.version }}"
+          FRONTEND_VER="${{ steps.frontend-version.outputs.version }}"
+
+          # Update backend/pom.xml (replace version tag)
+          sed -i "s/<version>0\.[0-9]*\.[0-9]*-SNAPSHOT<\/version>/<version>${BACKEND_VER}-SNAPSHOT<\/version>/" backend/pom.xml
+
+          # Update frontend/package.json (replace version field)
+          sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"${FRONTEND_VER}\"/" frontend/package.json
+
+      - name: Commit and push version updates
+        env:
+          GIT_SSH_COMMAND: "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no"
+        run: |
+          git add backend/pom.xml frontend/package.json
+          git commit -m "chore: bump versions to backend/${{ steps.backend-version.outputs.version }} and frontend/${{ steps.frontend-version.outputs.version }}"
+          git push origin master
+
+      # ======================================================================
       # Docker setup and GHCR authentication
       # ======================================================================
       - name: Set up Docker Buildx
@@ -193,7 +226,7 @@ jobs:
 
   deploy-prod:
     name: Deploy to Prod
-    needs: build-and-push
+    needs: deploy-dev
     runs-on: ubuntu-latest
     environment: prod
 

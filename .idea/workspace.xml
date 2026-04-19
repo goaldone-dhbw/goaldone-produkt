@@ -4,7 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="33e17ea6-9527-4888-9611-97e8641f4316" name="Changes" comment="feat: update application configurations and add CI/CD pipeline">
+    <list default="true" id="33e17ea6-9527-4888-9611-97e8641f4316" name="Changes" comment="fix: update tag retrieval logic to handle empty results">
       <change beforePath="$PROJECT_DIR$/.github/workflows/cd.yml" beforeDir="false" afterPath="$PROJECT_DIR$/.github/workflows/cd.yml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
     </list>
@@ -38,7 +38,7 @@
   <component name="Git.Settings">
     <option name="RECENT_BRANCH_BY_REPOSITORY">
       <map>
-        <entry key="$PROJECT_DIR$" value="master" />
+        <entry key="$PROJECT_DIR$" value="cd-pipeline" />
       </map>
     </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
@@ -97,7 +97,7 @@
     "Spring Boot.BackendApplication Local.executor": "Run",
     "cidr.known.project.marker": "true",
     "codeWithMe.voiceChat.enabledByDefault": "false",
-    "git-widget-placeholder": "cd-pipeline",
+    "git-widget-placeholder": "master",
     "git.auto.fetch.suggestion.counter": "3",
     "kotlin-language-version-configured": "true",
     "last_opened_file_path": "/Users/johannes/IdeaProjects/goaldone/goaldone-projekt/backend/src/main/resources",
@@ -221,7 +221,7 @@
       <workItem from="1776361435346" duration="2642000" />
       <workItem from="1776407861739" duration="7176000" />
       <workItem from="1776418027450" duration="6069000" />
-      <workItem from="1776509764629" duration="6448000" />
+      <workItem from="1776509764629" duration="8062000" />
     </task>
     <task id="LOCAL-00001" summary="Reinitialize frontend">
       <option name="closed" value="true" />
@@ -351,7 +351,23 @@
       <option name="project" value="LOCAL" />
       <updated>1776513452034</updated>
     </task>
-    <option name="localTasksCounter" value="17" />
+    <task id="LOCAL-00017" summary="feat: enhance CI/CD pipeline with dynamic Docker login and deployment arguments">
+      <option name="closed" value="true" />
+      <created>1776595676397</created>
+      <option name="number" value="00017" />
+      <option name="presentableId" value="LOCAL-00017" />
+      <option name="project" value="LOCAL" />
+      <updated>1776595676397</updated>
+    </task>
+    <task id="LOCAL-00018" summary="fix: update tag retrieval logic to handle empty results">
+      <option name="closed" value="true" />
+      <created>1776597070189</created>
+      <option name="number" value="00018" />
+      <option name="presentableId" value="LOCAL-00018" />
+      <option name="project" value="LOCAL" />
+      <updated>1776597070189</updated>
+    </task>
+    <option name="localTasksCounter" value="19" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -383,7 +399,9 @@
     <MESSAGE value="fix tests" />
     <MESSAGE value="add tests" />
     <MESSAGE value="feat: update application configurations and add CI/CD pipeline" />
-    <option name="LAST_COMMIT_MESSAGE" value="feat: update application configurations and add CI/CD pipeline" />
+    <MESSAGE value="feat: enhance CI/CD pipeline with dynamic Docker login and deployment arguments" />
+    <MESSAGE value="fix: update tag retrieval logic to handle empty results" />
+    <option name="LAST_COMMIT_MESSAGE" value="fix: update tag retrieval logic to handle empty results" />
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
     <SUITE FILE_PATH="coverage/goaldone_projekt$Alle_Tests.ic" NAME="Alle Tests Coverage Results" MODIFIED="1776430624552" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="idea" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="true">
