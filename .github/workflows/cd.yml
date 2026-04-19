@@ -122,8 +122,9 @@ jobs:
           GIT_SSH_COMMAND: "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no"
         run: |
           git add backend/pom.xml frontend/package.json
-          git commit -m "chore: bump versions to backend/${{ steps.backend-version.outputs.version }} and frontend/${{ steps.frontend-version.outputs.version }}"
+          git commit -m "chore: bump versions to backend/${{ steps.backend-version.outputs.version }} and frontend/${{ steps.frontend-version.outputs.version }} [skip ci]"
           git push origin master
+          
 
       # ======================================================================
       # Docker setup and GHCR authentication
@@ -174,59 +175,68 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up SSH
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
-
-      - name: Create docker directory on VPS
-        run: |
-          ssh goaldone@${{ secrets.VPS_HOST }} "mkdir -p ~/docker/dev"
-
-      - name: Copy dev docker-compose.yaml to VPS
-        run: |
-          scp docker/dev/docker-compose.yaml goaldone@${{ secrets.VPS_HOST }}:~/docker/dev/docker-compose.yaml
-          scp docker/dev/.env.example goaldone@${{ secrets.VPS_HOST }}:~/docker/dev/.env.example.new
+      - name: Copy dev compose and env files to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: goaldone
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: 6767
+          source: "docker/dev/docker-compose.yaml,docker/dev/.env.example"
+          target: "~/"
 
       - name: Copy deploy script to VPS
-        run: |
-          scp scripts/deploy.sh goaldone@${{ secrets.VPS_HOST }}:~/docker/deploy.sh
-          ssh goaldone@${{ secrets.VPS_HOST }} "chmod +x ~/docker/deploy.sh"
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: goaldone
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: 6767
+          source: "scripts/deploy.sh"
+          target: "~/docker/"
 
-      - name: Docker login on VPS and deploy
-        run: |
-          ssh goaldone@${{ secrets.VPS_HOST }} << EOF
-          set -e
+      - name: Deploy to dev
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: goaldone
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: 6767
+          envs: BACKEND_VERSION,FRONTEND_VERSION,GHCR_TOKEN,DEV_POSTGRES_PASSWORD,DEV_ZITADEL_CLIENT_ID
+          script: |
+            set -e
+            mkdir -p ~/docker/dev
+            chmod +x ~/docker/scripts/deploy.sh
 
-          # Log in to GHCR
-          echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u Joinsider --password-stdin
+            # Log in to GHCR
+            echo "$GHCR_TOKEN" | docker login ghcr.io -u Joinsider --password-stdin
 
-          # Update .env if it exists, otherwise initialize from template
-          if [ ! -f ~/docker/dev/.env ]; then
-            cp ~/docker/dev/.env.example ~/docker/dev/.env
-          fi
+            # Update .env if it exists, otherwise initialize from template
+            if [ ! -f ~/docker/dev/.env ]; then
+              cp ~/docker/dev/.env.example ~/docker/dev/.env
+            fi
 
-          # Update secrets if provided
-          if [ -n "$DEV_POSTGRES_PASSWORD" ]; then
-            sed -i 's/^POSTGRES_PASSWORD=.*/POSTGRES_PASSWORD=$DEV_POSTGRES_PASSWORD/' ~/docker/dev/.env
-          fi
+            # Update secrets if provided
+            if [ -n "$DEV_POSTGRES_PASSWORD" ]; then
+              sed -i 's/^POSTGRES_PASSWORD=.*/POSTGRES_PASSWORD='"$DEV_POSTGRES_PASSWORD"'/' ~/docker/dev/.env
+            fi
 
-          if [ -n "$DEV_ZITADEL_CLIENT_ID" ]; then
-            sed -i 's/^ZITADEL_CLIENT_ID=.*/ZITADEL_CLIENT_ID=$DEV_ZITADEL_CLIENT_ID/' ~/docker/dev/.env
-          fi
+            if [ -n "$DEV_ZITADEL_CLIENT_ID" ]; then
+              sed -i 's/^ZITADEL_CLIENT_ID=.*/ZITADEL_CLIENT_ID='"$DEV_ZITADEL_CLIENT_ID"'/' ~/docker/dev/.env
+            fi
 
-          # Run deployment (versions passed as arguments)
-          ~/docker/deploy.sh dev ${{ needs.build-and-push.outputs.backend_version }} ${{ needs.build-and-push.outputs.frontend_version }}
-          EOF
+            # Run deployment (versions passed as arguments)
+            ~/docker/scripts/deploy.sh dev $BACKEND_VERSION $FRONTEND_VERSION
         env:
+          BACKEND_VERSION: ${{ needs.build-and-push.outputs.backend_version }}
+          FRONTEND_VERSION: ${{ needs.build-and-push.outputs.frontend_version }}
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
           DEV_POSTGRES_PASSWORD: ${{ secrets.DEV_POSTGRES_PASSWORD }}
           DEV_ZITADEL_CLIENT_ID: ${{ secrets.DEV_ZITADEL_CLIENT_ID }}
 
   deploy-prod:
     name: Deploy to Prod
-    needs: deploy-dev
+    needs: [deploy-dev, build-and-push]
     runs-on: ubuntu-latest
     environment: prod
 
@@ -234,52 +244,61 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up SSH
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
-
-      - name: Create docker directory on VPS
-        run: |
-          ssh goaldone@${{ secrets.VPS_HOST }} "mkdir -p ~/docker/prod"
-
-      - name: Copy prod docker-compose.yaml to VPS
-        run: |
-          scp docker/prod/docker-compose.yaml goaldone@${{ secrets.VPS_HOST }}:~/docker/prod/docker-compose.yaml
-          scp docker/prod/.env.example goaldone@${{ secrets.VPS_HOST }}:~/docker/prod/.env.example.new
+      - name: Copy prod compose and env files to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: goaldone
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: 6767
+          source: "docker/prod/docker-compose.yaml,docker/prod/.env.example"
+          target: "~/"
 
       - name: Copy deploy script to VPS
-        run: |
-          scp scripts/deploy.sh goaldone@${{ secrets.VPS_HOST }}:~/docker/deploy.sh
-          ssh goaldone@${{ secrets.VPS_HOST }} "chmod +x ~/docker/deploy.sh"
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: goaldone
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: 6767
+          source: "scripts/deploy.sh"
+          target: "~/docker/"
 
-      - name: Docker login on VPS and deploy
-        run: |
-          ssh goaldone@${{ secrets.VPS_HOST }} << EOF
-          set -e
+      - name: Deploy to prod
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: goaldone
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: 6767
+          envs: BACKEND_VERSION,FRONTEND_VERSION,GHCR_TOKEN,PROD_POSTGRES_PASSWORD,PROD_ZITADEL_CLIENT_ID
+          script: |
+            set -e
+            mkdir -p ~/docker/prod
+            chmod +x ~/docker/scripts/deploy.sh
 
-          # Log in to GHCR
-          echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u goaldone-dhbw --password-stdin
+            # Log in to GHCR
+            echo "$GHCR_TOKEN" | docker login ghcr.io -u goaldone-dhbw --password-stdin
 
-          # Update .env if it exists, otherwise initialize from template
-          if [ ! -f ~/docker/prod/.env ]; then
-            cp ~/docker/prod/.env.example ~/docker/prod/.env
-          fi
+            # Update .env if it exists, otherwise initialize from template
+            if [ ! -f ~/docker/prod/.env ]; then
+              cp ~/docker/prod/.env.example ~/docker/prod/.env
+            fi
 
-          # Update secrets if provided
-          if [ -n "$PROD_POSTGRES_PASSWORD" ]; then
-            sed -i 's/^POSTGRES_PASSWORD=.*/POSTGRES_PASSWORD=$PROD_POSTGRES_PASSWORD/' ~/docker/prod/.env
-          fi
+            # Update secrets if provided
+            if [ -n "$PROD_POSTGRES_PASSWORD" ]; then
+              sed -i 's/^POSTGRES_PASSWORD=.*/POSTGRES_PASSWORD='"$PROD_POSTGRES_PASSWORD"'/' ~/docker/prod/.env
+            fi
 
-          if [ -n "$PROD_ZITADEL_CLIENT_ID" ]; then
-            sed -i 's/^ZITADEL_CLIENT_ID=.*/ZITADEL_CLIENT_ID=$PROD_ZITADEL_CLIENT_ID/' ~/docker/prod/.env
-          fi
+            if [ -n "$PROD_ZITADEL_CLIENT_ID" ]; then
+              sed -i 's/^ZITADEL_CLIENT_ID=.*/ZITADEL_CLIENT_ID='"$PROD_ZITADEL_CLIENT_ID"'/' ~/docker/prod/.env
+            fi
 
-          # Run deployment (versions passed as arguments)
-          ~/docker/deploy.sh prod ${{ needs.build-and-push.outputs.backend_version }} ${{ needs.build-and-push.outputs.frontend_version }}
-          EOF
+            # Run deployment (versions passed as arguments)
+            ~/docker/scripts/deploy.sh prod $BACKEND_VERSION $FRONTEND_VERSION
         env:
+          BACKEND_VERSION: ${{ needs.build-and-push.outputs.backend_version }}
+          FRONTEND_VERSION: ${{ needs.build-and-push.outputs.frontend_version }}
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
           PROD_POSTGRES_PASSWORD: ${{ secrets.PROD_POSTGRES_PASSWORD }}
           PROD_ZITADEL_CLIENT_ID: ${{ secrets.PROD_ZITADEL_CLIENT_ID }}

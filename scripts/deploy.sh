@@ -23,6 +23,30 @@ echo "Pulling frontend image: ghcr.io/goaldone-dhbw/goaldone-frontend:$FE_VER"
 docker pull ghcr.io/goaldone-dhbw/goaldone-frontend:$FE_VER
 
 # ============================================================================
+# Postgres: Ensure database is running (idempotent, won't restart if healthy)
+# ============================================================================
+echo "Ensuring postgres is running..."
+docker compose -f "$DIR/docker-compose.yaml" up -d --no-deps "postgres-$STAGE"
+
+echo "Waiting for postgres health check..."
+max_attempts=12
+attempt=0
+while [ $attempt -lt $max_attempts ]; do
+  STATUS=$(docker inspect --format='{{.State.Health.Status}}' \
+    "$(docker compose -f "$DIR/docker-compose.yaml" ps -q "postgres-$STAGE")" 2>/dev/null || echo "starting")
+  echo "  Attempt $((attempt + 1))/$max_attempts - Status: $STATUS"
+  [ "$STATUS" = "healthy" ] && break
+  attempt=$((attempt + 1))
+  sleep 5
+done
+
+if [ $attempt -eq $max_attempts ]; then
+  echo "❌ Postgres health check failed after $max_attempts attempts"
+  exit 1
+fi
+echo "✓ Postgres is healthy"
+
+# ============================================================================
 # Backend: Rolling restart (single service, stateless)
 # ============================================================================
 echo "Updating backend to version $BE_VER..."
@@ -99,6 +123,11 @@ sleep 3
 
 # Update the ACTIVE_COLOR in .env
 sed -i "s/^ACTIVE_COLOR=.*/ACTIVE_COLOR=$INACTIVE/" "$ENV_FILE"
+
+# Stop the old (now inactive) slot
+echo "Stopping old slot: frontend-$ACTIVE..."
+docker compose -f "$DIR/docker-compose.yaml" stop "frontend-$ACTIVE"
+echo "✓ frontend-$ACTIVE stopped"
 
 echo ""
 echo "==========================================="

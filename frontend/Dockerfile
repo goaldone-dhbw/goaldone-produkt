@@ -23,6 +23,8 @@ RUN npm run build
 # Stage 2: Runtime (nginx)
 FROM nginx:alpine
 
+RUN apk add --no-cache curl
+
 # Copy built Angular app to nginx
 COPY --from=builder /build/frontend/dist/frontend/browser/ /usr/share/nginx/html/
 

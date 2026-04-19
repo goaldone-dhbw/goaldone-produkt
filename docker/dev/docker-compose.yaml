@@ -62,13 +62,20 @@ services:
     labels:
       - traefik.enable=${FRONTEND_BLUE_ACTIVE:-false}
       - traefik.docker.network=zitadel
+      # HTTPS router
       - traefik.http.routers.goaldone-frontend-dev.rule=Host(`dev.goaldone.de`)
       - traefik.http.routers.goaldone-frontend-dev.entrypoints=websecure
       - traefik.http.routers.goaldone-frontend-dev.tls=true
       - traefik.http.routers.goaldone-frontend-dev.tls.certresolver=le
       - traefik.http.services.goaldone-frontend-dev.loadbalancer.server.port=80
+      # HTTP → HTTPS redirect
+      - traefik.http.routers.goaldone-frontend-dev-http.rule=Host(`dev.goaldone.de`)
+      - traefik.http.routers.goaldone-frontend-dev-http.entrypoints=web
+      - traefik.http.routers.goaldone-frontend-dev-http.middlewares=redirect-to-https-dev@docker
+      - traefik.http.middlewares.redirect-to-https-dev.redirectscheme.scheme=https
+      - traefik.http.middlewares.redirect-to-https-dev.redirectscheme.permanent=true
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:80/ || exit 1"]
+      test: ["CMD-SHELL", "curl -sf http://localhost/ > /dev/null || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -88,13 +95,20 @@ services:
     labels:
       - traefik.enable=${FRONTEND_GREEN_ACTIVE:-false}
       - traefik.docker.network=zitadel
+      # HTTPS router
       - traefik.http.routers.goaldone-frontend-dev-green.rule=Host(`dev.goaldone.de`)
       - traefik.http.routers.goaldone-frontend-dev-green.entrypoints=websecure
       - traefik.http.routers.goaldone-frontend-dev-green.tls=true
       - traefik.http.routers.goaldone-frontend-dev-green.tls.certresolver=le
       - traefik.http.services.goaldone-frontend-dev-green.loadbalancer.server.port=80
+      # HTTP → HTTPS redirect
+      - traefik.http.routers.goaldone-frontend-dev-green-http.rule=Host(`dev.goaldone.de`)
+      - traefik.http.routers.goaldone-frontend-dev-green-http.entrypoints=web
+      - traefik.http.routers.goaldone-frontend-dev-green-http.middlewares=redirect-to-https-dev@docker
+      - traefik.http.middlewares.redirect-to-https-dev.redirectscheme.scheme=https
+      - traefik.http.middlewares.redirect-to-https-dev.redirectscheme.permanent=true
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:80/ || exit 1"]
+      test: ["CMD-SHELL", "curl -sf http://localhost/ > /dev/null || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
