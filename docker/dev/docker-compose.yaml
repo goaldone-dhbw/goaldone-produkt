@@ -1,0 +1,103 @@
+name: goaldone-dev
+
+networks:
+  zitadel:
+    external: true   # Traefik's existing network — services discovered here
+  app-dev:
+    name: app-dev    # Internal network for frontend↔backend communication
+
+services:
+  # PostgreSQL database for the application
+  postgres-dev:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: goaldone
+      POSTGRES_USER: goaldone
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres-dev-data:/var/lib/postgresql/data
+    networks:
+      - app-dev
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U goaldone"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Spring Boot backend (not exposed publicly)
+  backend-dev:
+    image: ghcr.io/goaldone-dhbw/goaldone-backend:${BACKEND_VERSION}
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      ZITADEL_ISSUER_URI: https://sso.dev.goaldone.de
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-dev:5432/goaldone
+      SPRING_DATASOURCE_USERNAME: goaldone
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+    networks:
+      - app-dev
+    depends_on:
+      postgres-dev:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/api/v1/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  # Frontend - Blue slot (blue-green deployment)
+  frontend-blue:
+    image: ghcr.io/goaldone-dhbw/goaldone-frontend:${FRONTEND_VERSION}
+    restart: unless-stopped
+    environment:
+      ZITADEL_CLIENT_ID: ${ZITADEL_CLIENT_ID}
+      ZITADEL_ISSUER_URI: https://sso.dev.goaldone.de
+      API_BASE_PATH: /api/v1
+      BACKEND_HOST: backend-dev
+    networks:
+      - zitadel
+      - app-dev
+    labels:
+      - traefik.enable=${FRONTEND_BLUE_ACTIVE:-false}
+      - traefik.docker.network=zitadel
+      - traefik.http.routers.goaldone-frontend-dev.rule=Host(`dev.goaldone.de`)
+      - traefik.http.routers.goaldone-frontend-dev.entrypoints=websecure
+      - traefik.http.routers.goaldone-frontend-dev.tls=true
+      - traefik.http.routers.goaldone-frontend-dev.tls.certresolver=le
+      - traefik.http.services.goaldone-frontend-dev.loadbalancer.server.port=80
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:80/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Frontend - Green slot (blue-green deployment)
+  frontend-green:
+    image: ghcr.io/goaldone-dhbw/goaldone-frontend:${FRONTEND_VERSION}
+    restart: unless-stopped
+    environment:
+      ZITADEL_CLIENT_ID: ${ZITADEL_CLIENT_ID}
+      ZITADEL_ISSUER_URI: https://sso.dev.goaldone.de
+      API_BASE_PATH: /api/v1
+      BACKEND_HOST: backend-dev
+    networks:
+      - zitadel
+      - app-dev
+    labels:
+      - traefik.enable=${FRONTEND_GREEN_ACTIVE:-false}
+      - traefik.docker.network=zitadel
+      - traefik.http.routers.goaldone-frontend-dev-green.rule=Host(`dev.goaldone.de`)
+      - traefik.http.routers.goaldone-frontend-dev-green.entrypoints=websecure
+      - traefik.http.routers.goaldone-frontend-dev-green.tls=true
+      - traefik.http.routers.goaldone-frontend-dev-green.tls.certresolver=le
+      - traefik.http.services.goaldone-frontend-dev-green.loadbalancer.server.port=80
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:80/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres-dev-data:

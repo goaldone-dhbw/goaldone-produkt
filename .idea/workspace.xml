@@ -4,11 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="33e17ea6-9527-4888-9611-97e8641f4316" name="Changes" comment="fix tests">
-      <change beforePath="$PROJECT_DIR$/.idea/compiler.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/compiler.xml" afterDir="false" />
+    <list default="true" id="33e17ea6-9527-4888-9611-97e8641f4316" name="Changes" comment="feat: update application configurations and add CI/CD pipeline">
+      <change beforePath="$PROJECT_DIR$/.github/workflows/cd.yml" beforeDir="false" afterPath="$PROJECT_DIR$/.github/workflows/cd.yml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/backend/pom.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/src/test/java/de/goaldone/backend/controller/TestControllerIntegrationTest.java" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/test/java/de/goaldone/backend/controller/TestControllerIntegrationTest.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -27,7 +25,7 @@
     </selectedModels>
   </component>
   <component name="EmbeddingIndexingInfo">
-    <option name="cachedIndexableFilesCount" value="175" />
+    <option name="cachedIndexableFilesCount" value="190" />
     <option name="fileBasedEmbeddingIndicesEnabled" value="true" />
   </component>
   <component name="FileTemplateManagerImpl">
@@ -99,10 +97,10 @@
     "Spring Boot.BackendApplication Local.executor": "Run",
     "cidr.known.project.marker": "true",
     "codeWithMe.voiceChat.enabledByDefault": "false",
-    "git-widget-placeholder": "link-users",
+    "git-widget-placeholder": "cd-pipeline",
     "git.auto.fetch.suggestion.counter": "3",
     "kotlin-language-version-configured": "true",
-    "last_opened_file_path": "/Users/johannes/IdeaProjects/goaldone/goaldone-projekt/frontend/src/app",
+    "last_opened_file_path": "/Users/johannes/IdeaProjects/goaldone/goaldone-projekt/backend/src/main/resources",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
@@ -121,6 +119,7 @@
 }]]></component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/backend/src/main/resources" />
       <recent name="$PROJECT_DIR$/frontend/src/app" />
       <recent name="$PROJECT_DIR$/documentation/01-project-setup" />
     </key>
@@ -129,11 +128,6 @@
     </key>
   </component>
   <component name="RunManager" selected="JUnit.Alle Tests">
-    <configuration default="true" type="Application" factoryName="Application">
-      <method v="2">
-        <option name="Make" enabled="true" />
-      </method>
-    </configuration>
     <configuration name="Alle Tests" type="JUnit" factoryName="JUnit" temporary="true">
       <module name="backend" />
       <extension name="coverage">
@@ -226,7 +220,8 @@
       <workItem from="1776350283414" duration="7924000" />
       <workItem from="1776361435346" duration="2642000" />
       <workItem from="1776407861739" duration="7176000" />
-      <workItem from="1776418027450" duration="5962000" />
+      <workItem from="1776418027450" duration="6069000" />
+      <workItem from="1776509764629" duration="6448000" />
     </task>
     <task id="LOCAL-00001" summary="Reinitialize frontend">
       <option name="closed" value="true" />
@@ -340,7 +335,23 @@
       <option name="project" value="LOCAL" />
       <updated>1776429717917</updated>
     </task>
-    <option name="localTasksCounter" value="15" />
+    <task id="LOCAL-00015" summary="add tests">
+      <option name="closed" value="true" />
+      <created>1776430703442</created>
+      <option name="number" value="00015" />
+      <option name="presentableId" value="LOCAL-00015" />
+      <option name="project" value="LOCAL" />
+      <updated>1776430703442</updated>
+    </task>
+    <task id="LOCAL-00016" summary="feat: update application configurations and add CI/CD pipeline">
+      <option name="closed" value="true" />
+      <created>1776513452034</created>
+      <option name="number" value="00016" />
+      <option name="presentableId" value="LOCAL-00016" />
+      <option name="project" value="LOCAL" />
+      <updated>1776513452034</updated>
+    </task>
+    <option name="localTasksCounter" value="17" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -370,10 +381,12 @@
     <MESSAGE value="feat: enhance account linking functionality with new endpoints and user organization resolution" />
     <MESSAGE value="feat: update development environment configuration for ZITADEL and PostgreSQL" />
     <MESSAGE value="fix tests" />
-    <option name="LAST_COMMIT_MESSAGE" value="fix tests" />
+    <MESSAGE value="add tests" />
+    <MESSAGE value="feat: update application configurations and add CI/CD pipeline" />
+    <option name="LAST_COMMIT_MESSAGE" value="feat: update application configurations and add CI/CD pipeline" />
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
-    <SUITE FILE_PATH="coverage/goaldone_projekt$Alle_Tests.ic" NAME="Alle Tests Coverage Results" MODIFIED="1776430583820" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="idea" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="true">
+    <SUITE FILE_PATH="coverage/goaldone_projekt$Alle_Tests.ic" NAME="Alle Tests Coverage Results" MODIFIED="1776430624552" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="idea" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="true">
       <FILTER>de.goaldone.backend.controller.*</FILTER>
     </SUITE>
   </component>
