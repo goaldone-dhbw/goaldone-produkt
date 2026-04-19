@@ -100,6 +100,7 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
+          username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       # ======================================================================
@@ -161,20 +162,16 @@ jobs:
 
       - name: Docker login on VPS and deploy
         run: |
-          ssh goaldone@${{ secrets.VPS_HOST }} << 'EOF'
+          ssh goaldone@${{ secrets.VPS_HOST }} << EOF
           set -e
 
-          # Log in to GHCR (using GITHUB_TOKEN alternative)
+          # Log in to GHCR
           echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u Joinsider --password-stdin
 
           # Update .env if it exists, otherwise initialize from template
           if [ ! -f ~/docker/dev/.env ]; then
             cp ~/docker/dev/.env.example ~/docker/dev/.env
           fi
-
-          # Update versions in .env
-          sed -i 's/^BACKEND_VERSION=.*/BACKEND_VERSION=${{ needs.build-and-push.outputs.backend_version }}/' ~/docker/dev/.env
-          sed -i 's/^FRONTEND_VERSION=.*/FRONTEND_VERSION=${{ needs.build-and-push.outputs.frontend_version }}/' ~/docker/dev/.env
 
           # Update secrets if provided
           if [ -n "$DEV_POSTGRES_PASSWORD" ]; then
@@ -185,7 +182,7 @@ jobs:
             sed -i 's/^ZITADEL_CLIENT_ID=.*/ZITADEL_CLIENT_ID=$DEV_ZITADEL_CLIENT_ID/' ~/docker/dev/.env
           fi
 
-          # Run deployment
+          # Run deployment (versions passed as arguments)
           ~/docker/deploy.sh dev ${{ needs.build-and-push.outputs.backend_version }} ${{ needs.build-and-push.outputs.frontend_version }}
           EOF
         env:
@@ -225,7 +222,7 @@ jobs:
 
       - name: Docker login on VPS and deploy
         run: |
-          ssh goaldone@${{ secrets.VPS_HOST }} << 'EOF'
+          ssh goaldone@${{ secrets.VPS_HOST }} << EOF
           set -e
 
           # Log in to GHCR
@@ -236,10 +233,6 @@ jobs:
             cp ~/docker/prod/.env.example ~/docker/prod/.env
           fi
 
-          # Update versions in .env
-          sed -i 's/^BACKEND_VERSION=.*/BACKEND_VERSION=${{ needs.build-and-push.outputs.backend_version }}/' ~/docker/prod/.env
-          sed -i 's/^FRONTEND_VERSION=.*/FRONTEND_VERSION=${{ needs.build-and-push.outputs.frontend_version }}/' ~/docker/prod/.env
-
           # Update secrets if provided
           if [ -n "$PROD_POSTGRES_PASSWORD" ]; then
             sed -i 's/^POSTGRES_PASSWORD=.*/POSTGRES_PASSWORD=$PROD_POSTGRES_PASSWORD/' ~/docker/prod/.env
@@ -249,7 +242,7 @@ jobs:
             sed -i 's/^ZITADEL_CLIENT_ID=.*/ZITADEL_CLIENT_ID=$PROD_ZITADEL_CLIENT_ID/' ~/docker/prod/.env
           fi
 
-          # Run deployment
+          # Run deployment (versions passed as arguments)
           ~/docker/deploy.sh prod ${{ needs.build-and-push.outputs.backend_version }} ${{ needs.build-and-push.outputs.frontend_version }}
           EOF
         env:
