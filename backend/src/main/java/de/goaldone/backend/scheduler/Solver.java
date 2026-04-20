@@ -9,11 +9,15 @@ public class Solver {
     }
 
 
-
     //TODO: @Leon Parameters, Return Types
     public void createSchedule() {
         // CPMAlgo.generateInitialSchedule
         // algo Aufrufe etc.
+
+        // schedule besteht aus ArrayList<ScheduleEntry>
+
+        int scheduleScore = this.constraintHandler.calculateScore(null);
+
     }
 
 

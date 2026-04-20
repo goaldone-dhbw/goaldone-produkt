@@ -35,7 +35,13 @@ public class ConstraintHandler {
     }
 
 
-    private int calculateScore(ArrayList<ScheduleEntry> schedule) throws InvalidScheduleException {
+    /**
+     *
+     * @param schedule The schedule for which the score is to be calculated
+     * @return The score of the schedule
+     * @throws InvalidScheduleException if schedule violates hard constraints
+     */
+    public int calculateScore(ArrayList<ScheduleEntry> schedule) throws InvalidScheduleException {
 
         // First update the constraints
         updateConstraints(schedule);
