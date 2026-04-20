@@ -18,7 +18,7 @@ const issuerUri =
 const apiBasePath =
   process.env.API_BASE_PATH ||
   process.env.VITE_API_BASE_PATH ||
-  (isProd ? '/api' : 'http://localhost:8080');
+  (isProd ? '/api/v1' : 'http://localhost:8080/api/v1');
 
 // Generate env.js content
 const envContent = `(function(window) {

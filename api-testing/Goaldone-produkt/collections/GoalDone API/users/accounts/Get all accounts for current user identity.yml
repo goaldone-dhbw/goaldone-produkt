@@ -1,0 +1,44 @@
+info:
+  name: Get all accounts for current user identity
+  type: http
+  seq: 1
+  tags:
+    - user-accounts
+
+http:
+  method: GET
+  url: "{{baseUrl}}/users/accounts"
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+examples:
+  - name: 200 Response
+    description: OK
+    request:
+      url: "{{baseUrl}}/users/accounts"
+      method: GET
+    response:
+      status: 200
+      statusText: OK
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "accounts": [
+              {
+                "accountId": "",
+                "organizationId": "",
+                "organizationName": ""
+              }
+            ]
+          }

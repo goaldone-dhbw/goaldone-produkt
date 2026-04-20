@@ -9,3 +9,8 @@ spring:
       ddl-auto: validate
   liquibase:
     change-log: classpath:db/changelog/db.changelog-master.xml
+
+app:
+  cors:
+    allowed-origins:
+      - https://goaldone.de

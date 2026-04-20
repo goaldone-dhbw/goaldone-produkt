@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: GoalDone API
   description: API for the GoalDone task management application.
-  version: 1.0.0
+  version: 2.0.0
 servers:
   - url: http://localhost:8080/api/v1
     description: Local development server
@@ -18,8 +18,13 @@ tags:
     description: Account linking operations
   - name: user-accounts
     description: User account management
+  - name: schedules
+    description: Schedule generation and retrieval
 
 paths:
+  # ============================================================
+  # HEALTH
+  # ============================================================
   /health:
     get:
       tags:
@@ -39,7 +44,10 @@ paths:
                     type: string
                     example: UP
 
-  /api/test/me:
+  # ============================================================
+  # TEST
+  # ============================================================
+  /test/me:
     get:
       tags:
         - test
@@ -57,6 +65,9 @@ paths:
         '401':
           description: Unauthorized
 
+  # ============================================================
+  # ACCOUNT LINKING
+  # ============================================================
   /accounts/links/request:
     post:
       tags:
@@ -118,6 +129,9 @@ paths:
         '403':
           description: Forbidden
 
+  # ============================================================
+  # USER ACCOUNTS
+  # ============================================================
   /users/accounts:
     get:
       tags:
@@ -134,6 +148,145 @@ paths:
               schema:
                 $ref: '#/components/schemas/AccountListResponse'
 
+  # ============================================================
+  # SCHEDULES – Single Account
+  # ============================================================
+  /schedules/{accountId}:
+    get:
+      tags: [schedules]
+      summary: Aktuellen Plan eines Accounts abrufen
+      description: |
+        Gibt den Plan für den angegebenen Account und Zeitraum zurück.
+        Die Antwort enthält zwei Arten von Einträgen, erkennbar am `source`-Feld:
+
+        - `source: ONE_TIME` – persistierte Einträge aus der Datenbank.
+          `entryId` ist gesetzt und wird für Aktionen (complete, pin, unpin) benötigt.
+
+        - `source: RECURRING` – virtuelle Vorkommen, on-the-fly aus
+          Recurrence-Rules berechnet. `templateId` und `occurrenceDate` sind gesetzt.
+
+        Alle Einträge werden nach Datum und Startzeit sortiert zurückgegeben.
+      operationId: getSingleAccountSchedule
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AccountIdPath'
+        - $ref: '#/components/parameters/FromQuery'
+        - $ref: '#/components/parameters/ToQuery'
+      responses:
+        '200':
+          description: Plan für den Account
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduleResponse'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Account gehört nicht zur Identity des Nutzers
+        '404':
+          description: Account nicht gefunden
+
+    post:
+      tags: [schedules]
+      summary: Plan für einen Account generieren
+      description: |
+        Löst den Planungsalgorithmus für den angegebenen Account aus.
+        Bereits gepinnte Einträge (`isPinned: true`) bleiben an ihrem Platz,
+        alle anderen Chunks werden neu verteilt.
+      operationId: generateSingleAccountSchedule
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AccountIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateScheduleRequest'
+      responses:
+        '200':
+          description: Generierter Plan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduleResponse'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Account gehört nicht zur Identity des Nutzers
+        '422':
+          description: |
+            Validierungsfehler – Plan kann nicht erstellt werden.
+            Mögliche Ursachen: zirkuläre Abhängigkeiten, customChunkSize > Aufgabendauer,
+            notBefore liegt nach Deadline.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduleValidationError'
+
+  # ============================================================
+  # SCHEDULES – All Accounts
+  # ============================================================
+  /schedules/all:
+    get:
+      tags: [schedules]
+      summary: Pläne aller Accounts der Identity abrufen
+      description: |
+        Gibt pro Account der aktuellen Identity einen separaten Plan zurück.
+        Die Arbeitszeiten zwischen Accounts überlappen sich nicht.
+      operationId: getAllAccountsSchedule
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/FromQuery'
+        - $ref: '#/components/parameters/ToQuery'
+      responses:
+        '200':
+          description: Pläne aller Accounts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MultiAccountScheduleResponse'
+        '401':
+          description: Unauthorized
+
+    post:
+      tags: [schedules]
+      summary: Pläne für alle Accounts generieren
+      description: |
+        Löst den Planungsalgorithmus für alle Accounts der Identity aus.
+        Accounts werden sequentiell oder parallel verarbeitet
+        (Arbeitszeiten sind disjunkt). Gepinnte Einträge bleiben fixiert.
+      operationId: generateAllAccountsSchedule
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateScheduleRequest'
+      responses:
+        '200':
+          description: Generierte Pläne pro Account
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MultiAccountScheduleResponse'
+        '401':
+          description: Unauthorized
+        '422':
+          description: Validierungsfehler
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduleValidationError'
+
+# ==============================================================
+# COMPONENTS
+# ==============================================================
 components:
   securitySchemes:
     bearerAuth:
@@ -141,7 +294,47 @@ components:
       scheme: bearer
       bearerFormat: JWT
 
+  # ============================================================
+  # REUSABLE PARAMETERS
+  # ============================================================
+  parameters:
+    AccountIdPath:
+      name: accountId
+      in: path
+      required: true
+      description: Account-ID (ein Account der aktuellen Identity)
+      schema:
+        type: string
+        format: uuid
+
+    FromQuery:
+      name: from
+      in: query
+      required: true
+      description: Startdatum des Zeitraums (ISO 8601)
+      schema:
+        type: string
+        format: date
+        example: "2026-04-07"
+
+    ToQuery:
+      name: to
+      in: query
+      required: true
+      description: Enddatum des Zeitraums (ISO 8601)
+      schema:
+        type: string
+        format: date
+        example: "2026-04-11"
+
+  # ============================================================
+  # SCHEMAS
+  # ============================================================
   schemas:
+
+    # ----------------------------------------------------------
+    # Auth & User
+    # ----------------------------------------------------------
     UserInfoResponse:
       type: object
       required:
@@ -180,6 +373,9 @@ components:
             type: string
           description: Roles from JWT claim (not mirrored in DB)
 
+    # ----------------------------------------------------------
+    # Tasks
+    # ----------------------------------------------------------
     Task:
       type: object
       properties:
@@ -192,6 +388,7 @@ components:
           type: string
         completed:
           type: boolean
+
     TaskCreate:
       type: object
       required:
@@ -202,6 +399,9 @@ components:
         description:
           type: string
 
+    # ----------------------------------------------------------
+    # Account Linking
+    # ----------------------------------------------------------
     LinkTokenResponse:
       type: object
       required:
@@ -249,6 +449,309 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/AccountResponse'
+
+    # ----------------------------------------------------------
+    # Schedule – Request
+    # ----------------------------------------------------------
+    GenerateScheduleRequest:
+      type: object
+      required: [from]
+      properties:
+        from:
+          type: string
+          format: date
+          description: |
+            Startdatum der Planung (ISO 8601). Der Algorithmus plant ab
+            diesem Datum so viele Tage wie nötig, bis alle Tasks eingeplant
+            sind oder die Kapazität erschöpft ist. Das Enddatum ergibt sich
+            dynamisch aus der Response (`to`-Feld).
+          example: "2026-04-07"
+
+    # ----------------------------------------------------------
+    # Schedule – Response (Single Account)
+    # ----------------------------------------------------------
+    ScheduleResponse:
+      type: object
+      required: [accountId, generatedAt, from, to, totalWorkMinutes, score, warnings, entries, unscheduledTasks]
+      properties:
+        accountId:
+          type: string
+          format: uuid
+          description: Account für den dieser Plan gilt
+        generatedAt:
+          type: string
+          format: date-time
+          description: Zeitstempel der letzten Plan-Generierung
+        from:
+          type: string
+          format: date
+          description: Startdatum des geplanten Zeitraums
+        to:
+          type: string
+          format: date
+          description: |
+            Letzter tatsächlich eingeplanter Tag.
+            Wird dynamisch vom Algorithmus bestimmt.
+        totalWorkMinutes:
+          type: integer
+          description: Summe aller eingeplanten Task-Minuten im Zeitraum
+          example: 1920
+        score:
+          $ref: '#/components/schemas/ScheduleScore'
+        warnings:
+          type: array
+          description: Warnungen des Planungsalgorithmus. Leer wenn keine Probleme.
+          items:
+            $ref: '#/components/schemas/ScheduleWarning'
+        entries:
+          type: array
+          description: Alle Kalendereinträge, sortiert nach Datum und Startzeit
+          items:
+            $ref: '#/components/schemas/ScheduleEntry'
+        unscheduledTasks:
+          type: array
+          description: |
+            Tasks die nicht (vollständig) eingeplant werden konnten.
+            Enthält den Grund und Vorschläge zur Behebung.
+          items:
+            $ref: '#/components/schemas/UnscheduledTask'
+
+    # ----------------------------------------------------------
+    # Schedule – Response (All Accounts)
+    # ----------------------------------------------------------
+    MultiAccountScheduleResponse:
+      type: object
+      required: [schedules]
+      properties:
+        schedules:
+          type: array
+          description: Ein ScheduleResponse pro Account der Identity
+          items:
+            $ref: '#/components/schemas/ScheduleResponse'
+
+    # ----------------------------------------------------------
+    # Schedule Entry
+    # ----------------------------------------------------------
+    ScheduleEntry:
+      type: object
+      required: [source, date, startTime, endTime, type, isCompleted, isPinned]
+      description: |
+        Ein Zeitblock im Kalender. Kann ein persistierter DB-Eintrag
+        (`source: ONE_TIME`) oder ein virtuell berechnetes Vorkommen
+        einer Recurrence-Rule (`source: RECURRING`) sein.
+      properties:
+        # --- Diskriminator ---
+        source:
+          type: string
+          enum: [ONE_TIME, RECURRING]
+          description: |
+            - `ONE_TIME`: persistierter Eintrag. `entryId` ist gesetzt.
+            - `RECURRING`: virtuelles Vorkommen. `templateId` + `occurrenceDate` sind gesetzt.
+
+        # --- IDs (je nach source) ---
+        entryId:
+          type: string
+          format: uuid
+          nullable: true
+          description: |
+            Nur bei `source: ONE_TIME`.
+            Für PATCH-Aktionen (complete, pin, unpin).
+        # --- Zeitdaten ---
+        occurenceDate:
+          type: string
+          format: date
+          description: Datum des Eintrags
+          example: "2026-04-07"
+        startTime:
+          type: string
+          pattern: '^([01]\d|2[0-3]):[0-5]\d$'
+          example: "09:00"
+        endTime:
+          type: string
+          pattern: '^([01]\d|2[0-3]):[0-5]\d$'
+          example: "11:00"
+
+        # --- Typ ---
+        type:
+          type: string
+          enum: [TASK, APPOINTMENT]
+          description: |
+            - `TASK`: Dynamisch eingeplanter Aufgaben-Chunk.
+            - `APPOINTMENT`: Fester Termin oder Pause. Siehe `isBreak`.
+        isBreak:
+          type: boolean
+          default: false
+          description: |
+            Nur relevant bei `type: APPOINTMENT`.
+            `true` = Pause, `false` = normaler Termin (Meeting etc.)
+
+        # --- Status ---
+        isCompleted:
+          type: boolean
+          default: false
+          description: Ob dieser Block als erledigt markiert wurde.
+        isPinned:
+          type: boolean
+          default: false
+          description: |
+            Ob dieser Block vom Nutzer fixiert wurde.
+            Gepinnte Einträge werden bei Neuplanung nicht verschoben.
+
+        # --- Task-spezifische Felder ---
+        originalItemId:
+          type: string
+          format: uuid
+          nullable: true
+          description: "Ursprüngliche Task-ID oder Appointment-ID dieses Eintrags"
+        originalItemTitle:
+          type: string
+          nullable: true
+          description: "Ursprünglicher Titel des Tasks oder Appointments"
+        chunkIndex:
+          type: integer
+          nullable: true
+          description: |
+            Gesetzt wenn `type: TASK`.
+            Nullbasierter Index dieses Chunks innerhalb des Tasks.
+          example: 1
+        totalChunks:
+          type: integer
+          nullable: true
+          description: |
+            Gesetzt wenn `type: TASK`.
+            Gesamtanzahl der Chunks in die der Task aufgeteilt wurde.
+          example: 4
+
+    # ----------------------------------------------------------
+    # Unscheduled Task
+    # ----------------------------------------------------------
+    UnscheduledTask:
+      type: object
+      required: [taskId, taskTitle, durationMinutes, reason, shortfallMinutes]
+      properties:
+        taskId:
+          type: string
+          format: uuid
+        taskTitle:
+          type: string
+        durationMinutes:
+          type: integer
+          description: Gesamtdauer des Tasks in Minuten
+          example: 480
+        deadline:
+          type: string
+          format: date-time
+          nullable: true
+          description: Deadline des Tasks (null = keine Deadline)
+        reason:
+          type: string
+          enum: [DEADLINE_IMPOSSIBLE, CAPACITY_EXCEEDED, DEPENDENCY_BLOCKED]
+          description: |
+            - `DEADLINE_IMPOSSIBLE`: Zu wenig Arbeitszeit bis zur Deadline.
+            - `CAPACITY_EXCEEDED`: Gesamtkapazität im Planungshorizont reicht nicht.
+            - `DEPENDENCY_BLOCKED`: Abhängiger Task ist selbst nicht planbar.
+        shortfallMinutes:
+          type: integer
+          description: |
+            Fehlende Minuten. Bei `DEADLINE_IMPOSSIBLE`: wie viel Zeit
+            bis zur Deadline fehlt. Bei `CAPACITY_EXCEEDED`: Gesamtüberlauf.
+          example: 120
+
+    # ----------------------------------------------------------
+    # Schedule Warning
+    # ----------------------------------------------------------
+    ScheduleWarning:
+      type: object
+      required: [type, message]
+      properties:
+        type:
+          type: string
+          enum: [DEADLINE_TIGHT, OVERLOADED_DAY, PIN_CONFLICT]
+          description: |
+            - `DEADLINE_TIGHT`: Task eingeplant, aber < 30 min Puffer bis Deadline.
+            - `OVERLOADED_DAY`: Ein Tag übersteigt die verfügbare Arbeitszeit.
+            - `PIN_CONFLICT`: Gepinnter Eintrag überlappt mit einem anderen.
+        message:
+          type: string
+          description: Menschenlesbare Beschreibung
+          example: "Task 'Report' hat nur 25 min Puffer bis zur Deadline"
+        taskId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Betroffener Task (wenn zutreffend)
+        date:
+          type: string
+          format: date
+          nullable: true
+          description: Betroffenes Datum (wenn zutreffend)
+
+    # ----------------------------------------------------------
+    # Schedule Score (Debug)
+    # ----------------------------------------------------------
+    ScheduleScore:
+      type: object
+      description: |
+        Score des Planungsalgorithmus zur Einschätzung der Planungsqualität.
+        TODO: In Zukunft entfernen oder hinter ein Feature-Flag setzen.
+        Nur für Entwicklung und Debugging vorgesehen.
+      required: [hard, medium, soft, feasible]
+      properties:
+        hard:
+          type: integer
+          format: int64
+          description: |
+            Hard-Score. Muss 0 sein für einen gültigen Plan.
+            < 0 bedeutet: harte Constraints verletzt.
+          example: 0
+        medium:
+          type: integer
+          format: int64
+          description: |
+            Medium-Score. < 0 bedeutet: Deadlines nicht alle einhaltbar
+            oder Tasks nicht vollständig eingeplant.
+          example: -120
+        soft:
+          type: integer
+          format: int64
+          description: |
+            Soft-Score. Optimierungsqualität. Je näher an 0, desto besser.
+          example: -45
+        feasible:
+          type: boolean
+          description: "`true` wenn hard == 0 (Plan ist gültig)."
+          example: true
+
+    # ----------------------------------------------------------
+    # Schedule Validation Error (422)
+    # ----------------------------------------------------------
+    ScheduleValidationError:
+      type: object
+      required: [errors]
+      properties:
+        errors:
+          type: array
+          items:
+            type: object
+            required: [type, message]
+            properties:
+              type:
+                type: string
+                enum: [CIRCULAR_DEPENDENCY, CHUNK_EXCEEDS_DURATION, NOT_BEFORE_AFTER_DEADLINE, WORKING_HOURS_OVERLAP]
+                description: |
+                  - `CIRCULAR_DEPENDENCY`: Zirkuläre Abhängigkeit zwischen Tasks.
+                  - `CHUNK_EXCEEDS_DURATION`: customChunkSize ist größer als Aufgabendauer.
+                  - `NOT_BEFORE_AFTER_DEADLINE`: notBefore-Datum liegt nach der Deadline.
+                  - `WORKING_HOURS_OVERLAP`: Arbeitszeiten zwischen Accounts überlappen sich.
+              message:
+                type: string
+                example: "Zirkuläre Abhängigkeit: Task A → Task B → Task A"
+              taskIds:
+                type: array
+                items:
+                  type: string
+                  format: uuid
+                description: Betroffene Task-IDs
 
 security:
   - bearerAuth: []

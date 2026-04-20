@@ -1,0 +1,14 @@
+opencollection: 1.0.0
+info:
+  name: "Goaldone-produkt"
+  type: workspace
+
+collections:
+  - name: "GoalDone API"
+    path: "collections/GoalDone API - 1"
+
+specs:
+  - name: "openapi"
+    path: "../../api-spec/openapi.yaml"
+
+docs: ''
