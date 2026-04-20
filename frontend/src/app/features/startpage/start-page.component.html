@@ -1,2 +1,9 @@
-<p class="p-5">startpage works!</p>
-<p-button class="p-5" label="Login" routerLink="/test"></p-button>
+<div class="flex flex-col items-center justify-center h-screen gap-4">
+  @if (isLoggedIn()) {
+    <p>Willkommen zurück!</p>
+    <p-button label="Zum Dashboard" routerLink="/test" />
+  } @else {
+    <p>Bitte melde dich an.</p>
+    <p-button label="Login" (onClick)="login()" />
+  }
+</div>
