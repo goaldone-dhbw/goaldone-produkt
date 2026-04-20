@@ -10,4 +10,6 @@ import java.util.UUID;
 @Repository
 public interface LinkTokenRepository extends JpaRepository<LinkTokenEntity, UUID> {
     void deleteByExpiresAtBefore(Instant cutoff);
+
+    void deleteByInitiatorAccountId(UUID initiatorAccountId);
 }

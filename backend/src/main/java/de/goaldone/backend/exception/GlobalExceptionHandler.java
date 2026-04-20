@@ -37,4 +37,34 @@ public class GlobalExceptionHandler {
         pd.setType(URI.create("https://goaldone.de/errors/not-linked"));
         return pd;
     }
+
+    @ExceptionHandler(LastSuperAdminException.class)
+    public ProblemDetail handleLastSuperAdmin(LastSuperAdminException ex) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
+        pd.setType(URI.create("https://goaldone.de/errors/last-super-admin-cannot-be-deleted"));
+        pd.setProperty("errorCode", LastSuperAdminException.ERROR_CODE);
+        return pd;
+    }
+
+    @ExceptionHandler(EmailAlreadyInUseException.class)
+    public ProblemDetail handleEmailAlreadyInUse(EmailAlreadyInUseException ex) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
+        pd.setType(URI.create("https://goaldone.de/errors/email-already-in-use"));
+        pd.setProperty("errorCode", EmailAlreadyInUseException.ERROR_CODE);
+        return pd;
+    }
+
+    @ExceptionHandler(UserNotFoundException.class)
+    public ProblemDetail handleUserNotFound(UserNotFoundException ex) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
+        pd.setType(URI.create("https://goaldone.de/errors/user-not-found"));
+        return pd;
+    }
+
+    @ExceptionHandler(ZitadelUpstreamException.class)
+    public ProblemDetail handleZitadelUpstream(ZitadelUpstreamException ex) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_GATEWAY, ex.getMessage());
+        pd.setType(URI.create("https://goaldone.de/errors/zitadel-upstream"));
+        return pd;
+    }
 }
