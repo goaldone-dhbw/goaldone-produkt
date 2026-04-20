@@ -19,8 +19,4 @@ public class Solver {
         int scheduleScore = this.constraintHandler.calculateScore(null);
 
     }
-
-
-
-
 }
