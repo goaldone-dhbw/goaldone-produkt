@@ -6,21 +6,21 @@ import java.util.ArrayList;
 
 @Getter
 public class Score {
+    private long hardConstraintScore;
+    private long softConstraintScore;
 
-    private int softConstraintScore;
-    private int hardConstraintScore;
-
-    public int calculateScore(ArrayList<Constraint> constraints) {
+    public long calculateScore(ArrayList<Constraint> constraints) {
         for (Constraint constraint : constraints) {
             if (constraint instanceof HardConstaint) {
-
-                //error
-            } else {
                 hardConstraintScore += constraint.getValue();
+            } else {
+                softConstraintScore += constraint.getValue();
             }
         }
-        return 0; //TODO
+        return hardConstraintScore + softConstraintScore;
     }
 
-
+    public boolean isFeasible() {
+        return hardConstraintScore == 0;
+    }
 }

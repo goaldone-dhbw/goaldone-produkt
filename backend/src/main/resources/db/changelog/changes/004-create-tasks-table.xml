@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+    http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="004-create-tasks-table" author="claude">
+        <createTable tableName="tasks">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" primaryKeyName="pk_tasks"/>
+            </column>
+            <column name="account_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="title" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="description" type="VARCHAR(2000)"/>
+            <column name="status" type="VARCHAR(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="estimated_duration_minutes" type="INTEGER">
+                <constraints nullable="false"/>
+            </column>
+            <column name="cognitive_load" type="VARCHAR(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="custom_chunk_size_minutes" type="INTEGER"/>
+            <column name="deadline" type="TIMESTAMP"/>
+            <column name="not_before" type="TIMESTAMP"/>
+            <column name="depends_on_task_id" type="UUID"/>
+            <column name="created_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addForeignKeyConstraint
+            baseTableName="tasks"
+            baseColumnNames="account_id"
+            referencedTableName="user_accounts"
+            referencedColumnNames="id"
+            constraintName="fk_tasks_account_id"
+            onDelete="CASCADE"/>
+
+        <addForeignKeyConstraint
+            baseTableName="tasks"
+            baseColumnNames="depends_on_task_id"
+            referencedTableName="tasks"
+            referencedColumnNames="id"
+            constraintName="fk_tasks_depends_on_task_id"
+            onDelete="SET NULL"/>
+
+        <createIndex tableName="tasks" indexName="idx_tasks_account_id">
+            <column name="account_id"/>
+        </createIndex>
+    </changeSet>
+</databaseChangeLog>

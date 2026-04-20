@@ -8,5 +8,7 @@
     <include file="changes/001-create-user-and-org-shadow-tables.xml" relativeToChangelogFile="true"/>
     <include file="changes/002-remove-user-profile-columns.xml" relativeToChangelogFile="true"/>
     <include file="changes/003-user-identity-linking.xml" relativeToChangelogFile="true"/>
+    <include file="changes/004-create-tasks-table.xml" relativeToChangelogFile="true"/>
+    <include file="changes/005-create-appointments-table.xml" relativeToChangelogFile="true"/>
 
 </databaseChangeLog>

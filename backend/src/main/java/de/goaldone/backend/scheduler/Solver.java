@@ -1,8 +1,8 @@
 package de.goaldone.backend.scheduler;
 
+import de.goaldone.backend.scheduler.types.model.PlanningContext;
+import de.goaldone.backend.scheduler.types.model.PlanningResult;
+
 public interface Solver {
-
-    //TODO: @Leon Parameters, Return Types
-    void createSchedule();
-
+    PlanningResult createSchedule(PlanningContext context);
 }
