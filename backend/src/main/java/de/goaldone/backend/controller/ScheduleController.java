@@ -20,7 +20,6 @@ public class ScheduleController implements SchedulesApi {
 
     private final ScheduleService scheduleService;
 
-
     @Override
     public ResponseEntity<MultiAccountScheduleResponse> generateAllAccountsSchedule(GenerateScheduleRequest generateScheduleRequest) throws Exception {
         return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();

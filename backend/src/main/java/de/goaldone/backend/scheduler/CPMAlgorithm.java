@@ -2,14 +2,16 @@ package de.goaldone.backend.scheduler;
 
 import java.util.ArrayList;
 
-public interface CPMAlgorithmus {
+public class CPMAlgorithm {
 
     //TODO: @Leon Parameters, Return Types
 
     // heuristische bzw erste Lösung
-    void generateInitialSchedule();
+    void generateInitialSchedule() {}
 
-    ArrayList<Object> calculateSlack();
+    ArrayList<Object> calculateSlack() {
+        return null;
+    }
 
 
 }

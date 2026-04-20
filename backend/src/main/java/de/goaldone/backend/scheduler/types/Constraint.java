@@ -1,16 +1,9 @@
 package de.goaldone.backend.scheduler.types;
 
-import lombok.NoArgsConstructor;
+import java.util.ArrayList;
 
-@NoArgsConstructor
-public abstract class Constraint {
+public interface Constraint {
 
-    protected int multiplier;
-
-    protected int value;
-
-    public int getValue() {
-        return value * multiplier;
-    }
-
+    //TODO: implement constraint and set isViolated / isActive to true if violated / satisfied
+    void updateConstraint(ArrayList<ScheduleEntry> schedule);
 }

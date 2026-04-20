@@ -1,8 +1,22 @@
 package de.goaldone.backend.scheduler;
 
-public interface Solver {
+public class Solver {
+
+    ConstraintHandler constraintHandler;
+
+    public Solver() {
+        this.constraintHandler = new ConstraintHandler();
+    }
+
+
 
     //TODO: @Leon Parameters, Return Types
-    void createSchedule();
+    public void createSchedule() {
+        // CPMAlgo.generateInitialSchedule
+        // algo Aufrufe etc.
+    }
+
+
+
 
 }

@@ -1,10 +1,13 @@
 package de.goaldone.backend.scheduler.types.constraints;
 
-import de.goaldone.backend.scheduler.types.HardConstaint;
+import de.goaldone.backend.scheduler.types.HardConstraint;
 
-public class DeadlineConstraint extends HardConstaint {
+import java.util.ArrayList;
 
-    public DeadlineConstraint() {
-        super(-10);
+public class DeadlineConstraint extends HardConstraint {
+    @Override
+
+    public void updateConstraint(ArrayList<ScheduleEntry> schedule) {
+        //TODO: implement constraint and set this.isViolated = true if violated
     }
 }
