@@ -1,5 +1,7 @@
 package de.goaldone.backend.scheduler.types;
 
+import de.goaldone.backend.model.ScheduleEntry;
+
 import java.util.ArrayList;
 
 public interface Constraint {

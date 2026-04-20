@@ -1,6 +1,7 @@
 package de.goaldone.backend.scheduler;
 
 import de.goaldone.backend.exception.InvalidScheduleException;
+import de.goaldone.backend.model.ScheduleEntry;
 import de.goaldone.backend.scheduler.types.HardConstraint;
 import de.goaldone.backend.scheduler.types.SoftConstraint;
 import de.goaldone.backend.scheduler.types.constraints.DeadlineConstraint;
