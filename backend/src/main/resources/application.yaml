@@ -12,6 +12,14 @@ spring:
         jwt:
           issuer-uri: ${ZITADEL_ISSUER_URI:http://localhost:8080}
 
+zitadel:
+  management:
+    base-url: ${ZITADEL_ISSUER_URI:http://localhost:8080}
+    client-id: ${ZITADEL_MGMT_CLIENT_ID:}
+    client-secret: ${ZITADEL_MGMT_CLIENT_SECRET:}
+    goaldone-org-id: ${ZITADEL_GOALDONE_ORG_ID:}
+    goaldone-project-id: ${ZITADEL_GOALDONE_PROJECT_ID:}
+
 server:
   servlet:
     context-path: /api/v1

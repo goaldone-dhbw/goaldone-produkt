@@ -18,6 +18,8 @@ tags:
     description: Account linking operations
   - name: user-accounts
     description: User account management
+  - name: super-admin
+    description: Super-admin management (SUPER_ADMIN role required)
 
 paths:
   /health:
@@ -134,6 +136,81 @@ paths:
               schema:
                 $ref: '#/components/schemas/AccountListResponse'
 
+  /admin/super-admins:
+    get:
+      tags:
+        - super-admin
+      summary: List all super-admins
+      operationId: listSuperAdmins
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuperAdminListResponse'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden - requires SUPER_ADMIN role
+    post:
+      tags:
+        - super-admin
+      summary: Create a new super-admin
+      operationId: createSuperAdmin
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSuperAdminRequest'
+      responses:
+        '201':
+          description: Super-admin created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuperAdminResponse'
+        '400':
+          description: Bad Request - invalid email format
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden - requires SUPER_ADMIN role
+        '409':
+          description: Conflict - email already in use
+
+  /admin/super-admins/{userId}:
+    delete:
+      tags:
+        - super-admin
+      summary: Delete a super-admin
+      operationId: deleteSuperAdmin
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Super-admin deleted
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden - requires SUPER_ADMIN role
+        '404':
+          description: Not Found - super-admin does not exist
+        '409':
+          description: Conflict - last super-admin cannot be deleted
+
 components:
   securitySchemes:
     bearerAuth:
@@ -249,6 +326,55 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/AccountResponse'
+
+    CreateSuperAdminRequest:
+      type: object
+      required:
+        - email
+      properties:
+        email:
+          type: string
+          format: email
+          description: Email address of the super-admin to invite
+
+    SuperAdminResponse:
+      type: object
+      required:
+        - userId
+        - email
+        - createdAt
+        - status
+      properties:
+        userId:
+          type: string
+          format: uuid
+          description: Zitadel user ID
+        email:
+          type: string
+          format: email
+        firstName:
+          type: string
+          nullable: true
+        lastName:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+          description: User creation timestamp from Zitadel
+        status:
+          type: string
+          description: User status in Zitadel (e.g., INITIAL, ACTIVE)
+
+    SuperAdminListResponse:
+      type: object
+      required:
+        - superAdmins
+      properties:
+        superAdmins:
+          type: array
+          items:
+            $ref: '#/components/schemas/SuperAdminResponse'
 
 security:
   - bearerAuth: []
