@@ -1,31 +1,20 @@
-import { Component } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { Button } from 'primeng/button';
 import { RouterLink } from '@angular/router';
-import { BasePopupComponent } from '../../shared/base-popup/base-popup.component';
+import { CommonModule } from '@angular/common';
+import { AuthService } from '../../core/auth/auth.service';
 
 @Component({
   selector: 'app-startpage',
-  standalone: true,
-  imports: [Button, RouterLink, BasePopupComponent],
+  imports: [Button, RouterLink, CommonModule],
   templateUrl: './start-page.component.html',
 })
 export class StartPageComponent {
-  isEmptyPopupOpen = false;
-  isContentPopupOpen = false;
+  private authService = inject(AuthService);
 
-  showEmptyBasePopup(): void {
-    this.isEmptyPopupOpen = true;
-  }
+  isLoggedIn = () => this.authService.hasValidAccessToken();
 
-  showBasePopupWithContent(): void {
-    this.isContentPopupOpen = true;
-  }
-
-  closeEmptyBasePopup(): void {
-    this.isEmptyPopupOpen = false;
-  }
-
-  closeBasePopupWithContent(): void {
-    this.isContentPopupOpen = false;
+  login(): void {
+    this.authService.initLoginFlow();
   }
 }
