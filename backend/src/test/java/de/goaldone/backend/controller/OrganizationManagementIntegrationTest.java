@@ -13,6 +13,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -41,7 +42,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
     "spring.security.oauth2.resourceserver.jwt.issuer-uri=http://localhost:8099",
     "zitadel.management-api-url=http://localhost:8099",
     "zitadel.service-account-token=test-token",
-    "zitadel.goaldone.project-id=test-project-id"
+    "zitadel.goaldone.project-id=test-project-id",
+    "zitadel.goaldone.org-id=test-main-org-id"
 })
 @ActiveProfiles("local")
 class OrganizationManagementIntegrationTest {
@@ -266,37 +268,39 @@ class OrganizationManagementIntegrationTest {
     // --- Stubs ---
 
     private void stubEmailNotExists() {
-        wireMockServer.stubFor(WireMock.post(urlEqualTo("/v2/users"))
+        wireMockServer.stubFor(WireMock.post(urlPathMatching("/v2/users"))
             .withHeader(HttpHeaders.AUTHORIZATION, WireMock.containing("Bearer"))
             .willReturn(okJson("{\"result\": []}")));
     }
 
     private void stubEmailExists() {
-        wireMockServer.stubFor(WireMock.post(urlEqualTo("/v2/users"))
+        wireMockServer.stubFor(WireMock.post(urlPathMatching("/v2/users"))
             .withHeader(HttpHeaders.AUTHORIZATION, WireMock.containing("Bearer"))
             .willReturn(okJson("{\"result\": [{\"userId\": \"existing-user\"}]}")));
     }
 
     private void stubAddOrganization(String orgId) {
-        wireMockServer.stubFor(WireMock.post(urlEqualTo("/v2/organizations"))
+        wireMockServer.stubFor(WireMock.post(urlPathMatching("/v2/organizations"))
             .withHeader(HttpHeaders.AUTHORIZATION, WireMock.containing("Bearer"))
             .willReturn(okJson("{\"organizationId\": \"" + orgId + "\"}")));
     }
 
     private void stubAddHumanUser(String userId) {
-        wireMockServer.stubFor(WireMock.post(urlEqualTo("/v2/users/human"))
+        wireMockServer.stubFor(WireMock.post(urlPathMatching("/v2/users/human"))
             .withHeader(HttpHeaders.AUTHORIZATION, WireMock.containing("Bearer"))
+            .withHeader("x-zitadel-orgid", WireMock.matching(".*"))
             .willReturn(okJson("{\"userId\": \"" + userId + "\"}")));
     }
 
     private void stubAddUserGrant() {
-        wireMockServer.stubFor(WireMock.post(urlEqualTo("/v2/authorizations"))
+        wireMockServer.stubFor(WireMock.post(urlPathMatching("/management/v1/users/.*/grants"))
             .withHeader(HttpHeaders.AUTHORIZATION, WireMock.containing("Bearer"))
+            .withHeader("x-zitadel-orgid", WireMock.matching(".*"))
             .willReturn(ok()));
     }
 
     private void stubCreateInviteCode() {
-        wireMockServer.stubFor(WireMock.post(urlMatching("/v2/users/.*/invite_code"))
+        wireMockServer.stubFor(WireMock.post(urlPathMatching("/v2/users/.*/invite_code"))
             .withHeader(HttpHeaders.AUTHORIZATION, WireMock.containing("Bearer"))
             .willReturn(ok()));
     }

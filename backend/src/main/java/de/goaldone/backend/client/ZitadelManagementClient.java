@@ -25,9 +25,10 @@ public class ZitadelManagementClient {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public ZitadelManagementClient(
+            RestClient.Builder restClientBuilder,
             @Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri}") String managementApiUrl,
             @Value("${zitadel.service-account-token}") String serviceAccountToken) {
-        this.restClient = RestClient.builder().baseUrl(managementApiUrl).build();
+        this.restClient = restClientBuilder.baseUrl(managementApiUrl).build();
         this.serviceAccountToken = serviceAccountToken;
     }
 
@@ -44,6 +45,7 @@ public class ZitadelManagementClient {
                     "queries", List.of(Map.of("emailQuery", emailQuery))
             );
 
+            log.debug("Checking email existence for: {}", email);
             String responseBody = restClient.post()
                     .uri("/v2/users")
                     .header(HttpHeaders.AUTHORIZATION, "Bearer " + serviceAccountToken)
@@ -63,6 +65,7 @@ public class ZitadelManagementClient {
             log.error(errorMsg);
             throw new ZitadelApiException(errorMsg, e);
         } catch (Exception e) {
+            log.error("Failed to check email existence for {}: {}", email, e.getMessage());
             throw new ZitadelApiException("Failed to check email existence: " + e.getMessage(), e);
         }
     }

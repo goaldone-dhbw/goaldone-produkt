@@ -12,6 +12,7 @@ import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.lang.reflect.Field;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -31,11 +32,15 @@ class OrganizationManagementServiceTest {
 
     private void initService() {
         service = new OrganizationManagementService(zitadelManagementClient, organizationRepository);
-        // Use reflection to set the projectId field since it's private with @Value
+        // Use reflection to set the projectId and mainOrgId fields since they are private with @Value
         try {
-            java.lang.reflect.Field field = service.getClass().getDeclaredField("projectId");
-            field.setAccessible(true);
-            field.set(service, "test-project-id");
+            Field projectField = service.getClass().getDeclaredField("projectId");
+            projectField.setAccessible(true);
+            projectField.set(service, "test-project-id");
+
+            Field orgField = service.getClass().getDeclaredField("mainOrgId");
+            orgField.setAccessible(true);
+            orgField.set(service, "test-main-org-id");
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -66,7 +71,7 @@ class OrganizationManagementServiceTest {
         inOrder.verify(zitadelManagementClient).emailExists("admin@goaldone.de");
         inOrder.verify(zitadelManagementClient).addOrganization("GoalDone GmbH");
         inOrder.verify(zitadelManagementClient).addHumanUser("org-123", "admin@goaldone.de", "Max", "Mustermann");
-        inOrder.verify(zitadelManagementClient).addUserGrant("user-xyz", "org-123", "test-project-id", "COMPANY_ADMIN");
+        inOrder.verify(zitadelManagementClient).addUserGrant("user-xyz", "test-main-org-id", "test-project-id", "COMPANY_ADMIN");
         inOrder.verify(zitadelManagementClient).createInviteCode("user-xyz");
     }
 
