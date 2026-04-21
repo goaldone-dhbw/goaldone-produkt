@@ -37,4 +37,18 @@ public class GlobalExceptionHandler {
         pd.setType(URI.create("https://goaldone.de/errors/not-linked"));
         return pd;
     }
+
+    @ExceptionHandler(ConflictException.class)
+    public ProblemDetail handleConflict(ConflictException ex) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
+        pd.setType(URI.create("https://goaldone.de/errors/conflict"));
+        return pd;
+    }
+
+    @ExceptionHandler(ZitadelApiException.class)
+    public ProblemDetail handleZitadelApi(ZitadelApiException ex) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_GATEWAY, ex.getMessage());
+        pd.setType(URI.create("https://goaldone.de/errors/upstream-error"));
+        return pd;
+    }
 }
