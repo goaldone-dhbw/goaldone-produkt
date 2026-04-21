@@ -1,9 +1,59 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<testsuites name="vitest tests" tests="2" failures="0" errors="0" time="0.040883042">
-    <testsuite name="src/app/app.spec.ts" timestamp="2026-04-15T18:35:37.532Z" hostname="MacBook-Pro-von-Johannes.local" tests="2" failures="0" errors="0" skipped="0" time="0.040883042">
-        <testcase classname="src/app/app.spec.ts" name="App &gt; should create the app" time="0.028739041">
+<testsuites name="vitest tests" tests="22" failures="0" errors="0" time="0.924449666">
+    <testsuite name="src/app/app.spec.ts" timestamp="2026-04-21T10:47:37.745Z" hostname="cachy-elitebook" tests="1" failures="0" errors="0" skipped="0" time="0.046411108">
+        <testcase classname="src/app/app.spec.ts" name="App &gt; should create the app" time="0.04459885">
         </testcase>
-        <testcase classname="src/app/app.spec.ts" name="App &gt; should render title" time="0.011548583">
+    </testsuite>
+    <testsuite name="src/app/core/auth/auth.guard.spec.ts" timestamp="2026-04-21T10:47:37.746Z" hostname="cachy-elitebook" tests="2" failures="0" errors="0" skipped="0" time="0.021942267">
+        <testcase classname="src/app/core/auth/auth.guard.spec.ts" name="authGuard &gt; should return true when user has valid access token" time="0.016100171">
+        </testcase>
+        <testcase classname="src/app/core/auth/auth.guard.spec.ts" name="authGuard &gt; should initiate login flow and return false when user has no valid token" time="0.004152307">
+        </testcase>
+    </testsuite>
+    <testsuite name="src/app/core/auth/auth.interceptor.spec.ts" timestamp="2026-04-21T10:47:37.746Z" hostname="cachy-elitebook" tests="3" failures="0" errors="0" skipped="0" time="0.024849895">
+        <testcase classname="src/app/core/auth/auth.interceptor.spec.ts" name="authInterceptor &gt; should add Authorization header to API requests" time="0.017811623">
+        </testcase>
+        <testcase classname="src/app/core/auth/auth.interceptor.spec.ts" name="authInterceptor &gt; should not add Authorization header when no token is available" time="0.003412655">
+        </testcase>
+        <testcase classname="src/app/core/auth/auth.interceptor.spec.ts" name="authInterceptor &gt; should not add Authorization header to non-API URLs" time="0.001941141">
+        </testcase>
+    </testsuite>
+    <testsuite name="src/app/core/auth/auth.service.spec.ts" timestamp="2026-04-21T10:47:37.746Z" hostname="cachy-elitebook" tests="9" failures="0" errors="0" skipped="0" time="0.043412287">
+        <testcase classname="src/app/core/auth/auth.service.spec.ts" name="AuthService &gt; should be created" time="0.020522624">
+        </testcase>
+        <testcase classname="src/app/core/auth/auth.service.spec.ts" name="AuthService &gt; initialize &gt; should configure OAuthService with correct settings" time="0.006711618">
+        </testcase>
+        <testcase classname="src/app/core/auth/auth.service.spec.ts" name="AuthService &gt; initialize &gt; should setup automatic silent refresh" time="0.001820571">
+        </testcase>
+        <testcase classname="src/app/core/auth/auth.service.spec.ts" name="AuthService &gt; initialize &gt; should handle token_refresh_error event" time="0.003135946">
+        </testcase>
+        <testcase classname="src/app/core/auth/auth.service.spec.ts" name="AuthService &gt; initialize &gt; should handle token_error event" time="0.002628363">
+        </testcase>
+        <testcase classname="src/app/core/auth/auth.service.spec.ts" name="AuthService &gt; hasValidAccessToken &gt; should delegate to OAuthService.hasValidAccessToken" time="0.001373256">
+        </testcase>
+        <testcase classname="src/app/core/auth/auth.service.spec.ts" name="AuthService &gt; getAccessToken &gt; should delegate to OAuthService.getAccessToken" time="0.001634406">
+        </testcase>
+        <testcase classname="src/app/core/auth/auth.service.spec.ts" name="AuthService &gt; initLoginFlow &gt; should call OAuthService.initLoginFlow" time="0.001700857">
+        </testcase>
+        <testcase classname="src/app/core/auth/auth.service.spec.ts" name="AuthService &gt; logout &gt; should call OAuthService.logOut" time="0.001882094">
+        </testcase>
+    </testsuite>
+    <testsuite name="src/app/features/startpage/start-page.component.spec.ts" timestamp="2026-04-21T10:47:37.747Z" hostname="cachy-elitebook" tests="1" failures="0" errors="0" skipped="0" time="0.125070063">
+        <testcase classname="src/app/features/startpage/start-page.component.spec.ts" name="Startpage &gt; should create" time="0.12290953">
+        </testcase>
+    </testsuite>
+    <testsuite name="src/app/shared/base-popup/base-popup.component.spec.ts" timestamp="2026-04-21T10:47:37.747Z" hostname="cachy-elitebook" tests="6" failures="0" errors="0" skipped="0" time="0.662764046">
+        <testcase classname="src/app/shared/base-popup/base-popup.component.spec.ts" name="BasePopupComponent system tests &gt; shows default popup with title, content and standard buttons" time="0.292040976">
+        </testcase>
+        <testcase classname="src/app/shared/base-popup/base-popup.component.spec.ts" name="BasePopupComponent system tests &gt; emits confirm event and closes popup after clicking Ok" time="0.100885836">
+        </testcase>
+        <testcase classname="src/app/shared/base-popup/base-popup.component.spec.ts" name="BasePopupComponent system tests &gt; renders dynamic projected template content and keeps footer layout" time="0.072539089">
+        </testcase>
+        <testcase classname="src/app/shared/base-popup/base-popup.component.spec.ts" name="BasePopupComponent system tests &gt; stays stable when title is missing and falls back to default title" time="0.067538899">
+        </testcase>
+        <testcase classname="src/app/shared/base-popup/base-popup.component.spec.ts" name="BasePopupComponent system tests &gt; does not crash and still closes when confirm listener is missing" time="0.066084826">
+        </testcase>
+        <testcase classname="src/app/shared/base-popup/base-popup.component.spec.ts" name="BasePopupComponent system tests &gt; stays stable for empty projected content" time="0.062115232">
         </testcase>
     </testsuite>
 </testsuites>
