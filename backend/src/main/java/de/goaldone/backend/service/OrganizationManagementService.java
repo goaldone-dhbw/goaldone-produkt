@@ -29,8 +29,16 @@ public class OrganizationManagementService {
     @Value("${zitadel.goaldone.project-id}")
     private String projectId;
 
+    @Value("${zitadel.goaldone.org-id}")
+    private String mainOrgId;
+
     @Transactional
     public OrganizationResponse createOrganization(CreateOrganizationRequest req) {
+        // Fast-fail: check configuration
+        if (projectId == null || projectId.isBlank() || mainOrgId == null || mainOrgId.isBlank()) {
+            throw new IllegalStateException("ZITADEL_GOALDONE_PROJECT_ID or ZITADEL_GOALDONE_ORG_ID is not configured");
+        }
+
         // Preconditions: check before any Zitadel writes
         if (zitadelManagementClient.emailExists(req.getAdminEmail())) {
             log.warn("Email {} already exists in Zitadel", req.getAdminEmail());
@@ -51,6 +59,7 @@ public class OrganizationManagementService {
             zitadelOrgId = zitadelManagementClient.addOrganization(req.getName());
 
             // Step 4: Create local shadow record
+            log.info("Creating local shadow record for organization {}", zitadelOrgId);
             localOrgId = UUID.randomUUID();
             organizationRepository.save(new OrganizationEntity(
                     localOrgId,
@@ -60,12 +69,15 @@ public class OrganizationManagementService {
             ));
 
             // Step 5: Create human user in Zitadel organization
+            log.info("Creating human user in Zitadel organization {}", zitadelOrgId);
             zitadelUserId = zitadelManagementClient.addHumanUser(zitadelOrgId, req.getAdminEmail(), req.getAdminFirstName(), req.getAdminLastName());
 
             // Step 6: Assign COMPANY_ADMIN role to user
-            zitadelManagementClient.addUserGrant(zitadelUserId, zitadelOrgId, projectId, "COMPANY_ADMIN");
+            log.info("Assigning COMPANY_ADMIN role to user {}", zitadelUserId);
+            zitadelManagementClient.addUserGrant(zitadelUserId, mainOrgId, projectId, "COMPANY_ADMIN");
 
             // Step 7: Create invite code (sends email)
+            log.info("Creating invite code for user {}", zitadelUserId);
             zitadelManagementClient.createInviteCode(zitadelUserId);
 
             return new OrganizationResponse()

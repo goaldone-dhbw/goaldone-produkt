@@ -16,6 +16,7 @@ zitadel:
   service-account-token: ${ZITADEL_SERVICE_ACCOUNT_TOKEN:}
   goaldone:
     project-id: ${ZITADEL_GOALDONE_PROJECT_ID:}
+    org-id: ${ZITADEL_GOALDONE_ORG_ID:}
 
 server:
   servlet:
