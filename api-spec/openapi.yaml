@@ -59,7 +59,7 @@ paths:
         '401':
           description: Unauthorized
 
-  /accounts/links/request:
+  /users/accounts/links/request:
     post:
       tags:
         - account-linking
@@ -75,7 +75,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/LinkTokenResponse'
 
-  /accounts/links/confirm:
+  /users/accounts/links/confirm:
     post:
       tags:
         - account-linking
@@ -97,7 +97,7 @@ paths:
         '410':
           description: Token expired
 
-  /accounts/links/{accountId}:
+  /users/accounts/links/{accountId}:
     delete:
       tags:
         - account-linking
@@ -136,7 +136,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/AccountListResponse'
 
-  /admin/super-admins:
+  /admins/super-admins:
     get:
       tags:
         - super-admin
@@ -184,7 +184,7 @@ paths:
         '409':
           description: Conflict - email already in use
 
-  /admin/super-admins/{userId}:
+  /admins/super-admins/{userId}:
     delete:
       tags:
         - super-admin
