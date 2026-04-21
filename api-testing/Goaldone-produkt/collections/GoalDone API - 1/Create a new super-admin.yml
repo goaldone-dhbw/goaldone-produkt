@@ -1,0 +1,123 @@
+info:
+  name: Create a new super-admin
+  type: http
+  seq: 2
+  tags:
+    - super-admin
+
+http:
+  method: POST
+  url: "{{baseUrl}}/admins/super-admins"
+  body:
+    type: json
+    data: |-
+      {
+        "email": ""
+      }
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+examples:
+  - name: 201 Response
+    description: Super-admin created
+    request:
+      url: "{{baseUrl}}/admins/super-admins"
+      method: POST
+      body:
+        type: json
+        data: |-
+          {
+            "email": ""
+          }
+    response:
+      status: 201
+      statusText: Created
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "userId": "",
+            "email": "",
+            "firstName": "",
+            "lastName": "",
+            "createdAt": "",
+            "status": ""
+          }
+  - name: 400 Response
+    description: Bad Request - invalid email format
+    request:
+      url: "{{baseUrl}}/admins/super-admins"
+      method: POST
+      body:
+        type: json
+        data: |-
+          {
+            "email": ""
+          }
+    response:
+      status: 400
+      statusText: Bad Request
+      body:
+        type: text
+        data: ""
+  - name: 401 Response
+    description: Unauthorized
+    request:
+      url: "{{baseUrl}}/admins/super-admins"
+      method: POST
+      body:
+        type: json
+        data: |-
+          {
+            "email": ""
+          }
+    response:
+      status: 401
+      statusText: Unauthorized
+      body:
+        type: text
+        data: ""
+  - name: 403 Response
+    description: Forbidden - requires SUPER_ADMIN role
+    request:
+      url: "{{baseUrl}}/admins/super-admins"
+      method: POST
+      body:
+        type: json
+        data: |-
+          {
+            "email": ""
+          }
+    response:
+      status: 403
+      statusText: Forbidden
+      body:
+        type: text
+        data: ""
+  - name: 409 Response
+    description: Conflict - email already in use
+    request:
+      url: "{{baseUrl}}/admins/super-admins"
+      method: POST
+      body:
+        type: json
+        data: |-
+          {
+            "email": ""
+          }
+    response:
+      status: 409
+      statusText: Conflict
+      body:
+        type: text
+        data: ""

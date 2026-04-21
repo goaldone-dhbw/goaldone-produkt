@@ -1,0 +1,100 @@
+info:
+  name: Delete a super-admin
+  type: http
+  seq: 1
+  tags:
+    - super-admin
+
+http:
+  method: DELETE
+  url: "{{baseUrl}}/admins/super-admins/:userId"
+  params:
+    - name: userId
+      value: ""
+      type: path
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+examples:
+  - name: 204 Response
+    description: Super-admin deleted
+    request:
+      url: "{{baseUrl}}/admins/super-admins/:userId"
+      method: DELETE
+      params:
+        - name: userId
+          value: ""
+          type: path
+    response:
+      status: 204
+      statusText: No Content
+      body:
+        type: text
+        data: ""
+  - name: 401 Response
+    description: Unauthorized
+    request:
+      url: "{{baseUrl}}/admins/super-admins/:userId"
+      method: DELETE
+      params:
+        - name: userId
+          value: ""
+          type: path
+    response:
+      status: 401
+      statusText: Unauthorized
+      body:
+        type: text
+        data: ""
+  - name: 403 Response
+    description: Forbidden - requires SUPER_ADMIN role
+    request:
+      url: "{{baseUrl}}/admins/super-admins/:userId"
+      method: DELETE
+      params:
+        - name: userId
+          value: ""
+          type: path
+    response:
+      status: 403
+      statusText: Forbidden
+      body:
+        type: text
+        data: ""
+  - name: 404 Response
+    description: Not Found - super-admin does not exist
+    request:
+      url: "{{baseUrl}}/admins/super-admins/:userId"
+      method: DELETE
+      params:
+        - name: userId
+          value: ""
+          type: path
+    response:
+      status: 404
+      statusText: Not Found
+      body:
+        type: text
+        data: ""
+  - name: 409 Response
+    description: Conflict - last super-admin cannot be deleted
+    request:
+      url: "{{baseUrl}}/admins/super-admins/:userId"
+      method: DELETE
+      params:
+        - name: userId
+          value: ""
+          type: path
+    response:
+      status: 409
+      statusText: Conflict
+      body:
+        type: text
+        data: ""

@@ -112,7 +112,7 @@ class AccountLinkingIntegrationTest {
     void testRequestAccountLink() throws Exception {
         provisionAccount("sub-1", "a@example.com", "User", "A", "org-1", "Org 1");
 
-        mockMvc.perform(post("/accounts/links/request")
+        mockMvc.perform(post("/users/accounts/links/request")
             .with(jwt()
                 .jwt(buildJwt("sub-1", "a@example.com", "User", "A", "org-1", "Org 1"))))
             .andExpect(status().isCreated())
@@ -125,7 +125,7 @@ class AccountLinkingIntegrationTest {
     // TC02: Request without auth returns 401
     @Test
     void testRequestAccountLinkUnauthorized() throws Exception {
-        mockMvc.perform(post("/accounts/links/request"))
+        mockMvc.perform(post("/users/accounts/links/request"))
             .andExpect(status().isUnauthorized());
     }
 
@@ -146,7 +146,7 @@ class AccountLinkingIntegrationTest {
         Map<String, String> req = new HashMap<>();
         req.put("linkToken", tokenId.toString());
 
-        mockMvc.perform(post("/accounts/links/confirm")
+        mockMvc.perform(post("/users/accounts/links/confirm")
             .contentType(MediaType.APPLICATION_JSON)
             .content(objectMapper.writeValueAsString(req))
             .with(jwt()
@@ -175,7 +175,7 @@ class AccountLinkingIntegrationTest {
         Map<String, String> req = new HashMap<>();
         req.put("linkToken", tokenId.toString());
 
-        mockMvc.perform(post("/accounts/links/confirm")
+        mockMvc.perform(post("/users/accounts/links/confirm")
             .contentType(MediaType.APPLICATION_JSON)
             .content(objectMapper.writeValueAsString(req))
             .with(jwt()
@@ -191,7 +191,7 @@ class AccountLinkingIntegrationTest {
         Map<String, String> req = new HashMap<>();
         req.put("linkToken", UUID.randomUUID().toString());
 
-        mockMvc.perform(post("/accounts/links/confirm")
+        mockMvc.perform(post("/users/accounts/links/confirm")
             .contentType(MediaType.APPLICATION_JSON)
             .content(objectMapper.writeValueAsString(req))
             .with(jwt()
@@ -216,7 +216,7 @@ class AccountLinkingIntegrationTest {
         Map<String, String> req = new HashMap<>();
         req.put("linkToken", tokenId.toString());
 
-        mockMvc.perform(post("/accounts/links/confirm")
+        mockMvc.perform(post("/users/accounts/links/confirm")
             .contentType(MediaType.APPLICATION_JSON)
             .content(objectMapper.writeValueAsString(req))
             .with(jwt()
@@ -235,7 +235,7 @@ class AccountLinkingIntegrationTest {
         Map<String, String> req2 = new HashMap<>();
         req2.put("linkToken", token2Id.toString());
 
-        mockMvc.perform(post("/accounts/links/confirm")
+        mockMvc.perform(post("/users/accounts/links/confirm")
             .contentType(MediaType.APPLICATION_JSON)
             .content(objectMapper.writeValueAsString(req2))
             .with(jwt()
@@ -260,7 +260,7 @@ class AccountLinkingIntegrationTest {
         Map<String, String> req = new HashMap<>();
         req.put("linkToken", tokenId.toString());
 
-        mockMvc.perform(post("/accounts/links/confirm")
+        mockMvc.perform(post("/users/accounts/links/confirm")
             .contentType(MediaType.APPLICATION_JSON)
             .content(objectMapper.writeValueAsString(req))
             .with(jwt()
@@ -298,7 +298,7 @@ class AccountLinkingIntegrationTest {
         Map<String, String> req = new HashMap<>();
         req.put("linkToken", tokenId.toString());
 
-        mockMvc.perform(post("/accounts/links/confirm")
+        mockMvc.perform(post("/users/accounts/links/confirm")
             .contentType(MediaType.APPLICATION_JSON)
             .content(objectMapper.writeValueAsString(req))
             .with(jwt()
@@ -330,14 +330,14 @@ class AccountLinkingIntegrationTest {
         Map<String, String> req = new HashMap<>();
         req.put("linkToken", tokenId.toString());
 
-        mockMvc.perform(post("/accounts/links/confirm")
+        mockMvc.perform(post("/users/accounts/links/confirm")
             .contentType(MediaType.APPLICATION_JSON)
             .content(objectMapper.writeValueAsString(req))
             .with(jwt()
                 .jwt(buildJwt("sub-b", "b@example.com", "User", "B", "org-b", "Org B"))))
             .andExpect(status().isNoContent());
 
-        mockMvc.perform(delete("/accounts/links/" + b.getId())
+        mockMvc.perform(delete("/users/accounts/links/" + b.getId())
             .with(jwt()
                 .jwt(buildJwt("sub-a", "a@example.com", "User", "A", "org-a", "Org A"))))
             .andExpect(status().isNoContent());
@@ -352,7 +352,7 @@ class AccountLinkingIntegrationTest {
         UserAccountEntity a = provisionAccount("sub-a", "a@example.com", "User", "A", "org-a", "Org A");
         UserAccountEntity b = provisionAccount("sub-b", "b@example.com", "User", "B", "org-b", "Org B");
 
-        mockMvc.perform(delete("/accounts/links/" + b.getId())
+        mockMvc.perform(delete("/users/accounts/links/" + b.getId())
             .with(jwt()
                 .jwt(buildJwt("sub-a", "a@example.com", "User", "A", "org-a", "Org A"))))
             .andExpect(status().isForbidden());
@@ -363,7 +363,7 @@ class AccountLinkingIntegrationTest {
     void testUnlinkOnlyAccount() throws Exception {
         UserAccountEntity a = provisionAccount("sub-a", "a@example.com", "User", "A", "org-a", "Org A");
 
-        mockMvc.perform(delete("/accounts/links/" + a.getId())
+        mockMvc.perform(delete("/users/accounts/links/" + a.getId())
             .with(jwt()
                 .jwt(buildJwt("sub-a", "a@example.com", "User", "A", "org-a", "Org A"))))
             .andExpect(status().isBadRequest());
@@ -419,7 +419,7 @@ class AccountLinkingIntegrationTest {
         Map<String, String> req = new HashMap<>();
         req.put("linkToken", tokenId.toString());
 
-        mockMvc.perform(post("/accounts/links/confirm")
+        mockMvc.perform(post("/users/accounts/links/confirm")
             .contentType(MediaType.APPLICATION_JSON)
             .content(objectMapper.writeValueAsString(req))
             .with(jwt()
