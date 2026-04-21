@@ -3,7 +3,6 @@ package de.goaldone.backend.service;
 import de.goaldone.backend.client.ZitadelManagementClient;
 import de.goaldone.backend.config.ZitadelManagementProperties;
 import de.goaldone.backend.entity.UserAccountEntity;
-import de.goaldone.backend.entity.UserIdentityEntity;
 import de.goaldone.backend.exception.EmailAlreadyInUseException;
 import de.goaldone.backend.exception.LastSuperAdminException;
 import de.goaldone.backend.exception.UserNotFoundException;
@@ -14,7 +13,6 @@ import de.goaldone.backend.model.SuperAdminResponse;
 import de.goaldone.backend.repository.LinkTokenRepository;
 import de.goaldone.backend.repository.UserAccountRepository;
 import de.goaldone.backend.repository.UserIdentityRepository;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -27,7 +25,6 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -63,7 +60,6 @@ class SuperAdminServiceTest {
 
         // Mock the flow
         when(properties.getGoaldoneProjectId()).thenReturn(GOALDONE_PROJECT_ID);
-        when(properties.getGoaldoneOrgId()).thenReturn(GOALDONE_ORG_ID);
         when(zitadelClient.userExistsByEmail(email)).thenReturn(false);
         when(zitadelClient.addHumanUser(email)).thenReturn(userId);
         doNothing().when(zitadelClient).addUserGrant(userId, GOALDONE_PROJECT_ID, "SUPER_ADMIN");
@@ -92,9 +88,6 @@ class SuperAdminServiceTest {
         String adminToDeleteStr = adminToDelete.toString();
         UUID adminIdentityId = UUID.randomUUID();
         UUID adminAccountId = UUID.randomUUID();
-
-        when(properties.getGoaldoneProjectId()).thenReturn(GOALDONE_PROJECT_ID);
-        when(properties.getGoaldoneOrgId()).thenReturn(GOALDONE_ORG_ID);
 
         // Mock grants list (2 super-admins)
         ZitadelManagementClient.GrantsListResponse grantsResponse = new ZitadelManagementClient.GrantsListResponse(
@@ -196,11 +189,10 @@ class SuperAdminServiceTest {
     @Test
     void createSuperAdmin_addGrantFails_compensates() {
         String email = "admin2@goaldone.de";
-        String userId = "user-xyz";
+        String userId = UUID.randomUUID().toString();
         CreateSuperAdminRequest request = new CreateSuperAdminRequest(email);
 
         when(properties.getGoaldoneProjectId()).thenReturn(GOALDONE_PROJECT_ID);
-        when(properties.getGoaldoneOrgId()).thenReturn(GOALDONE_ORG_ID);
         when(zitadelClient.userExistsByEmail(email)).thenReturn(false);
         when(zitadelClient.addHumanUser(email)).thenReturn(userId);
         doThrow(new ZitadelUpstreamException("Zitadel error"))

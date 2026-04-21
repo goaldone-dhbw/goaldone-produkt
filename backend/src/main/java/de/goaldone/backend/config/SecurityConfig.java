@@ -14,6 +14,7 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.web.client.RestClient;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -31,12 +32,17 @@ public class SecurityConfig {
     private List<String> allowedOrigins;
 
     @Bean
+    public RestClient.Builder restClientBuilder() {
+        return RestClient.builder();
+    }
+
+    @Bean
     public JitProvisioningFilter jitProvisioningFilter(JitProvisioningService jitProvisioningService) {
         return new JitProvisioningFilter(jitProvisioningService);
     }
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http, JitProvisioningFilter jitProvisioningFilter) throws Exception {
+    public SecurityFilterChain filterChain(HttpSecurity http, JitProvisioningFilter jitProvisioningFilter) {
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(AbstractHttpConfigurer::disable)
