@@ -3,7 +3,6 @@ package de.goaldone.backend.service;
 import de.goaldone.backend.client.ZitadelManagementClient;
 import de.goaldone.backend.config.ZitadelManagementProperties;
 import de.goaldone.backend.entity.UserAccountEntity;
-import de.goaldone.backend.entity.UserIdentityEntity;
 import de.goaldone.backend.exception.EmailAlreadyInUseException;
 import de.goaldone.backend.exception.LastSuperAdminException;
 import de.goaldone.backend.exception.UserNotFoundException;
@@ -19,7 +18,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -109,7 +107,6 @@ public class SuperAdminService {
 
     /**
      * Delete a super-admin from both Zitadel and local DB.
-     *
      * Order: Zitadel first, then local DB.
      * Guard: Cannot delete the last remaining super-admin.
      */
