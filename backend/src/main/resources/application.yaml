@@ -13,7 +13,6 @@ spring:
           issuer-uri: ${ZITADEL_ISSUER_URI:http://localhost:8080}
 
 zitadel:
-  management-api-url: ${ZITADEL_MANAGEMENT_API_URL:http://localhost:8080}
   service-account-token: ${ZITADEL_SERVICE_ACCOUNT_TOKEN:}
   goaldone:
     project-id: ${ZITADEL_GOALDONE_PROJECT_ID:}
@@ -21,3 +20,9 @@ zitadel:
 server:
   servlet:
     context-path: /api/v1
+
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+  level:
+    root: INFO

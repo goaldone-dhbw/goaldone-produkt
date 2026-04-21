@@ -33,9 +33,11 @@ public class OrganizationManagementService {
     public OrganizationResponse createOrganization(CreateOrganizationRequest req) {
         // Preconditions: check before any Zitadel writes
         if (zitadelManagementClient.emailExists(req.getAdminEmail())) {
+            log.warn("Email {} already exists in Zitadel", req.getAdminEmail());
             throw new ConflictException("EMAIL_ALREADY_IN_USE");
         }
         if (organizationRepository.existsByName(req.getName())) {
+            log.warn("Organization name {} already exists", req.getName());
             throw new ConflictException("ORGANIZATION_NAME_ALREADY_EXISTS");
         }
 
@@ -45,6 +47,7 @@ public class OrganizationManagementService {
 
         try {
             // Step 3: Create organization in Zitadel
+            log.info("Creating organization in Zitadel: {}", req.getName());
             zitadelOrgId = zitadelManagementClient.addOrganization(req.getName());
 
             // Step 4: Create local shadow record

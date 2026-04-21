@@ -1,12 +1,14 @@
-import { Injectable, inject } from '@angular/core';
+import { inject, Injectable } from '@angular/core';
 import { Router } from '@angular/router';
 import { OAuthService } from 'angular-oauth2-oidc';
 import { filter } from 'rxjs';
+import { LoggerService } from '../logger.service';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private oauthService = inject(OAuthService);
   private router = inject(Router);
+  private logger = inject(LoggerService);
 
   initialize(): Promise<boolean> {
     // Read from window.__env at runtime (injected via env.js before app boot)
@@ -74,7 +76,7 @@ export class AuthService {
       }).join(''));
       return JSON.parse(decodedPayload);
     } catch (e) {
-      console.error("Error decoding JWT token:", e);
+      this.logger.error("Error decoding JWT token:", e);
       return null;
     }
   }
@@ -86,22 +88,16 @@ export class AuthService {
 
   getUserRoles(): string[] {
     const decodedToken = this.getDecodedAccessToken();
-    // Zitadel returns roles as an object: { ROLE_NAME: { projectId: "domain" }, ... }
-    // Extract role names as an array
     const rolesObj = decodedToken?.['urn:zitadel:iam:org:project:368981415120863239:roles'] || {};
-    const roles = typeof rolesObj === 'object' && !Array.isArray(rolesObj)
+    return typeof rolesObj === 'object' && !Array.isArray(rolesObj)
       ? Object.keys(rolesObj)
       : Array.isArray(rolesObj)
         ? rolesObj
         : [];
-    console.log("User roles:", roles);
-    return roles;
   }
 
   getUserOrganizationId(): string | null {
     const decodedToken = this.getDecodedAccessToken();
-    // TODO: Confirm the actual claim name for organization ID from a real Zitadel token.
-    // Common patterns: 'org_id' or 'organisation_id'.
     return (
       decodedToken?.['org_id'] || decodedToken?.['urn:zitadel:iam:user:resourceowner:id'] || null
     );

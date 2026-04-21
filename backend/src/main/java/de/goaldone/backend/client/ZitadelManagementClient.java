@@ -76,7 +76,7 @@ public class ZitadelManagementClient {
                     .body(body)
                     .retrieve()
                     .body(String.class);
-
+            log.info("Zitadel response: {}", responseBody);
             JsonNode response = objectMapper.readTree(responseBody);
             if (response != null && response.has("organizationId")) {
                 return response.get("organizationId").asText();
