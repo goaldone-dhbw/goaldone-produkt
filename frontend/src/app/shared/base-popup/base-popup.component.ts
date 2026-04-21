@@ -11,7 +11,7 @@ import { Button } from 'primeng/button';
 export class BasePopupComponent implements OnChanges {
   @Input() isOpen = false;
   @Input() title = 'Hinweis';
-  @Input() content = 'Bitte bestätige den Vorgang.';
+  @Input() content = '';
 
   @Input() confirmLabel = 'Ok';
   @Input() cancelLabel = 'Abbrechen';
