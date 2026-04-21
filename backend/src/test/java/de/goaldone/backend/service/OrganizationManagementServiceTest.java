@@ -46,12 +46,14 @@ class OrganizationManagementServiceTest {
         initService();
         CreateOrganizationRequest req = new CreateOrganizationRequest()
                 .name("GoalDone GmbH")
-                .adminEmail("admin@goaldone.de");
+                .adminEmail("admin@goaldone.de")
+                .adminFirstName("Max")
+                .adminLastName("Mustermann");
 
         when(zitadelManagementClient.emailExists("admin@goaldone.de")).thenReturn(false);
         when(organizationRepository.existsByName("GoalDone GmbH")).thenReturn(false);
         when(zitadelManagementClient.addOrganization("GoalDone GmbH")).thenReturn("org-123");
-        when(zitadelManagementClient.addHumanUser("org-123", "admin@goaldone.de")).thenReturn("user-xyz");
+        when(zitadelManagementClient.addHumanUser("org-123", "admin@goaldone.de", "Max", "Mustermann")).thenReturn("user-xyz");
 
         OrganizationResponse response = service.createOrganization(req);
 
@@ -63,8 +65,8 @@ class OrganizationManagementServiceTest {
         InOrder inOrder = inOrder(zitadelManagementClient);
         inOrder.verify(zitadelManagementClient).emailExists("admin@goaldone.de");
         inOrder.verify(zitadelManagementClient).addOrganization("GoalDone GmbH");
-        inOrder.verify(zitadelManagementClient).addHumanUser("org-123", "admin@goaldone.de");
-        inOrder.verify(zitadelManagementClient).addUserGrant("user-xyz", "test-project-id", "COMPANY_ADMIN");
+        inOrder.verify(zitadelManagementClient).addHumanUser("org-123", "admin@goaldone.de", "Max", "Mustermann");
+        inOrder.verify(zitadelManagementClient).addUserGrant("user-xyz", "org-123", "test-project-id", "COMPANY_ADMIN");
         inOrder.verify(zitadelManagementClient).createInviteCode("user-xyz");
     }
 
@@ -73,7 +75,9 @@ class OrganizationManagementServiceTest {
         initService();
         CreateOrganizationRequest req = new CreateOrganizationRequest()
                 .name("GoalDone GmbH")
-                .adminEmail("existing@example.com");
+                .adminEmail("existing@example.com")
+                .adminFirstName("Max")
+                .adminLastName("Mustermann");
 
         when(zitadelManagementClient.emailExists("existing@example.com")).thenReturn(true);
 
@@ -91,7 +95,9 @@ class OrganizationManagementServiceTest {
         initService();
         CreateOrganizationRequest req = new CreateOrganizationRequest()
                 .name("GoalDone GmbH")
-                .adminEmail("admin@goaldone.de");
+                .adminEmail("admin@goaldone.de")
+                .adminFirstName("Max")
+                .adminLastName("Mustermann");
 
         when(zitadelManagementClient.emailExists("admin@goaldone.de")).thenReturn(false);
         when(organizationRepository.existsByName("GoalDone GmbH")).thenReturn(true);
@@ -109,13 +115,15 @@ class OrganizationManagementServiceTest {
         initService();
         CreateOrganizationRequest req = new CreateOrganizationRequest()
                 .name("GoalDone GmbH")
-                .adminEmail("admin@goaldone.de");
+                .adminEmail("admin@goaldone.de")
+                .adminFirstName("Max")
+                .adminLastName("Mustermann");
 
         when(zitadelManagementClient.emailExists("admin@goaldone.de")).thenReturn(false);
         when(organizationRepository.existsByName("GoalDone GmbH")).thenReturn(false);
         when(zitadelManagementClient.addOrganization("GoalDone GmbH")).thenReturn("org-123");
         when(organizationRepository.save(any())).thenReturn(null);
-        when(zitadelManagementClient.addHumanUser("org-123", "admin@goaldone.de"))
+        when(zitadelManagementClient.addHumanUser("org-123", "admin@goaldone.de", "Max", "Mustermann"))
                 .thenThrow(new ZitadelApiException("500"));
 
         ZitadelApiException ex = assertThrows(ZitadelApiException.class, () ->
@@ -134,13 +142,15 @@ class OrganizationManagementServiceTest {
         initService();
         CreateOrganizationRequest req = new CreateOrganizationRequest()
                 .name("GoalDone GmbH")
-                .adminEmail("admin@goaldone.de");
+                .adminEmail("admin@goaldone.de")
+                .adminFirstName("Max")
+                .adminLastName("Mustermann");
 
         when(zitadelManagementClient.emailExists("admin@goaldone.de")).thenReturn(false);
         when(organizationRepository.existsByName("GoalDone GmbH")).thenReturn(false);
         when(zitadelManagementClient.addOrganization("GoalDone GmbH")).thenReturn("org-123");
         when(organizationRepository.save(any())).thenReturn(null);
-        when(zitadelManagementClient.addHumanUser("org-123", "admin@goaldone.de")).thenReturn("user-xyz");
+        when(zitadelManagementClient.addHumanUser("org-123", "admin@goaldone.de", "Max", "Mustermann")).thenReturn("user-xyz");
         doThrow(new ZitadelApiException("500")).when(zitadelManagementClient).createInviteCode("user-xyz");
 
         ZitadelApiException ex = assertThrows(ZitadelApiException.class, () ->
@@ -158,13 +168,15 @@ class OrganizationManagementServiceTest {
         initService();
         CreateOrganizationRequest req = new CreateOrganizationRequest()
                 .name("GoalDone GmbH")
-                .adminEmail("admin@goaldone.de");
+                .adminEmail("admin@goaldone.de")
+                .adminFirstName("Max")
+                .adminLastName("Mustermann");
 
         when(zitadelManagementClient.emailExists("admin@goaldone.de")).thenReturn(false);
         when(organizationRepository.existsByName("GoalDone GmbH")).thenReturn(false);
         when(zitadelManagementClient.addOrganization("GoalDone GmbH")).thenReturn("org-123");
         when(organizationRepository.save(any())).thenReturn(null);
-        when(zitadelManagementClient.addHumanUser("org-123", "admin@goaldone.de")).thenReturn("user-xyz");
+        when(zitadelManagementClient.addHumanUser("org-123", "admin@goaldone.de", "Max", "Mustermann")).thenReturn("user-xyz");
         doThrow(new ZitadelApiException("500")).when(zitadelManagementClient).createInviteCode("user-xyz");
         doThrow(new RuntimeException("Delete failed")).when(zitadelManagementClient).deleteUser("user-xyz");
 

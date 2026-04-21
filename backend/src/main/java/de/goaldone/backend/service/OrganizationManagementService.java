@@ -57,10 +57,10 @@ public class OrganizationManagementService {
             ));
 
             // Step 5: Create human user in Zitadel organization
-            zitadelUserId = zitadelManagementClient.addHumanUser(zitadelOrgId, req.getAdminEmail());
+            zitadelUserId = zitadelManagementClient.addHumanUser(zitadelOrgId, req.getAdminEmail(), req.getAdminFirstName(), req.getAdminLastName());
 
             // Step 6: Assign COMPANY_ADMIN role to user
-            zitadelManagementClient.addUserGrant(zitadelUserId, projectId, "COMPANY_ADMIN");
+            zitadelManagementClient.addUserGrant(zitadelUserId, zitadelOrgId, projectId, "COMPANY_ADMIN");
 
             // Step 7: Create invite code (sends email)
             zitadelManagementClient.createInviteCode(zitadelUserId);

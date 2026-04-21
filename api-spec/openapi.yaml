@@ -289,6 +289,8 @@ components:
       required:
         - name
         - adminEmail
+        - adminFirstName
+        - adminLastName
       properties:
         name:
           type: string
@@ -297,6 +299,14 @@ components:
         adminEmail:
           type: string
           format: email
+        adminFirstName:
+          type: string
+          minLength: 1
+          maxLength: 200
+        adminLastName:
+          type: string
+          minLength: 1
+          maxLength: 200
 
     OrganizationResponse:
       type: object
