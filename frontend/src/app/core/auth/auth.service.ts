@@ -88,7 +88,22 @@ export class AuthService {
 
   getUserRoles(): string[] {
     const decodedToken = this.getDecodedAccessToken();
-    const rolesObj = decodedToken?.['urn:zitadel:iam:org:project:368981415120863239:roles'] || {};
+    if (!decodedToken) {
+      return [];
+    }
+
+    // Search for roles in common claims
+    // 1. Generic 'roles'
+    // 2. Generic Zitadel project roles 'urn:zitadel:iam:org:project:roles'
+    // 3. Project-specific Zitadel roles 'urn:zitadel:iam:org:project:{projectId}:roles'
+    const rolesKey = Object.keys(decodedToken).find(key => 
+      key === 'roles' || 
+      key === 'urn:zitadel:iam:org:project:roles' || 
+      (key.startsWith('urn:zitadel:iam:org:project:') && key.endsWith(':roles'))
+    );
+
+    const rolesObj = rolesKey ? decodedToken[rolesKey] : {};
+
     return typeof rolesObj === 'object' && !Array.isArray(rolesObj)
       ? Object.keys(rolesObj)
       : Array.isArray(rolesObj)
@@ -99,7 +114,10 @@ export class AuthService {
   getUserOrganizationId(): string | null {
     const decodedToken = this.getDecodedAccessToken();
     return (
-      decodedToken?.['org_id'] || decodedToken?.['urn:zitadel:iam:user:resourceowner:id'] || null
+      decodedToken?.['org_id'] || 
+      decodedToken?.['organisation_id'] || 
+      decodedToken?.['urn:zitadel:iam:user:resourceowner:id'] || 
+      null
     );
   }
 }
