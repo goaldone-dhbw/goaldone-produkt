@@ -1,13 +1,14 @@
 package de.goaldone.backend.service;
 
 import de.goaldone.backend.model.ScheduleResponse;
+import de.goaldone.backend.model.TaskListResponse;
 import de.goaldone.backend.scheduler.Solver;
-import de.goaldone.backend.scheduler.types.model.PlanningContext;
-import de.goaldone.backend.scheduler.types.model.PlanningResult;
+import de.goaldone.backend.scheduler.types.model.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -17,19 +18,44 @@ import java.util.UUID;
 public class ScheduleService {
 
     Solver solver = new Solver();
+    TaskService taskService = new TaskService();
 
-    public ScheduleResponse generateSchedule(UUID goaldoneUserID, List<UUID> accountIDs) {
+    public ScheduleResponse generateSchedule(UUID accountID) {
 
-        // Validate goaldone user and its connected accounts using ids
+        // Tasks
+        TaskListResponse allTasks = taskService.listTasks(accountID);
 
+        // Chunk unpinned tasks
+        List<TaskChunk> chunks = null;
 
-        // Get data from database
+        // List pinned tasks
+        List<ScheduledChunk> pinnedChunks = null;
 
-        PlanningContext planningContext = null;
+        // Calculate free slots
+        List<TimeSlot> availableSlots = null;
+
+        // From which date on, should the tasks be loaded
+        // Where to get this date from?
+        LocalDate fromDate = null;
+
+        PlanningContext planningContext = new PlanningContext(
+                accountID,
+                fromDate,
+                availableSlots,
+                chunks,
+                pinnedChunks
+        );
 
         // Forward to schedule generator
         PlanningResult bestResult = solver.createSchedule(planningContext); //TODO: Pass tasks and appointments from db
 
         return null;
     }
+
+    public ScheduleResponse getSchedule() {
+        return null; //TODO
+    }
+
+
+
 }

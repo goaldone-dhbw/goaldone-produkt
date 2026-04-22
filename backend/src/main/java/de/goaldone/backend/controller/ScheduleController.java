@@ -4,6 +4,7 @@ import de.goaldone.backend.api.SchedulesApi;
 import de.goaldone.backend.model.GenerateScheduleRequest;
 import de.goaldone.backend.model.MultiAccountScheduleResponse;
 import de.goaldone.backend.model.ScheduleResponse;
+import de.goaldone.backend.scheduler.types.model.PlanningResult;
 import de.goaldone.backend.service.ScheduleService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -22,17 +23,24 @@ public class ScheduleController implements SchedulesApi {
 
     @Override
     public ResponseEntity<MultiAccountScheduleResponse> generateAllAccountsSchedule(GenerateScheduleRequest generateScheduleRequest) throws Exception {
+        // Validate goaldone user and its connected accounts using ids
+
         return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();
     }
 
     @Override
     public ResponseEntity<MultiAccountScheduleResponse> getAllAccountsSchedule(LocalDate from, LocalDate to) throws Exception {
+        // Validate goaldone user and its connected accounts using ids
+
         return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();
     }
 
     @Override
     public ResponseEntity<ScheduleResponse> generateSingleAccountSchedule(UUID accountId, GenerateScheduleRequest generateScheduleRequest) throws Exception {
-        return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();
+        //return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();
+
+        ScheduleResponse scheduleResponse = scheduleService.generateSchedule(accountId);
+        return ResponseEntity.status(201).body(scheduleResponse);
     }
 
     @Override

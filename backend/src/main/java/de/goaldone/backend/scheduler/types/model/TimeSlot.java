@@ -2,6 +2,7 @@ package de.goaldone.backend.scheduler.types.model;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.temporal.ChronoUnit;
 
 public record TimeSlot(
     LocalDate date,
@@ -9,6 +10,6 @@ public record TimeSlot(
     LocalTime endTime
 ) {
     public int durationMinutes() {
-        return (int) java.time.temporal.ChronoUnit.MINUTES.between(startTime, endTime);
+        return (int) ChronoUnit.MINUTES.between(startTime, endTime);
     }
 }

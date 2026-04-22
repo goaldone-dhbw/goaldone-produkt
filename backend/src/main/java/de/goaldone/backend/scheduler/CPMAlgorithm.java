@@ -8,24 +8,12 @@ import java.util.List;
 
 public class CPMAlgorithm {
 
-    private final ConstraintHandler constraintHandler;
+    ArrayList<ScheduleEntry> generateInitialSchedule(PlanningContext context) {
 
-    public CPMAlgorithm(ConstraintHandler constraintHandler) {
-        this.constraintHandler = constraintHandler;
-    }
-
-
-    //TODO: @Leon Parameters, Return Types
-    // heuristische bzw erste Lösung
-    PlanningResult generateInitialSchedule(PlanningContext context) {
-
+        // TODO: Implement CPM
 
         ArrayList<ScheduleEntry> schedule = null;
-
-        int score = constraintHandler.calculateScore(schedule);
-
-        throw new UnsupportedOperationException("CPM-Algorithm implementation pending");
-
+        return schedule;
     }
 
 
@@ -56,5 +44,4 @@ public class CPMAlgorithm {
                                  List<TaskSlack> forwardPassResults) {
         return null;
     }
-
 }
