@@ -12,6 +12,8 @@ tags:
     description: Health check operations
   - name: tasks
     description: Task management operations
+  - name: appointments
+    description: Appointment and break management
   - name: test
     description: Test operations
   - name: account-linking
@@ -147,6 +149,220 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AccountListResponse'
+
+  # ============================================================
+  # TASKS
+  # ============================================================
+  /accounts/{accountId}/tasks:
+    get:
+      tags: [tasks]
+      summary: List tasks for an account
+      operationId: listTasks
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AccountIdPath'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskListResponse'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Account not owned by user
+        '404':
+          description: Account not found
+
+    post:
+      tags: [tasks]
+      summary: Create a new task
+      operationId: createTask
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AccountIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskCreate'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Account not owned by user
+        '404':
+          description: Account not found
+
+  /accounts/{accountId}/tasks/{taskId}:
+    get:
+      tags: [tasks]
+      summary: Get a task by ID
+      operationId: getTask
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AccountIdPath'
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Account not owned by user
+        '404':
+          description: Task not found
+
+    delete:
+      tags: [tasks]
+      summary: Delete a task
+      operationId: deleteTask
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AccountIdPath'
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Deleted
+        '401':
+          description: Unauthorized
+        '403':
+          description: Account not owned by user
+        '404':
+          description: Task not found
+
+  # ============================================================
+  # APPOINTMENTS
+  # ============================================================
+  /accounts/{accountId}/appointments:
+    get:
+      tags: [appointments]
+      summary: List appointments for an account
+      operationId: listAppointments
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AccountIdPath'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppointmentListResponse'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Account not owned by user
+        '404':
+          description: Account not found
+
+    post:
+      tags: [appointments]
+      summary: Create a new appointment or break
+      operationId: createAppointment
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AccountIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AppointmentCreate'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Appointment'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Account not owned by user
+        '404':
+          description: Account not found
+
+  /accounts/{accountId}/appointments/{appointmentId}:
+    get:
+      tags: [appointments]
+      summary: Get an appointment by ID
+      operationId: getAppointment
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AccountIdPath'
+        - name: appointmentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Appointment'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Account not owned by user
+        '404':
+          description: Appointment not found
+
+    delete:
+      tags: [appointments]
+      summary: Delete an appointment
+      operationId: deleteAppointment
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AccountIdPath'
+        - name: appointmentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Deleted
+        '401':
+          description: Unauthorized
+        '403':
+          description: Account not owned by user
+        '404':
+          description: Appointment not found
 
   # ============================================================
   # SCHEDULES – Single Account
@@ -376,28 +592,173 @@ components:
     # ----------------------------------------------------------
     # Tasks
     # ----------------------------------------------------------
+    TaskStatus:
+      type: string
+      enum: [OPEN, IN_PROGRESS, DONE]
+
+    CognitiveLoad:
+      type: string
+      enum: [HIGH, MODERATE, LOW]
+
     Task:
       type: object
+      required: [id, accountId, title, status, estimatedDurationMinutes, cognitiveLoad, createdAt]
       properties:
         id:
-          type: integer
-          format: int64
+          type: string
+          format: uuid
+        accountId:
+          type: string
+          format: uuid
         title:
           type: string
         description:
           type: string
-        completed:
-          type: boolean
+          nullable: true
+        status:
+          $ref: '#/components/schemas/TaskStatus'
+        estimatedDurationMinutes:
+          type: integer
+          description: Estimated duration in minutes
+        cognitiveLoad:
+          $ref: '#/components/schemas/CognitiveLoad'
+        customChunkSizeMinutes:
+          type: integer
+          nullable: true
+          description: Override default chunk size for this task
+        deadline:
+          type: string
+          format: date-time
+          nullable: true
+        notBefore:
+          type: string
+          format: date-time
+          nullable: true
+          description: Do not schedule before this date/time
+        dependsOnTaskId:
+          type: string
+          format: uuid
+          nullable: true
+          description: ID of prerequisite task (single dependency)
+        createdAt:
+          type: string
+          format: date-time
 
     TaskCreate:
       type: object
-      required:
-        - title
+      required: [title, estimatedDurationMinutes, cognitiveLoad]
       properties:
         title:
           type: string
         description:
           type: string
+          nullable: true
+        estimatedDurationMinutes:
+          type: integer
+        cognitiveLoad:
+          $ref: '#/components/schemas/CognitiveLoad'
+        customChunkSizeMinutes:
+          type: integer
+          nullable: true
+        deadline:
+          type: string
+          format: date-time
+          nullable: true
+        notBefore:
+          type: string
+          format: date-time
+          nullable: true
+        dependsOnTaskId:
+          type: string
+          format: uuid
+          nullable: true
+
+    TaskListResponse:
+      type: object
+      required: [tasks]
+      properties:
+        tasks:
+          type: array
+          items:
+            $ref: '#/components/schemas/Task'
+
+    # ----------------------------------------------------------
+    # Appointments
+    # ----------------------------------------------------------
+    AppointmentType:
+      type: string
+      enum: [ONE_TIME, RECURRING]
+
+    Appointment:
+      type: object
+      required: [id, accountId, title, isBreak, appointmentType, startTime, endTime, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        accountId:
+          type: string
+          format: uuid
+        title:
+          type: string
+        isBreak:
+          type: boolean
+          description: true = break/pause, false = appointment/meeting
+        appointmentType:
+          $ref: '#/components/schemas/AppointmentType'
+        date:
+          type: string
+          format: date
+          nullable: true
+          description: Required for ONE_TIME, null for RECURRING
+        startTime:
+          type: string
+          pattern: '^([01]\d|2[0-3]):[0-5]\d$'
+          description: Start time in HH:mm format
+        endTime:
+          type: string
+          pattern: '^([01]\d|2[0-3]):[0-5]\d$'
+          description: End time in HH:mm format
+        rrule:
+          type: string
+          nullable: true
+          description: iCal RRule expression for recurrence (required for RECURRING)
+        createdAt:
+          type: string
+          format: date-time
+
+    AppointmentCreate:
+      type: object
+      required: [title, isBreak, appointmentType, startTime, endTime]
+      properties:
+        title:
+          type: string
+        isBreak:
+          type: boolean
+        appointmentType:
+          $ref: '#/components/schemas/AppointmentType'
+        date:
+          type: string
+          format: date
+          nullable: true
+        startTime:
+          type: string
+          pattern: '^([01]\d|2[0-3]):[0-5]\d$'
+        endTime:
+          type: string
+          pattern: '^([01]\d|2[0-3]):[0-5]\d$'
+        rrule:
+          type: string
+          nullable: true
+
+    AppointmentListResponse:
+      type: object
+      required: [appointments]
+      properties:
+        appointments:
+          type: array
+          items:
+            $ref: '#/components/schemas/Appointment'
 
     # ----------------------------------------------------------
     # Account Linking
