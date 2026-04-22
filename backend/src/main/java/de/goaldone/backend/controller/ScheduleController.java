@@ -1,17 +1,21 @@
 package de.goaldone.backend.controller;
 
 import de.goaldone.backend.api.SchedulesApi;
+import de.goaldone.backend.entity.UserAccountEntity;
 import de.goaldone.backend.model.GenerateScheduleRequest;
 import de.goaldone.backend.model.MultiAccountScheduleResponse;
 import de.goaldone.backend.model.ScheduleResponse;
 import de.goaldone.backend.scheduler.types.model.PlanningResult;
+import de.goaldone.backend.service.CurrentUserResolver;
 import de.goaldone.backend.service.ScheduleService;
+import de.goaldone.backend.service.UserIdentityService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 
@@ -20,10 +24,28 @@ import java.util.UUID;
 public class ScheduleController implements SchedulesApi {
 
     private final ScheduleService scheduleService;
+    private final UserIdentityService userIdentityService;
+    private final CurrentUserResolver currentUserResolver;
+
+
+    private List<UserAccountEntity> getAccountsLinkedToIdentity() {
+        var jwt = currentUserResolver.extractJwt();
+        return userIdentityService.
+                findAccountsForIdentity(userIdentityService.findIdentityFromAccount(jwt));
+    }
 
     @Override
     public ResponseEntity<MultiAccountScheduleResponse> generateAllAccountsSchedule(GenerateScheduleRequest generateScheduleRequest) throws Exception {
-        // Validate goaldone user and its connected accounts using ids
+
+        List<UUID> accountIds = getAccountsLinkedToIdentity().
+                stream()
+                .map(UserAccountEntity::getUserIdentityId)
+                .toList();
+
+        List<ScheduleResponse> scheduleResponses = scheduleService.generateMultiAccountSchedule(
+                accountIds, generateScheduleRequest, 10000
+        );
+
 
         return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();
     }
@@ -37,9 +59,7 @@ public class ScheduleController implements SchedulesApi {
 
     @Override
     public ResponseEntity<ScheduleResponse> generateSingleAccountSchedule(UUID accountId, GenerateScheduleRequest generateScheduleRequest) throws Exception {
-        //return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();
-
-        ScheduleResponse scheduleResponse = scheduleService.generateSchedule(accountId);
+        ScheduleResponse scheduleResponse = scheduleService.generateSchedule(accountId, generateScheduleRequest);
         return ResponseEntity.status(201).body(scheduleResponse);
     }
 

@@ -20,14 +20,36 @@ public class UserIdentityService {
     private final UserAccountRepository userAccountRepository;
     private final OrganizationRepository organizationRepository;
 
+
+    /**
+     *
+     * @param jwt The current web-token
+     * @return The identityId for the current account
+     */
+    public UUID findIdentityFromAccount(Jwt jwt) {
+        UserAccountEntity currentAccount = getCurrentAccount(jwt);
+        return currentAccount.getUserIdentityId();
+    }
+
+
     public List<UserAccountEntity> findAccountsForIdentity(UUID identityId) {
         return userAccountRepository.findAllByUserIdentityId(identityId);
     }
 
+    /**
+     *
+     * @param jwt The current web-token
+     * @return The current account from the token
+     */
+    private UserAccountEntity getCurrentAccount(Jwt jwt) {
+        return userAccountRepository
+                .findByZitadelSub(jwt.getSubject())
+                .orElseThrow(() -> new IllegalStateException("Account not found after JIT provisioning"));
+    }
+
+
     public AccountListResponse buildAccountListResponse(Jwt jwt) {
-        UserAccountEntity currentAccount = userAccountRepository
-            .findByZitadelSub(jwt.getSubject())
-            .orElseThrow(() -> new IllegalStateException("Account not found after JIT provisioning"));
+        UserAccountEntity currentAccount = getCurrentAccount(jwt);
 
         List<UserAccountEntity> accounts = findAccountsForIdentity(currentAccount.getUserIdentityId());
 

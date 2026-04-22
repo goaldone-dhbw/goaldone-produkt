@@ -1,5 +1,6 @@
 package de.goaldone.backend.service;
 
+import de.goaldone.backend.model.GenerateScheduleRequest;
 import de.goaldone.backend.model.ScheduleResponse;
 import de.goaldone.backend.model.TaskListResponse;
 import de.goaldone.backend.scheduler.Solver;
@@ -10,7 +11,10 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.*;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -20,10 +24,52 @@ public class ScheduleService {
     Solver solver = new Solver();
     TaskService taskService = new TaskService();
 
-    public ScheduleResponse generateSchedule(UUID accountID) {
+    private final Executor executor = Executors.newFixedThreadPool(5);
+
+    public List<ScheduleResponse> generateMultiAccountSchedule(
+            List<UUID> accountIds,
+            GenerateScheduleRequest request,
+            long timeoutMilliseconds) {
+
+        // Create async tasks for each account
+        List<CompletableFuture<ScheduleResponse>> futures = accountIds.stream()
+            .map(accountId ->
+                CompletableFuture.supplyAsync(
+                        () -> generateSchedule(accountId, request), executor
+                    )
+                    // If task takes too long → complete with null instead of blocking
+                    .completeOnTimeout(null, timeoutMilliseconds, TimeUnit.MILLISECONDS)
+
+                    // Handle exceptions per task (prevents whole pipeline from failing)
+                    .exceptionally(ex -> {
+                        // log error if needed
+                        System.err.println("Error processing account " + accountId + ": " + ex.getMessage());
+                        return null;
+                    })
+            )
+            .toList();
+
+        /*
+         * At this point:
+         * - All tasks are running in parallel
+         * - Each task has its own timeout
+         * - No global blocking is required
+         */
+
+        // Collect results (JOIN is safe here because each future is guaranteed to complete)
+        List<ScheduleResponse> results = futures.stream()
+                .map(CompletableFuture::join)   // non-blocking due to completeOnTimeout
+                .filter(Objects::nonNull)       // remove timed-out or failed tasks
+                .toList();
+
+        return results;
+    }
+
+
+    public ScheduleResponse generateSchedule(UUID accountId, GenerateScheduleRequest generateScheduleRequest) {
 
         // Tasks
-        TaskListResponse allTasks = taskService.listTasks(accountID);
+        TaskListResponse allTasks = taskService.listTasks(accountId);
 
         // Chunk unpinned tasks
         List<TaskChunk> chunks = null;
@@ -35,11 +81,10 @@ public class ScheduleService {
         List<TimeSlot> availableSlots = null;
 
         // From which date on, should the tasks be loaded
-        // Where to get this date from?
-        LocalDate fromDate = null;
+        LocalDate fromDate = generateScheduleRequest.getFrom();
 
         PlanningContext planningContext = new PlanningContext(
-                accountID,
+                accountId,
                 fromDate,
                 availableSlots,
                 chunks,
