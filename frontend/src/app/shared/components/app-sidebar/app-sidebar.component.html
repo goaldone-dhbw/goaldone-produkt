@@ -1,0 +1,14 @@
+<aside class="sidebar">
+  <div class="sidebar-top">
+    <div class="brand">
+      <p-image src="/logo.png" alt="Goaldone Logo" [preview]="false" width="50px" styleClass="brand-logo"
+               routerLink="/app" />
+      <span>Goaldone</span>
+    </div>
+    @if(navigationItems().length > 0){
+    <p-menu [model]="navigationItems()"></p-menu>}
+  </div>
+  <div class="menu-navigation-items">
+    <p-menu [model]="settingsItems()"></p-menu>
+  </div>
+</aside>

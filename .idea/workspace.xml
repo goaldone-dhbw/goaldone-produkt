@@ -4,17 +4,39 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="33e17ea6-9527-4888-9611-97e8641f4316" name="Changes" comment="feat: add Docker Compose infrastructure for Zitadel IdP setup&#10;&#10;- Create docker-compose.yml with Traefik, PostgreSQL, and Zitadel services&#10;   - Traefik configured for reverse proxy with Let's Encrypt (Cloudflare DNS challenge)&#10;   - PostgreSQL with named volume for persistent data storage&#10;   - Zitadel with initial organization and superadmin account setup&#10;   - gRPC passthrough configuration for Zitadel API compatibility&#10;   - .env.example for all required configuration variables&#10;   - .gitignore to prevent committing sensitive environment files&#10;   - Comprehensive README with setup, deployment, and troubleshooting guides&#10;&#10;   This implements the VPS infrastructure foundation for authentication.&#10;   OIDC application configuration will be handled in a subsequent ticket.">
-      <change afterPath="$PROJECT_DIR$/frontend/src/app/core/layouts/app-shell/app-shell.component.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/frontend/src/app/core/layouts/app-shell/app-shell.component.scss" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/frontend/src/app/core/layouts/app-shell/app-shell.component.ts" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/frontend/src/app/shared/components/app-sidebar/app-sidebar.component.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/frontend/src/app/shared/components/app-sidebar/app-sidebar.component.scss" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/frontend/src/app/shared/components/app-sidebar/app-sidebar.component.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/encodings.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/encodings.xml" afterDir="false" />
+    <list default="true" id="33e17ea6-9527-4888-9611-97e8641f4316" name="Changes" comment="Initial commit">
+      <change afterPath="$PROJECT_DIR$/frontend/public/logo.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/src/app/features/mainpage/mainpage.html" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/src/app/features/mainpage/mainpage.scss" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/src/app/features/mainpage/mainpage.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/src/app/features/org-settings/org-settings.page.html" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/src/app/features/org-settings/org-settings.page.scss" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/src/app/features/org-settings/org-settings.page.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/src/app/features/schedule/schedule.page.html" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/src/app/features/schedule/schedule.page.scss" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/src/app/features/schedule/schedule.page.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/src/app/features/super-admins-settings/super-admin.page.html" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/src/app/features/super-admins-settings/super-admin.page.scss" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/src/app/features/super-admins-settings/super-admin.page.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/src/app/features/tasks/tasks.page.html" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/src/app/features/tasks/tasks.page.scss" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/src/app/features/tasks/tasks.page.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/src/app/features/user-settings/user-settings.page.html" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/src/app/features/user-settings/user-settings.page.scss" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/src/app/features/user-settings/user-settings.page.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/src/app/features/working-hours/working-hours.page.html" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/src/app/features/working-hours/working-hours.page.scss" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/src/app/features/working-hours/working-hours.page.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/angular.json" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/angular.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/package-lock.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/app/app.routes.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/app/app.routes.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/app/core/auth/auth.service.spec.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/app/core/auth/auth.service.spec.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/app/core/auth/auth.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/app/core/auth/auth.service.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/app/core/layouts/app-shell/app-shell.component.scss" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/app/core/layouts/app-shell/app-shell.component.scss" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/app/core/layouts/app-shell/app-shell.component.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/app/core/layouts/app-shell/app-shell.component.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/app/features/test-page/test-page.component.html" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/app/features/test-page/test-page.component.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/app/shared/components/app-sidebar/app-sidebar.component.html" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/app/shared/components/app-sidebar/app-sidebar.component.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/app/shared/components/app-sidebar/app-sidebar.component.scss" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/app/shared/components/app-sidebar/app-sidebar.component.scss" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/app/shared/components/app-sidebar/app-sidebar.component.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/app/shared/components/app-sidebar/app-sidebar.component.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -24,7 +46,11 @@
   <component name="CopilotPersistence">
     <persistenceIdMap>
       <entry key="_/Users/johannes/IdeaProjects/goaldone/goaldone-projekt" value="3CPBek0JclxSbqfNFYAElDJGQqP" />
+      <entry key="_/Users/pia-marie/Documents/DHBW/SWE/goaldone-produkt" value="3CfTqUeeJoHqsSRWNpK1MNciXWd" />
     </persistenceIdMap>
+  </component>
+  <component name="CopilotUserSelectedChatMode">
+    <option name="chatModeId" value="Agent" />
   </component>
   <component name="EmbeddingIndexingInfo">
     <option name="cachedIndexableFilesCount" value="85" />
@@ -94,20 +120,25 @@
     "git.auto.fetch.suggestion.counter": "1",
     "junie.onboarding.icon.badge.shown": "true",
     "kotlin-language-version-configured": "true",
-    "last_opened_file_path": "/Users/pia-marie/Documents/DHBW/SWE/goaldone-produkt",
+    "last_opened_file_path": "/Users/pia-marie/Documents/DHBW/SWE/goaldone-produkt/frontend/src/app/core/auth",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
     "node.js.selected.package.tslint": "(autodetect)",
     "nodejs_package_manager_path": "npm",
     "npm.test.executor": "Run",
-    "prettierjs.PrettierConfiguration.Package": "/Users/johannes/IdeaProjects/goaldone/goaldone-projekt/frontend/node_modules/prettier",
+    "prettierjs.PrettierConfiguration.Package": "/Users/pia-marie/Documents/DHBW/SWE/goaldone-produkt/frontend/node_modules/prettier",
     "settings.editor.selected.configurable": "preferences.pluginManager",
     "to.speed.mode.migration.done": "true",
     "ts.external.directory.path": "/Users/pia-marie/Documents/DHBW/SWE/goaldone-produkt/frontend/node_modules/typescript/lib",
     "vue.rearranger.settings.migration": "true"
   }
 }]]></component>
+  <component name="RecentsManager">
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/frontend/src/app/core/auth" />
+    </key>
+  </component>
   <component name="RunManager" selected="Spring Boot.BackendApplication Local">
     <configuration name="BackendApplication Local" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot">
       <option name="ACTIVE_PROFILES" value="local" />
@@ -152,7 +183,10 @@
       <workItem from="1776675086494" duration="851000" />
       <workItem from="1776688901571" duration="1532000" />
       <workItem from="1776755203594" duration="2028000" />
-      <workItem from="1776765331664" duration="4414000" />
+      <workItem from="1776765331664" duration="7095000" />
+      <workItem from="1776775770609" duration="8957000" />
+      <workItem from="1776847933152" duration="633000" />
+      <workItem from="1776848573664" duration="7838000" />
     </task>
     <task id="LOCAL-00001" summary="Reinitialize frontend">
       <option name="closed" value="true" />
@@ -186,7 +220,15 @@
       <option name="project" value="LOCAL" />
       <updated>1776278893268</updated>
     </task>
-    <option name="localTasksCounter" value="5" />
+    <task id="LOCAL-00005" summary="Initial commit">
+      <option name="closed" value="true" />
+      <created>1776773124036</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1776773124037</updated>
+    </task>
+    <option name="localTasksCounter" value="6" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -208,7 +250,8 @@
     <MESSAGE value="feat: add OpenAPI client generation and health check endpoints" />
     <MESSAGE value="chore: rename CI jobs for clarity and update workspace configuration" />
     <MESSAGE value="feat: add Docker Compose infrastructure for Zitadel IdP setup&#10;&#10;- Create docker-compose.yml with Traefik, PostgreSQL, and Zitadel services&#10;   - Traefik configured for reverse proxy with Let's Encrypt (Cloudflare DNS challenge)&#10;   - PostgreSQL with named volume for persistent data storage&#10;   - Zitadel with initial organization and superadmin account setup&#10;   - gRPC passthrough configuration for Zitadel API compatibility&#10;   - .env.example for all required configuration variables&#10;   - .gitignore to prevent committing sensitive environment files&#10;   - Comprehensive README with setup, deployment, and troubleshooting guides&#10;&#10;   This implements the VPS infrastructure foundation for authentication.&#10;   OIDC application configuration will be handled in a subsequent ticket." />
-    <option name="LAST_COMMIT_MESSAGE" value="feat: add Docker Compose infrastructure for Zitadel IdP setup&#10;&#10;- Create docker-compose.yml with Traefik, PostgreSQL, and Zitadel services&#10;   - Traefik configured for reverse proxy with Let's Encrypt (Cloudflare DNS challenge)&#10;   - PostgreSQL with named volume for persistent data storage&#10;   - Zitadel with initial organization and superadmin account setup&#10;   - gRPC passthrough configuration for Zitadel API compatibility&#10;   - .env.example for all required configuration variables&#10;   - .gitignore to prevent committing sensitive environment files&#10;   - Comprehensive README with setup, deployment, and troubleshooting guides&#10;&#10;   This implements the VPS infrastructure foundation for authentication.&#10;   OIDC application configuration will be handled in a subsequent ticket." />
+    <MESSAGE value="Initial commit" />
+    <option name="LAST_COMMIT_MESSAGE" value="Initial commit" />
   </component>
   <component name="github-copilot-workspace">
     <instructionFileLocations>
