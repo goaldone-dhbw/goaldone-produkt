@@ -1,0 +1,21 @@
+info:
+  name: Neuen Super-Admin einladen
+  type: http
+  seq: 2
+
+http:
+  method: POST
+  url: "{{baseUrl}}/admins/super-admins"
+  body:
+    type: json
+    data: |-
+      {
+        "email": ""
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
