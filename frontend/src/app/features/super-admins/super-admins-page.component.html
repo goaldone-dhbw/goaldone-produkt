@@ -1,0 +1,18 @@
+<div class="p-5 flex flex-column gap-4">
+  <h1>Super-Admins</h1>
+
+  <p>
+    Testseite zum Öffnen des Dialogs.
+  </p>
+
+  <p-button
+    label="Super-Admin hinzufügen"
+    (onClick)="openAddDialog()"
+  ></p-button>
+
+  <app-add-super-admin-dialog
+    [visible]="addDialogVisible"
+    (visibleChange)="onDialogVisibleChange($event)"
+    (added)="onAdded()"
+  ></app-add-super-admin-dialog>
+</div>
