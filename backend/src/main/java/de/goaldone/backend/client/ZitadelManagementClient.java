@@ -15,6 +15,7 @@ import org.springframework.web.client.RestClientResponseException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @Slf4j
 @Component
@@ -33,7 +34,7 @@ public class ZitadelManagementClient {
     }
 
     /**
-     * POST /v2/users — search by email to check existence.
+     * POST /v2/users — search by email to check existence (instance-wide).
      */
     public boolean emailExists(String email) {
         try {
@@ -71,6 +72,189 @@ public class ZitadelManagementClient {
     }
 
     /**
+     * POST /v2/organizations/_search — search organizations by ID.
+     */
+    public boolean organizationExists(String orgId) {
+        try {
+            Map<String, Object> body = Map.of(
+                    "queries", List.of(Map.of("idQuery", Map.of("id", orgId)))
+            );
+
+            String responseBody = restClient.post()
+                    .uri("/v2/organizations/_search")
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + serviceAccountToken)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(body)
+                    .retrieve()
+                    .body(String.class);
+
+            JsonNode response = objectMapper.readTree(responseBody);
+            if (response != null && response.has("result")) {
+                JsonNode resultArray = response.get("result");
+                return resultArray != null && !resultArray.isEmpty();
+            }
+            return false;
+        } catch (Exception e) {
+            log.error("Failed to check organization existence for {}: {}", orgId, e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * POST /management/v1/users/grants/_search — search user grants.
+     */
+    public List<String> listUserIdsByRole(String orgId, String projectId, String roleKey) {
+        try {
+            Map<String, Object> roleQuery = Map.of(
+                    "roleKey", roleKey,
+                    "method", "TEXT_QUERY_METHOD_EQUALS"
+            );
+            Map<String, Object> projectQuery = Map.of(
+                    "projectId", projectId
+            );
+            Map<String, Object> body = Map.of(
+                    "queries", List.of(
+                            Map.of("roleKeyQuery", roleQuery),
+                            Map.of("projectIdQuery", projectQuery)
+                    )
+            );
+
+            String responseBody = restClient.post()
+                    .uri("/management/v1/users/grants/_search")
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + serviceAccountToken)
+                    .header("x-zitadel-orgid", orgId)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(body)
+                    .retrieve()
+                    .body(String.class);
+
+            JsonNode response = objectMapper.readTree(responseBody);
+            if (response != null && response.has("result")) {
+                return response.findValuesAsText("userId");
+            }
+            return List.of();
+        } catch (Exception e) {
+            log.error("Failed to list user grants for role {} in project {} (org {}): {}", roleKey, projectId, orgId, e.getMessage());
+            throw new ZitadelApiException("Failed to list authorizations: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * GET /v2/users/{userId} — get user details.
+     */
+    public Optional<JsonNode> getUser(String userId) {
+        try {
+            String responseBody = restClient.get()
+                    .uri("/v2/users/{userId}", userId)
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + serviceAccountToken)
+                    .retrieve()
+                    .body(String.class);
+
+            JsonNode response = objectMapper.readTree(responseBody);
+            return Optional.ofNullable(response.get("user"));
+        } catch (RestClientResponseException e) {
+            if (e.getStatusCode().value() == 404) {
+                return Optional.empty();
+            }
+            throw new ZitadelApiException("Failed to get user: " + e.getMessage(), e);
+        } catch (Exception e) {
+            throw new ZitadelApiException("Failed to get user: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * POST /v2/users/human — create a human user.
+     */
+    public String addHumanUser(String zitadelOrgId, String email, String firstName, String lastName) {
+        try {
+            Map<String, Object> emailObj = Map.of(
+                    "email", email,
+                    "isVerified", false
+            );
+            Map<String, Object> orgObj = Map.of("orgId", zitadelOrgId);
+            Map<String, Object> profileObj = Map.of(
+                    "givenName", firstName,
+                    "familyName", lastName
+            );
+
+            Map<String, Object> body = new HashMap<>();
+            body.put("organization", orgObj);
+            body.put("profile", profileObj);
+            body.put("email", emailObj);
+
+            String responseBody = restClient.post()
+                    .uri("/v2/users/human")
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + serviceAccountToken)
+                    .header("x-zitadel-orgid", zitadelOrgId)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(body)
+                    .retrieve()
+                    .body(String.class);
+
+            JsonNode response = objectMapper.readTree(responseBody);
+            if (response != null && response.has("userId")) {
+                return response.get("userId").asText();
+            }
+            throw new ZitadelApiException("No userId in Zitadel response");
+        } catch (RestClientResponseException e) {
+            String errorMsg = String.format("Failed to create user in Zitadel: %s: %s", e.getMessage(), e.getResponseBodyAsString());
+            log.error(errorMsg);
+            throw new ZitadelApiException(errorMsg, e);
+        } catch (Exception e) {
+            throw new ZitadelApiException("Failed to create user in Zitadel: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * POST /management/v1/users/{userId}/grants — assign a project role.
+     */
+    public void addUserGrant(String userId, String mainOrgId, String projectId, String roleKey) {
+        try {
+            Map<String, Object> body = new HashMap<>();
+            body.put("projectId", projectId);
+            body.put("roleKeys", List.of(roleKey));
+
+            restClient.post()
+                    .uri("/management/v1/users/{userId}/grants", userId)
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + serviceAccountToken)
+                    .header("x-zitadel-orgid", mainOrgId)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(body)
+                    .retrieve()
+                    .toBodilessEntity();
+        } catch (RestClientResponseException e) {
+            String errorMsg = String.format("Failed to add user grant in Zitadel (v1): %s: %s", e.getMessage(), e.getResponseBodyAsString());
+            log.error(errorMsg);
+            throw new ZitadelApiException(errorMsg, e);
+        } catch (RestClientException e) {
+            throw new ZitadelApiException("Failed to add user grant in Zitadel: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * POST /v2/users/{userId}/invite_code — send invitation email.
+     */
+    public void createInviteCode(String userId) {
+        try {
+            Map<String, Object> body = Map.of("sendCode", Map.of());
+
+            restClient.post()
+                    .uri("/v2/users/{userId}/invite_code", userId)
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + serviceAccountToken)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(body)
+                    .retrieve()
+                    .toBodilessEntity();
+        } catch (RestClientResponseException e) {
+            String errorMsg = String.format("Failed to create invite code: %s: %s", e.getMessage(), e.getResponseBodyAsString());
+            log.error(errorMsg);
+            throw new ZitadelApiException(errorMsg, e);
+        } catch (RestClientException e) {
+            throw new ZitadelApiException("Failed to create invite code: " + e.getMessage(), e);
+        }
+    }
+
+    /**
      * POST /v2/organizations — create a new organization.
      */
     public String addOrganization(String name) {
@@ -101,101 +285,6 @@ public class ZitadelManagementClient {
         }
     }
 
-    /**
-     * POST /v2/users/human — create a human user in the given organization.
-     * Organization is passed both in the request body and via header.
-     */
-    public String addHumanUser(String zitadelOrgId, String email, String firstName, String lastName) {
-        try {
-            Map<String, Object> emailObj = Map.of(
-                    "email", email,
-                    "isVerified", false
-            );
-            Map<String, Object> orgObj = Map.of("orgId", zitadelOrgId);
-            Map<String, Object> profileObj = Map.of(
-                    "givenName", firstName,
-                    "familyName", lastName
-            );
-
-            Map<String, Object> body = new HashMap<>();
-            body.put("organization", orgObj);
-            body.put("profile", profileObj);
-            body.put("email", emailObj);
-
-            String responseBody = restClient.post()
-                    .uri("/v2/users/human")
-                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + serviceAccountToken)
-                    .header("x-zitadel-orgid", zitadelOrgId)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(body)
-                    .retrieve()
-                    .body(String.class);
-            log.info("Zitadel user creation response: {}", responseBody);
-            JsonNode response = objectMapper.readTree(responseBody);
-            if (response != null && response.has("userId")) {
-                return response.get("userId").asText();
-            }
-            throw new ZitadelApiException("No userId in Zitadel response");
-        } catch (ZitadelApiException e) {
-            throw e;
-        } catch (RestClientResponseException e) {
-            String errorMsg = String.format("Failed to create user in Zitadel: %s: %s", e.getMessage(), e.getResponseBodyAsString());
-            log.error(errorMsg);
-            throw new ZitadelApiException(errorMsg, e);
-        } catch (Exception e) {
-            throw new ZitadelApiException("Failed to create user in Zitadel: " + e.getMessage(), e);
-        }
-    }
-
-    /**
-     * POST /management/v1/users/{userId}/grants — assign a project role to a user.
-     */
-    public void addUserGrant(String userId, String mainOrgId, String projectId, String roleKey) {
-        try {
-            Map<String, Object> body = new HashMap<>();
-            body.put("projectId", projectId);
-            body.put("roleKeys", List.of(roleKey));
-
-            restClient.post()
-                    .uri("/management/v1/users/{userId}/grants", userId)
-                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + serviceAccountToken)
-                    .header("x-zitadel-orgid", mainOrgId)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(body)
-                    .retrieve()
-                    .toBodilessEntity();
-        } catch (RestClientResponseException e) {
-            String errorMsg = String.format("Failed to add user grant in Zitadel (v1): %s: %s", e.getMessage(), e.getResponseBodyAsString());
-            log.error(errorMsg);
-            throw new ZitadelApiException(errorMsg, e);
-        } catch (RestClientException e) {
-            throw new ZitadelApiException("Failed to add user grant in Zitadel: " + e.getMessage(), e);
-        }
-    }
-
-    /**
-     * POST /v2/users/{userId}/invite_code — send an invitation email to the user.
-     */
-    public void createInviteCode(String userId) {
-        try {
-            Map<String, Object> body = Map.of("sendCode", Map.of());
-
-            restClient.post()
-                    .uri("/v2/users/{userId}/invite_code", userId)
-                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + serviceAccountToken)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(body)
-                    .retrieve()
-                    .toBodilessEntity();
-        } catch (RestClientResponseException e) {
-            String errorMsg = String.format("Failed to create invite code: %s: %s", e.getMessage(), e.getResponseBodyAsString());
-            log.error(errorMsg);
-            throw new ZitadelApiException(errorMsg, e);
-        } catch (RestClientException e) {
-            throw new ZitadelApiException("Failed to create invite code: " + e.getMessage(), e);
-        }
-    }
-
     public void deleteOrganization(String zitadelOrgId) {
         try {
             restClient.delete()
@@ -218,9 +307,9 @@ public class ZitadelManagementClient {
                     .retrieve()
                     .toBodilessEntity();
         } catch (RestClientResponseException e) {
-            log.error("Failed to delete user {} during compensation: {}: {}", userId, e.getMessage(), e.getResponseBodyAsString());
+            log.error("Failed to delete user {}: {}: {}", userId, e.getMessage(), e.getResponseBodyAsString());
         } catch (RestClientException e) {
-            log.error("Failed to delete user {} during compensation: {}", userId, e.getMessage());
+            log.error("Failed to delete user {}: {}", userId, e.getMessage());
         }
     }
 }

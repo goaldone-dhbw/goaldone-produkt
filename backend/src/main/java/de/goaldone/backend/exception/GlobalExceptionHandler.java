@@ -51,4 +51,11 @@ public class GlobalExceptionHandler {
         pd.setType(URI.create("https://goaldone.de/errors/upstream-error"));
         return pd;
     }
+
+    @ExceptionHandler(org.springframework.web.server.ResponseStatusException.class)
+    public ProblemDetail handleResponseStatus(org.springframework.web.server.ResponseStatusException ex) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(ex.getStatusCode(), ex.getReason());
+        pd.setTitle(ex.getReason());
+        return pd;
+    }
 }
