@@ -1,5 +1,8 @@
 package de.goaldone.backend.scheduler;
 
+import de.goaldone.backend.scheduler.types.model.PlanningContext;
+import de.goaldone.backend.scheduler.types.model.PlanningResult;
+
 public class Solver {
 
     ConstraintHandler constraintHandler;
@@ -8,22 +11,17 @@ public class Solver {
         this.constraintHandler = new ConstraintHandler();
     }
 
-
-    //TODO: @Leon Parameters, Return Types
-    public void createSchedule() {
-        // CPMAlgo.generateInitialSchedule
-        // algo Aufrufe etc.
-
-        // schedule besteht aus ArrayList<ScheduleEntry>
-
-        int scheduleScore = this.constraintHandler.calculateScore(null);
-
-    }
-
     public PlanningResult createSchedule(PlanningContext context) {
         // TODO: Call CPMAlgo.generateInitialSchedule for initial solution
         // TODO: Call metaheuristic (Late Acceptance + Tabu Search) to improve
         // TODO: Return final PlanningResult
         throw new UnsupportedOperationException("Algorithm implementation pending");
+
+        // CPMAlgo.generateInitialSchedule
+        // algo Aufrufe etc.
+
+        // schedule besteht aus ArrayList<ScheduleEntry>
+
+        //int scheduleScore = this.constraintHandler.calculateScore(null);
     }
 }

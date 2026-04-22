@@ -1,12 +1,13 @@
 package de.goaldone.backend.scheduler.types.model;
 
-import de.goaldone.backend.scheduler.types.Score;
+import de.goaldone.backend.model.ScheduleWarning;
 
-import java.util.List;
+import java.util.ArrayList;
 
 public record PlanningResult(
-    List<ScheduledChunk> scheduledChunks,
-    Score score,
-    List<UnscheduledTaskResult> unscheduledTasks
+    int score,
+    ArrayList<ScheduledChunk> scheduledChunks,
+    ArrayList<UnscheduledTaskResult> unscheduledTasks,
+    ArrayList<ScheduleWarning> scheduleWarnings
 ) {
 }

@@ -2,7 +2,7 @@ package de.goaldone.backend.scheduler;
 
 public class LateAcceptance {
 
-    boolean acceptMove(Score candidateScore, Score lateScore) {
-
+    boolean acceptMove(int candidateScore, int lateScore) {
+        return false;
     }
 }

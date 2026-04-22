@@ -2,6 +2,8 @@ package de.goaldone.backend.service;
 
 import de.goaldone.backend.model.ScheduleResponse;
 import de.goaldone.backend.scheduler.Solver;
+import de.goaldone.backend.scheduler.types.model.PlanningContext;
+import de.goaldone.backend.scheduler.types.model.PlanningResult;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -23,9 +25,10 @@ public class ScheduleService {
 
         // Get data from database
 
+        PlanningContext planningContext = null;
 
         // Forward to schedule generator
-        solver.createSchedule(); //TODO: Pass tasks and appointments from db
+        PlanningResult bestResult = solver.createSchedule(planningContext); //TODO: Pass tasks and appointments from db
 
         return null;
     }
