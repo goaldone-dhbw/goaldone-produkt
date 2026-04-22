@@ -10,10 +10,10 @@ http:
     type: json
     data: |-
       {
-        "name": "Fampopprol",
-        "adminEmail": "johannes@fampopprol.me",
-        "adminFirstName": "Johannes",
-        "adminLastName": "Popp"
+        "name": "Goaldone-TestOrg",
+        "adminEmail": "team.goaldone-admin1@goaldone.de",
+        "adminFirstName": "Test",
+        "adminLastName": "Admin1"
       }
   auth: inherit
 
