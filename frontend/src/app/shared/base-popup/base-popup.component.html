@@ -5,9 +5,10 @@
   [dismissableMask]="true"
   [draggable]="false"
   [resizable]="false"
+  [style]="{ width: '32rem', 'max-width': 'calc(100vw - 2rem)' }"
   (onHide)="onClose()"
 >
-  <ng-template #header>
+  <ng-template pTemplate="header">
     <div class="flex align-items-center justify-content-between w-full gap-2">
       <span class="text-xl font-semibold">{{ title }}</span>
       <ng-content select="[popup-header]"></ng-content>
@@ -19,7 +20,7 @@
   }
   <ng-content select="[popup-content]"></ng-content>
 
-  <ng-template #footer>
+  <ng-template pTemplate="footer">
     <div class="flex justify-end gap-2 w-full">
       <ng-content select="[popup-footer]"></ng-content>
       @if (showCancelButton) {

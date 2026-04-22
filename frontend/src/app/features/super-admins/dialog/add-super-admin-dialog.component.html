@@ -1,0 +1,59 @@
+<app-base-popup
+  [isOpen]="visible"
+  (isOpenChange)="visibleChange.emit($event)"
+  [title]="invitationResult() ? 'Einladung versendet' : 'Super-Admin hinzufügen'"
+  [content]="''"
+  [confirmLabel]="invitationResult() ? 'Schließen' : 'Hinzufügen'"
+  [cancelLabel]="'Abbrechen'"
+  [showConfirmButton]="true"
+  [showCancelButton]="!loading()"
+  (confirm)="invitationResult() ? close() : submit()"
+  (cancel)="close()"
+  (closed)="close()"
+>
+  <div popup-content class="flex flex-col gap-3 w-full">
+    <p-message
+      *ngIf="errorMessage()"
+      severity="error"
+      variant="simple"
+      size="small"
+      [text]="errorMessage()!"
+    ></p-message>
+
+    <div *ngIf="invitationResult(); else inviteForm" class="flex flex-col gap-3 w-full">
+      <p>
+        Einladung wurde an <strong>{{ invitationResult()?.email }}</strong> versendet.
+      </p>
+    </div>
+
+    <ng-template #inviteForm>
+      <form [formGroup]="form" class="flex flex-col gap-3 w-full">
+        <p class="m-0">
+          Die eingeladene Person erhält eine E-Mail mit einem Registrierungslink.
+          Kein bestehender Account erforderlich.
+        </p>
+
+        <div class="flex flex-col gap-2 w-full">
+          <label for="adminEmail">E-Mail des Nutzers</label>
+          <input pInputText id="adminEmail" formControlName="email" placeholder="user@example.com" class="w-full" />
+
+          <p-message
+            *ngIf="form.get('email')?.touched && form.get('email')?.errors?.['required']"
+            severity="error"
+            variant="simple"
+            size="small"
+            text="E-Mail ist erforderlich."
+          ></p-message>
+
+          <p-message
+            *ngIf="form.get('email')?.touched && form.get('email')?.errors?.['email']"
+            severity="error"
+            variant="simple"
+            size="small"
+            text="Bitte eine gültige E-Mail-Adresse eingeben."
+          ></p-message>
+        </div>
+      </form>
+    </ng-template>
+  </div>
+</app-base-popup>

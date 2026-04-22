@@ -22,7 +22,8 @@ export class AuthService {
       issuer: issuerUri,
       clientId: clientId,
       responseType: 'code',
-      redirectUri: window.location.origin,
+      redirectUri: window.location.origin + '/callback',
+      postLogoutRedirectUri: window.location.origin,
       scope: 'openid profile email offline_access urn:zitadel:iam:user:resourceowner',
       useSilentRefresh: false,
       showDebugInformation: !isProd,
@@ -96,9 +97,9 @@ export class AuthService {
     // 1. Generic 'roles'
     // 2. Generic Zitadel project roles 'urn:zitadel:iam:org:project:roles'
     // 3. Project-specific Zitadel roles 'urn:zitadel:iam:org:project:{projectId}:roles'
-    const rolesKey = Object.keys(decodedToken).find(key => 
-      key === 'roles' || 
-      key === 'urn:zitadel:iam:org:project:roles' || 
+    const rolesKey = Object.keys(decodedToken).find(key =>
+      key === 'roles' ||
+      key === 'urn:zitadel:iam:org:project:roles' ||
       (key.startsWith('urn:zitadel:iam:org:project:') && key.endsWith(':roles'))
     );
 
@@ -114,9 +115,9 @@ export class AuthService {
   getUserOrganizationId(): string | null {
     const decodedToken = this.getDecodedAccessToken();
     return (
-      decodedToken?.['org_id'] || 
-      decodedToken?.['organisation_id'] || 
-      decodedToken?.['urn:zitadel:iam:user:resourceowner:id'] || 
+      decodedToken?.['org_id'] ||
+      decodedToken?.['organisation_id'] ||
+      decodedToken?.['urn:zitadel:iam:user:resourceowner:id'] ||
       null
     );
   }

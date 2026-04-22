@@ -1,28 +1,9 @@
-<p class="p-5">startpage works!</p>
-<p-button class="p-5" label="Login" routerLink="/test"></p-button>
-<p-button class="p-5" label="Open Base Popup Dialog (empty)" (onClick)="showEmptyBasePopup()"></p-button>
-<p-button
-  class="p-5"
-  label="Open Base Popup Dialog with content"
-  (onClick)="showBasePopupWithContent()"
-></p-button>
-
-<app-base-popup
-  [isOpen]="isEmptyPopupOpen"
-  title="Leeres Base Popup"
-  [content]="''"
-  (confirm)="closeEmptyBasePopup()"
-  (cancel)="closeEmptyBasePopup()"
-  (closed)="closeEmptyBasePopup()"
-></app-base-popup>
-
-<app-base-popup
-  [isOpen]="isContentPopupOpen"
-  title="Base Popup mit Inhalt"
-  content="Das ist ein Beispielinhalt über die Basiskomponente."
-  (confirm)="closeBasePopupWithContent()"
-  (cancel)="closeBasePopupWithContent()"
-  (closed)="closeBasePopupWithContent()"
->
-  <div popup-content>Projektionsinhalt für komplexere Dialoge.</div>
-</app-base-popup>
+<div class="flex flex-col items-center justify-center h-screen gap-4">
+  @if (isLoggedIn()) {
+    <p>Willkommen zurück!</p>
+    <p-button label="Zum Dashboard" routerLink="/test" />
+  } @else {
+    <p>Bitte melde dich an.</p>
+    <p-button label="Login" (onClick)="login()" />
+  }
+</div>
