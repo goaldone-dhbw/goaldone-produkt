@@ -1,8 +1,7 @@
 package de.goaldone.backend.service;
 
-import de.goaldone.backend.model.GenerateScheduleRequest;
-import de.goaldone.backend.model.ScheduleResponse;
-import de.goaldone.backend.model.TaskListResponse;
+import de.goaldone.backend.model.*;
+import de.goaldone.backend.scheduler.Chunker;
 import de.goaldone.backend.scheduler.Solver;
 import de.goaldone.backend.scheduler.types.model.*;
 import lombok.RequiredArgsConstructor;
@@ -14,7 +13,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.*;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -22,14 +20,17 @@ import java.util.stream.Collectors;
 public class ScheduleService {
 
     Solver solver = new Solver();
-    TaskService taskService = new TaskService();
+    Chunker chunker = new Chunker();
 
-    private final Executor executor = Executors.newFixedThreadPool(5);
+    TaskService taskService = new TaskService();
+    AppointmentService appointmentService = new AppointmentService();
 
     public List<ScheduleResponse> generateMultiAccountSchedule(
             List<UUID> accountIds,
             GenerateScheduleRequest request,
             long timeoutMilliseconds) {
+
+        Executor executor = Executors.newFixedThreadPool(accountIds.size());
 
         // Create async tasks for each account
         List<CompletableFuture<ScheduleResponse>> futures = accountIds.stream()
@@ -65,35 +66,41 @@ public class ScheduleService {
         return results;
     }
 
+    private List<TimeSlot> getAvailableTimeSlots(UUID accountId) {
+        List<Appointment> allAppointments = appointmentService.listAppointments(accountId).getAppointments();
+
+
+        //TODO: calculate free time slots based on appointments and working hours
+
+
+        List<TimeSlot> availableSlots = null;
+        return availableSlots;
+    }
 
     public ScheduleResponse generateSchedule(UUID accountId, GenerateScheduleRequest generateScheduleRequest) {
 
-        // Tasks
-        TaskListResponse allTasks = taskService.listTasks(accountId);
+        // Get data
+        List<Task> allTasks = taskService.listTasks(accountId).getTasks();
 
-        // Chunk unpinned tasks
-        List<TaskChunk> chunks = null;
+        // Chunk tasks
+        List<TaskChunk> chunks = chunker.chunkTasks(allTasks);
 
-        // List pinned tasks
-        List<ScheduledChunk> pinnedChunks = null;
+        // Get available timeslots
+        List<TimeSlot> availableSlots = getAvailableTimeSlots(accountId);
 
-        // Calculate free slots
-        List<TimeSlot> availableSlots = null;
-
-        // From which date on, should the tasks be loaded
+        // Get schedule start date
         LocalDate fromDate = generateScheduleRequest.getFrom();
 
-        PlanningContext planningContext = new PlanningContext(
-                accountId,
-                fromDate,
-                availableSlots,
-                chunks,
-                pinnedChunks
+        // Create schedule context
+        SchedulingContext schedulingContext = new SchedulingContext(
+                accountId, fromDate, availableSlots, chunks
         );
 
         // Forward to schedule generator
-        PlanningResult bestResult = solver.createSchedule(planningContext); //TODO: Pass tasks and appointments from db
+        SchedulingResult bestResult = solver.createSchedule(schedulingContext);
 
+
+        // TODO: Map result to ScheduleResponse and return
         return null;
     }
 

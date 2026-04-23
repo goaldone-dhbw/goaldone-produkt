@@ -1,9 +1,8 @@
 package de.goaldone.backend.scheduler.types.constraints;
 
-import de.goaldone.backend.model.ScheduleEntry;
+import de.goaldone.backend.model.ScheduleWarning;
 import de.goaldone.backend.scheduler.types.SoftConstraint;
-
-import java.util.ArrayList;
+import de.goaldone.backend.scheduler.types.model.Schedule;
 
 public class PauseAfterReachedCognitiveLoadConstraint extends SoftConstraint {
 
@@ -12,7 +11,15 @@ public class PauseAfterReachedCognitiveLoadConstraint extends SoftConstraint {
     }
 
     @Override
-    public void updateConstraint(ArrayList<ScheduleEntry> schedule) {
+    public void updateConstraint(Schedule schedule) {
         // TODO: implement and set isActive to true if constraint is satisfied
+    }
+
+    @Override
+    public ScheduleWarning getWarning() {
+        return new ScheduleWarning(
+                ScheduleWarning.TypeEnum.OVERLOADED_DAY,
+                "A pause should be scheduled after a certain cognitive load is reached."
+        );
     }
 }

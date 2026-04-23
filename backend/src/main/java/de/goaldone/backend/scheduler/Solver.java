@@ -1,12 +1,11 @@
 package de.goaldone.backend.scheduler;
 
-import de.goaldone.backend.model.ScheduleEntry;
 import de.goaldone.backend.model.ScheduleWarning;
-import de.goaldone.backend.scheduler.types.model.PlanningContext;
-import de.goaldone.backend.scheduler.types.model.PlanningResult;
-import de.goaldone.backend.scheduler.types.model.UnscheduledTaskResult;
+import de.goaldone.backend.scheduler.types.model.Schedule;
+import de.goaldone.backend.scheduler.types.model.SchedulingContext;
+import de.goaldone.backend.scheduler.types.model.SchedulingResult;
 
-import java.util.ArrayList;
+import java.util.List;
 
 public class Solver {
 
@@ -18,27 +17,25 @@ public class Solver {
         this.cpmAlgorithm = new CPMAlgorithm();
     }
 
-    public PlanningResult createSchedule(PlanningContext context) {
-        // TODO: Call CPMAlgo.generateInitialSchedule for initial solution
-        // TODO: Call metaheuristic (Late Acceptance + Tabu Search) to improve
-        // TODO: Return final PlanningResult
-        //throw new UnsupportedOperationException("Algorithm implementation pending");
+    public SchedulingResult createSchedule(SchedulingContext context) {
 
-        ArrayList<ScheduleEntry> initialSchedule = this.cpmAlgorithm.generateInitialSchedule(context);
+        // Calculate initial schedule using CPM
+        Schedule initialSchedule = this.cpmAlgorithm.generateInitialSchedule(context);
 
-
-        // algo Aufrufe etc.
-
-        // schedule besteht aus ArrayList<ScheduleEntry>
+        // TODO: Call metaheuristic (MoveStrategies + Late Acceptance + Tabu Search) to improve
 
         // Example data
-        ArrayList<ScheduleEntry> schedule = null;
-        ArrayList<UnscheduledTaskResult> unscheduled = null;
-        ArrayList<ScheduleWarning> warnings = null;
+        Schedule schedule = new Schedule();
+
+
+        // Collect warnings for violated soft constraints
+        List<ScheduleWarning> warnings = constraintHandler.getWarnings(schedule);
+
+        // Calculate the score for the scheduling
         int scheduleScore = this.constraintHandler.calculateScore(schedule);
 
-        PlanningResult bestSchedule = new PlanningResult(
-            scheduleScore,schedule, unscheduled, warnings
+        SchedulingResult bestSchedule = new SchedulingResult(
+                scheduleScore, schedule, warnings
         );
 
         return bestSchedule;

@@ -1,13 +1,13 @@
 package de.goaldone.backend.scheduler.types.moves;
 
-import de.goaldone.backend.scheduler.types.model.PlanningResult;
+import de.goaldone.backend.scheduler.types.model.Schedule;
 
 import java.util.List;
 import java.util.UUID;
 
 public class ChangeMove extends Move {
     @Override
-    public PlanningResult apply(PlanningResult current) {
+    public Schedule apply(Schedule current) {
         // TODO: Move one chunk to a different time slot (~50% probability in move selection)
         throw new UnsupportedOperationException("ChangeMove implementation pending");
     }

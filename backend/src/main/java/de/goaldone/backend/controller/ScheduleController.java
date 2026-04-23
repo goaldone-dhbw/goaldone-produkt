@@ -5,7 +5,6 @@ import de.goaldone.backend.entity.UserAccountEntity;
 import de.goaldone.backend.model.GenerateScheduleRequest;
 import de.goaldone.backend.model.MultiAccountScheduleResponse;
 import de.goaldone.backend.model.ScheduleResponse;
-import de.goaldone.backend.scheduler.types.model.PlanningResult;
 import de.goaldone.backend.service.CurrentUserResolver;
 import de.goaldone.backend.service.ScheduleService;
 import de.goaldone.backend.service.UserIdentityService;

@@ -9,6 +9,7 @@ public record TaskChunk(
     UUID chunkId,
     UUID taskId,
     int chunkIndex,
+    int totalChunks,
     int durationMinutes,
     int topologicalLevel,
     long slackMinutes,

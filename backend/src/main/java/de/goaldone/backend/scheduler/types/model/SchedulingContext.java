@@ -4,11 +4,10 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
-public record PlanningContext(
+public record SchedulingContext(
     UUID accountId,
     LocalDate fromDate,
     List<TimeSlot> availableSlots,
-    List<TaskChunk> chunks,
-    List<ScheduledChunk> pinnedChunks
+    List<TaskChunk> chunks
 ) {
 }

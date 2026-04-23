@@ -8,11 +8,11 @@ import java.util.List;
 
 public class CPMAlgorithm {
 
-    ArrayList<ScheduleEntry> generateInitialSchedule(PlanningContext context) {
+    Schedule generateInitialSchedule(SchedulingContext context) {
 
         // TODO: Implement CPM
 
-        ArrayList<ScheduleEntry> schedule = null;
+        Schedule schedule = new Schedule();
         return schedule;
     }
 
