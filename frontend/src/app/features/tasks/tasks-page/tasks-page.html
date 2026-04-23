@@ -1,0 +1,386 @@
+<div class="min-h-screen bg-slate-50">
+  <div class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+    <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div>
+        <h1 class="text-3xl font-bold tracking-tight text-slate-900">Aufgaben</h1>
+        <p class="mt-2 text-sm text-slate-600">
+          Erstelle, bearbeite und verwalte deine Aufgaben.
+        </p>
+      </div>
+
+      <button
+        type="button"
+        (click)="openCreateDialog()"
+        class="inline-flex items-center justify-center rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+      >
+        Aufgabe hinzufügen
+      </button>
+    </div>
+
+    @if (successMessage()) {
+      <div class="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+        {{ successMessage() }}
+      </div>
+    }
+
+    @if (listErrorMessage()) {
+      <div class="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+        {{ listErrorMessage() }}
+      </div>
+    }
+
+    <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div class="border-b border-slate-200 px-6 py-4">
+        <h2 class="text-lg font-semibold text-slate-900">Aufgabenliste</h2>
+      </div>
+
+      @if (isLoading()) {
+        <div class="px-6 py-8 text-sm text-slate-600">
+          Aufgaben werden geladen...
+        </div>
+      } @else if (tasks().length === 0) {
+        <div class="px-6 py-8 text-sm text-slate-600">
+          Es sind noch keine Aufgaben vorhanden.
+        </div>
+      } @else {
+        <div class="divide-y divide-slate-200">
+          @for (task of tasks(); track task.id) {
+            <div class="px-6 py-5">
+              <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div class="min-w-0 flex-1">
+                  <div class="mb-2 flex flex-wrap items-center gap-2">
+                    <h3 class="text-lg font-semibold text-slate-900">{{ task.title }}</h3>
+
+                    <span
+                      class="inline-flex rounded-full border px-2.5 py-1 text-xs font-medium"
+                      [class]="getStatusBadgeClass(task.status)"
+                    >
+                      {{ formatStatus(task.status) }}
+                    </span>
+
+                    @if (task.cognitiveLoad) {
+                      <span
+                        class="inline-flex rounded-full border px-2.5 py-1 text-xs font-medium"
+                        [class]="getCognitiveLoadBadgeClass(task.cognitiveLoad)"
+                      >
+                        {{ formatCognitiveLoad(task.cognitiveLoad) }}
+                      </span>
+                    }
+                  </div>
+
+                  @if (task.description) {
+                    <p class="mb-3 text-sm leading-6 text-slate-600">
+                      {{ task.description }}
+                    </p>
+                  }
+
+                  <div class="grid grid-cols-1 gap-3 text-sm text-slate-600 sm:grid-cols-2 xl:grid-cols-4">
+                    <div>
+                      <span class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Dauer</span>
+                      <span>{{ formatDuration(task.duration) }}</span>
+                    </div>
+
+                    <div>
+                      <span class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Deadline</span>
+                      <span>{{ formatDateTime(task.deadline) }}</span>
+                    </div>
+
+                    <div>
+                      <span class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Nicht planen vor</span>
+                      <span>{{ formatDateTime(task.notBefore) }}</span>
+                    </div>
+
+                    <div>
+                      <span class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Unternehmen / Verein</span>
+                      <span>{{ task.accountLabel || '-' }}</span>
+                    </div>
+
+                    <div>
+                      <span class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Anforderungsgrad</span>
+                      <span>{{ task.cognitiveLoad ? formatCognitiveLoad(task.cognitiveLoad) : '-' }}</span>
+                    </div>
+
+                    <div>
+                      <span class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Chunk-Größe</span>
+                      <span>{{ task.customChunkSize ? formatDuration(task.customChunkSize) : '-' }}</span>
+                    </div>
+
+                    <div>
+                      <span class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Abhängigkeiten</span>
+                      <span>{{ formatDependencyTitles(task) }}</span>
+                    </div>
+
+                    <div>
+                      <span class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Status ändern</span>
+                      <select
+                        [value]="task.status"
+                        (change)="changeStatus(task, $event)"
+                        class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                      >
+                        @for (status of statuses; track status) {
+                          <option [value]="status">{{ formatStatus(status) }}</option>
+                        }
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="flex shrink-0 items-center gap-2">
+                  <button
+                    type="button"
+                    (click)="openEditDialog(task)"
+                    class="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                  >
+                    Bearbeiten
+                  </button>
+
+                  <button
+                    type="button"
+                    (click)="openDeleteDialog(task)"
+                    class="rounded-xl border border-rose-300 bg-white px-4 py-2 text-sm font-medium text-rose-700 transition hover:bg-rose-50"
+                  >
+                    Löschen
+                  </button>
+                </div>
+              </div>
+            </div>
+          }
+        </div>
+      }
+    </div>
+  </div>
+</div>
+
+<app-base-popup
+  [isOpen]="isTaskPopupOpen()"
+  [title]="popupTitle()"
+  [showConfirmButton]="true"
+  [showCancelButton]="true"
+  [confirmLabel]="popupConfirmLabel()"
+  cancelLabel="Abbrechen"
+  (confirm)="saveTask()"
+  (cancel)="closeTaskPopup()"
+  (closed)="closeTaskPopup()"
+>
+  <div popup-content class="space-y-5">
+    @if (formErrorMessage()) {
+      <div class="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+        {{ formErrorMessage() }}
+      </div>
+    }
+
+    @if (hasSingleAccount() && currentAccountLabel()) {
+      <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+        Aufgabe wird dem Account <span class="font-semibold">{{ currentAccountLabel() }}</span> zugeordnet.
+      </div>
+    }
+
+    <form [formGroup]="taskForm" class="space-y-5">
+      @if (hasMultipleAccounts()) {
+        <div class="space-y-2">
+          <label for="accountId" class="block text-sm font-medium text-slate-800">
+            Unternehmen / Verein <span class="text-rose-600">*</span>
+          </label>
+          <select
+            id="accountId"
+            formControlName="accountId"
+            class="w-full h-12 rounded-xl border border-slate-300 bg-white px-4 pr-8 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+          >
+            <option value="">Bitte auswählen</option>
+            @for (account of accounts(); track account.id) {
+              <option [value]="account.id">{{ account.label }}</option>
+            }
+          </select>
+          @if (showFieldError('accountId')) {
+            <p class="text-sm text-rose-600">Bitte wähle ein Unternehmen oder einen Verein aus.</p>
+          }
+        </div>
+      }
+
+      <div class="space-y-2">
+        <label for="title" class="block text-sm font-medium text-slate-800">
+          Titel <span class="text-rose-600">*</span>
+        </label>
+        <input
+          id="title"
+          type="text"
+          formControlName="title"
+          class="w-full h-12 rounded-xl border border-slate-300 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+          placeholder="z. B. Dokumentation schreiben"
+        />
+        @if (showFieldError('title')) {
+          <p class="text-sm text-rose-600">Bitte gib einen Titel ein.</p>
+        }
+      </div>
+
+      <div class="space-y-2">
+        <label for="description" class="block text-sm font-medium text-slate-800">
+          Beschreibung
+        </label>
+        <textarea
+          id="description"
+          rows="4"
+          formControlName="description"
+          class="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+          placeholder="Optionale Beschreibung der Aufgabe"
+        ></textarea>
+      </div>
+
+      <div class="grid grid-cols-1 gap-5 md:grid-cols-2">
+        <div class="space-y-2">
+          <label for="duration" class="block text-sm font-medium text-slate-800">
+            Dauer in Minuten <span class="text-rose-600">*</span>
+          </label>
+          <input
+            id="duration"
+            type="number"
+            min="1"
+            formControlName="duration"
+            class="w-full h-12 rounded-xl border border-slate-300 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+            placeholder="z. B. 120"
+          />
+          @if (showFieldError('duration')) {
+            <p class="text-sm text-rose-600">Die Dauer muss größer als 0 sein.</p>
+          }
+        </div>
+
+        <div class="space-y-2">
+          <label for="status" class="block text-sm font-medium text-slate-800">
+            Status <span class="text-rose-600">*</span>
+          </label>
+          <select
+            id="status"
+            formControlName="status"
+            class="w-full h-12 rounded-xl border border-slate-300 bg-white px-4 pr-10 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+          >
+            @for (status of statuses; track status) {
+              <option [value]="status">{{ formatStatus(status) }}</option>
+            }
+          </select>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 gap-5 md:grid-cols-2">
+        <div class="space-y-2">
+          <label for="deadline" class="block text-sm font-medium text-slate-800">
+            Deadline
+          </label>
+          <input
+            id="deadline"
+            type="datetime-local"
+            formControlName="deadline"
+            class="w-full h-12 rounded-xl border border-slate-300 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+          />
+        </div>
+
+        <div class="space-y-2">
+          <label for="notBefore" class="block text-sm font-medium text-slate-800">
+            Nicht planen vor
+          </label>
+          <input
+            id="notBefore"
+            type="datetime-local"
+            formControlName="notBefore"
+            class="w-full h-12 rounded-xl border border-slate-300 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+          />
+        </div>
+      </div>
+
+      @if (taskForm.errors?.['notBeforeAfterDeadline']) {
+        <p class="text-sm text-rose-600">
+          „Nicht planen vor“ darf nicht nach der Deadline liegen.
+        </p>
+      }
+
+      <div class="grid grid-cols-1 gap-5 md:grid-cols-2">
+        <div class="space-y-2">
+          <label for="cognitiveLoad" class="block text-sm font-medium text-slate-800">
+            Anforderungsgrad
+          </label>
+          <select
+            id="cognitiveLoad"
+            formControlName="cognitiveLoad"
+            class="w-full h-12 rounded-xl border border-slate-300 bg-white px-4 pr-10 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+          >
+            <option value="">Bitte auswählen</option>
+            @for (load of cognitiveLoads; track load) {
+              <option [value]="load">{{ formatCognitiveLoad(load) }}</option>
+            }
+          </select>
+        </div>
+
+        <div class="space-y-2">
+          <label for="customChunkSize" class="block text-sm font-medium text-slate-800">
+            Manuelle Chunk-Größe (Min.)
+          </label>
+          <input
+            id="customChunkSize"
+            type="number"
+            min="1"
+            formControlName="customChunkSize"
+            class="w-full h-12 rounded-xl border border-slate-300 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+            placeholder="Optional"
+          />
+          @if (showFieldError('customChunkSize')) {
+            <p class="text-sm text-rose-600">
+              Die Chunk-Größe muss größer als 0 und darf nicht größer als die Dauer sein.
+            </p>
+          }
+        </div>
+      </div>
+
+      <div class="space-y-2">
+        <label for="dependencyIds" class="block text-sm font-medium text-slate-800">
+          Abhängigkeiten
+        </label>
+        <select
+          id="dependencyIds"
+          multiple
+          formControlName="dependencyIds"
+          class="min-h-36 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+        >
+          @for (option of availableDependencyOptions(); track option.id) {
+            <option [value]="option.id">
+              {{ option.title }}
+            </option>
+          }
+        </select>
+
+        @if (availableDependencyOptions().length === 0) {
+          <p class="text-xs text-slate-500">
+            Es sind aktuell keine anderen Aufgaben verfügbar, die als Abhängigkeit ausgewählt werden können.
+          </p>
+        }
+
+        <p class="text-xs text-slate-500">
+          Wähle Aufgaben aus, die vor dieser Aufgabe erledigt sein müssen.
+        </p>
+      </div>
+    </form>
+  </div>
+</app-base-popup>
+
+<app-base-popup
+  [isOpen]="isDeletePopupOpen()"
+  title="Aufgabe löschen"
+  content="Möchtest du diese Aufgabe wirklich löschen?"
+  confirmLabel="Löschen"
+  cancelLabel="Abbrechen"
+  [showConfirmButton]="true"
+  [showCancelButton]="true"
+  (confirm)="confirmDelete()"
+  (cancel)="closeDeletePopup()"
+  (closed)="closeDeletePopup()"
+>
+  <div popup-content class="space-y-2">
+    @if (deletingTask()) {
+      <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+        <span class="font-semibold">{{ deletingTask()?.title }}</span>
+      </div>
+    }
+
+    @if (isDeleting()) {
+      <p class="text-sm text-slate-500">Aufgabe wird gelöscht...</p>
+    }
+  </div>
+</app-base-popup>
