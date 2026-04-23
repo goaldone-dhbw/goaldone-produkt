@@ -18,6 +18,8 @@ tags:
     description: Account linking operations
   - name: user-accounts
     description: User account management
+  - name: working-times
+    description: Working time management
   - name: OrganizationManagement
     description: Organization management operations
 
@@ -135,6 +137,36 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AccountListResponse'
+
+  /working-times:
+    post:
+      tags:
+        - working-times
+      summary: Create a working time slot
+      operationId: createWorkingTime
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkingTimeCreateRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkingTimeResponse'
+        '400':
+          description: Bad Request
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '409':
+          description: Conflict
 
   /admins/organizations:
     post:
@@ -358,6 +390,53 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/AccountResponse'
+
+    WorkingTimeCreateRequest:
+      type: object
+      required:
+        - accountId
+        - startTime
+        - endTime
+      properties:
+        accountId:
+          type: string
+          format: uuid
+          description: User account membership ID for which this working time is created
+        startTime:
+          type: string
+          format: date-time
+        endTime:
+          type: string
+          format: date-time
+
+    WorkingTimeResponse:
+      type: object
+      required:
+        - id
+        - accountId
+        - organizationId
+        - startTime
+        - endTime
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        accountId:
+          type: string
+          format: uuid
+        organizationId:
+          type: string
+          format: uuid
+        startTime:
+          type: string
+          format: date-time
+        endTime:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
 
     CreateOrganizationRequest:
       type: object

@@ -2,3 +2,9 @@ name: Local development server
 variables:
   - name: baseUrl
     value: http://localhost:8080/api/v1
+  - name: accountId
+    value: ""
+  - name: linkedAccountId
+    value: ""
+  - name: foreignAccountId
+    value: ""

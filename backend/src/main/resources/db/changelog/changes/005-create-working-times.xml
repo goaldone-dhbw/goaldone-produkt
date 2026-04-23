@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="005" author="copilot">
+        <createTable tableName="working_times">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="user_account_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="user_identity_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="organization_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="start_time" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="end_time" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="TIMESTAMP" defaultValueComputed="NOW()">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addForeignKeyConstraint
+                baseTableName="working_times"
+                baseColumnNames="user_account_id"
+                referencedTableName="user_accounts"
+                referencedColumnNames="id"
+                constraintName="fk_working_times_account"
+                onDelete="CASCADE"/>
+
+        <addForeignKeyConstraint
+                baseTableName="working_times"
+                baseColumnNames="user_identity_id"
+                referencedTableName="user_identities"
+                referencedColumnNames="id"
+                constraintName="fk_working_times_identity"
+                onDelete="CASCADE"/>
+
+        <addForeignKeyConstraint
+                baseTableName="working_times"
+                baseColumnNames="organization_id"
+                referencedTableName="organizations"
+                referencedColumnNames="id"
+                constraintName="fk_working_times_org"
+                onDelete="CASCADE"/>
+
+        <sql>
+            ALTER TABLE working_times
+            ADD CONSTRAINT chk_working_times_end_after_start
+            CHECK (end_time &gt; start_time);
+        </sql>
+
+        <createIndex tableName="working_times" indexName="idx_working_times_identity_start_end">
+            <column name="user_identity_id"/>
+            <column name="start_time"/>
+            <column name="end_time"/>
+        </createIndex>
+
+        <createIndex tableName="working_times" indexName="idx_working_times_account">
+            <column name="user_account_id"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>
+
+
