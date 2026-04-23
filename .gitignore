@@ -3,5 +3,3 @@ GEMINI.md
 CLAUDE.md
 .planning/
 .claude/
-run-local.sh
-mprocs.yaml
