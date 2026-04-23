@@ -1,0 +1,110 @@
+info:
+  name: Update an existing task
+  type: http
+  seq: 3
+  tags:
+    - tasks
+
+http:
+  method: PUT
+  url: "{{baseUrl}}/tasks/{{taskId}}"
+  body:
+    type: json
+    data: |-
+      {
+        "status": "DONE"
+      }
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+examples:
+  - name: 200 Status to DONE
+    description: OK
+    request:
+      url: "{{baseUrl}}/tasks/{{taskId}}"
+      method: PUT
+      body:
+        type: json
+        data: |-
+          {
+            "status": "DONE"
+          }
+    response:
+      status: 200
+      statusText: OK
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "id": "{{taskId}}",
+            "title": "Dokumentation",
+            "description": "API-Dokumentation finalisieren",
+            "duration": 120,
+            "deadline": null,
+            "status": "DONE",
+            "dependencyIds": []
+          }
+  - name: 400 Cyclic dependency
+    description: Bad Request
+    request:
+      url: "{{baseUrl}}/tasks/{{taskAId}}"
+      method: PUT
+      body:
+        type: json
+        data: |-
+          {
+            "dependencyIds": [
+              "{{taskBId}}"
+            ]
+          }
+    response:
+      status: 400
+      statusText: Bad Request
+      body:
+        type: text
+        data: ""
+  - name: 404 Not Found
+    description: Unknown task id
+    request:
+      url: "{{baseUrl}}/tasks/00000000-0000-0000-0000-00000000ffff"
+      method: PUT
+      body:
+        type: json
+        data: |-
+          {
+            "status": "DONE"
+          }
+    response:
+      status: 404
+      statusText: Not Found
+      body:
+        type: text
+        data: ""
+  - name: 401 Unauthorized
+    description: Missing or invalid bearer token
+    request:
+      url: "{{baseUrl}}/tasks/{{taskId}}"
+      method: PUT
+      body:
+        type: json
+        data: |-
+          {
+            "status": "DONE"
+          }
+    response:
+      status: 401
+      statusText: Unauthorized
+      body:
+        type: text
+        data: ""
+

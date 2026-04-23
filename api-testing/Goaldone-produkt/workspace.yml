@@ -5,7 +5,7 @@ info:
 
 collections:
   - name: "GoalDone API"
-    path: "collections/GoalDone API - 1"
+    path: "collections/GoalDone API"
 
 specs:
   - name: "openapi"
