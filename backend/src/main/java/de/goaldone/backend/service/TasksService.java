@@ -3,7 +3,6 @@ package de.goaldone.backend.service;
 import de.goaldone.backend.entity.TaskEntity;
 import de.goaldone.backend.model.TaskCreateRequest;
 import de.goaldone.backend.model.TaskResponse;
-import de.goaldone.backend.model.TaskStatus;
 import de.goaldone.backend.model.TaskUpdateRequest;
 import de.goaldone.backend.repository.TaskRepository;
 import lombok.RequiredArgsConstructor;
@@ -33,8 +32,11 @@ public class TasksService {
     private final TaskRepository taskRepository;
 
     @Transactional
-    public TaskResponse createTask(UUID accountId, TaskCreateRequest request) {
+    public TaskResponse createTask(TaskCreateRequest request) {
         validateCreateRequest(request);
+
+        var accountId = request.getAccountId();
+
 
         TaskEntity entity = new TaskEntity();
         entity.setId(UUID.randomUUID());
@@ -43,7 +45,10 @@ public class TasksService {
         entity.setDescription(request.getDescription());
         entity.setDuration(request.getDuration());
         entity.setDeadline(toInstant(request.getDeadline()));
-        entity.setStatus(request.getStatus() == null ? TaskStatus.OPEN : request.getStatus());
+        entity.setStatus(request.getStatus());
+        entity.setCognitiveLoad(request.getCognitiveLoad());
+        entity.setDontScheduleBefore(toInstant(request.getDontScheduleBefore()));
+        entity.setCustomChunkSize(request.getCustomChunkSize());
 
         TaskEntity saved = taskRepository.save(entity);
         applyDependencies(saved, request.getDependencyIds(), accountId, true);
@@ -92,6 +97,21 @@ public class TasksService {
             task.setStatus(request.getStatus());
         }
 
+        if (request.getCognitiveLoad() != null) {
+            task.setCognitiveLoad(request.getCognitiveLoad());
+        }
+
+        if (request.getDontScheduleBefore() != null) {
+            task.setDontScheduleBefore(toInstant(request.getDontScheduleBefore()));
+        }
+
+        if (request.getCustomChunkSize() != null) {
+            if (request.getCustomChunkSize() <= 0) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "customChunkSize must be greater than 0");
+            }
+            task.setCustomChunkSize(request.getCustomChunkSize());
+        }
+
         if (request.getDependencyIds() != null) {
             applyDependencies(task, request.getDependencyIds(), accountId, true);
         }
@@ -114,8 +134,20 @@ public class TasksService {
         if (request.getTitle() == null || request.getTitle().isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "title must not be blank");
         }
+        if (request.getAccountId() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "accountId is required");
+        }
         if (request.getDuration() == null || request.getDuration() <= 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "duration must be greater than 0");
+        }
+        if (request.getStatus() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "status is required");
+        }
+        if (request.getCognitiveLoad() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "cognitiveLoad is required");
+        }
+        if (request.getCustomChunkSize() != null && request.getCustomChunkSize() <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "customChunkSize must be greater than 0");
         }
     }
 
@@ -196,6 +228,9 @@ public class TasksService {
         response.setDuration(entity.getDuration());
         response.setDeadline(toOffsetDateTime(entity.getDeadline()));
         response.setStatus(entity.getStatus());
+        response.setCognitiveLoad(entity.getCognitiveLoad());
+        response.setDontScheduleBefore(toOffsetDateTime(entity.getDontScheduleBefore()));
+        response.setCustomChunkSize(entity.getCustomChunkSize());
 
         List<UUID> dependencyIds = entity.getDependencies().stream()
             .map(TaskEntity::getId)

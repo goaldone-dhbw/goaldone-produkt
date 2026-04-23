@@ -34,7 +34,7 @@ request:
       source: access_token
     settings:
       autoFetchToken: true
-      autoRefreshToken: true
+      autoRefreshToken: false
 bundled: false
 extensions:
   bruno:

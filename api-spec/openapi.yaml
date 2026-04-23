@@ -279,6 +279,13 @@ components:
         - IN_PROGRESS
         - DONE
 
+    CognitiveLoad:
+      type: string
+      enum:
+        - LOW
+        - MODERATE
+        - HIGH
+
     TaskResponse:
       type: object
       properties:
@@ -297,6 +304,14 @@ components:
           format: date-time
         status:
           $ref: '#/components/schemas/TaskStatus'
+        cognitiveLoad:
+          $ref: '#/components/schemas/CognitiveLoad'
+        dontScheduleBefore:
+          type: string
+          format: date-time
+        customChunkSize:
+          type: integer
+          format: int32
         dependencyIds:
           type: array
           items:
@@ -306,8 +321,15 @@ components:
     TaskCreateRequest:
       type: object
       required:
+        - accountId
+        - duration
         - title
+        - status
+        - cognitiveLoad
       properties:
+        accountId:
+          type: string
+          format: uuid
         title:
           type: string
           minLength: 1
@@ -322,7 +344,14 @@ components:
           format: date-time
         status:
           $ref: '#/components/schemas/TaskStatus'
-          default: OPEN
+        cognitiveLoad:
+          $ref: '#/components/schemas/CognitiveLoad'
+        dontScheduleBefore:
+          type: string
+          format: date-time
+        customChunkSize:
+          type: integer
+          format: int32
         dependencyIds:
           type: array
           items:
@@ -346,6 +375,14 @@ components:
           format: date-time
         status:
           $ref: '#/components/schemas/TaskStatus'
+        cognitiveLoad:
+          $ref: '#/components/schemas/CognitiveLoad'
+        dontScheduleBefore:
+          type: string
+          format: date-time
+        customChunkSize:
+          type: integer
+          format: int32
         dependencyIds:
           type: array
           items:

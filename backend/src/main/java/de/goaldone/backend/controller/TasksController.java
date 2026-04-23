@@ -6,6 +6,7 @@ import de.goaldone.backend.model.TaskResponse;
 import de.goaldone.backend.model.TaskUpdateRequest;
 import de.goaldone.backend.service.CurrentUserResolver;
 import de.goaldone.backend.service.TasksService;
+import de.goaldone.backend.service.UserIdentityService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
@@ -18,12 +19,17 @@ import java.util.UUID;
 public class TasksController implements TasksApi {
 
     private final TasksService tasksService;
+    private final UserIdentityService userIdentityService;
     private final CurrentUserResolver currentUserResolver;
 
     @Override
     public ResponseEntity<TaskResponse> createTask(TaskCreateRequest taskCreateRequest) {
-        var currentAccount = currentUserResolver.resolveCurrentAccount();
-        TaskResponse createdTask = tasksService.createTask(currentAccount.getId(), taskCreateRequest);
+        var jwt = currentUserResolver.extractJwt();
+        if (!userIdentityService.hasUserAccessToAccount(jwt, taskCreateRequest.getAccountId())) {
+            throw new IllegalArgumentException("User does not have access to the specified account");
+        }
+
+        TaskResponse createdTask = tasksService.createTask(taskCreateRequest);
         return ResponseEntity.status(201).body(createdTask);
     }
 
