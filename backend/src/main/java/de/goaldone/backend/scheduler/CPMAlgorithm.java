@@ -1,9 +1,6 @@
 package de.goaldone.backend.scheduler;
 
-import de.goaldone.backend.model.ScheduleEntry;
 import de.goaldone.backend.scheduler.types.model.*;
-
-import java.util.ArrayList;
 import java.util.List;
 
 public class CPMAlgorithm {

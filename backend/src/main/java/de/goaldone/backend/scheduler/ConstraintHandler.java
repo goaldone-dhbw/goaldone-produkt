@@ -1,14 +1,11 @@
 package de.goaldone.backend.scheduler;
 
-import de.goaldone.backend.exception.InvalidScheduleException;
-import de.goaldone.backend.model.ScheduleEntry;
 import de.goaldone.backend.model.ScheduleWarning;
 import de.goaldone.backend.scheduler.types.HardConstraint;
 import de.goaldone.backend.scheduler.types.SoftConstraint;
 import de.goaldone.backend.scheduler.types.constraints.DeadlineConstraint;
 import de.goaldone.backend.scheduler.types.constraints.PauseAfterReachedCognitiveLoadConstraint;
 import de.goaldone.backend.scheduler.types.model.Schedule;
-import de.goaldone.backend.scheduler.types.model.SchedulingResult;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -44,7 +41,6 @@ public class ConstraintHandler {
      *
      * @param schedule The schedule for which the score is to be calculated
      * @return The score of the schedule
-     * @throws   InvalidScheduleException if schedule violates hard constraints
      */
     public int calculateScore(Schedule schedule) {
 
