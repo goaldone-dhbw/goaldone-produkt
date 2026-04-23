@@ -2,7 +2,6 @@
   [isOpen]="visible"
   (isOpenChange)="visibleChange.emit($event)"
   [title]="invitationResult() ? 'Einladung versendet' : 'Super-Admin hinzufügen'"
-  [content]="''"
   [confirmLabel]="invitationResult() ? 'Schließen' : 'Hinzufügen'"
   [cancelLabel]="'Abbrechen'"
   [showConfirmButton]="true"
@@ -11,7 +10,7 @@
   (cancel)="close()"
   (closed)="close()"
 >
-  <div popup-content class="flex flex-column gap-3">
+  <div popup-content class="w-full">
     <p-message
       *ngIf="errorMessage()"
       severity="error"
@@ -20,38 +19,47 @@
       [text]="errorMessage()!"
     ></p-message>
 
-    <div *ngIf="invitationResult(); else inviteForm" class="flex flex-column gap-3">
-      <p>
+    <div *ngIf="invitationResult(); else inviteForm" class="mt-4">
+      <p class="m-0">
         Einladung wurde an <strong>{{ invitationResult()?.email }}</strong> versendet.
       </p>
     </div>
 
     <ng-template #inviteForm>
-      <form [formGroup]="form" class="flex flex-column gap-3">
-        <p>
-          Die eingeladene Person erhält eine E-Mail mit einem Registrierungslink.
-          Kein bestehender Account erforderlich.
-        </p>
+      <form [formGroup]="form" class="mt-4 flex w-full flex-col gap-6">
+        <div class="flex flex-col gap-2">
+          <p class="m-0">Die eingeladene Person erhält eine E-Mail mit einem Registrierungslink.</p>
+          <p class="m-0">Kein bestehender Account erforderlich.</p>
+        </div>
 
-        <div class="flex flex-column gap-2">
-          <label for="adminEmail">E-Mail des Nutzers</label>
-          <input pInputText id="adminEmail" formControlName="email" placeholder="user@example.com" />
+        <div class="flex w-full flex-col gap-2">
+          <label for="adminEmail" class="block">E-Mail des Nutzers</label>
 
-          <p-message
-            *ngIf="form.get('email')?.touched && form.get('email')?.errors?.['required']"
-            severity="error"
-            variant="simple"
-            size="small"
-            text="E-Mail ist erforderlich."
-          ></p-message>
+          <input
+            pInputText
+            id="adminEmail"
+            formControlName="email"
+            placeholder="user@example.com"
+            class="w-full"
+          />
 
-          <p-message
-            *ngIf="form.get('email')?.touched && form.get('email')?.errors?.['email']"
-            severity="error"
-            variant="simple"
-            size="small"
-            text="Bitte eine gültige E-Mail-Adresse eingeben."
-          ></p-message>
+          <div class="flex flex-col gap-1">
+            <p-message
+              *ngIf="form.get('email')?.touched && form.get('email')?.errors?.['required']"
+              severity="error"
+              variant="simple"
+              size="small"
+              text="E-Mail ist erforderlich."
+            ></p-message>
+
+            <p-message
+              *ngIf="form.get('email')?.touched && form.get('email')?.errors?.['email']"
+              severity="error"
+              variant="simple"
+              size="small"
+              text="Bitte eine gültige E-Mail-Adresse eingeben."
+            ></p-message>
+          </div>
         </div>
       </form>
     </ng-template>

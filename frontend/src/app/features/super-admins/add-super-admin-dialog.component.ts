@@ -4,8 +4,6 @@ import { FormsModule, ReactiveFormsModule, FormBuilder, Validators } from '@angu
 import { InputTextModule } from 'primeng/inputtext';
 import { MessageModule } from 'primeng/message';
 import { ButtonModule } from 'primeng/button';
-
-
 import { catchError, finalize, of } from 'rxjs';
 import { BasePopupComponent } from '../../shared/base-popup/base-popup.component';
 import { SuperAdminResponse, SuperAdminService } from '../../api';
@@ -28,7 +26,7 @@ import { SuperAdminResponse, SuperAdminService } from '../../api';
 export class AddSuperAdminDialogComponent {
   @Input() visible = false;
   @Output() visibleChange = new EventEmitter<boolean>();
-  @Output() added = new EventEmitter<void>();
+  @Output() added = new EventEmitter<SuperAdminResponse>();
 
   private fb = inject(FormBuilder);
   private adminService = inject(SuperAdminService);
@@ -81,13 +79,8 @@ export class AddSuperAdminDialogComponent {
       .subscribe((res) => {
         if (res) {
           this.invitationResult.set(res);
-          this.added.emit();
+          this.added.emit(res);
         }
       });
-  }
-
-  formatDateTime(dateStr?: string): string {
-    if (!dateStr) return '-';
-    return new Date(dateStr).toLocaleString();
   }
 }

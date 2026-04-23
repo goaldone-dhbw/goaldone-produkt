@@ -1,0 +1,25 @@
+<app-base-popup
+  [isOpen]="true"
+  title="Super-Admin löschen"
+  [confirmLabel]="loading() ? 'Wird gelöscht...' : 'Löschen'"
+  cancelLabel="Abbrechen"
+  [showCancelButton]="!loading()"
+  (confirm)="confirm()"
+  (cancel)="cancel()"
+  (closed)="cancel()"
+>
+  <div popup-content class="w-full">
+    <p-message
+      *ngIf="errorMessage()"
+      severity="error"
+      variant="simple"
+      size="small"
+      [text]="errorMessage()!"
+    ></p-message>
+
+    <p class="mt-4 m-0">
+      Möchtest du <strong>{{ admin.email }}</strong> wirklich als Super-Admin löschen?
+      Diese Aktion kann nicht rückgängig gemacht werden.
+    </p>
+  </div>
+</app-base-popup>
