@@ -59,11 +59,13 @@ public class TasksService {
     }
 
     @Transactional(readOnly = true)
-    public List<TaskResponse> getTasks(UUID accountId) {
-        return taskRepository.findAllByAccountIdOrderByIdAsc(accountId)
-            .stream()
-            .map(this::toResponse)
-            .toList();
+    public List<TaskResponse> getTasks(List<UUID> accountIds) {
+        for ( UUID accountId: accountIds) {
+            taskRepository.findAllByAccountIdOrderByIdAsc(accountId);
+        }
+
+        // TODO
+        return null;
     }
 
     @Transactional

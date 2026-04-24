@@ -44,7 +44,8 @@ public class TasksController implements TasksApi {
     @Override
     public ResponseEntity<List<TaskResponse>> getTasks() {
         var currentAccount = currentUserResolver.resolveCurrentAccount();
-        return ResponseEntity.ok(tasksService.getTasks(currentAccount.getId()));
+        List<TaskResponse> tasks = tasksService.getTasks(currentAccount.getId());
+        return ResponseEntity.ok(tasks);
     }
 
     @Override
