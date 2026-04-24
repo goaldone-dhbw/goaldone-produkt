@@ -5,7 +5,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToMany;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -24,8 +24,9 @@ public class WorkingTimeEntity {
     @Id
     private UUID id;
 
-    @Column(name = "user_account_id", nullable = false)
-    private UUID userAccountId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_account_id", nullable = false)
+    private UserAccountEntity userAccount;
 
     @Column(name = "user_identity_id", nullable = false)
     private UUID userIdentityId;
@@ -41,9 +42,5 @@ public class WorkingTimeEntity {
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
-
-    @ManyToMany(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_account_id", nullable = false)
-    private UserAccountEntity userAccount;
 }
 

@@ -23,6 +23,7 @@ import org.springframework.web.context.WebApplicationContext;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -85,7 +86,8 @@ class WorkingTimesIntegrationTest {
             orgId,
             identityId,
             Instant.now(),
-            Instant.now()
+            Instant.now(),
+            new ArrayList<>()
         ));
 
         String body = """
@@ -116,15 +118,17 @@ class WorkingTimesIntegrationTest {
         UUID accountA = UUID.randomUUID();
         UUID accountB = UUID.randomUUID();
 
+        UserAccountEntity accountEntityA = new UserAccountEntity(accountA, sub, orgA, identityId, Instant.now(), Instant.now(), new ArrayList<>());
+
         userIdentityRepository.save(new UserIdentityEntity(identityId, Instant.now()));
         organizationRepository.save(new OrganizationEntity(orgA, "zitadel-org-a", "Org A", Instant.now()));
         organizationRepository.save(new OrganizationEntity(orgB, "zitadel-org-b", "Org B", Instant.now()));
-        userAccountRepository.save(new UserAccountEntity(accountA, sub, orgA, identityId, Instant.now(), Instant.now()));
-        userAccountRepository.save(new UserAccountEntity(accountB, "sub-linked-account", orgB, identityId, Instant.now(), Instant.now()));
+        userAccountRepository.save(accountEntityA);
+        userAccountRepository.save(new UserAccountEntity(accountB, "sub-linked-account", orgB, identityId, Instant.now(), Instant.now(), new ArrayList<>()));
 
         workingTimeRepository.save(new WorkingTimeEntity(
             UUID.randomUUID(),
-            accountA,
+            accountEntityA,
             identityId,
             orgA,
             OffsetDateTime.of(2026, 4, 20, 9, 0, 0, 0, ZoneOffset.UTC).toInstant(),
@@ -172,7 +176,7 @@ class WorkingTimesIntegrationTest {
 
         userIdentityRepository.save(new UserIdentityEntity(identityId, Instant.now()));
         organizationRepository.save(new OrganizationEntity(orgId, "zitadel-org-a", "Org A", Instant.now()));
-        userAccountRepository.save(new UserAccountEntity(accountId, sub, orgId, identityId, Instant.now(), Instant.now()));
+        userAccountRepository.save(new UserAccountEntity(accountId, sub, orgId, identityId, Instant.now(), Instant.now(), new ArrayList<>()));
 
         String body = """
             {
