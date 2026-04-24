@@ -1,8 +1,8 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { BASE_PATH } from '../../../api';
-import { TasksPageComponent } from './tasks-page';
+import { BASE_PATH } from '../../api';
+import { TasksPageComponent } from './tasks-page.component';
 
 describe('TasksPageComponent', () => {
   let fixture: ComponentFixture<TasksPageComponent>;

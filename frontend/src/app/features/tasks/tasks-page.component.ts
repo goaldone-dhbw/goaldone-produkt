@@ -15,10 +15,10 @@ import {
   TaskResponse,
   TaskStatus,
   TaskUpdateRequest,
-} from '../../../api';
-import { TasksService } from '../../../api';
-import { UserAccountsService } from '../../../api';
-import { BasePopupComponent } from '../../../shared/base-popup/base-popup.component';
+} from '../../api';
+import { TasksService } from '../../api';
+import { UserAccountsService } from '../../api';
+import { BasePopupComponent } from '../../shared/base-popup/base-popup.component';
 
 type AccountOption = {
   id: string;
@@ -63,7 +63,7 @@ type TaskFormValue = {
   selector: 'app-tasks-page',
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule, BasePopupComponent],
-  templateUrl: './tasks-page.html',
+  templateUrl: './tasks-page.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class TasksPageComponent {
