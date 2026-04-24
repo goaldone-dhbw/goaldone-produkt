@@ -1,7 +1,8 @@
-<div class="app-shell">
+<div class="app-shell flex flex-col h-screen overflow-hidden">
   <header class="app-header">
     <p-button icon="pi pi-bars" [text]="true" (onClick)="toggleSidebar()" ariaLabel="Menu" />
-    <img src="logo.png" alt="Logo" class="w-10" />
+    <p-image src="logo.png" alt="Logo" class="w-10" routerLink="/app"/>
+    <span class="app-title" (click)="sidebarVisible.set(false)" routerLink="/app">Goaldone</span>
   </header>
 
   <app-sidebar [(visible)]="sidebarVisible"></app-sidebar>

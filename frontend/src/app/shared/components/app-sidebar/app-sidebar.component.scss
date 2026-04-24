@@ -1,25 +1,49 @@
 :host ::ng-deep {
-  .p-drawer {
-    width: 18rem;
-  }
-
-  .p-menu {
-    width: 100%;
-    border: none;
-    background: transparent;
-  }
+  /* Drawer Styling - Keine Breiten-Overrides für Standard-X-Maß */
 
   .p-drawer-header {
-    padding: 1rem;
-    font-weight: 700;
-    color: var(--p-primary-color);
+    padding-top: 2rem !important;
+    padding-bottom: 2rem !important;
+    font-weight: 700 !important;
+    color: var(--p-primary-color) !important;
+  }
+
+  /* Menu Styling */
+  .p-menu {
+    width: 100% !important;
+    border: none !important;
+    background: transparent !important;
+    padding: 0 !important;
+  }
+
+  /* Nur Y-Padding vergrößert, X bleibt Standard (1rem) */
+  .p-menuitem-link {
+    padding-top: 1.75rem !important;
+    padding-bottom: 1.75rem !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.75rem !important;
   }
 
   .p-menuitem-icon {
-    color: var(--p-primary-color);
+    color: var(--p-primary-color) !important;
+    margin: 0 !important;
+    font-size: 1.1rem !important;
   }
 
   .p-menuitem-text {
-    font-weight: 500;
+    font-weight: 500 !important;
+  }
+
+  /* Submenu Header mit viel Platz in Y-Richtung */
+  .p-submenu-header {
+    font-weight: 700 !important;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #64748b !important;
+    padding-top: 3rem !important;
+    padding-bottom: 1rem !important;
+    background: transparent !important;
+    font-size: 0.75rem !important;
   }
 }

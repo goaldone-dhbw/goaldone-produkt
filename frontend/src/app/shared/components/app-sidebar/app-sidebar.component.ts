@@ -1,8 +1,8 @@
 import { Component, computed, inject, model } from '@angular/core';
 import { MenuItem } from 'primeng/api';
 import { Menu } from 'primeng/menu';
-import { Drawer } from 'primeng/drawer';
 import { AuthService } from '../../../core/auth/auth.service';
+import { Drawer } from 'primeng/drawer';
 
 @Component({
   selector: 'app-sidebar',
@@ -16,64 +16,74 @@ export class AppSidebarComponent {
 
   visible = model<boolean>(false);
 
-  protected navigationItems = computed<MenuItem[]>(() => {
+  protected menuItems = computed<MenuItem[]>(() => {
     const roles = this.authService.getUserRoles();
-    if (roles.includes('SUPER_ADMIN')) {
-      return [];
-    }
+    const closeSidebar = () => this.visible.set(false);
 
-    return [
+    const workspaceItems: MenuItem[] = [
       {
         label: 'Workspace',
         icon: 'pi pi-home',
         routerLink: '/app',
+        command: closeSidebar,
       },
       {
         label: 'Aufgaben & Routinen',
         icon: 'pi pi-list',
         routerLink: '/app/tasks',
+        command: closeSidebar,
       },
       {
         label: 'Planungsansicht',
         icon: 'pi pi-calendar-clock',
         routerLink: '/app/schedule',
+        command: closeSidebar,
       },
       {
         label: 'Arbeitszeiten & Pausen',
         icon: 'pi pi-clock',
         routerLink: '/app/working-hours',
+        command: closeSidebar,
       },
     ];
-  });
 
-  protected settingsItems = computed<MenuItem[]>(() => {
-    const roles = this.authService.getUserRoles();
-    const items: MenuItem[] = [
+    const settingsItems: MenuItem[] = [
       {
         label: 'Einstellungen',
         icon: 'pi pi-cog',
         routerLink: '/app/settings',
+        command: closeSidebar,
       },
     ];
 
-    // Nur für ADMIN
+    // Add Admin pages if applicable
     if (roles.includes('COMPANY_ADMIN')) {
-      items.unshift({
+      settingsItems.unshift({
         label: 'Organisation verwalten',
         icon: 'pi pi-building',
         routerLink: '/app/organization',
+        command: closeSidebar,
       });
     }
 
-    // Nur SuperAdmin
     if (roles.includes('SUPER_ADMIN')) {
-      items.unshift({
+      settingsItems.unshift({
         label: 'Super-Admin',
         icon: 'pi pi-key',
         routerLink: '/app/super-admin',
+        command: closeSidebar,
       });
     }
 
-    return items;
+    return [
+      {
+        label: 'Menü',
+        items: workspaceItems,
+      },
+      {
+        label: 'Verwaltung',
+        items: settingsItems,
+      },
+    ];
   });
 }

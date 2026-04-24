@@ -1,28 +1,16 @@
-:host {
-  display: block;
-  height: 100dvh;
-}
-
-.app-shell {
-  display: flex;
-  flex-direction: column;
-  height: 100dvh;
-  overflow: hidden;
-  background: var(--p-surface-ground);
-}
-
 .app-header {
+  min-height: 4.5rem;
+  padding: 1.25rem 1rem; /* py-5, px-4 (X-Richtung auf Standard zurückgesetzt) */
   display: flex;
   align-items: center;
-  gap: 1rem;
-  padding: 0.5rem 1rem;
+  gap: 1.5rem;
   background: var(--p-surface-card);
   border-bottom: 1px solid var(--p-content-border-color);
   z-index: 10;
 }
 
 .app-title {
-  font-size: 1.25rem;
+  font-size: 1.5rem;
   font-weight: 700;
   color: var(--p-primary-color);
   letter-spacing: -0.025em;
