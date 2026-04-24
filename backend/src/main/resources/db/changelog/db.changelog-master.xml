@@ -9,5 +9,6 @@
     <include file="changes/002-remove-user-profile-columns.xml" relativeToChangelogFile="true"/>
     <include file="changes/003-user-identity-linking.xml" relativeToChangelogFile="true"/>
     <include file="changes/004-task-management.xml" relativeToChangelogFile="true"/>
+    <include file="changes/005-task-advanced-fields.xml" relativeToChangelogFile="true"/>
 
 </databaseChangeLog>

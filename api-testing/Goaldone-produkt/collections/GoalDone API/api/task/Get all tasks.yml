@@ -8,9 +8,7 @@ info:
 http:
   method: GET
   url: "{{baseUrl}}/tasks"
-  auth:
-    type: bearer
-    token: "{{token}}"
+  auth: inherit
 
 settings:
   encodeUrl: true
@@ -55,4 +53,3 @@ examples:
       body:
         type: text
         data: ""
-

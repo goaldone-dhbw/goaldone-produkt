@@ -8,9 +8,12 @@ info:
 http:
   method: DELETE
   url: "{{baseUrl}}/tasks/{{taskId}}"
-  auth:
-    type: bearer
-    token: "{{token}}"
+  auth: inherit
+
+runtime:
+  variables:
+    - name: taskId
+      value: 7ccc1607-e2b7-4373-bfcd-035d67b74878
 
 settings:
   encodeUrl: true
@@ -52,4 +55,3 @@ examples:
       body:
         type: text
         data: ""
-

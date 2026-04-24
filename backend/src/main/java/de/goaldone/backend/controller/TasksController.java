@@ -1,6 +1,7 @@
 package de.goaldone.backend.controller;
 
 import de.goaldone.backend.api.TasksApi;
+import de.goaldone.backend.exception.NotLinkedException;
 import de.goaldone.backend.model.TaskCreateRequest;
 import de.goaldone.backend.model.TaskResponse;
 import de.goaldone.backend.model.TaskUpdateRequest;
@@ -26,7 +27,7 @@ public class TasksController implements TasksApi {
     public ResponseEntity<TaskResponse> createTask(TaskCreateRequest taskCreateRequest) {
         var jwt = currentUserResolver.extractJwt();
         if (!userIdentityService.hasUserAccessToAccount(jwt, taskCreateRequest.getAccountId())) {
-            throw new IllegalArgumentException("User does not have access to the specified account");
+            throw new NotLinkedException();
         }
 
         TaskResponse createdTask = tasksService.createTask(taskCreateRequest);

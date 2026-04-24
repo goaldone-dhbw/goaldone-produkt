@@ -4,3 +4,5 @@ CLAUDE.md
 .planning/
 .claude/
 mprocs.yaml
+mprocs.log
+runlocal.sh

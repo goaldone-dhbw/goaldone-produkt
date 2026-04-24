@@ -5,3 +5,6 @@ info:
 
 request:
   auth: inherit
+  variables:
+    - name: accountId
+      value: 552e4ba6-ca19-470c-90f2-decd65e2369f
