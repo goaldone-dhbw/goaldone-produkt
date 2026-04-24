@@ -59,4 +59,17 @@ public class UserIdentityService {
         response.setAccounts(responses);
         return response;
     }
+
+    public List<UUID> accountIdsForUser(Jwt jwt) {
+        return buildAccountListResponse(jwt).getAccounts().stream()
+                .map(AccountResponse::getAccountId)
+                .toList();
+    }
+
+    public boolean hasUserAccessToAccount(Jwt jwt, UUID accountId) {
+        AccountListResponse accounts = buildAccountListResponse(jwt);
+
+        return accounts.getAccounts().stream()
+                .anyMatch(account -> account.getAccountId().equals(accountId));
+    }
 }
