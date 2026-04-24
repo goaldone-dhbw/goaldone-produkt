@@ -33,8 +33,13 @@ public class ScheduleController implements SchedulesApi {
                 findAccountsForIdentity(userIdentityService.findIdentityFromAccount(jwt));
     }
 
+    /**
+     *
+     * @param generateScheduleRequest  (required)
+     * @return Schedule for multiple accounts
+     */
     @Override
-    public ResponseEntity<MultiAccountScheduleResponse> generateAllAccountsSchedule(GenerateScheduleRequest generateScheduleRequest) throws Exception {
+    public ResponseEntity<MultiAccountScheduleResponse> generateAllAccountsSchedule(GenerateScheduleRequest generateScheduleRequest) {
 
         List<UUID> accountIds = getAccountsLinkedToIdentity().
                 stream()
@@ -50,20 +55,26 @@ public class ScheduleController implements SchedulesApi {
     }
 
     @Override
-    public ResponseEntity<MultiAccountScheduleResponse> getAllAccountsSchedule(LocalDate from, LocalDate to) throws Exception {
+    public ResponseEntity<MultiAccountScheduleResponse> getAllAccountsSchedule(LocalDate from, LocalDate to) {
         // Validate goaldone user and its connected accounts using ids
 
         return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();
     }
 
+    /**
+     *
+     * @param accountId Account for which the schedule will be generated(required)
+     * @param generateScheduleRequest  (required)
+     * @return Schedule for the given account
+     */
     @Override
-    public ResponseEntity<ScheduleResponse> generateSingleAccountSchedule(UUID accountId, GenerateScheduleRequest generateScheduleRequest) throws Exception {
+    public ResponseEntity<ScheduleResponse> generateSingleAccountSchedule(UUID accountId, GenerateScheduleRequest generateScheduleRequest) {
         ScheduleResponse scheduleResponse = scheduleService.generateSchedule(accountId, generateScheduleRequest);
         return ResponseEntity.status(201).body(scheduleResponse);
     }
 
     @Override
-    public ResponseEntity<ScheduleResponse> getSingleAccountSchedule(UUID accountId, LocalDate from, LocalDate to) throws Exception {
+    public ResponseEntity<ScheduleResponse> getSingleAccountSchedule(UUID accountId, LocalDate from, LocalDate to) {
         return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();
     }
 }

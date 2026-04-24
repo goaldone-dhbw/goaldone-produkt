@@ -14,7 +14,7 @@ public class TaskService {
     // TODO: Implement task service methods
 
     /**
-     * Get all tasks (and appointments) from db for a specific account
+     * Get all tasks from db for a specific account
      * @param accountID Specified account
      * @return List of tasks
      */

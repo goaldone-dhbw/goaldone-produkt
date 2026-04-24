@@ -25,6 +25,15 @@ public class ScheduleService {
     TaskService taskService = new TaskService();
     AppointmentService appointmentService = new AppointmentService();
 
+
+    /**
+     * Generates schedules for multiple accounts asynchronously
+     * @param accountIds List of accounts
+     * @param request
+     * @param timeoutMilliseconds Maximum time to wait for each account's schedule
+     *                            generation before giving up (in milliseconds)
+     * @return A schedule for each account summed up in a lCist
+     */
     public List<ScheduleResponse> generateMultiAccountSchedule(
             List<UUID> accountIds,
             GenerateScheduleRequest request,
@@ -66,6 +75,11 @@ public class ScheduleService {
         return results;
     }
 
+    /**
+     *
+     * @param accountId Specific account
+     * @return Available timeslots between appointments
+     */
     private List<TimeSlot> getAvailableTimeSlots(UUID accountId) {
         List<Appointment> allAppointments = appointmentService.listAppointments(accountId).getAppointments();
 
@@ -77,6 +91,16 @@ public class ScheduleService {
         return availableSlots;
     }
 
+
+    /**
+     * Orders the generation of a scheduling for a single account
+     * @param accountId Specific account
+     * @param generateScheduleRequest Request
+     * @return Response containing
+     *  - the generated schedule,
+     *  - the scheduleScore,
+     *  - constraint warnings
+     */
     public ScheduleResponse generateSchedule(UUID accountId, GenerateScheduleRequest generateScheduleRequest) {
 
         // Get data
@@ -93,7 +117,7 @@ public class ScheduleService {
 
         // Create schedule context
         SchedulingContext schedulingContext = new SchedulingContext(
-                accountId, fromDate, availableSlots, chunks
+                fromDate, availableSlots, chunks
         );
 
         // Forward to schedule generator

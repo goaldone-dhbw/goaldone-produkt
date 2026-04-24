@@ -5,7 +5,6 @@ import java.util.List;
 import java.util.UUID;
 
 public record SchedulingContext(
-    UUID accountId,
     LocalDate fromDate,
     List<TimeSlot> availableSlots,
     List<TaskChunk> chunks

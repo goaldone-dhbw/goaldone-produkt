@@ -8,6 +8,12 @@ import java.util.List;
 public class Chunker {
 
     //TODO: Implement
+
+    /**
+     *
+     * @param tasks
+     * @return
+     */
     public List<TaskChunk> chunkTasks(List<Task> tasks) {
         return null;
     }

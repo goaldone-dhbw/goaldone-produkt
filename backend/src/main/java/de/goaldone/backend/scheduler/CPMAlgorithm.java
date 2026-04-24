@@ -5,6 +5,11 @@ import java.util.List;
 
 public class CPMAlgorithm {
 
+    /**
+     * Creates initial schedule
+     * @param context Scheduling context containing chunked tasks, free time slots, and the scheduling start date.
+     * @return A first, heuristic generated schedule
+     */
     Schedule generateInitialSchedule(SchedulingContext context) {
 
         // TODO: Implement CPM

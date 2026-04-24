@@ -9,20 +9,25 @@ import java.util.List;
 
 public class Solver {
 
-    ConstraintHandler constraintHandler;
-    CPMAlgorithm cpmAlgorithm;
+    private final ConstraintHandler constraintHandler;
+    private final CPMAlgorithm cpmAlgorithm;
 
     public Solver() {
         this.constraintHandler = new ConstraintHandler();
         this.cpmAlgorithm = new CPMAlgorithm();
     }
 
+    /**
+     * Creates an initial schedule and multiple variants and returns the one with the best score.
+     * @param context The scheduling context containing chunked tasks, free time slots, and the scheduling start date.
+     * @return The best schedule
+     */
     public SchedulingResult createSchedule(SchedulingContext context) {
 
         // Calculate initial schedule using CPM
         Schedule initialSchedule = this.cpmAlgorithm.generateInitialSchedule(context);
 
-        // TODO: Call metaheuristic (MoveStrategies + Late Acceptance + Tabu Search) to improve
+        // TODO: Generate variants: Call metaheuristic (MoveStrategies + Late Acceptance + Tabu Search) to improve
 
         // Example data
         Schedule schedule = new Schedule();
