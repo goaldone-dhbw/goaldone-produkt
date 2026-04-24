@@ -1,28 +1,20 @@
-<p class="p-5">startpage works!</p>
-<p-button class="p-5" label="Login" routerLink="/test"></p-button>
-<p-button class="p-5" label="Open Base Popup Dialog (empty)" (onClick)="showEmptyBasePopup()"></p-button>
-<p-button
-  class="p-5"
-  label="Open Base Popup Dialog with content"
-  (onClick)="showBasePopupWithContent()"
-></p-button>
+<div class="flex flex-col items-center justify-center min-h-screen bg-slate-50 p-6">
+  <div class="max-w-md w-full flex flex-col items-center gap-8">
+    <img src="logo.png" alt="GoalDone Logo" class="w-48 h-auto" />
 
-<app-base-popup
-  [isOpen]="isEmptyPopupOpen"
-  title="Leeres Base Popup"
-  [content]="''"
-  (confirm)="closeEmptyBasePopup()"
-  (cancel)="closeEmptyBasePopup()"
-  (closed)="closeEmptyBasePopup()"
-></app-base-popup>
+    <div class="text-center flex flex-col gap-4">
+      <h1 class="text-3xl font-bold text-slate-800">Willkommen bei GoalDone</h1>
+      <p class="text-slate-600">
+        Erreiche deine Ziele mit Struktur und Leichtigkeit.
+        Melde dich an, um fortzufahren.
+      </p>
+    </div>
 
-<app-base-popup
-  [isOpen]="isContentPopupOpen"
-  title="Base Popup mit Inhalt"
-  content="Das ist ein Beispielinhalt über die Basiskomponente."
-  (confirm)="closeBasePopupWithContent()"
-  (cancel)="closeBasePopupWithContent()"
-  (closed)="closeBasePopupWithContent()"
->
-  <div popup-content>Projektionsinhalt für komplexere Dialoge.</div>
-</app-base-popup>
+    <p-button
+      [label]="isLoggedIn ? 'Zur App' : 'Login'"
+      (onClick)="handleAction()"
+      size="large"
+      class="w-full sm:w-auto"
+    ></p-button>
+  </div>
+</div>
