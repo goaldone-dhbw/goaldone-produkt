@@ -1,6 +1,7 @@
 package de.goaldone.backend.service;
 
 import de.goaldone.backend.entity.TaskEntity;
+import de.goaldone.backend.model.CognitiveLoad;
 import de.goaldone.backend.model.TaskCreateRequest;
 import de.goaldone.backend.model.TaskStatus;
 import de.goaldone.backend.model.TaskUpdateRequest;
@@ -42,9 +43,12 @@ class TasksServiceTest {
         UUID accountId = UUID.randomUUID();
         UUID taskId = UUID.randomUUID();
 
-        TaskCreateRequest request = new TaskCreateRequest("Dokumentation");
+        TaskCreateRequest request = new TaskCreateRequest();
+        request.setAccountId(accountId);
+        request.setTitle("Dokumentation");
         request.setDuration(120);
         request.setStatus(TaskStatus.OPEN);
+        request.setCognitiveLoad(CognitiveLoad.MODERATE);
 
         TaskEntity saved = new TaskEntity();
         saved.setId(taskId);
@@ -52,11 +56,12 @@ class TasksServiceTest {
         saved.setTitle("Dokumentation");
         saved.setDuration(120);
         saved.setStatus(TaskStatus.OPEN);
+        saved.setCognitiveLoad(CognitiveLoad.MODERATE);
 
         when(taskRepository.save(any(TaskEntity.class))).thenReturn(saved);
         when(taskRepository.findByIdAndAccountId(taskId, accountId)).thenReturn(Optional.of(saved));
 
-        var response = tasksService.createTask(accountId, request);
+        var response = tasksService.createTask(request);
 
         assertEquals(taskId, response.getId());
         assertEquals("Dokumentation", response.getTitle());
@@ -66,12 +71,11 @@ class TasksServiceTest {
 
     @Test
     void createTask_invalidDuration_throwsBadRequest() {
-        UUID accountId = UUID.randomUUID();
-        TaskCreateRequest request = new TaskCreateRequest("Fehler-Task");
+        TaskCreateRequest request = new TaskCreateRequest();
         request.setDuration(-10);
 
         ResponseStatusException ex = assertThrows(ResponseStatusException.class,
-            () -> tasksService.createTask(accountId, request));
+            () -> tasksService.createTask(request));
 
         assertEquals(HttpStatus.BAD_REQUEST, ex.getStatusCode());
     }
