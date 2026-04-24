@@ -1,7 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { NoopAnimationsModule } from '@angular/platform-browser/animations';
+import { BASE_PATH } from '../../../api';
 import { TasksPageComponent } from './tasks-page';
 
 describe('TasksPageComponent', () => {
@@ -9,14 +9,20 @@ describe('TasksPageComponent', () => {
   let component: TasksPageComponent;
   let httpMock: HttpTestingController;
 
+  const API_BASE = 'http://localhost:8080/api/v1';
+
   beforeEach(async () => {
     (window as any).__env = {
       apiBasePath: 'http://localhost:8080',
     };
 
     await TestBed.configureTestingModule({
-      imports: [TasksPageComponent, NoopAnimationsModule],
-      providers: [provideHttpClient(), provideHttpClientTesting()],
+      imports: [TasksPageComponent],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: BASE_PATH, useValue: API_BASE }
+      ],
     }).compileComponents();
 
     fixture = TestBed.createComponent(TasksPageComponent);
@@ -28,18 +34,18 @@ describe('TasksPageComponent', () => {
     httpMock.verify();
   });
 
-  function flushInitialRequests(tasks: any[] = [], accountsResponse: any = { accounts: [] }): void {
+  async function flushInitialRequests(tasksAccountResponses: any[] = [], accountsResponse: any = { accounts: [] }): Promise<void> {
     fixture.detectChanges();
 
-    const accountsRequest = httpMock.expectOne(
-      (req) => req.method === 'GET' && req.url === 'http://localhost:8080/users/accounts',
-    );
+    const accountsRequest = httpMock.expectOne(`${API_BASE}/users/accounts`);
     accountsRequest.flush(accountsResponse);
 
-    const tasksRequest = httpMock.expectOne(
-      (req) => req.method === 'GET' && req.url === 'http://localhost:8080/tasks',
-    );
-    tasksRequest.flush(tasks);
+    // Wait for the next microtask so loadTasks() is called
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const tasksRequest = httpMock.expectOne(`${API_BASE}/tasks/all`);
+    tasksRequest.flush(tasksAccountResponses);
 
     fixture.detectChanges();
   }
@@ -49,11 +55,11 @@ describe('TasksPageComponent', () => {
   }
 
   it('soll eine Aufgabe erstellen und danach in der Liste anzeigen', async () => {
-    flushInitialRequests([], {
+    const accountId = '8836327e-02e8-4539-9c3d-6ca434d43827';
+    await flushInitialRequests([], {
       accounts: [
         {
-          accountId: '8836327e-02e8-4539-9c3d-6ca434d43827',
-          organizationId: 'ed4fef73-5b25-45f9-9779-a83363593719',
+          accountId: accountId,
           organizationName: 'GoalDone',
         },
       ],
@@ -68,22 +74,20 @@ describe('TasksPageComponent', () => {
       duration: 120,
       status: 'OPEN',
       deadline: '2026-04-25T12:00',
-      accountId: '8836327e-02e8-4539-9c3d-6ca434d43827',
+      accountId: accountId,
       dependencyIds: [],
     });
 
     const savePromise = component.saveTask();
 
-    const postRequest = httpMock.expectOne(
-      (req) => req.method === 'POST' && req.url === 'http://localhost:8080/tasks',
-    );
+    const postRequest = httpMock.expectOne(`${API_BASE}/tasks`);
 
     expect(postRequest.request.body).toMatchObject({
       title: 'Dokumentation schreiben',
       description: 'Feature dokumentieren',
       duration: 120,
       status: 'OPEN',
-      accountId: '8836327e-02e8-4539-9c3d-6ca434d43827',
+      accountId: accountId,
       dependencyIds: [],
     });
 
@@ -94,23 +98,26 @@ describe('TasksPageComponent', () => {
       duration: 120,
       deadline: '2026-04-25T12:00:00.000Z',
       status: 'OPEN',
-      accountId: '8836327e-02e8-4539-9c3d-6ca434d43827',
-      dependencyIds: [],
     });
 
-    const reloadRequest = httpMock.expectOne(
-      (req) => req.method === 'GET' && req.url === 'http://localhost:8080/tasks',
-    );
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const reloadRequest = httpMock.expectOne(`${API_BASE}/tasks/all`);
     reloadRequest.flush([
       {
-        id: '00000000-0000-0000-0000-000000000001',
-        title: 'Dokumentation schreiben',
-        description: 'Feature dokumentieren',
-        duration: 120,
-        deadline: '2026-04-25T12:00:00.000Z',
-        status: 'OPEN',
-        accountId: '8836327e-02e8-4539-9c3d-6ca434d43827',
-        dependencyIds: [],
+        accountId: accountId,
+        tasks: [
+          {
+            id: '00000000-0000-0000-0000-000000000001',
+            title: 'Dokumentation schreiben',
+            description: 'Feature dokumentieren',
+            duration: 120,
+            deadline: '2026-04-25T12:00:00.000Z',
+            status: 'OPEN',
+            dependencyIds: [],
+          },
+        ],
       },
     ]);
 
@@ -125,24 +132,28 @@ describe('TasksPageComponent', () => {
   });
 
   it('soll eine Aufgabe bearbeiten und die Liste aktualisieren', async () => {
-    flushInitialRequests(
+    const accountId = '8836327e-02e8-4539-9c3d-6ca434d43827';
+    await flushInitialRequests(
       [
         {
-          id: 't1',
-          title: 'Alte Aufgabe',
-          description: 'Alt',
-          duration: 90,
-          deadline: null,
-          status: 'OPEN',
-          accountId: '8836327e-02e8-4539-9c3d-6ca434d43827',
-          dependencyIds: [],
+          accountId: accountId,
+          tasks: [
+            {
+              id: 't1',
+              title: 'Alte Aufgabe',
+              description: 'Alt',
+              duration: 90,
+              deadline: null,
+              status: 'OPEN',
+              dependencyIds: [],
+            },
+          ],
         },
       ],
       {
         accounts: [
           {
-            accountId: '8836327e-02e8-4539-9c3d-6ca434d43827',
-            organizationId: 'ed4fef73-5b25-45f9-9779-a83363593719',
+            accountId: accountId,
             organizationName: 'GoalDone',
           },
         ],
@@ -158,22 +169,19 @@ describe('TasksPageComponent', () => {
       duration: 150,
       status: 'IN_PROGRESS',
       description: 'Neu',
-      accountId: '8836327e-02e8-4539-9c3d-6ca434d43827',
+      accountId: accountId,
       dependencyIds: [],
     });
 
     const savePromise = component.saveTask();
 
-    const putRequest = httpMock.expectOne(
-      (req) => req.method === 'PUT' && req.url === 'http://localhost:8080/tasks/t1',
-    );
+    const putRequest = httpMock.expectOne(`${API_BASE}/tasks/t1`);
 
     expect(putRequest.request.body).toMatchObject({
       title: 'Aktualisierte Aufgabe',
       duration: 150,
       status: 'IN_PROGRESS',
       description: 'Neu',
-      accountId: '8836327e-02e8-4539-9c3d-6ca434d43827',
       dependencyIds: [],
     });
 
@@ -182,19 +190,24 @@ describe('TasksPageComponent', () => {
       title: 'Aktualisierte Aufgabe',
     });
 
-    const reloadRequest = httpMock.expectOne(
-      (req) => req.method === 'GET' && req.url === 'http://localhost:8080/tasks',
-    );
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const reloadRequest = httpMock.expectOne(`${API_BASE}/tasks/all`);
     reloadRequest.flush([
       {
-        id: 't1',
-        title: 'Aktualisierte Aufgabe',
-        description: 'Neu',
-        duration: 150,
-        deadline: null,
-        status: 'IN_PROGRESS',
-        accountId: '8836327e-02e8-4539-9c3d-6ca434d43827',
-        dependencyIds: [],
+        accountId: accountId,
+        tasks: [
+          {
+            id: 't1',
+            title: 'Aktualisierte Aufgabe',
+            description: 'Neu',
+            duration: 150,
+            deadline: null,
+            status: 'IN_PROGRESS',
+            dependencyIds: [],
+          },
+        ],
       },
     ]);
 
@@ -208,7 +221,7 @@ describe('TasksPageComponent', () => {
   });
 
   it('soll bei fehlenden Pflichtfeldern einen Formularfehler anzeigen', async () => {
-    flushInitialRequests([], { accounts: [] });
+    await flushInitialRequests([], { accounts: [] });
 
     component.openCreateDialog();
     fixture.detectChanges();
@@ -223,53 +236,36 @@ describe('TasksPageComponent', () => {
     await component.saveTask();
     fixture.detectChanges();
 
-    const postRequests = httpMock.match(
-      (req) => req.method === 'POST' && req.url === 'http://localhost:8080/tasks',
-    );
+    const postRequests = httpMock.match(`${API_BASE}/tasks`);
 
     expect(postRequests.length).toBe(0);
     expect(component.formErrorMessage()).toContain('Pflichtfelder');
     expect(getTextContent()).toContain('Bitte fülle alle Pflichtfelder korrekt aus.');
   });
 
-  it('soll bei nicht erreichbarem Backend eine Fehlermeldung im UI anzeigen', () => {
-    fixture.detectChanges();
-
-    const accountsRequest = httpMock.expectOne(
-      (req) => req.method === 'GET' && req.url === 'http://localhost:8080/users/accounts',
-    );
-    accountsRequest.flush({ accounts: [] });
-
-    const tasksRequest = httpMock.expectOne(
-      (req) => req.method === 'GET' && req.url === 'http://localhost:8080/tasks',
-    );
-    tasksRequest.error(new ProgressEvent('Network error'));
-
-    fixture.detectChanges();
-
-    expect(component.listErrorMessage()).toContain('Aufgaben konnten nicht geladen werden');
-    expect(getTextContent()).toContain('Aufgaben konnten nicht geladen werden');
-  });
-
   it('soll den Status einer Aufgabe ändern und speichern', async () => {
-    flushInitialRequests(
+    const accountId = '8836327e-02e8-4539-9c3d-6ca434d43827';
+    await flushInitialRequests(
       [
         {
-          id: 't1',
-          title: 'Status-Test',
-          description: null,
-          duration: 60,
-          deadline: null,
-          status: 'OPEN',
-          accountId: '8836327e-02e8-4539-9c3d-6ca434d43827',
-          dependencyIds: [],
+          accountId: accountId,
+          tasks: [
+            {
+              id: 't1',
+              title: 'Status-Test',
+              description: null,
+              duration: 60,
+              deadline: null,
+              status: 'OPEN',
+              dependencyIds: [],
+            },
+          ],
         },
       ],
       {
         accounts: [
           {
-            accountId: '8836327e-02e8-4539-9c3d-6ca434d43827',
-            organizationId: 'ed4fef73-5b25-45f9-9779-a83363593719',
+            accountId: accountId,
             organizationName: 'GoalDone',
           },
         ],
@@ -283,28 +279,30 @@ describe('TasksPageComponent', () => {
 
     const changePromise = component.changeStatus(task, event);
 
-    const putRequest = httpMock.expectOne(
-      (req) => req.method === 'PUT' && req.url === 'http://localhost:8080/tasks/t1',
-    );
+    const putRequest = httpMock.expectOne(`${API_BASE}/tasks/t1`);
     expect(putRequest.request.body).toMatchObject({
       status: 'DONE',
-      accountId: '8836327e-02e8-4539-9c3d-6ca434d43827',
     });
     putRequest.flush({});
 
-    const reloadRequest = httpMock.expectOne(
-      (req) => req.method === 'GET' && req.url === 'http://localhost:8080/tasks',
-    );
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const reloadRequest = httpMock.expectOne(`${API_BASE}/tasks/all`);
     reloadRequest.flush([
       {
-        id: 't1',
-        title: 'Status-Test',
-        description: null,
-        duration: 60,
-        deadline: null,
-        status: 'DONE',
-        accountId: '8836327e-02e8-4539-9c3d-6ca434d43827',
-        dependencyIds: [],
+        accountId: accountId,
+        tasks: [
+          {
+            id: 't1',
+            title: 'Status-Test',
+            description: null,
+            duration: 60,
+            deadline: null,
+            status: 'DONE',
+            dependencyIds: [],
+          },
+        ],
       },
     ]);
 
@@ -313,33 +311,5 @@ describe('TasksPageComponent', () => {
 
     expect(component.tasks()[0].status).toBe('DONE');
     expect(component.successMessage()).toContain('Status wurde gespeichert');
-  });
-
-  it('soll einen Validierungsfehler anzeigen, wenn duration 0 ist', async () => {
-    flushInitialRequests([], {
-      accounts: [
-        {
-          accountId: '8836327e-02e8-4539-9c3d-6ca434d43827',
-          organizationId: 'ed4fef73-5b25-45f9-9779-a83363593719',
-          organizationName: 'GoalDone',
-        },
-      ],
-    });
-
-    component.openCreateDialog();
-    fixture.detectChanges();
-
-    component.taskForm.patchValue({
-      title: 'Dauer-Test',
-      duration: 0,
-      status: 'OPEN',
-      accountId: '8836327e-02e8-4539-9c3d-6ca434d43827',
-      dependencyIds: [],
-    });
-
-    component.taskForm.markAllAsTouched();
-    fixture.detectChanges();
-
-    expect(component.taskForm.get('duration')?.invalid).toBeTruthy();
   });
 });

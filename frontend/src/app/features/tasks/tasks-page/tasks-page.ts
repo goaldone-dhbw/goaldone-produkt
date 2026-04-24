@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import {
   AbstractControl,
@@ -9,10 +9,16 @@ import {
   Validators,
 } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
+import {
+  CognitiveLoad,
+  TaskCreateRequest,
+  TaskResponse,
+  TaskStatus,
+  TaskUpdateRequest,
+} from '../../../api';
+import { TasksService } from '../../../api';
+import { UserAccountsService } from '../../../api';
 import { BasePopupComponent } from '../../../shared/base-popup/base-popup.component';
-
-type TaskStatus = 'OPEN' | 'IN_PROGRESS' | 'DONE';
-type CognitiveLoad = 'LOW' | 'MODERATE' | 'HIGH';
 
 type AccountOption = {
   id: string;
@@ -22,12 +28,6 @@ type AccountOption = {
 type DependencyOption = {
   id: string;
   title: string;
-};
-
-type FrontendOnlyTaskMeta = {
-  cognitiveLoad: CognitiveLoad | null;
-  notBefore: string | null;
-  customChunkSize: number | null;
 };
 
 type TaskItem = {
@@ -41,7 +41,7 @@ type TaskItem = {
   accountLabel: string | null;
   dependencyIds: string[];
   cognitiveLoad: CognitiveLoad | null;
-  notBefore: string | null;
+  dontScheduleBefore: string | null;
   customChunkSize: number | null;
 };
 
@@ -55,42 +55,8 @@ type TaskFormValue = {
   accountId: string;
   dependencyIds: string[];
   cognitiveLoad: CognitiveLoad | '';
-  notBefore: string;
+  dontScheduleBefore: string;
   customChunkSize: number | null;
-};
-
-type TaskApiResponse = {
-  id?: string;
-  title?: string;
-  description?: string | null;
-  duration?: number;
-  deadline?: string | null;
-  status?: TaskStatus;
-  accountId?: string;
-  account?: {
-    accountId?: string;
-    id?: string;
-    organizationName?: string;
-  };
-  accountLabel?: string;
-  organizationName?: string;
-  companyName?: string;
-  clubName?: string;
-  dependencyIds?: unknown[];
-  cognitiveLoad?: CognitiveLoad | null;
-  notBefore?: string | null;
-  customChunkSize?: number | null;
-};
-
-type AccountsApiResponse = {
-  accounts?: Array<{
-    accountId?: string;
-    id?: string;
-    organizationName?: string;
-    label?: string;
-    name?: string;
-    displayName?: string;
-  }>;
 };
 
 @Component({
@@ -102,13 +68,8 @@ type AccountsApiResponse = {
 })
 export class TasksPageComponent {
   private readonly fb = inject(FormBuilder);
-  private readonly http = inject(HttpClient);
-
-  private readonly apiBasePath = this.readApiBasePath();
-  private readonly tasksUrl = `${this.apiBasePath}/tasks`;
-  private readonly accountsUrl = `${this.apiBasePath}/users/accounts`;
-
-  private readonly localMetaStorageKey = 'goaldone.tasks.frontend-meta';
+  private readonly tasksService = inject(TasksService);
+  private readonly userAccountsService = inject(UserAccountsService);
 
   readonly tasks = signal<TaskItem[]>([]);
   readonly accounts = signal<AccountOption[]>([]);
@@ -159,7 +120,7 @@ export class TasksPageComponent {
       accountId: this.fb.control('', [Validators.required]),
       dependencyIds: this.fb.control<string[]>([]),
       cognitiveLoad: this.fb.control<CognitiveLoad | ''>(''),
-      notBefore: this.fb.control(''),
+      dontScheduleBefore: this.fb.control(''),
       customChunkSize: this.fb.control<number | null>(null),
     },
     {
@@ -189,8 +150,8 @@ export class TasksPageComponent {
 
   async loadAccounts(): Promise<void> {
     try {
-      const response = await firstValueFrom(this.http.get<unknown>(this.accountsUrl));
-      const normalized = this.normalizeAccountResponse(response);
+      const response = await firstValueFrom(this.userAccountsService.getMyAccounts());
+      const normalized = this.normalizeAccountResponse(response.accounts);
       this.accounts.set(normalized);
 
       if (normalized.length === 1) {
@@ -206,9 +167,17 @@ export class TasksPageComponent {
     this.listErrorMessage.set('');
 
     try {
-      const response = await firstValueFrom(this.http.get<unknown[]>(this.tasksUrl));
-      const mapped = (response ?? []).map((item: unknown) => this.mapTaskResponse(item));
-      this.tasks.set(mapped);
+      const response = await firstValueFrom(this.tasksService.getTasksForAllAccounts());
+      const allTasks: TaskItem[] = [];
+
+      for (const accountTasks of response) {
+        if (accountTasks.tasks) {
+          const mapped = accountTasks.tasks.map((t) => this.mapTaskResponse(t, accountTasks.accountId));
+          allTasks.push(...mapped);
+        }
+      }
+
+      this.tasks.set(allTasks);
     } catch (error) {
       this.tasks.set([]);
       this.listErrorMessage.set(
@@ -237,7 +206,7 @@ export class TasksPageComponent {
       accountId: this.getDefaultAccountId(),
       dependencyIds: [],
       cognitiveLoad: '',
-      notBefore: '',
+      dontScheduleBefore: '',
       customChunkSize: null,
     });
 
@@ -259,7 +228,7 @@ export class TasksPageComponent {
       accountId: task.accountId ?? this.getDefaultAccountId(),
       dependencyIds: task.dependencyIds ?? [],
       cognitiveLoad: task.cognitiveLoad ?? '',
-      notBefore: this.toDateTimeLocalValue(task.notBefore),
+      dontScheduleBefore: this.toDateTimeLocalValue(task.dontScheduleBefore),
       customChunkSize: task.customChunkSize,
     });
 
@@ -281,30 +250,18 @@ export class TasksPageComponent {
       return;
     }
 
-    const payload = this.buildTaskPayload();
-    const frontendOnlyMeta = this.buildFrontendOnlyMeta();
-
-    if (!payload || !frontendOnlyMeta) {
-      this.formErrorMessage.set('Die Aufgabe konnte nicht verarbeitet werden.');
-      return;
-    }
-
+    const value = this.taskForm.getRawValue() as TaskFormValue;
     this.isSaving.set(true);
 
     try {
       if (this.editingTaskId()) {
         const taskId = this.editingTaskId() as string;
-        await firstValueFrom(this.http.put(`${this.tasksUrl}/${taskId}`, payload));
-        this.saveLocalMeta(taskId, frontendOnlyMeta);
+        const payload = this.buildUpdatePayload(value);
+        await firstValueFrom(this.tasksService.updateTask(taskId, payload));
         this.successMessage.set('Die Aufgabe wurde erfolgreich aktualisiert.');
       } else {
-        const createdTask = await firstValueFrom(this.http.post<unknown>(this.tasksUrl, payload));
-        const createdId = this.extractTaskId(createdTask);
-
-        if (createdId) {
-          this.saveLocalMeta(createdId, frontendOnlyMeta);
-        }
-
+        const payload = this.buildCreatePayload(value);
+        await firstValueFrom(this.tasksService.createTask(payload));
         this.successMessage.set('Die Aufgabe wurde erfolgreich erstellt.');
       }
 
@@ -323,21 +280,12 @@ export class TasksPageComponent {
     const select = event.target as HTMLSelectElement;
     const nextStatus = select.value as TaskStatus;
 
-    const payload: Record<string, unknown> = {
-      title: task.title,
-      description: task.description,
-      duration: task.duration,
-      deadline: task.deadline,
+    const payload: TaskUpdateRequest = {
       status: nextStatus,
-      dependencyIds: task.dependencyIds,
     };
 
-    if (task.accountId) {
-      payload['accountId'] = task.accountId;
-    }
-
     try {
-      await firstValueFrom(this.http.put(`${this.tasksUrl}/${task.id}`, payload));
+      await firstValueFrom(this.tasksService.updateTask(task.id, payload));
       this.successMessage.set('Der Status wurde gespeichert.');
       await this.loadTasks();
     } catch (error) {
@@ -370,8 +318,7 @@ export class TasksPageComponent {
     this.successMessage.set('');
 
     try {
-      await firstValueFrom(this.http.delete(`${this.tasksUrl}/${task.id}`));
-      this.removeLocalMeta(task.id);
+      await firstValueFrom(this.tasksService.deleteTask(task.id));
       this.successMessage.set('Die Aufgabe wurde erfolgreich gelöscht.');
       this.isDeletePopupOpen.set(false);
       this.deletingTask.set(null);
@@ -517,112 +464,65 @@ export class TasksPageComponent {
     return parts.join(' • ');
   }
 
-  private buildTaskPayload(): Record<string, unknown> | null {
-    const value = this.taskForm.getRawValue() as TaskFormValue;
-
-    if (!value.title || !value.duration || !value.status || !value.accountId) {
-      return null;
-    }
-
+  private buildCreatePayload(value: TaskFormValue): TaskCreateRequest {
     return {
-      title: value.title.trim(),
-      description: value.description?.trim() ? value.description.trim() : null,
-      duration: Number(value.duration),
-      deadline: value.deadline ? new Date(value.deadline).toISOString() : null,
-      status: value.status,
       accountId: value.accountId,
+      title: value.title.trim(),
+      description: value.description?.trim() || undefined,
+      duration: Number(value.duration),
+      deadline: value.deadline ? new Date(value.deadline).toISOString() : undefined,
+      status: value.status,
+      cognitiveLoad: (value.cognitiveLoad || 'MODERATE') as CognitiveLoad,
+      dontScheduleBefore: value.dontScheduleBefore ? new Date(value.dontScheduleBefore).toISOString() : undefined,
+      customChunkSize: value.customChunkSize ? Number(value.customChunkSize) : undefined,
       dependencyIds: value.dependencyIds ?? [],
     };
   }
 
-  private buildFrontendOnlyMeta(): FrontendOnlyTaskMeta | null {
-    const value = this.taskForm.getRawValue() as TaskFormValue;
-
+  private buildUpdatePayload(value: TaskFormValue): TaskUpdateRequest {
     return {
-      cognitiveLoad: value.cognitiveLoad || null,
-      notBefore: value.notBefore ? new Date(value.notBefore).toISOString() : null,
-      customChunkSize: value.customChunkSize ? Number(value.customChunkSize) : null,
+      title: value.title.trim(),
+      description: value.description?.trim() || undefined,
+      duration: Number(value.duration),
+      deadline: value.deadline ? new Date(value.deadline).toISOString() : undefined,
+      status: value.status,
+      cognitiveLoad: (value.cognitiveLoad || 'MODERATE') as CognitiveLoad,
+      dontScheduleBefore: value.dontScheduleBefore ? new Date(value.dontScheduleBefore).toISOString() : undefined,
+      customChunkSize: value.customChunkSize ? Number(value.customChunkSize) : undefined,
+      dependencyIds: value.dependencyIds ?? [],
     };
   }
 
-  private extractTaskId(response: unknown): string | null {
-    const data = response as { id?: unknown };
-    return data?.id ? String(data.id) : null;
-  }
-
-  private mapTaskResponse(item: unknown): TaskItem {
-    const task = item as TaskApiResponse;
-
-    const dependencyIds = Array.isArray(task.dependencyIds)
-      ? task.dependencyIds.map((id: unknown) => String(id))
-      : [];
-
-    const accountId =
-      task.accountId != null
-        ? String(task.accountId)
-        : task.account?.accountId != null
-          ? String(task.account.accountId)
-          : task.account?.id != null
-            ? String(task.account.id)
-            : (this.currentAccount()?.id ?? null);
-
-    const localMeta = task.id ? this.getLocalMeta(String(task.id)) : null;
-
+  private mapTaskResponse(task: TaskResponse, accountId: string): TaskItem {
     return {
-      id: String(task.id ?? ''),
+      id: task.id ?? '',
       title: task.title ?? '',
       description: task.description ?? null,
-      duration: Number(task.duration ?? 0),
+      duration: task.duration ?? 0,
       deadline: task.deadline ?? null,
-      status: (task.status ?? 'OPEN') as TaskStatus,
+      status: task.status ?? 'OPEN',
       accountId,
-      accountLabel:
-        this.resolveAccountLabel(accountId) ??
-        task.accountLabel ??
-        task.organizationName ??
-        task.account?.organizationName ??
-        task.companyName ??
-        task.clubName ??
-        (this.accounts().length === 1 ? (this.currentAccount()?.label ?? null) : null),
-      dependencyIds,
-      cognitiveLoad: task.cognitiveLoad ?? localMeta?.cognitiveLoad ?? null,
-      notBefore: task.notBefore ?? localMeta?.notBefore ?? null,
-      customChunkSize:
-        task.customChunkSize != null
-          ? Number(task.customChunkSize)
-          : (localMeta?.customChunkSize ?? null),
+      accountLabel: this.resolveAccountLabel(accountId),
+      dependencyIds: task.dependencyIds ?? [],
+      cognitiveLoad: task.cognitiveLoad ?? null,
+      dontScheduleBefore: task.dontScheduleBefore ?? null,
+      customChunkSize: task.customChunkSize ?? null,
     };
   }
 
-  private normalizeAccountResponse(response: unknown): AccountOption[] {
-    const root = response as AccountsApiResponse;
-    const rawItems: unknown[] = Array.isArray(root?.accounts) ? root.accounts : [];
+  private normalizeAccountResponse(accounts: any[] | undefined): AccountOption[] {
+    if (!accounts) return [];
 
-    return rawItems
-      .map((item: unknown) => {
-        const account = item as {
-          accountId?: string;
-          id?: string;
-          organizationName?: string;
-          label?: string;
-          name?: string;
-          displayName?: string;
-        };
+    return accounts
+      .map((account: any) => {
+        const id = account.accountId ?? account.id;
+        const label = account.organizationName ?? account.label ?? account.name ?? account.displayName;
 
-        const id = account.accountId ?? account.id ?? null;
-        const label =
-          account.organizationName ?? account.label ?? account.name ?? account.displayName ?? null;
+        if (!id || !label) return null;
 
-        if (!id || !label) {
-          return null;
-        }
-
-        return {
-          id: String(id),
-          label: String(label),
-        } as AccountOption | null;
+        return { id: String(id), label: String(label) };
       })
-      .filter((item: AccountOption | null): item is AccountOption => item !== null);
+      .filter((item): item is AccountOption => item !== null);
   }
 
   private resolveAccountLabel(accountId: string | null): string | null {
@@ -669,17 +569,17 @@ export class TasksPageComponent {
 
   private dateRelationValidator(control: AbstractControl): ValidationErrors | null {
     const deadline = control.get('deadline')?.value;
-    const notBefore = control.get('notBefore')?.value;
+    const dontScheduleBefore = control.get('dontScheduleBefore')?.value;
 
-    if (!deadline || !notBefore) {
+    if (!deadline || !dontScheduleBefore) {
       return null;
     }
 
     const deadlineDate = new Date(deadline).getTime();
-    const notBeforeDate = new Date(notBefore).getTime();
+    const dontScheduleBeforeDate = new Date(dontScheduleBefore).getTime();
 
-    if (notBeforeDate > deadlineDate) {
-      return { notBeforeAfterDeadline: true };
+    if (dontScheduleBeforeDate > deadlineDate) {
+      return { dontScheduleBeforeAfterDeadline: true };
     }
 
     return null;
@@ -698,49 +598,5 @@ export class TasksPageComponent {
     }
 
     return null;
-  }
-
-  private getLocalMeta(taskId: string): FrontendOnlyTaskMeta | null {
-    const allMeta = this.readAllLocalMeta();
-    return allMeta[taskId] ?? null;
-  }
-
-  private saveLocalMeta(taskId: string, meta: FrontendOnlyTaskMeta): void {
-    const allMeta = this.readAllLocalMeta();
-    allMeta[taskId] = meta;
-    this.writeAllLocalMeta(allMeta);
-  }
-
-  private removeLocalMeta(taskId: string): void {
-    const allMeta = this.readAllLocalMeta();
-    delete allMeta[taskId];
-    this.writeAllLocalMeta(allMeta);
-  }
-
-  private readAllLocalMeta(): Record<string, FrontendOnlyTaskMeta> {
-    try {
-      const raw = localStorage.getItem(this.localMetaStorageKey);
-
-      if (!raw) {
-        return {};
-      }
-
-      const parsed = JSON.parse(raw) as Record<string, FrontendOnlyTaskMeta>;
-      return parsed ?? {};
-    } catch {
-      return {};
-    }
-  }
-
-  private writeAllLocalMeta(meta: Record<string, FrontendOnlyTaskMeta>): void {
-    try {
-      localStorage.setItem(this.localMetaStorageKey, JSON.stringify(meta));
-    } catch {
-    }
-  }
-
-  private readApiBasePath(): string {
-    const rawValue = (window as any).__env?.['apiBasePath'] || 'http://localhost:8080';
-    return String(rawValue).replace(/\/+$/, '');
   }
 }
