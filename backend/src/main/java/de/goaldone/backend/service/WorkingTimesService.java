@@ -7,6 +7,7 @@ import de.goaldone.backend.exception.WorkingTimeOverlapException;
 import de.goaldone.backend.exception.WorkingTimeValidationException;
 import de.goaldone.backend.model.WorkingTimeCreateRequest;
 import de.goaldone.backend.model.WorkingTimeResponse;
+import de.goaldone.backend.model.WorkingTimeUpdateRequest;
 import de.goaldone.backend.repository.UserAccountRepository;
 import de.goaldone.backend.repository.WorkingTimeRepository;
 import lombok.RequiredArgsConstructor;
@@ -59,7 +60,7 @@ public class WorkingTimesService {
 
         WorkingTimeEntity entity = new WorkingTimeEntity();
         entity.setId(UUID.randomUUID());
-        entity.setUserAccountId(targetAccount.getId());
+        entity.setUserAccount(targetAccount);
         entity.setUserIdentityId(targetAccount.getUserIdentityId());
         entity.setOrganizationId(targetAccount.getOrganizationId());
         entity.setStartTime(startTime);
@@ -70,10 +71,64 @@ public class WorkingTimesService {
         return mapToResponse(saved);
     }
 
+    @Transactional
+    public WorkingTimeResponse updateWorkingTime(UUID currentAccountId, UUID workingTimeId, WorkingTimeUpdateRequest request) {
+        if (!request.getEndTime().isAfter(request.getStartTime())) {
+            throw new WorkingTimeValidationException("Endzeit muss nach der Startzeit liegen.");
+        }
+
+        UserAccountEntity currentAccount = userAccountRepository.findById(currentAccountId)
+                .orElseThrow(() -> new IllegalStateException("Current account not found"));
+
+        WorkingTimeEntity existingTime = workingTimeRepository.findById(workingTimeId)
+                .orElseThrow(() -> new WorkingTimeAccessDeniedException("Arbeitszeit nicht gefunden."));
+
+        if (!existingTime.getUserIdentityId().equals(currentAccount.getUserIdentityId())) {
+            throw new WorkingTimeAccessDeniedException("Kein Zugriff auf diese Arbeitszeit.");
+        }
+
+        Instant newStartTime = request.getStartTime().toInstant();
+        Instant newEndTime = request.getEndTime().toInstant();
+
+        boolean overlaps = workingTimeRepository.existsOverlappingSlotExcluding(
+                currentAccount.getUserIdentityId(),
+                existingTime.getId(),
+                newStartTime,
+                newEndTime
+        );
+
+        if (overlaps) {
+            throw new WorkingTimeOverlapException(
+                    "Die geänderte Arbeitszeit überschneidet sich mit einer anderen bestehenden Arbeitszeit."
+            );
+        }
+
+        existingTime.setStartTime(newStartTime);
+        existingTime.setEndTime(newEndTime);
+
+        WorkingTimeEntity updated = workingTimeRepository.save(existingTime);
+        return mapToResponse(updated);
+    }
+
+    @Transactional
+    public void deleteWorkingTime(UUID currentAccountId, UUID workingTimeId) {
+        UserAccountEntity currentAccount = userAccountRepository.findById(currentAccountId)
+                .orElseThrow(() -> new IllegalStateException("Current account not found"));
+
+        WorkingTimeEntity existingTime = workingTimeRepository.findById(workingTimeId)
+                .orElseThrow(() -> new WorkingTimeAccessDeniedException("Arbeitszeit nicht gefunden."));
+
+        if (!existingTime.getUserIdentityId().equals(currentAccount.getUserIdentityId())) {
+            throw new WorkingTimeAccessDeniedException("Kein Zugriff auf diese Arbeitszeit.");
+        }
+
+        workingTimeRepository.delete(existingTime);
+    }
+
     private WorkingTimeResponse mapToResponse(WorkingTimeEntity entity) {
         WorkingTimeResponse response = new WorkingTimeResponse();
         response.setId(entity.getId());
-        response.setAccountId(entity.getUserAccountId());
+        response.setAccountId(entity.getUserAccount().getId());
         response.setOrganizationId(entity.getOrganizationId());
         response.setStartTime(OffsetDateTime.ofInstant(entity.getStartTime(), ZoneOffset.UTC));
         response.setEndTime(OffsetDateTime.ofInstant(entity.getEndTime(), ZoneOffset.UTC));

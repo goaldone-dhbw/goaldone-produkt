@@ -168,6 +168,69 @@ paths:
         '409':
           description: Conflict
 
+  /working-times/{id}:
+    put:
+      tags:
+        - working-times
+      summary: Update an existing working time slot
+      operationId: updateWorkingTime
+      security:
+        - bearerAuth: [ ]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkingTimeUpdateRequest'
+      responses:
+        '200':
+          description: Updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkingTimeResponse'
+        '400':
+          description: Bad Request
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+        '409':
+          description: Conflict (e.g. overlapping times)
+
+    delete:
+      tags:
+        - working-times
+      summary: Delete a working time slot
+      operationId: deleteWorkingTime
+      security:
+        - bearerAuth: [ ]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Deleted successfully
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+
   /admins/organizations:
     post:
       tags:
@@ -402,6 +465,19 @@ components:
           type: string
           format: uuid
           description: User account membership ID for which this working time is created
+        startTime:
+          type: string
+          format: date-time
+        endTime:
+          type: string
+          format: date-time
+
+    WorkingTimeUpdateRequest:
+      type: object
+      required:
+        - startTime
+        - endTime
+      properties:
         startTime:
           type: string
           format: date-time

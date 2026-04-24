@@ -24,5 +24,20 @@ public interface WorkingTimeRepository extends JpaRepository<WorkingTimeEntity, 
         @Param("startTime") Instant startTime,
         @Param("endTime") Instant endTime
     );
+
+    @Query("""
+            SELECT CASE WHEN COUNT(wt) > 0 THEN true ELSE false END
+            FROM WorkingTimeEntity wt
+            WHERE wt.userIdentityId = :userIdentityId
+              AND wt.id != :excludedId
+              AND wt.startTime < :endTime
+              AND wt.endTime > :startTime
+            """)
+    boolean existsOverlappingSlotExcluding(
+            @Param("userIdentityId") UUID userIdentityId,
+            @Param("excludedId") UUID excludedId,
+            @Param("startTime") Instant startTime,
+            @Param("endTime") Instant endTime
+    );
 }
 
