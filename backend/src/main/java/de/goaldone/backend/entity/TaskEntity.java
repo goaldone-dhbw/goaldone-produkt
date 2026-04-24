@@ -48,7 +48,7 @@ public class TaskEntity {
     @Column(name = "title", nullable = false)
     private String title;
 
-    @Column(name = "description", columnDefinition = "TEXT")
+    @Column(name = "description", length = 65535)
     private String description;
 
     @Column(name = "duration", nullable = false)
