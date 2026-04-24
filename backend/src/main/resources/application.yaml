@@ -12,6 +12,18 @@ spring:
         jwt:
           issuer-uri: ${ZITADEL_ISSUER_URI:https://sso.dev.goaldone.de}
 
+zitadel:
+  service-account-token: ${ZITADEL_SERVICE_ACCOUNT_TOKEN:}
+  goaldone:
+    project-id: ${ZITADEL_GOALDONE_PROJECT_ID:}
+    org-id: ${ZITADEL_GOALDONE_ORG_ID:}
+
 server:
   servlet:
     context-path: /api/v1
+
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+  level:
+    root: INFO

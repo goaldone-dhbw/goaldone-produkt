@@ -17,9 +17,13 @@ export class TestPageComponent implements OnInit {
   loading = false;
   error: string | null = null;
   userInfo: UserInfoResponse | null = null;
+  tokenRoles: string[] = [];
+  tokenOrgId: string | null = null;
 
   ngOnInit(): void {
     this.fetchUserInfo();
+    this.tokenRoles = this.authService.getUserRoles();
+    this.tokenOrgId = this.authService.getUserOrganizationId();
   }
 
   private fetchUserInfo(): void {
