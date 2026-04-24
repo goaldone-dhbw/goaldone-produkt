@@ -12,6 +12,7 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -136,6 +137,44 @@ public class ZitadelManagementClient {
         } catch (Exception e) {
             log.error("Failed to list user grants for role {} in project {} (org {}): {}", roleKey, projectId, orgId, e.getMessage());
             throw new ZitadelApiException("Failed to list authorizations: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * POST /management/v1/users/grants/_search — get role keys for a specific user in a project.
+     */
+    public List<String> getUserGrantRoles(String userId, String orgId, String projectId) {
+        try {
+            Map<String, Object> body = Map.of(
+                    "queries", List.of(
+                            Map.of("userIdQuery", Map.of("userId", userId)),
+                            Map.of("projectIdQuery", Map.of("projectId", projectId))
+                    )
+            );
+
+            String responseBody = restClient.post()
+                    .uri("/management/v1/users/grants/_search")
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + serviceAccountToken)
+                    .header("x-zitadel-orgid", orgId)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(body)
+                    .retrieve()
+                    .body(String.class);
+
+            JsonNode response = objectMapper.readTree(responseBody);
+            if (response != null && response.has("result")) {
+                List<String> roles = new ArrayList<>();
+                response.get("result").forEach(grant -> {
+                    if (grant.has("roleKeys")) {
+                        grant.get("roleKeys").forEach(role -> roles.add(role.asText()));
+                    }
+                });
+                return roles;
+            }
+            return List.of();
+        } catch (Exception e) {
+            log.warn("Failed to fetch roles for user {} in project {}: {}", userId, projectId, e.getMessage());
+            return List.of();
         }
     }
 

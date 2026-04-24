@@ -1,5 +1,6 @@
 package de.goaldone.backend.service;
 
+import de.goaldone.backend.client.ZitadelManagementClient;
 import de.goaldone.backend.entity.OrganizationEntity;
 import de.goaldone.backend.entity.UserAccountEntity;
 import de.goaldone.backend.model.AccountListResponse;
@@ -7,6 +8,7 @@ import de.goaldone.backend.model.AccountResponse;
 import de.goaldone.backend.repository.OrganizationRepository;
 import de.goaldone.backend.repository.UserAccountRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 
@@ -19,6 +21,13 @@ public class UserIdentityService {
 
     private final UserAccountRepository userAccountRepository;
     private final OrganizationRepository organizationRepository;
+    private final ZitadelManagementClient zitadelManagementClient;
+
+    @Value("${zitadel.goaldone.org-id}")
+    private String goaldoneOrgId;
+
+    @Value("${zitadel.goaldone.project-id}")
+    private String goaldoneProjectId;
 
     public List<UserAccountEntity> findAccountsForIdentity(UUID identityId) {
         return userAccountRepository.findAllByUserIdentityId(identityId);
@@ -35,10 +44,13 @@ public class UserIdentityService {
             .map(account -> {
                 OrganizationEntity org = organizationRepository.findById(account.getOrganizationId())
                     .orElseThrow(() -> new IllegalStateException("Organization not found for account " + account.getId()));
+                List<String> roles = zitadelManagementClient.getUserGrantRoles(
+                        account.getZitadelSub(), goaldoneOrgId, goaldoneProjectId);
                 AccountResponse r = new AccountResponse();
                 r.setAccountId(account.getId());
                 r.setOrganizationId(account.getOrganizationId());
                 r.setOrganizationName(org.getName());
+                r.setRoles(roles);
                 return r;
             })
             .toList();
