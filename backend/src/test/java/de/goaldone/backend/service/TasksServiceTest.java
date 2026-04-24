@@ -58,9 +58,11 @@ class TasksServiceTest {
         request.setStatus(TaskStatus.OPEN);
         request.setCognitiveLoad(CognitiveLoad.MODERATE);
 
+        Jwt jwt = mockJwt();
+        when(userIdentityService.hasUserAccessToAccount(eq(jwt), eq(request.getAccountId()))).thenReturn(true);
         when(taskRepository.save(any(TaskEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        var response = tasksService.createTask(request);
+        var response = tasksService.createTask(request, jwt);
 
         assertEquals("Dokumentation", response.getTitle());
         assertEquals(120, response.getDuration());
@@ -77,8 +79,11 @@ class TasksServiceTest {
         request.setCognitiveLoad(CognitiveLoad.LOW);
         request.setDuration(-10);
 
+        Jwt jwt = mockJwt();
+        when(userIdentityService.hasUserAccessToAccount(eq(jwt), eq(request.getAccountId()))).thenReturn(true);
+
         ResponseStatusException ex = assertThrows(ResponseStatusException.class,
-            () -> tasksService.createTask(request));
+            () -> tasksService.createTask(request, jwt));
 
         assertEquals(HttpStatus.BAD_REQUEST, ex.getStatusCode());
     }

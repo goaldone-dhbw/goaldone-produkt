@@ -25,6 +25,11 @@ import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.UUID;
 
+/**
+ * JPA entity representing a task in the GoalDone system.
+ * This entity stores task details such as title, description, duration, status, and dependencies.
+ * It maps to the "tasks" table and uses UUID for identification.
+ */
 @Entity
 @Table(name = "tasks")
 @Getter
