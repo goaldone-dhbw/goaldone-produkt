@@ -1,5 +1,6 @@
 package de.goaldone.backend.service;
 
+import de.goaldone.backend.client.ZitadelManagementClient;
 import de.goaldone.backend.entity.OrganizationEntity;
 import de.goaldone.backend.entity.UserAccountEntity;
 import de.goaldone.backend.model.AccountListResponse;
@@ -20,6 +21,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -30,6 +32,9 @@ class UserIdentityServiceTest {
 
     @Mock
     private OrganizationRepository organizationRepository;
+
+    @Mock
+    private ZitadelManagementClient zitadelManagementClient;
 
     @InjectMocks
     private UserIdentityService userIdentityService;
@@ -121,6 +126,8 @@ class UserIdentityServiceTest {
             .thenReturn(List.of(account));
         when(organizationRepository.findById(orgId))
             .thenReturn(Optional.of(org));
+        when(zitadelManagementClient.getUserGrantRoles(any(), any(), any()))
+            .thenReturn(List.of("COMPANY_ADMIN"));
 
         AccountListResponse response = userIdentityService.buildAccountListResponse(jwt);
 
@@ -132,6 +139,7 @@ class UserIdentityServiceTest {
         assertEquals(accountId, accountResponse.getAccountId());
         assertEquals(orgId, accountResponse.getOrganizationId());
         assertEquals(orgName, accountResponse.getOrganizationName());
+        assertEquals(List.of("COMPANY_ADMIN"), accountResponse.getRoles());
     }
 
     @Test
@@ -174,6 +182,8 @@ class UserIdentityServiceTest {
             .thenReturn(Optional.of(org1));
         when(organizationRepository.findById(orgId2))
             .thenReturn(Optional.of(org2));
+        when(zitadelManagementClient.getUserGrantRoles(any(), any(), any()))
+            .thenReturn(List.of());
 
         AccountListResponse response = userIdentityService.buildAccountListResponse(jwt);
 
