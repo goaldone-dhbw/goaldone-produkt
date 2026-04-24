@@ -39,6 +39,11 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/super-admins-settings/super-admin.page').then((m) => m.SuperAdminPage),
       },
+      {
+        path: 'settings',
+        loadComponent: () =>
+          import('./features/user-settings/user-settings.page').then((m) => m.UserSettingsPage),
+      },
     ],
   },
   {
@@ -47,6 +52,6 @@ export const routes: Routes = [
   },
   {
     path: '**',
-    redirectTo: 'app',
+    redirectTo: '',
   },
 ];

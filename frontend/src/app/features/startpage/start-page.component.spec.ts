@@ -1,5 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, provideRouter } from '@angular/router';
 import { AuthService } from '../../core/auth/auth.service';
 import { StartPageComponent } from './start-page.component';
 
@@ -17,6 +17,7 @@ describe('Startpage', () => {
     await TestBed.configureTestingModule({
       imports: [StartPageComponent],
       providers: [
+        provideRouter([]),
         {
           provide: ActivatedRoute,
           useValue: {},
