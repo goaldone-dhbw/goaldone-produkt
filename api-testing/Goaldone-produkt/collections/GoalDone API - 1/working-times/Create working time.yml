@@ -1,0 +1,138 @@
+info:
+  name: Create working time
+  type: http
+  seq: 1
+  tags:
+    - working-times
+
+http:
+  method: POST
+  url: "{{baseUrl}}/working-times"
+  body:
+    type: json
+    data: |-
+      {
+        "accountId": "{{accountId}}",
+        "startTime": "2026-04-20T09:00:00Z",
+        "endTime": "2026-04-20T17:00:00Z"
+      }
+  auth: inherit
+
+runtime:
+  variables:
+    - name: accountId
+      value: 83e8b72d-f735-4591-894d-3d86c9c3b484
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+examples:
+  - name: 201 Created
+    description: Working time created successfully
+    request:
+      url: "{{baseUrl}}/working-times"
+      method: POST
+      body:
+        type: json
+        data: |-
+          {
+            "accountId": "{{accountId}}",
+            "startTime": "2026-04-20T09:00:00Z",
+            "endTime": "2026-04-20T17:00:00Z"
+          }
+    response:
+      status: 201
+      statusText: Created
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "id": "00000000-0000-0000-0000-000000000101",
+            "accountId": "{{accountId}}",
+            "organizationId": "00000000-0000-0000-0000-000000000201",
+            "startTime": "2026-04-20T09:00:00Z",
+            "endTime": "2026-04-20T17:00:00Z",
+            "createdAt": "2026-04-20T08:59:00Z"
+          }
+  - name: 400 End before start
+    description: End time must be after start time
+    request:
+      url: "{{baseUrl}}/working-times"
+      method: POST
+      body:
+        type: json
+        data: |-
+          {
+            "accountId": "{{accountId}}",
+            "startTime": "2026-04-20T17:00:00Z",
+            "endTime": "2026-04-20T09:00:00Z"
+          }
+    response:
+      status: 400
+      statusText: Bad Request
+      body:
+        type: text
+        data: ""
+  - name: 403 Account not linked to current user
+    description: Account membership does not belong to authenticated user identity
+    request:
+      url: "{{baseUrl}}/working-times"
+      method: POST
+      body:
+        type: json
+        data: |-
+          {
+            "accountId": "{{foreignAccountId}}",
+            "startTime": "2026-04-20T09:00:00Z",
+            "endTime": "2026-04-20T17:00:00Z"
+          }
+    response:
+      status: 403
+      statusText: Forbidden
+      body:
+        type: text
+        data: ""
+  - name: 409 Overlap across organizations
+    description: Time slot overlaps with existing slot of the same user identity
+    request:
+      url: "{{baseUrl}}/working-times"
+      method: POST
+      body:
+        type: json
+        data: |-
+          {
+            "accountId": "{{linkedAccountId}}",
+            "startTime": "2026-04-20T11:00:00Z",
+            "endTime": "2026-04-20T15:00:00Z"
+          }
+    response:
+      status: 409
+      statusText: Conflict
+      body:
+        type: text
+        data: ""
+  - name: 401 Unauthorized
+    description: Missing or invalid bearer token
+    request:
+      url: "{{baseUrl}}/working-times"
+      method: POST
+      body:
+        type: json
+        data: |-
+          {
+            "accountId": "{{accountId}}",
+            "startTime": "2026-04-20T09:00:00Z",
+            "endTime": "2026-04-20T17:00:00Z"
+          }
+    response:
+      status: 401
+      statusText: Unauthorized
+      body:
+        type: text
+        data: ""
