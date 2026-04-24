@@ -1,0 +1,5 @@
+procs:
+  backend:
+    shell: "cd backend && ./mvnw spring-boot:run -Dspring-boot.run.profiles=local"
+  frontend:
+    shell: "cd frontend && npm run start"

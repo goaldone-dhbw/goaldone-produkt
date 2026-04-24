@@ -2,11 +2,13 @@ import { Injectable, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { OAuthService } from 'angular-oauth2-oidc';
 import { filter } from 'rxjs';
+import { LoggerService } from '../logger.service';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private oauthService = inject(OAuthService);
   private router = inject(Router);
+  private logger = inject(LoggerService);
 
   initialize(): Promise<boolean> {
     // Read from window.__env at runtime (injected via env.js before app boot)
@@ -68,17 +70,12 @@ export class AuthService {
       }
       const payload = parts[1];
       // Robust URL-safe Base64 decoding
-      const decodedPayload = decodeURIComponent(
-        atob(payload)
-          .split('')
-          .map(function (c) {
-            return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-          })
-          .join(''),
-      );
+      const decodedPayload = decodeURIComponent(atob(payload).split('').map(function(c) {
+        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+      }).join(''));
       return JSON.parse(decodedPayload);
     } catch (e) {
-      console.error('Error decoding JWT token:', e);
+      this.logger.error("Error decoding JWT token:", e);
       return null;
     }
   }
@@ -90,25 +87,36 @@ export class AuthService {
 
   getUserRoles(): string[] {
     const decodedToken = this.getDecodedAccessToken();
-    // Zitadel returns roles as an object: { ROLE_NAME: { projectId: "domain" }, ... }
-    // Extract role names as an array
-    const rolesObj = decodedToken?.['urn:zitadel:iam:org:project:368981415120863239:roles'] || {};
-    const roles =
-      typeof rolesObj === 'object' && !Array.isArray(rolesObj)
-        ? Object.keys(rolesObj)
-        : Array.isArray(rolesObj)
-          ? rolesObj
-          : [];
-    console.log('User roles:', roles);
-    return roles;
+    if (!decodedToken) {
+      return [];
+    }
+
+    // Search for roles in common claims
+    // 1. Generic 'roles'
+    // 2. Generic Zitadel project roles 'urn:zitadel:iam:org:project:roles'
+    // 3. Project-specific Zitadel roles 'urn:zitadel:iam:org:project:{projectId}:roles'
+    const rolesKey = Object.keys(decodedToken).find(key =>
+      key === 'roles' ||
+      key === 'urn:zitadel:iam:org:project:roles' ||
+      (key.startsWith('urn:zitadel:iam:org:project:') && key.endsWith(':roles'))
+    );
+
+    const rolesObj = rolesKey ? decodedToken[rolesKey] : {};
+
+    return typeof rolesObj === 'object' && !Array.isArray(rolesObj)
+      ? Object.keys(rolesObj)
+      : Array.isArray(rolesObj)
+        ? rolesObj
+        : [];
   }
 
   getUserOrganizationId(): string | null {
     const decodedToken = this.getDecodedAccessToken();
-    // TODO: Confirm the actual claim name for organization ID from a real Zitadel token.
-    // Common patterns: 'org_id' or 'organisation_id'.
     return (
-      decodedToken?.['org_id'] || decodedToken?.['urn:zitadel:iam:user:resourceowner:id'] || null
+      decodedToken?.['org_id'] ||
+      decodedToken?.['organisation_id'] ||
+      decodedToken?.['urn:zitadel:iam:user:resourceowner:id'] ||
+      null
     );
   }
 }

@@ -8,9 +8,7 @@ info:
 http:
   method: GET
   url: "{{baseUrl}}/test/me"
-  auth:
-    type: bearer
-    token: "{{token}}"
+  auth: inherit
 
 settings:
   encodeUrl: true

@@ -1,5 +1,7 @@
 import { Routes } from '@angular/router';
 import { authGuard } from './core/auth/auth.guard';
+import { StartPageComponent } from './features/startpage/start-page.component';
+import { TasksPageComponent } from './features/tasks/tasks-page.component';
 
 export const routes: Routes = [
   {
@@ -37,17 +39,11 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/super-admins-settings/super-admin.page').then((m) => m.SuperAdminPage),
       },
-      {
-        path: 'settings',
-        loadComponent: () =>
-          import('./features/user-settings/user-settings.page').then((m) => m.UserSettingsPage),
-      },
     ],
   },
   {
     path: '',
-    loadComponent: () =>
-      import('./features/startpage/start-page.component').then((m) => m.StartPageComponent),
+    component: StartPageComponent
   },
   {
     path: '**',

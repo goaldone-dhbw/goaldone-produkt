@@ -1,10 +1,10 @@
 {
   "name": "frontend",
-  "version": "0.0.1",
+  "version": "0.0.10",
   "scripts": {
     "ng": "ng",
     "setup-env": "node scripts/setup-env.js",
-    "start": "ng serve",
+    "start": "npm run generate-api && ng serve",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
