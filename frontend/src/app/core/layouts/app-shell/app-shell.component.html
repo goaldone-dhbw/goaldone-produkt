@@ -1,5 +1,10 @@
 <div class="app-shell">
-  <app-sidebar></app-sidebar>
+  <header class="app-header">
+    <p-button icon="pi pi-bars" [text]="true" (onClick)="toggleSidebar()" ariaLabel="Menu" />
+    <img src="logo.png" alt="Logo" class="w-10" />
+  </header>
+
+  <app-sidebar [(visible)]="sidebarVisible"></app-sidebar>
 
   <main class="content-area">
     <router-outlet></router-outlet>

@@ -1,12 +1,13 @@
 import { Component, OnInit, inject, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Button } from 'primeng/button';
 import { TestService, UserInfoResponse } from '../../api';
 import { AuthService } from '../../core/auth/auth.service';
 
 @Component({
   selector: 'app-test-page',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, Button],
   templateUrl: './test-page.component.html',
 })
 export class TestPageComponent implements OnInit {

@@ -1,32 +1,25 @@
-:host {
-  display: block;
-  height: 100%;
-}
+:host ::ng-deep {
+  .p-drawer {
+    width: 18rem;
+  }
 
-.sidebar {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  overflow: hidden;
-  padding: var(--p-card-body-padding, 1rem);
-  border-right: 1px solid var(--p-content-border-color);
-  background: var(--p-surface-card);
-}
+  .p-menu {
+    width: 100%;
+    border: none;
+    background: transparent;
+  }
 
-.sidebar-top {
-  display: flex;
-  flex-direction: column;
-}
+  .p-drawer-header {
+    padding: 1rem;
+    font-weight: 700;
+    color: var(--p-primary-color);
+  }
 
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
-  color: var(--p-primary-color);
-  font-weight: 600;
-}
+  .p-menuitem-icon {
+    color: var(--p-primary-color);
+  }
 
-.menu-navigation-items {
-  margin-top: auto;
+  .p-menuitem-text {
+    font-weight: 500;
+  }
 }

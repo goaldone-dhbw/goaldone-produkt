@@ -10,11 +10,14 @@
       </p>
     </div>
 
-    <p-button
-      [label]="isLoggedIn ? 'Zur App' : 'Login'"
-      (onClick)="handleAction()"
-      size="large"
-      class="w-full sm:w-auto"
-    ></p-button>
+    <div class="flex justify-center w-full">
+      <p-button
+        [label]="isLoggedIn ? 'Zur App' : 'Login'"
+        [icon]="isLoggedIn ? 'pi pi-arrow-right' : 'pi pi-sign-in'"
+        iconPos="right"
+        (onClick)="handleAction()"
+        size="large"
+      ></p-button>
+    </div>
   </div>
 </div>

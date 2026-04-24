@@ -1,13 +1,20 @@
-import { ChangeDetectionStrategy, Component } from '@angular/core';
-import { RouterOutlet } from '@angular/router';
+import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
+import { RouterOutlet, RouterLink } from '@angular/router';
+import { Button } from 'primeng/button';
 import { AppSidebarComponent } from '../../../shared/components/app-sidebar/app-sidebar.component';
 
 @Component({
   selector: 'app-shell',
   standalone: true,
-  imports: [RouterOutlet, AppSidebarComponent],
+  imports: [RouterOutlet, AppSidebarComponent, Button, RouterLink],
   templateUrl: './app-shell.component.html',
   styleUrl: './app-shell.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class AppShellComponent {}
+export class AppShellComponent {
+  sidebarVisible = signal(false);
+
+  toggleSidebar() {
+    this.sidebarVisible.update((visible) => !visible);
+  }
+}

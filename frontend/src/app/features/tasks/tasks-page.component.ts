@@ -1,6 +1,8 @@
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { Button } from 'primeng/button';
+import { Tooltip } from 'primeng/tooltip';
 import {
   AbstractControl,
   FormBuilder,
@@ -62,7 +64,7 @@ type TaskFormValue = {
 @Component({
   selector: 'app-tasks-page',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, BasePopupComponent],
+  imports: [CommonModule, ReactiveFormsModule, BasePopupComponent, Button, Tooltip],
   templateUrl: './tasks-page.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

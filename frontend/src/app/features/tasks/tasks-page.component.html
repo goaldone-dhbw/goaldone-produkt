@@ -8,23 +8,23 @@
         </p>
       </div>
 
-      <button
-        type="button"
-        (click)="openCreateDialog()"
-        class="inline-flex items-center justify-center rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
-      >
-        Aufgabe hinzufügen
-      </button>
+      <p-button
+        label="Aufgabe hinzufügen"
+        icon="pi pi-plus"
+        (onClick)="openCreateDialog()"
+      ></p-button>
     </div>
 
     @if (successMessage()) {
-      <div class="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+      <div class="mb-4 flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+        <i class="pi pi-check-circle"></i>
         {{ successMessage() }}
       </div>
     }
 
     @if (listErrorMessage()) {
-      <div class="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+      <div class="mb-4 flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+        <i class="pi pi-exclamation-circle"></i>
         {{ listErrorMessage() }}
       </div>
     }
@@ -76,42 +76,58 @@
 
                   <div class="grid grid-cols-1 gap-3 text-sm text-slate-600 sm:grid-cols-2 xl:grid-cols-4">
                     <div>
-                      <span class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Dauer</span>
+                      <span class="mb-1 flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        <i class="pi pi-clock text-xs text-primary-icon"></i> Dauer
+                      </span>
                       <span>{{ formatDuration(task.duration) }}</span>
                     </div>
 
                     <div>
-                      <span class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Deadline</span>
+                      <span class="mb-1 flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        <i class="pi pi-calendar text-xs text-primary-icon"></i> Deadline
+                      </span>
                       <span>{{ formatDateTime(task.deadline) }}</span>
                     </div>
 
                     <div>
-                      <span class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Nicht planen vor</span>
+                      <span class="mb-1 flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        <i class="pi pi-calendar-plus text-xs text-primary-icon"></i> Nicht planen vor
+                      </span>
                       <span>{{ formatDateTime(task.dontScheduleBefore) }}</span>
                     </div>
 
                     <div>
-                      <span class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Unternehmen / Verein</span>
+                      <span class="mb-1 flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        <i class="pi pi-building text-xs text-primary-icon"></i> Unternehmen / Verein
+                      </span>
                       <span>{{ task.accountLabel || '-' }}</span>
                     </div>
 
                     <div>
-                      <span class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Anforderungsgrad</span>
+                      <span class="mb-1 flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        <i class="pi pi-bolt text-xs text-primary-icon"></i> Anforderungsgrad
+                      </span>
                       <span>{{ task.cognitiveLoad ? formatCognitiveLoad(task.cognitiveLoad) : '-' }}</span>
                     </div>
 
                     <div>
-                      <span class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Chunk-Größe</span>
+                      <span class="mb-1 flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        <i class="pi pi-box text-xs text-primary-icon"></i> Chunk-Größe
+                      </span>
                       <span>{{ task.customChunkSize ? formatDuration(task.customChunkSize) : '-' }}</span>
                     </div>
 
                     <div>
-                      <span class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Abhängigkeiten</span>
+                      <span class="mb-1 flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        <i class="pi pi-link text-xs text-primary-icon"></i> Abhängigkeiten
+                      </span>
                       <span>{{ formatDependencyTitles(task) }}</span>
                     </div>
 
                     <div>
-                      <span class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Status ändern</span>
+                      <span class="mb-1 flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        <i class="pi pi-sync text-xs text-primary-icon"></i> Status ändern
+                      </span>
                       <select
                         [value]="task.status"
                         (change)="changeStatus(task, $event)"
@@ -126,21 +142,21 @@
                 </div>
 
                 <div class="flex shrink-0 items-center gap-2">
-                  <button
-                    type="button"
-                    (click)="openEditDialog(task)"
-                    class="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-                  >
-                    Bearbeiten
-                  </button>
+                  <p-button
+                    icon="pi pi-pencil"
+                    [text]="true"
+                    severity="secondary"
+                    (onClick)="openEditDialog(task)"
+                    pTooltip="Bearbeiten"
+                  ></p-button>
 
-                  <button
-                    type="button"
-                    (click)="openDeleteDialog(task)"
-                    class="rounded-xl border border-rose-300 bg-white px-4 py-2 text-sm font-medium text-rose-700 transition hover:bg-rose-50"
-                  >
-                    Löschen
-                  </button>
+                  <p-button
+                    icon="pi pi-trash"
+                    [text]="true"
+                    severity="danger"
+                    (onClick)="openDeleteDialog(task)"
+                    pTooltip="Löschen"
+                  ></p-button>
                 </div>
               </div>
             </div>

@@ -1,91 +1,121 @@
-<div class="p-8">
-  <h1 class="text-2xl font-bold mb-6">Test Page </h1>
-
-  <div class="mb-6">
-    <button
-      (click)="logout()"
-      class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
-    >
-      Logout
-    </button>
+<div class="p-8 max-w-7xl mx-auto">
+  <div class="flex items-center justify-between mb-8">
+    <h1 class="text-3xl font-bold text-slate-900 flex items-center gap-3">
+      <i class="pi pi-cog text-primary-icon"></i> Testseite & Debugging
+    </h1>
+    <p-button
+      label="Abmelden"
+      icon="pi pi-sign-out"
+      severity="danger"
+      [outlined]="true"
+      (onClick)="logout()"
+    ></p-button>
   </div>
 
-  <div *ngIf="loading" class="text-lg text-gray-600">Loading...</div>
-
-  <div *ngIf="error" class="p-4 bg-red-100 border border-red-400 text-red-700 rounded">
-    <p class="font-bold">Error</p>
-    <p>{{ error }}</p>
-  </div>
-
-  <div *ngIf="userInfo && !loading" class="grid grid-cols-1 md:grid-cols-2 gap-6">
-    <!-- Backend Info -->
-    <div class="p-6 bg-white border border-gray-300 rounded">
-      <h2 class="text-xl font-bold mb-4 text-blue-700">User Info (Backend)</h2>
-      <dl class="space-y-2">
-        <div>
-          <dt class="font-semibold text-gray-700">User ID:</dt>
-          <dd class="text-gray-900">{{ userInfo.userId }}</dd>
-        </div>
-        <div>
-          <dt class="font-semibold text-gray-700">Zitadel Sub:</dt>
-          <dd class="text-gray-900">{{ userInfo.zitadelSub }}</dd>
-        </div>
-        <div>
-          <dt class="font-semibold text-gray-700">Email:</dt>
-          <dd class="text-gray-900">{{ userInfo.email }}</dd>
-        </div>
-        <div>
-          <dt class="font-semibold text-gray-700">First Name:</dt>
-          <dd class="text-gray-900">{{ userInfo.firstName }}</dd>
-        </div>
-        <div>
-          <dt class="font-semibold text-gray-700">Last Name:</dt>
-          <dd class="text-gray-900">{{ userInfo.lastName }}</dd>
-        </div>
-        <div>
-          <dt class="font-semibold text-gray-700">Organization ID:</dt>
-          <dd class="text-gray-900">{{ userInfo.organizationId }}</dd>
-        </div>
-        <div>
-          <dt class="font-semibold text-gray-700">Zitadel Organization ID:</dt>
-          <dd class="text-gray-900">{{ userInfo.zitadelOrganizationId }}</dd>
-        </div>
-        <div *ngIf="userInfo.roles && userInfo.roles.length > 0">
-          <dt class="font-semibold text-gray-700">Roles (Backend):</dt>
-          <dd class="text-gray-900">
-            <ul class="list-disc list-inside">
-              <li *ngFor="let role of userInfo.roles">{{ role }}</li>
-            </ul>
-          </dd>
-        </div>
-      </dl>
+  @if (loading) {
+    <div class="flex items-center gap-2 text-lg text-slate-600 mb-6">
+      <i class="pi pi-spin pi-spinner"></i> Wird geladen...
     </div>
+  }
 
-    <!-- Token Info -->
-    <div class="p-6 bg-white border border-gray-300 rounded">
-      <h2 class="text-xl font-bold mb-4 text-green-700">Token Info (Frontend)</h2>
-      <dl class="space-y-4">
-        <div>
-          <dt class="font-semibold text-gray-700">Organization ID (from Token):</dt>
-          <dd class="text-gray-900 p-2 bg-gray-50 rounded border border-gray-200 min-h-[40px]">
-            {{ tokenOrgId || 'No Org ID found' }}
-          </dd>
-        </div>
-        <div>
-          <dt class="font-semibold text-gray-700">Roles (from Token):</dt>
-          <dd class="text-gray-900 p-2 bg-gray-50 rounded border border-gray-200">
-            <ul *ngIf="tokenRoles.length > 0" class="list-disc list-inside">
-              <li *ngFor="let role of tokenRoles">{{ role }}</li>
-            </ul>
-            <p *ngIf="tokenRoles.length === 0" class="text-gray-500 italic">No roles found in token</p>
-          </dd>
-        </div>
-        <div class="mt-4 pt-4 border-t border-gray-100">
-          <p class="text-xs text-gray-500">
-            Note: These values are decoded locally from your JWT access token.
-          </p>
-        </div>
-      </dl>
+  @if (error) {
+    <div class="p-4 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl flex items-center gap-3 mb-6">
+      <i class="pi pi-exclamation-triangle"></i>
+      <div>
+        <p class="font-bold">Fehler</p>
+        <p>{{ error }}</p>
+      </div>
     </div>
-  </div>
+  }
+
+  @if (userInfo && !loading) {
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <!-- Backend Info -->
+      <div class="p-8 bg-white border border-slate-200 rounded-2xl shadow-sm">
+        <h2 class="text-xl font-bold mb-6 text-blue-700 flex items-center gap-2">
+          <i class="pi pi-server"></i> User Info (Backend)
+        </h2>
+        <dl class="space-y-4">
+          <div>
+            <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1 flex items-center gap-1">
+              <i class="pi pi-id-card text-xs text-primary-icon"></i> User ID
+            </dt>
+            <dd class="text-slate-900 font-medium">{{ userInfo.userId }}</dd>
+          </div>
+          <div>
+            <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1 flex items-center gap-1">
+              <i class="pi pi-key text-xs text-primary-icon"></i> Zitadel Sub
+            </dt>
+            <dd class="text-slate-900 font-mono text-xs">{{ userInfo.zitadelSub }}</dd>
+          </div>
+          <div>
+            <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1 flex items-center gap-1">
+              <i class="pi pi-envelope text-xs text-primary-icon"></i> E-Mail
+            </dt>
+            <dd class="text-slate-900 font-medium">{{ userInfo.email }}</dd>
+          </div>
+          <div>
+            <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1 flex items-center gap-1">
+              <i class="pi pi-building text-xs text-primary-icon"></i> Organisation ID
+            </dt>
+            <dd class="text-slate-900 font-medium">{{ userInfo.organizationId }}</dd>
+          </div>
+          @if (userInfo.roles && userInfo.roles.length > 0) {
+            <div>
+              <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1 flex items-center gap-1">
+                <i class="pi pi-shield text-xs text-primary-icon"></i> Rollen (Backend)
+              </dt>
+              <dd class="flex flex-wrap gap-2 mt-2">
+                @for (role of userInfo.roles; track role) {
+                  <span class="px-2.5 py-1 bg-blue-50 text-blue-700 rounded-lg text-xs font-bold border border-blue-100">
+                    {{ role }}
+                  </span>
+                }
+              </dd>
+            </div>
+          }
+        </dl>
+      </div>
+
+      <!-- Token Info -->
+      <div class="p-8 bg-white border border-slate-200 rounded-2xl shadow-sm">
+        <h2 class="text-xl font-bold mb-6 text-emerald-700 flex items-center gap-2">
+          <i class="pi pi-ticket"></i> Token Info (Frontend)
+        </h2>
+        <dl class="space-y-6">
+          <div>
+            <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1 flex items-center gap-1">
+              <i class="pi pi-building text-xs text-primary-icon"></i> Organisation ID (from Token)
+            </dt>
+            <dd class="text-slate-900 font-medium p-3 bg-slate-50 rounded-xl border border-slate-100">
+              {{ tokenOrgId || 'Keine Org ID gefunden' }}
+            </dd>
+          </div>
+          <div>
+            <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1 flex items-center gap-1">
+              <i class="pi pi-shield text-xs text-primary-icon"></i> Rollen (from Token)
+            </dt>
+            <dd class="mt-2">
+              @if (tokenRoles.length > 0) {
+                <div class="flex flex-wrap gap-2">
+                  @for (role of tokenRoles; track role) {
+                    <span class="px-2.5 py-1 bg-emerald-50 text-emerald-700 rounded-lg text-xs font-bold border border-emerald-100">
+                      {{ role }}
+                    </span>
+                  }
+                </div>
+              } @else {
+                <p class="text-slate-500 italic text-sm">Keine Rollen im Token gefunden</p>
+              }
+            </dd>
+          </div>
+          <div class="mt-6 pt-6 border-t border-slate-100">
+            <p class="text-xs text-slate-400 flex items-center gap-1">
+              <i class="pi pi-info-circle"></i> Hinweis: Diese Werte werden lokal aus Ihrem JWT-Access-Token dekodiert.
+            </p>
+          </div>
+        </dl>
+      </div>
+    </div>
+  }
 </div>

@@ -4,14 +4,33 @@
 }
 
 .app-shell {
-  display: grid;
-  grid-template-columns: minmax(14rem, 18rem) 1fr;
+  display: flex;
+  flex-direction: column;
   height: 100dvh;
   overflow: hidden;
   background: var(--p-surface-ground);
 }
 
+.app-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.5rem 1rem;
+  background: var(--p-surface-card);
+  border-bottom: 1px solid var(--p-content-border-color);
+  z-index: 10;
+}
+
+.app-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--p-primary-color);
+  letter-spacing: -0.025em;
+  cursor: pointer;
+}
+
 .content-area {
+  flex: 1;
   padding: var(--p-content-padding);
   overflow: auto;
 }

@@ -1,8 +1,7 @@
-import { Component, computed, inject } from '@angular/core';
+import { Component, computed, inject, model } from '@angular/core';
 import { MenuItem } from 'primeng/api';
-import { RouterLink } from '@angular/router';
 import { Menu } from 'primeng/menu';
-import { Image } from 'primeng/image';
+import { Drawer } from 'primeng/drawer';
 import { AuthService } from '../../../core/auth/auth.service';
 
 @Component({
@@ -10,17 +9,17 @@ import { AuthService } from '../../../core/auth/auth.service';
   standalone: true,
   templateUrl: './app-sidebar.component.html',
   styleUrl: './app-sidebar.component.scss',
-  imports: [Menu, Image, RouterLink],
+  imports: [Menu, Drawer],
 })
 export class AppSidebarComponent {
   private authService = inject(AuthService);
 
+  visible = model<boolean>(false);
+
   protected navigationItems = computed<MenuItem[]>(() => {
     const roles = this.authService.getUserRoles();
     if (roles.includes('SUPER_ADMIN')) {
-      return [
-
-      ];
+      return [];
     }
 
     return [

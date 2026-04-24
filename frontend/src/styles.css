@@ -1,3 +1,10 @@
 /* You can add global styles to this file, and also import other style files */
 
 @import 'tailwindcss';
+@import 'primeicons/primeicons.css';
+
+@layer utilities {
+  .text-primary-icon {
+    color: var(--p-primary-color);
+  }
+}
