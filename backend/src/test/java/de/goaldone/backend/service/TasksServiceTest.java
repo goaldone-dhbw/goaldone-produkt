@@ -13,6 +13,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.LinkedHashSet;
@@ -35,43 +36,45 @@ class TasksServiceTest {
     @Mock
     private TaskRepository taskRepository;
 
+    @Mock
+    private UserIdentityService userIdentityService;
+
     @InjectMocks
     private TasksService tasksService;
 
+    private Jwt mockJwt() {
+        return Jwt.withTokenValue("token")
+                .header("alg", "none")
+                .claim("sub", "user-1")
+                .build();
+    }
+
     @Test
     void createTask_validRequest_returnsCreatedTask() {
-        UUID accountId = UUID.randomUUID();
-        UUID taskId = UUID.randomUUID();
-
         TaskCreateRequest request = new TaskCreateRequest();
-        request.setAccountId(accountId);
+        request.setAccountId(UUID.randomUUID());
         request.setTitle("Dokumentation");
         request.setDuration(120);
         request.setStatus(TaskStatus.OPEN);
         request.setCognitiveLoad(CognitiveLoad.MODERATE);
 
-        TaskEntity saved = new TaskEntity();
-        saved.setId(taskId);
-        saved.setAccountId(accountId);
-        saved.setTitle("Dokumentation");
-        saved.setDuration(120);
-        saved.setStatus(TaskStatus.OPEN);
-        saved.setCognitiveLoad(CognitiveLoad.MODERATE);
-
-        when(taskRepository.save(any(TaskEntity.class))).thenReturn(saved);
-        when(taskRepository.findByIdAndAccountId(taskId, accountId)).thenReturn(Optional.of(saved));
+        when(taskRepository.save(any(TaskEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         var response = tasksService.createTask(request);
 
-        assertEquals(taskId, response.getId());
         assertEquals("Dokumentation", response.getTitle());
         assertEquals(120, response.getDuration());
         assertEquals(TaskStatus.OPEN, response.getStatus());
+        assertEquals(CognitiveLoad.MODERATE, response.getCognitiveLoad());
     }
 
     @Test
     void createTask_invalidDuration_throwsBadRequest() {
         TaskCreateRequest request = new TaskCreateRequest();
+        request.setAccountId(UUID.randomUUID());
+        request.setTitle("Some Task");
+        request.setStatus(TaskStatus.OPEN);
+        request.setCognitiveLoad(CognitiveLoad.LOW);
         request.setDuration(-10);
 
         ResponseStatusException ex = assertThrows(ResponseStatusException.class,
@@ -84,6 +87,7 @@ class TasksServiceTest {
     void updateTask_statusChangeToDone_updatesStatus() {
         UUID accountId = UUID.randomUUID();
         UUID taskId = UUID.randomUUID();
+        Jwt jwt = mockJwt();
 
         TaskEntity existing = new TaskEntity();
         existing.setId(taskId);
@@ -91,15 +95,21 @@ class TasksServiceTest {
         existing.setTitle("Task");
         existing.setDuration(30);
         existing.setStatus(TaskStatus.OPEN);
+        existing.setCognitiveLoad(CognitiveLoad.MODERATE);
+        existing.setDependencies(new LinkedHashSet<>());
 
         TaskUpdateRequest request = new TaskUpdateRequest();
+        request.setTitle("Task");
+        request.setDuration(30);
         request.setStatus(TaskStatus.DONE);
+        request.setCognitiveLoad(CognitiveLoad.MODERATE);
         request.setDependencyIds(null);
 
-        when(taskRepository.findByIdAndAccountId(taskId, accountId)).thenReturn(Optional.of(existing));
+        when(taskRepository.findById(taskId)).thenReturn(Optional.of(existing));
+        when(userIdentityService.hasUserAccessToAccount(any(), eq(accountId))).thenReturn(true);
         when(taskRepository.save(any(TaskEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        var response = tasksService.updateTask(accountId, taskId, request);
+        var response = tasksService.updateTask(jwt, taskId, request);
 
         assertEquals(TaskStatus.DONE, response.getStatus());
         ArgumentCaptor<TaskEntity> captor = ArgumentCaptor.forClass(TaskEntity.class);
@@ -112,6 +122,7 @@ class TasksServiceTest {
         UUID accountId = UUID.randomUUID();
         UUID taskAId = UUID.randomUUID();
         UUID taskBId = UUID.randomUUID();
+        Jwt jwt = mockJwt();
 
         TaskEntity taskA = new TaskEntity();
         taskA.setId(taskAId);
@@ -119,6 +130,8 @@ class TasksServiceTest {
         taskA.setTitle("A");
         taskA.setDuration(10);
         taskA.setStatus(TaskStatus.OPEN);
+        taskA.setCognitiveLoad(CognitiveLoad.LOW);
+        taskA.setDependencies(new LinkedHashSet<>());
 
         TaskEntity taskB = new TaskEntity();
         taskB.setId(taskBId);
@@ -126,18 +139,23 @@ class TasksServiceTest {
         taskB.setTitle("B");
         taskB.setDuration(10);
         taskB.setStatus(TaskStatus.OPEN);
-
+        taskB.setCognitiveLoad(CognitiveLoad.LOW);
         taskB.setDependencies(new LinkedHashSet<>(List.of(taskA)));
 
         TaskUpdateRequest request = new TaskUpdateRequest();
+        request.setTitle("A");
+        request.setDuration(10);
+        request.setStatus(TaskStatus.OPEN);
+        request.setCognitiveLoad(CognitiveLoad.LOW);
         request.setDependencyIds(List.of(taskBId));
 
-        when(taskRepository.findByIdAndAccountId(taskAId, accountId)).thenReturn(Optional.of(taskA));
+        when(taskRepository.findById(taskAId)).thenReturn(Optional.of(taskA));
+        when(userIdentityService.hasUserAccessToAccount(any(), eq(accountId))).thenReturn(true);
         when(taskRepository.findAllByIdInAndAccountId(anyCollection(), eq(accountId))).thenReturn(List.of(taskB));
         when(taskRepository.findAllByAccountIdOrderByIdAsc(accountId)).thenReturn(List.of(taskA, taskB));
 
         ResponseStatusException ex = assertThrows(ResponseStatusException.class,
-            () -> tasksService.updateTask(accountId, taskAId, request));
+            () -> tasksService.updateTask(jwt, taskAId, request));
 
         assertEquals(HttpStatus.BAD_REQUEST, ex.getStatusCode());
     }

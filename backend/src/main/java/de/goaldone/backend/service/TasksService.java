@@ -1,6 +1,9 @@
 package de.goaldone.backend.service;
 
 import de.goaldone.backend.entity.TaskEntity;
+import de.goaldone.backend.model.CognitiveLoad;
+import de.goaldone.backend.model.TaskAccountListResponse;
+import de.goaldone.backend.model.TaskStatus;
 import de.goaldone.backend.model.TaskCreateRequest;
 import de.goaldone.backend.model.TaskResponse;
 import de.goaldone.backend.model.TaskUpdateRequest;
@@ -8,6 +11,7 @@ import de.goaldone.backend.repository.TaskRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -30,6 +34,7 @@ import java.util.stream.Collectors;
 public class TasksService {
 
     private final TaskRepository taskRepository;
+    private final UserIdentityService userIdentityService;
 
     @Transactional
     public TaskResponse createTask(TaskCreateRequest request) {
@@ -37,95 +42,88 @@ public class TasksService {
 
         var accountId = request.getAccountId();
 
+        TaskEntity entity = new TaskEntity(
+                UUID.randomUUID(),
+                accountId,
+                request.getTitle().trim(),
+                request.getDescription(),
+                request.getDuration(),
+                toInstant(request.getDeadline()),
+                request.getStatus(),
+                request.getCognitiveLoad(),
+                toInstant(request.getDontScheduleBefore()),
+                request.getCustomChunkSize(),
+                new LinkedHashSet<>()
+        );
 
-        TaskEntity entity = new TaskEntity();
-        entity.setId(UUID.randomUUID());
-        entity.setAccountId(accountId);
-        entity.setTitle(request.getTitle().trim());
-        entity.setDescription(request.getDescription());
-        entity.setDuration(request.getDuration());
-        entity.setDeadline(toInstant(request.getDeadline()));
-        entity.setStatus(request.getStatus());
-        entity.setCognitiveLoad(request.getCognitiveLoad());
-        entity.setDontScheduleBefore(toInstant(request.getDontScheduleBefore()));
-        entity.setCustomChunkSize(request.getCustomChunkSize());
+        applyDependencies(entity, request.getDependencyIds(), accountId, true);
 
         TaskEntity saved = taskRepository.save(entity);
-        applyDependencies(saved, request.getDependencyIds(), accountId, true);
-
-        TaskEntity persisted = taskRepository.findByIdAndAccountId(saved.getId(), accountId)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Task not found"));
-        return toResponse(persisted);
+        return toResponse(saved);
     }
 
     @Transactional(readOnly = true)
-    public List<TaskResponse> getTasks(List<UUID> accountIds) {
-        for ( UUID accountId: accountIds) {
-            taskRepository.findAllByAccountIdOrderByIdAsc(accountId);
-        }
+    public List<TaskResponse> getTasksForAccountId(Jwt jwt, UUID accountId) {
+        boolean hasUserAccess = userIdentityService.hasUserAccessToAccount(jwt, accountId);
 
-        // TODO
-        return null;
+        return taskRepository.findAllByAccountIdOrderByIdAsc(accountId)
+                .stream()
+                .filter(task -> hasUserAccess)
+                .map(this::toResponse)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<TaskAccountListResponse> getTasksForAllAccounts(Jwt jwt) {
+        List<UUID> accountIds = userIdentityService.accountIdsForUser(jwt);
+
+        Map<UUID, List<TaskEntity>> tasksByAccount = taskRepository.findAllByAccountIdIn(accountIds).stream()
+                .collect(Collectors.groupingBy(TaskEntity::getAccountId));
+
+        return accountIds.stream()
+                .map(accountId -> new TaskAccountListResponse(accountId)
+                        .tasks(tasksByAccount.getOrDefault(accountId, List.of())
+                                .stream()
+                                .map(this::toResponse)
+                                .toList()))
+                .toList();
     }
 
     @Transactional
-    public TaskResponse updateTask(UUID accountId, UUID id, TaskUpdateRequest request) {
-        TaskEntity task = taskRepository.findByIdAndAccountId(id, accountId)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Task not found"));
+    public TaskResponse updateTask(Jwt jwt, UUID id, TaskUpdateRequest request) {
+        TaskEntity task = taskRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Task not found"));
 
-        if (request.getTitle() != null) {
-            if (request.getTitle().isBlank()) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "title must not be blank");
-            }
-            task.setTitle(request.getTitle().trim());
+        if (!userIdentityService.hasUserAccessToAccount(jwt, task.getAccountId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "User does not have access to the task's account");
         }
 
-        if (request.getDescription() != null) {
-            task.setDescription(request.getDescription());
-        }
+        validateUpdateRequest(request);
 
-        if (request.getDuration() != null) {
-            if (request.getDuration() <= 0) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "duration must be greater than 0");
-            }
-            task.setDuration(request.getDuration());
-        }
+        task.setTitle(request.getTitle().trim());
+        task.setDescription(request.getDescription());
+        task.setDuration(request.getDuration());
+        task.setDeadline(toInstant(request.getDeadline()));
+        task.setStatus(request.getStatus());
+        task.setCognitiveLoad(request.getCognitiveLoad());
+        task.setDontScheduleBefore(toInstant(request.getDontScheduleBefore()));
+        task.setCustomChunkSize(request.getCustomChunkSize());
 
-        if (request.getDeadline() != null) {
-            task.setDeadline(toInstant(request.getDeadline()));
-        }
-
-        if (request.getStatus() != null) {
-            task.setStatus(request.getStatus());
-        }
-
-        if (request.getCognitiveLoad() != null) {
-            task.setCognitiveLoad(request.getCognitiveLoad());
-        }
-
-        if (request.getDontScheduleBefore() != null) {
-            task.setDontScheduleBefore(toInstant(request.getDontScheduleBefore()));
-        }
-
-        if (request.getCustomChunkSize() != null) {
-            if (request.getCustomChunkSize() <= 0) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "customChunkSize must be greater than 0");
-            }
-            task.setCustomChunkSize(request.getCustomChunkSize());
-        }
-
-        if (request.getDependencyIds() != null) {
-            applyDependencies(task, request.getDependencyIds(), accountId, true);
-        }
+        applyDependencies(task, request.getDependencyIds(), task.getAccountId(), true);
 
         TaskEntity persisted = taskRepository.save(task);
         return toResponse(persisted);
     }
 
     @Transactional
-    public void deleteTask(UUID accountId, UUID id) {
-        TaskEntity task = taskRepository.findByIdAndAccountId(id, accountId)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Task not found"));
+    public void deleteTask(UUID id, Jwt jwt) {
+        TaskEntity task = taskRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Task not found"));
+
+        List<UUID> accountsWithAccess = userIdentityService.accountIdsForUser(jwt);
+        if (!accountsWithAccess.contains(task.getAccountId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "User does not have access to the task's account");
+        }
         taskRepository.delete(task);
     }
 
@@ -133,22 +131,36 @@ public class TasksService {
         if (request == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "request body is required");
         }
-        if (request.getTitle() == null || request.getTitle().isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "title must not be blank");
-        }
         if (request.getAccountId() == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "accountId is required");
         }
-        if (request.getDuration() == null || request.getDuration() <= 0) {
+        validateCommonFields(request.getTitle(), request.getDuration(), request.getStatus(),
+                request.getCognitiveLoad(), request.getCustomChunkSize());
+    }
+
+    private void validateUpdateRequest(TaskUpdateRequest request) {
+        if (request == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "request body is required");
+        }
+        validateCommonFields(request.getTitle(), request.getDuration(), request.getStatus(),
+                request.getCognitiveLoad(), request.getCustomChunkSize());
+    }
+
+    private void validateCommonFields(String title, Integer duration, TaskStatus status,
+                                      CognitiveLoad cognitiveLoad, Integer customChunkSize) {
+        if (title == null || title.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "title must not be blank");
+        }
+        if (duration == null || duration <= 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "duration must be greater than 0");
         }
-        if (request.getStatus() == null) {
+        if (status == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "status is required");
         }
-        if (request.getCognitiveLoad() == null) {
+        if (cognitiveLoad == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "cognitiveLoad is required");
         }
-        if (request.getCustomChunkSize() != null && request.getCustomChunkSize() <= 0) {
+        if (customChunkSize != null && customChunkSize <= 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "customChunkSize must be greater than 0");
         }
     }
@@ -167,7 +179,6 @@ public class TasksService {
         if (uniqueDependencyIds.isEmpty()) {
             if (allowEmptyToClear) {
                 task.getDependencies().clear();
-                taskRepository.save(task);
             }
             return;
         }
@@ -179,7 +190,6 @@ public class TasksService {
 
         task.setDependencies(new LinkedHashSet<>(dependencies));
         assertNoDependencyCycle(task, accountId);
-        taskRepository.save(task);
     }
 
     private void assertNoDependencyCycle(TaskEntity changedTask, UUID accountId) {
@@ -223,23 +233,22 @@ public class TasksService {
     }
 
     private TaskResponse toResponse(TaskEntity entity) {
-        TaskResponse response = new TaskResponse();
-        response.setId(entity.getId());
-        response.setTitle(entity.getTitle());
-        response.setDescription(entity.getDescription());
-        response.setDuration(entity.getDuration());
-        response.setDeadline(toOffsetDateTime(entity.getDeadline()));
-        response.setStatus(entity.getStatus());
-        response.setCognitiveLoad(entity.getCognitiveLoad());
-        response.setDontScheduleBefore(toOffsetDateTime(entity.getDontScheduleBefore()));
-        response.setCustomChunkSize(entity.getCustomChunkSize());
-
         List<UUID> dependencyIds = entity.getDependencies().stream()
-            .map(TaskEntity::getId)
-            .sorted()
-            .toList();
-        response.setDependencyIds(dependencyIds);
-        return response;
+                .map(TaskEntity::getId)
+                .sorted()
+                .toList();
+
+        return new TaskResponse()
+                .id(entity.getId())
+                .title(entity.getTitle())
+                .description(entity.getDescription())
+                .duration(entity.getDuration())
+                .deadline(toOffsetDateTime(entity.getDeadline()))
+                .status(entity.getStatus())
+                .cognitiveLoad(entity.getCognitiveLoad())
+                .dontScheduleBefore(toOffsetDateTime(entity.getDontScheduleBefore()))
+                .customChunkSize(entity.getCustomChunkSize())
+                .dependencyIds(dependencyIds);
     }
 
     private Instant toInstant(OffsetDateTime value) {

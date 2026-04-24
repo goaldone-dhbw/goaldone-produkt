@@ -48,6 +48,12 @@ public class UserIdentityService {
         return response;
     }
 
+    public List<UUID> accountIdsForUser(Jwt jwt) {
+        return buildAccountListResponse(jwt).getAccounts().stream()
+                .map(AccountResponse::getAccountId)
+                .toList();
+    }
+
     public boolean hasUserAccessToAccount(Jwt jwt, UUID accountId) {
         AccountListResponse accounts = buildAccountListResponse(jwt);
 

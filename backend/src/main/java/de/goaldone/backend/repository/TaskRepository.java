@@ -20,4 +20,6 @@ public interface TaskRepository extends JpaRepository<TaskEntity, UUID> {
     Optional<TaskEntity> findByIdAndAccountId(UUID id, UUID accountId);
 
     List<TaskEntity> findAllByIdInAndAccountId(Collection<UUID> ids, UUID accountId);
+
+    List<TaskEntity> findAllByAccountIdIn(Collection<UUID> accountIds);
 }

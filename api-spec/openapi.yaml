@@ -243,14 +243,34 @@ paths:
         '409':
           description: Conflict (Last Super-Admin)
 
-  /tasks:
+  /tasks/all:
     get:
       tags:
         - tasks
-      summary: Get all tasks
-      operationId: getTasks
-      security:
-        - bearerAuth: []
+      summary: Get all tasks for all accounts
+      operationId: getTasksForAllAccounts
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TaskAccountListResponse'
+  /tasks/account/{accountId}:
+    get:
+      tags:
+        - tasks
+      summary: Get all tasks for a specific account
+      operationId: getTasksByAccount
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
       responses:
         '200':
           description: OK
@@ -260,13 +280,12 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/TaskResponse'
+  /tasks:
     post:
       tags:
         - tasks
       summary: Create a new task
       operationId: createTask
-      security:
-        - bearerAuth: []
       requestBody:
         required: true
         content:
@@ -283,7 +302,7 @@ paths:
         '400':
           description: Bad Request
 
-  /tasks/{id}:
+  /tasks/{taskId}:
     put:
       tags:
         - tasks
@@ -292,7 +311,7 @@ paths:
       security:
         - bearerAuth: []
       parameters:
-        - name: id
+        - name: taskId
           in: path
           required: true
           schema:
@@ -323,7 +342,7 @@ paths:
       security:
         - bearerAuth: []
       parameters:
-        - name: id
+        - name: taskId
           in: path
           required: true
           schema:
@@ -394,6 +413,21 @@ components:
         - LOW
         - MODERATE
         - HIGH
+
+    TaskAccountListResponse:
+      type: object
+      required:
+        - accountId
+        - Tasks
+      properties:
+        accountId:
+          type: string
+          format: uuid
+        tasks:
+          type: array
+          items:
+            $ref: '#/components/schemas/TaskResponse'
+
 
     TaskResponse:
       type: object
