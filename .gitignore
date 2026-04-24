@@ -5,3 +5,4 @@ CLAUDE.md
 .claude/
 mprocs.yaml
 mprocs.log
+.idea/workspace.xml

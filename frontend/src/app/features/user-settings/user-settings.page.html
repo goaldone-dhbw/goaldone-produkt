@@ -1,0 +1,84 @@
+<div class="p-8 max-w-4xl mx-auto">
+  <div class="flex items-center justify-between mb-8">
+    <h1 class="text-3xl font-bold text-slate-900 flex items-center gap-3">
+      <i class="pi pi-user text-primary-icon"></i> Benutzereinstellungen
+    </h1>
+    <p-button
+      label="Abmelden"
+      icon="pi pi-sign-out"
+      severity="danger"
+      [outlined]="true"
+      (onClick)="logout()"
+    ></p-button>
+  </div>
+
+  @if (loading) {
+    <div class="flex items-center gap-2 text-lg text-slate-600">
+      <i class="pi pi-spin pi-spinner"></i> Wird geladen...
+    </div>
+  }
+
+  @if (error) {
+    <div class="p-4 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl flex items-center gap-3">
+      <i class="pi pi-exclamation-triangle"></i>
+      <div>
+        <p class="font-bold">Fehler</p>
+        <p>{{ error }}</p>
+      </div>
+    </div>
+  }
+
+  @if (userInfo && !loading) {
+    <div class="p-8 bg-white border border-slate-200 rounded-2xl shadow-sm">
+      <h2 class="text-xl font-bold mb-6 text-slate-800 flex items-center gap-2">
+        <i class="pi pi-info-circle text-primary-icon"></i> Profilinformationen
+      </h2>
+      <dl class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+        <div>
+          <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1 flex items-center gap-1">
+            <i class="pi pi-id-card text-xs text-primary-icon"></i> User ID
+          </dt>
+          <dd class="text-slate-900 font-medium">{{ userInfo.userId }}</dd>
+        </div>
+        <div>
+          <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1 flex items-center gap-1">
+            <i class="pi pi-envelope text-xs text-primary-icon"></i> E-Mail
+          </dt>
+          <dd class="text-slate-900 font-medium">{{ userInfo.email }}</dd>
+        </div>
+        <div>
+          <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1 flex items-center gap-1">
+            <i class="pi pi-user text-xs text-primary-icon"></i> Vorname
+          </dt>
+          <dd class="text-slate-900 font-medium">{{ userInfo.firstName }}</dd>
+        </div>
+        <div>
+          <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1 flex items-center gap-1">
+            <i class="pi pi-user text-xs text-primary-icon"></i> Nachname
+          </dt>
+          <dd class="text-slate-900 font-medium">{{ userInfo.lastName }}</dd>
+        </div>
+        <div>
+          <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1 flex items-center gap-1">
+            <i class="pi pi-building text-xs text-primary-icon"></i> Organisation ID
+          </dt>
+          <dd class="text-slate-900 font-medium">{{ userInfo.organizationId }}</dd>
+        </div>
+        @if (userInfo.roles && userInfo.roles.length > 0) {
+          <div class="md:col-span-2">
+            <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1 flex items-center gap-1">
+              <i class="pi pi-shield text-xs text-primary-icon"></i> Rollen
+            </dt>
+            <dd class="flex flex-wrap gap-2 mt-2">
+              @for (role of userInfo.roles; track role) {
+                <span class="px-2.5 py-1 bg-slate-100 text-slate-700 rounded-lg text-xs font-bold border border-slate-200">
+                  {{ role }}
+                </span>
+              }
+            </dd>
+          </div>
+        }
+      </dl>
+    </div>
+  }
+</div>

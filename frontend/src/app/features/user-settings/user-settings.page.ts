@@ -5,12 +5,12 @@ import { TestService, UserInfoResponse } from '../../api';
 import { AuthService } from '../../core/auth/auth.service';
 
 @Component({
-  selector: 'app-test-page',
+  selector: 'app-user-settings',
   standalone: true,
   imports: [CommonModule, Button],
-  templateUrl: './test-page.component.html',
+  templateUrl: './user-settings.page.html',
 })
-export class TestPageComponent implements OnInit {
+export class UserSettingsPage implements OnInit {
   private testService = inject(TestService);
   private authService = inject(AuthService);
   private cdr = inject(ChangeDetectorRef);
@@ -18,13 +18,9 @@ export class TestPageComponent implements OnInit {
   loading = false;
   error: string | null = null;
   userInfo: UserInfoResponse | null = null;
-  tokenRoles: string[] = [];
-  tokenOrgId: string | null = null;
 
   ngOnInit(): void {
     this.fetchUserInfo();
-    this.tokenRoles = this.authService.getUserRoles();
-    this.tokenOrgId = this.authService.getUserOrganizationId();
   }
 
   private fetchUserInfo(): void {

@@ -53,7 +53,7 @@ describe('AuthService', () => {
           scope: 'openid profile email offline_access urn:zitadel:iam:user:resourceowner',
           responseType: 'code',
           useSilentRefresh: false,
-        })
+        }),
       );
     });
 
