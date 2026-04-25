@@ -11,6 +11,7 @@ import de.goaldone.backend.model.WorkingTimeUpdateRequest;
 import de.goaldone.backend.repository.UserAccountRepository;
 import de.goaldone.backend.repository.WorkingTimeRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,15 +26,17 @@ public class WorkingTimesService {
 
     private final UserAccountRepository userAccountRepository;
     private final WorkingTimeRepository workingTimeRepository;
+    private final UserIdentityService userIdentityService;
 
     @Transactional
-    public WorkingTimeResponse createWorkingTime(UUID currentAccountId, WorkingTimeCreateRequest request) {
+    public WorkingTimeResponse createWorkingTime(Jwt jwt, WorkingTimeCreateRequest request) {
+        if(!userIdentityService.hasUserAccessToAccount(jwt, request.getAccountId())) {
+            throw new WorkingTimeAccessDeniedException("Der angemeldete Nutzer hat keinen Zugriff auf diesen Account.");
+        }
+
         if (!request.getEndTime().isAfter(request.getStartTime())) {
             throw new WorkingTimeValidationException("Endzeit muss nach der Startzeit liegen.");
         }
-
-        UserAccountEntity currentAccount = userAccountRepository.findById(currentAccountId)
-            .orElseThrow(() -> new IllegalStateException("Current account not found after authentication"));
 
         UserAccountEntity targetAccount = userAccountRepository.findByIdAndUserIdentityId(
                 request.getAccountId(),

@@ -21,22 +21,22 @@ public class WorkingTimesController implements WorkingTimesApi {
 
     @Override
     public ResponseEntity<WorkingTimeResponse> createWorkingTime(WorkingTimeCreateRequest workingTimeCreateRequest) {
-        var currentAccount = currentUserResolver.resolveCurrentAccount();
-        WorkingTimeResponse response = workingTimesService.createWorkingTime(currentAccount.getId(), workingTimeCreateRequest);
+        var jwt = currentUserResolver.extractJwt();
+        WorkingTimeResponse response = workingTimesService.createWorkingTime(jwt, workingTimeCreateRequest);
         return ResponseEntity.status(201).body(response);
     }
 
     @Override
     public ResponseEntity<WorkingTimeResponse> updateWorkingTime(UUID id, WorkingTimeUpdateRequest workingTimeUpdateRequest) {
-        var currentAccount = currentUserResolver.resolveCurrentAccount();
-        WorkingTimeResponse response = workingTimesService.updateWorkingTime(currentAccount.getId(), id, workingTimeUpdateRequest);
+        var jwt = currentUserResolver.extractJwt();
+        WorkingTimeResponse response = workingTimesService.updateWorkingTime(jwt, id, workingTimeUpdateRequest);
         return ResponseEntity.ok(response);
     }
 
     @Override
     public ResponseEntity<Void> deleteWorkingTime(UUID id) {
-        var currentAccount = currentUserResolver.resolveCurrentAccount();
-        workingTimesService.deleteWorkingTime(currentAccount.getId(), id);
+        var jwt = currentUserResolver.extractJwt();
+        workingTimesService.deleteWorkingTime(jwt, id);
         return ResponseEntity.noContent().build();
     }
 }
