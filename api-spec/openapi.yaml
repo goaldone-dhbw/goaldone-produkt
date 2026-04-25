@@ -126,11 +126,11 @@ paths:
   # ============================================================
   /appointments/{accountId}:
     get:
-      tags: [appointments]
+      tags: [ appointments ]
       summary: List appointments for an account
       operationId: listAppointments
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       parameters:
         - $ref: '#/components/parameters/AccountIdPath'
       responses:
@@ -148,11 +148,11 @@ paths:
           description: Account not found
 
     post:
-      tags: [appointments]
+      tags: [ appointments ]
       summary: Create a new appointment or break
       operationId: createAppointment
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       parameters:
         - $ref: '#/components/parameters/AccountIdPath'
       requestBody:
@@ -177,11 +177,11 @@ paths:
 
   /appointments/{accountId}/{appointmentId}:
     get:
-      tags: [appointments]
+      tags: [ appointments ]
       summary: Get an appointment by ID
       operationId: getAppointment
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       parameters:
         - $ref: '#/components/parameters/AccountIdPath'
         - name: appointmentId
@@ -205,11 +205,11 @@ paths:
           description: Appointment not found
 
     delete:
-      tags: [appointments]
+      tags: [ appointments ]
       summary: Delete an appointment
       operationId: deleteAppointment
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       parameters:
         - $ref: '#/components/parameters/AccountIdPath'
         - name: appointmentId
@@ -233,7 +233,7 @@ paths:
   # ============================================================
   /schedules/{accountId}:
     get:
-      tags: [schedules]
+      tags: [ schedules ]
       summary: Aktuellen Plan eines Accounts abrufen
       description: |
         Gibt den Plan für den angegebenen Account und Zeitraum zurück.
@@ -248,7 +248,7 @@ paths:
         Alle Einträge werden nach Datum und Startzeit sortiert zurückgegeben.
       operationId: getSingleAccountSchedule
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       parameters:
         - $ref: '#/components/parameters/AccountIdPath'
         - $ref: '#/components/parameters/FromQuery'
@@ -268,7 +268,7 @@ paths:
           description: Account nicht gefunden
 
     post:
-      tags: [schedules]
+      tags: [ schedules ]
       summary: Plan für einen Account generieren
       description: |
         Löst den Planungsalgorithmus für den angegebenen Account aus.
@@ -276,7 +276,7 @@ paths:
         alle anderen Chunks werden neu verteilt.
       operationId: generateSingleAccountSchedule
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       parameters:
         - $ref: '#/components/parameters/AccountIdPath'
       requestBody:
@@ -311,14 +311,14 @@ paths:
   # ============================================================
   /schedules/all:
     get:
-      tags: [schedules]
+      tags: [ schedules ]
       summary: Pläne aller Accounts der Identity abrufen
       description: |
         Gibt pro Account der aktuellen Identity einen separaten Plan zurück.
         Die Arbeitszeiten zwischen Accounts überlappen sich nicht.
       operationId: getAllAccountsSchedule
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       parameters:
         - $ref: '#/components/parameters/FromQuery'
         - $ref: '#/components/parameters/ToQuery'
@@ -333,7 +333,7 @@ paths:
           description: Unauthorized
 
     post:
-      tags: [schedules]
+      tags: [ schedules ]
       summary: Pläne für alle Accounts generieren
       description: |
         Löst den Planungsalgorithmus für alle Accounts der Identity aus.
@@ -341,7 +341,7 @@ paths:
         (Arbeitszeiten sind disjunkt). Gepinnte Einträge bleiben fixiert.
       operationId: generateAllAccountsSchedule
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       requestBody:
         required: true
         content:
