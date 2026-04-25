@@ -11,6 +11,7 @@ import de.goaldone.backend.service.UserIdentityService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDate;
@@ -40,6 +41,7 @@ public class ScheduleController implements SchedulesApi {
      */
     @Override
     public ResponseEntity<MultiAccountScheduleResponse> generateAllAccountsSchedule(GenerateScheduleRequest generateScheduleRequest) {
+        Jwt jwt = currentUserResolver.extractJwt();
 
         List<UUID> accountIds = getAccountsLinkedToIdentity().
                 stream()
@@ -47,7 +49,7 @@ public class ScheduleController implements SchedulesApi {
                 .toList();
 
         List<ScheduleResponse> scheduleResponses = scheduleService.generateMultiAccountSchedule(
-                accountIds, generateScheduleRequest, 10000
+                jwt, accountIds, generateScheduleRequest, 10000
         );
 
 
@@ -69,7 +71,8 @@ public class ScheduleController implements SchedulesApi {
      */
     @Override
     public ResponseEntity<ScheduleResponse> generateSingleAccountSchedule(UUID accountId, GenerateScheduleRequest generateScheduleRequest) {
-        ScheduleResponse scheduleResponse = scheduleService.generateSchedule(accountId, generateScheduleRequest);
+        Jwt jwt = currentUserResolver.extractJwt();
+        ScheduleResponse scheduleResponse = scheduleService.generateSchedule(jwt, accountId, generateScheduleRequest);
         return ResponseEntity.status(201).body(scheduleResponse);
     }
 

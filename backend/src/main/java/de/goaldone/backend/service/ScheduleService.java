@@ -6,6 +6,7 @@ import de.goaldone.backend.scheduler.Solver;
 import de.goaldone.backend.scheduler.types.model.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -22,57 +23,64 @@ public class ScheduleService {
     Solver solver = new Solver();
     Chunker chunker = new Chunker();
 
-    TaskService taskService = new TaskService();
-    AppointmentService appointmentService = new AppointmentService();
+    private final TasksService taskService;
+    private final AppointmentService appointmentService;
 
 
     /**
      * Generates schedules for multiple accounts asynchronously
-     * @param accountIds List of accounts
-     * @param request
+     *
+     * @param accountIds          List of accounts
+     * @param request             Request parameters (e.g. fromDate)
      * @param timeoutMilliseconds Maximum time to wait for each account's schedule
      *                            generation before giving up (in milliseconds)
      * @return A schedule for each account summed up in a lCist
      */
     public List<ScheduleResponse> generateMultiAccountSchedule(
+            Jwt jwt,
             List<UUID> accountIds,
             GenerateScheduleRequest request,
             long timeoutMilliseconds) {
 
-        Executor executor = Executors.newFixedThreadPool(accountIds.size());
+        if (accountIds.isEmpty()) {
+            return List.of();
+        }
 
-        // Create async tasks for each account
-        List<CompletableFuture<ScheduleResponse>> futures = accountIds.stream()
-            .map(accountId ->
-                CompletableFuture.supplyAsync(
-                        () -> generateSchedule(accountId, request), executor
+        try (ExecutorService executor = Executors.newFixedThreadPool(accountIds.size())) {
+            // Create async tasks for each account
+            List<CompletableFuture<ScheduleResponse>> futures = accountIds.stream()
+                    .map(accountId ->
+                            CompletableFuture.supplyAsync(
+                                            () -> generateSchedule(jwt, accountId, request), executor
+                                    )
+                                    // If task takes too long -> complete with null instead of blocking
+                                    .completeOnTimeout(null, timeoutMilliseconds, TimeUnit.MILLISECONDS)
+
+                                    // Handle exceptions per task (prevents whole pipeline from failing)
+                                    .exceptionally(ex -> {
+                                        // log error if needed
+                                        System.err.println("Error processing account " + accountId + ": " + ex.getMessage());
+                                        return null;
+                                    })
                     )
-                    // If task takes too long → complete with null instead of blocking
-                    .completeOnTimeout(null, timeoutMilliseconds, TimeUnit.MILLISECONDS)
+                    .toList();
 
-                    // Handle exceptions per task (prevents whole pipeline from failing)
-                    .exceptionally(ex -> {
-                        // log error if needed
-                        System.err.println("Error processing account " + accountId + ": " + ex.getMessage());
-                        return null;
-                    })
-            )
-            .toList();
+            /*
+             * At this point:
+             * - All tasks are running in parallel
+             * - Each task has its own timeout
+             * - No global blocking is required
+             */
 
-        /*
-         * At this point:
-         * - All tasks are running in parallel
-         * - Each task has its own timeout
-         * - No global blocking is required
-         */
+            // Collect results (JOIN is safe here because each future is guaranteed to complete)
 
-        // Collect results (JOIN is safe here because each future is guaranteed to complete)
-        List<ScheduleResponse> results = futures.stream()
-                .map(CompletableFuture::join)   // non-blocking due to completeOnTimeout
-                .filter(Objects::nonNull)       // remove timed-out or failed tasks
-                .toList();
-
-        return results;
+            return futures.stream()
+                    .map(CompletableFuture::join)   // non-blocking due to completeOnTimeout
+                    .filter(Objects::nonNull)       // remove timed-out or failed tasks
+                    .toList();
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to create executor for account scheduling", e);
+        }
     }
 
     /**
@@ -94,17 +102,18 @@ public class ScheduleService {
 
     /**
      * Orders the generation of a scheduling for a single account
-     * @param accountId Specific account
+     *
+     * @param accountId               Specific account
      * @param generateScheduleRequest Request
      * @return Response containing
-     *  - the generated schedule,
-     *  - the scheduleScore,
-     *  - constraint warnings
+     * - the generated schedule,
+     * - the scheduleScore,
+     * - constraint warnings
      */
-    public ScheduleResponse generateSchedule(UUID accountId, GenerateScheduleRequest generateScheduleRequest) {
+    public ScheduleResponse generateSchedule(Jwt jwt, UUID accountId, GenerateScheduleRequest generateScheduleRequest) {
 
         // Get data
-        List<Task> allTasks = taskService.listTasks(accountId).getTasks();
+        List<TaskResponse> allTasks = taskService.getTasksForAccountId(jwt, accountId);
 
         // Chunk tasks
         List<TaskChunk> chunks = chunker.chunkTasks(allTasks);
@@ -131,7 +140,6 @@ public class ScheduleService {
     public ScheduleResponse getSchedule() {
         return null; //TODO
     }
-
 
 
 }
