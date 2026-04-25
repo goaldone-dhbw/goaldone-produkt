@@ -3,7 +3,6 @@ GEMINI.md
 CLAUDE.md
 .planning/
 .claude/
-mprocs.yaml
 mprocs.log
 .idea/workspace.xml
 .DS_STORE

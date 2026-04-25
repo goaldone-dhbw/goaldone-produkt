@@ -14,6 +14,8 @@ tags:
     description: Task management operations
   - name: user-accounts
     description: User Account operations
+  - name: working-times
+    description: Working time management
   - name: org-management
     description: Organization management operations
   - name: super-admin-management
@@ -70,8 +72,12 @@ paths:
             schema:
               $ref: '#/components/schemas/LinkConfirmRequest'
       responses:
-        '204':
+        '200':
           description: Linked successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LinkConfirmResponse'
         '409':
           description: Conflict - Already linked or same organization
         '410':
@@ -115,6 +121,116 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AccountListResponse'
+
+  /working-times:
+    get:
+      tags:
+        - working-times
+      summary: Get all working time slots for current user
+      operationId: getWorkingTimes
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkingTimeListResponse'
+        '401':
+          description: Unauthorized
+
+    post:
+      tags:
+        - working-times
+      summary: Create a working time slot
+      operationId: createWorkingTime
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkingTimeCreateRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkingTimeResponse'
+        '400':
+          description: Bad Request
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '409':
+          description: Conflict
+
+  /working-times/{id}:
+    put:
+      tags:
+        - working-times
+      summary: Update an existing working time slot
+      operationId: updateWorkingTime
+      security:
+        - bearerAuth: [ ]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkingTimeUpdateRequest'
+      responses:
+        '200':
+          description: Updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkingTimeResponse'
+        '400':
+          description: Bad Request
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+        '409':
+          description: Conflict (e.g. overlapping times)
+
+    delete:
+      tags:
+        - working-times
+      summary: Delete a working time slot
+      operationId: deleteWorkingTime
+      security:
+        - bearerAuth: [ ]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Deleted successfully
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
 
   /admins/organizations:
     post:
@@ -541,6 +657,7 @@ components:
         - organizationId
         - organizationName
         - roles
+        - hasConflicts
       properties:
         accountId:
           type: string
@@ -561,6 +678,9 @@ components:
           type: array
           items:
             type: string
+        hasConflicts:
+          type: boolean
+          description: True if there are overlapping working time slots for this user identity
 
     AccountListResponse:
       type: object
@@ -572,6 +692,124 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/AccountResponse'
+
+    DayOfWeek:
+      type: string
+      enum:
+        - MONDAY
+        - TUESDAY
+        - WEDNESDAY
+        - THURSDAY
+        - FRIDAY
+        - SATURDAY
+        - SUNDAY
+
+    WorkingTimeCreateRequest:
+      type: object
+      required:
+        - accountId
+        - days
+        - startTime
+        - endTime
+      properties:
+        accountId:
+          type: string
+          format: uuid
+          description: User account membership ID for which this working time is created
+        days:
+          type: array
+          items:
+            $ref: '#/components/schemas/DayOfWeek'
+          minItems: 1
+          description: Days of the week this schedule applies to
+        startTime:
+          type: string
+          pattern: '^([01]\d|2[0-3]):[0-5]\d$'
+          description: Time of day in HH:mm format
+        endTime:
+          type: string
+          pattern: '^([01]\d|2[0-3]):[0-5]\d$'
+          description: Time of day in HH:mm format
+
+    WorkingTimeUpdateRequest:
+      type: object
+      required:
+        - days
+        - startTime
+        - endTime
+      properties:
+        days:
+          type: array
+          items:
+            $ref: '#/components/schemas/DayOfWeek'
+          minItems: 1
+          description: Days of the week this schedule applies to
+        startTime:
+          type: string
+          pattern: '^([01]\d|2[0-3]):[0-5]\d$'
+          description: Time of day in HH:mm format
+        endTime:
+          type: string
+          pattern: '^([01]\d|2[0-3]):[0-5]\d$'
+          description: Time of day in HH:mm format
+
+    WorkingTimeResponse:
+      type: object
+      required:
+        - id
+        - accountId
+        - organizationId
+        - days
+        - startTime
+        - endTime
+        - createdAt
+        - conflicting
+      properties:
+        id:
+          type: string
+          format: uuid
+        accountId:
+          type: string
+          format: uuid
+        organizationId:
+          type: string
+          format: uuid
+        days:
+          type: array
+          items:
+            $ref: '#/components/schemas/DayOfWeek'
+          description: Days of the week this schedule applies to
+        startTime:
+          type: string
+          description: Time of day in HH:mm format
+        endTime:
+          type: string
+          description: Time of day in HH:mm format
+        createdAt:
+          type: string
+          format: date-time
+        conflicting:
+          type: boolean
+          description: True if this schedule overlaps with another working time schedule
+
+    WorkingTimeListResponse:
+      type: object
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkingTimeResponse'
+
+    LinkConfirmResponse:
+      type: object
+      required:
+        - hasConflicts
+      properties:
+        hasConflicts:
+          type: boolean
+          description: True if overlapping working times were detected after linking
 
     CreateOrganizationRequest:
       type: object

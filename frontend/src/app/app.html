@@ -1,1 +1,9 @@
+@if (accountStateService.hasConflicts()) {
+  <p-message
+    severity="warn"
+    text="Deine Arbeitszeiten überschneiden sich. Bitte löse die Konflikte unter Arbeitszeiten."
+    [closable]="false"
+    [styleClass]="'w-full'"
+  />
+}
 <router-outlet/>

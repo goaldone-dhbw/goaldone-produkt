@@ -7,6 +7,7 @@ import de.goaldone.backend.model.AccountListResponse;
 import de.goaldone.backend.model.AccountResponse;
 import de.goaldone.backend.repository.OrganizationRepository;
 import de.goaldone.backend.repository.UserAccountRepository;
+import de.goaldone.backend.repository.WorkingTimeRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -22,6 +23,7 @@ public class UserIdentityService {
     private final UserAccountRepository userAccountRepository;
     private final OrganizationRepository organizationRepository;
     private final ZitadelManagementClient zitadelManagementClient;
+    private final WorkingTimeRepository workingTimeRepository;
 
     @Value("${zitadel.goaldone.org-id}")
     private String goaldoneOrgId;
@@ -39,6 +41,7 @@ public class UserIdentityService {
             .orElseThrow(() -> new IllegalStateException("Account not found after JIT provisioning"));
 
         List<UserAccountEntity> accounts = findAccountsForIdentity(currentAccount.getUserIdentityId());
+        boolean hasConflicts = workingTimeRepository.hasConflictsForIdentity(currentAccount.getUserIdentityId());
 
         List<AccountResponse> responses = accounts.stream()
             .map(account -> {
@@ -51,6 +54,7 @@ public class UserIdentityService {
                 r.setOrganizationId(account.getOrganizationId());
                 r.setOrganizationName(org.getName());
                 r.setRoles(roles);
+                r.setHasConflicts(hasConflicts);
 
                 zitadelManagementClient.getUser(account.getZitadelSub()).ifPresent(userNode -> {
                     if (userNode.has("human")) {

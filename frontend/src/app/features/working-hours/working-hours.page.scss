@@ -1,0 +1,12 @@
+:host ::ng-deep {
+  .p-datatable {
+    .p-datatable-thead > tr > th {
+      background-color: #f3f4f6;
+      font-weight: 600;
+    }
+  }
+
+  .bg-red-50 {
+    background-color: #fef2f2;
+  }
+}

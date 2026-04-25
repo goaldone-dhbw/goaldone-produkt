@@ -11,6 +11,7 @@ import de.goaldone.backend.model.LinkTokenResponse;
 import de.goaldone.backend.repository.LinkTokenRepository;
 import de.goaldone.backend.repository.UserAccountRepository;
 import de.goaldone.backend.repository.UserIdentityRepository;
+import de.goaldone.backend.repository.WorkingTimeRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -39,6 +40,9 @@ class AccountLinkingServiceTest {
 
     @Mock
     private UserIdentityRepository userIdentityRepository;
+
+    @Mock
+    private WorkingTimeRepository workingTimeRepository;
 
     @InjectMocks
     private AccountLinkingService accountLinkingService;
@@ -157,7 +161,6 @@ class AccountLinkingServiceTest {
         UUID identityA = UUID.randomUUID();
         UUID identityB = UUID.randomUUID();
         UUID accountAId = UUID.randomUUID();
-        UUID accountBId = confirmingAccountId;
         UUID accountB2Id = UUID.randomUUID();
 
         LinkTokenEntity token = new LinkTokenEntity();
@@ -170,7 +173,7 @@ class AccountLinkingServiceTest {
         accountA.setUserIdentityId(identityA);
 
         UserAccountEntity accountB = new UserAccountEntity();
-        accountB.setId(accountBId);
+        accountB.setId(confirmingAccountId);
         accountB.setUserIdentityId(identityB);
 
         UserAccountEntity accountB2 = new UserAccountEntity();
@@ -184,13 +187,17 @@ class AccountLinkingServiceTest {
             .thenReturn(List.of()); // Empty = no conflict
         when(userAccountRepository.findAllByUserIdentityId(identityB))
             .thenReturn(List.of(accountB, accountB2));
+        when(workingTimeRepository.hasConflictsForIdentity(identityA))
+            .thenReturn(false);
 
-        accountLinkingService.confirmLink(linkToken, confirmingAccountId);
+        boolean hasConflicts = accountLinkingService.confirmLink(linkToken, confirmingAccountId);
 
         // Verify all accounts from identity B are reassigned to identity A
         verify(userAccountRepository, times(2)).save(any(UserAccountEntity.class));
         verify(userIdentityRepository).deleteById(identityB);
         verify(linkTokenRepository).delete(token);
+        verify(workingTimeRepository).hasConflictsForIdentity(identityA);
+        assertFalse(hasConflicts);
     }
 
     @Test

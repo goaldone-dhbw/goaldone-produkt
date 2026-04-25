@@ -22,15 +22,18 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
-import wiremock.com.google.common.net.HttpHeaders;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-import static com.github.tomakehurst.wiremock.client.WireMock.*;
+import static com.github.tomakehurst.wiremock.client.WireMock.ok;
+import static com.github.tomakehurst.wiremock.client.WireMock.okJson;
+import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
+import static com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
@@ -127,7 +130,7 @@ class SuperAdminIntegrationTest {
         // Local shadow record
         UserIdentityEntity identity = userIdentityRepository.save(new UserIdentityEntity(UUID.randomUUID(), Instant.now()));
         OrganizationEntity org = organizationRepository.save(new OrganizationEntity(UUID.randomUUID(), "test-main-org-id", "Goaldone", Instant.now()));
-        userAccountRepository.save(new UserAccountEntity(UUID.randomUUID(), "admin-2", org.getId(), identity.getId(), Instant.now(), Instant.now()));
+        userAccountRepository.save(new UserAccountEntity(UUID.randomUUID(), "admin-2", org.getId(), identity.getId(), Instant.now(), Instant.now(), new ArrayList<>()));
 
         mockMvc.perform(delete("/admins/super-admins/admin-2")
             .with(jwt().jwt(buildJwt("admin-1", "SUPER_ADMIN"))

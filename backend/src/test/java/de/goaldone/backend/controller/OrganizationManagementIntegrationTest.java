@@ -25,18 +25,24 @@ import org.springframework.web.context.WebApplicationContext;
 import wiremock.com.google.common.net.HttpHeaders;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
-import static com.github.tomakehurst.wiremock.client.WireMock.*;
-import static org.junit.jupiter.api.Assertions.*;
+import static com.github.tomakehurst.wiremock.client.WireMock.ok;
+import static com.github.tomakehurst.wiremock.client.WireMock.okJson;
+import static com.github.tomakehurst.wiremock.client.WireMock.urlMatching;
+import static com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest(properties = {
     "spring.security.oauth2.resourceserver.jwt.issuer-uri=http://localhost:8099",
@@ -95,7 +101,7 @@ class OrganizationManagementIntegrationTest {
         UserAccountEntity superAdminUser = new UserAccountEntity(
                 UUID.randomUUID(), "super-admin-user",
                 superAdminOrg.getId(), superAdminIdentity.getId(),
-                Instant.now(), Instant.now());
+                Instant.now(), Instant.now(), new ArrayList<>());
         userAccountRepository.save(superAdminUser);
     }
 
