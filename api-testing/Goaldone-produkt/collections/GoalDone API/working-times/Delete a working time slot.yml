@@ -1,18 +1,20 @@
 info:
-  name: Unlink an account
+  name: Delete a working time slot
   type: http
-  seq: 1
+  seq: 4
   tags:
-    - account-linking
+    - working-times
 
 http:
   method: DELETE
-  url: "{{baseUrl}}/users/accounts/links/:accountId"
+  url: "{{baseUrl}}/working-times/:id"
   params:
-    - name: accountId
+    - name: id
       value: ""
       type: path
-  auth: inherit
+  auth:
+    type: bearer
+    token: "{{token}}"
 
 settings:
   encodeUrl: true
@@ -22,12 +24,12 @@ settings:
 
 examples:
   - name: 204 Response
-    description: Unlinked successfully
+    description: Deleted successfully
     request:
-      url: "{{baseUrl}}/accounts/links/:accountId"
+      url: "{{baseUrl}}/working-times/:id"
       method: DELETE
       params:
-        - name: accountId
+        - name: id
           value: ""
           type: path
     response:
@@ -36,33 +38,48 @@ examples:
       body:
         type: text
         data: ""
-  - name: 400 Response
-    description: Not linked
+  - name: 401 Response
+    description: Unauthorized
     request:
-      url: "{{baseUrl}}/accounts/links/:accountId"
+      url: "{{baseUrl}}/working-times/:id"
       method: DELETE
       params:
-        - name: accountId
+        - name: id
           value: ""
           type: path
     response:
-      status: 400
-      statusText: Bad Request
+      status: 401
+      statusText: Unauthorized
       body:
         type: text
         data: ""
   - name: 403 Response
     description: Forbidden
     request:
-      url: "{{baseUrl}}/accounts/links/:accountId"
+      url: "{{baseUrl}}/working-times/:id"
       method: DELETE
       params:
-        - name: accountId
+        - name: id
           value: ""
           type: path
     response:
       status: 403
       statusText: Forbidden
+      body:
+        type: text
+        data: ""
+  - name: 404 Response
+    description: Not Found
+    request:
+      url: "{{baseUrl}}/working-times/:id"
+      method: DELETE
+      params:
+        - name: id
+          value: ""
+          type: path
+    response:
+      status: 404
+      statusText: Not Found
       body:
         type: text
         data: ""

@@ -12,12 +12,16 @@ http:
     type: json
     data: |-
       {
-        "accountId": "{{accountId}}",
-        "title": "Dokumentation",
-        "description": "API-Dokumentation finalisieren",
-        "duration": 120,
+        "accountId": "",
+        "title": "",
+        "description": "",
+        "duration": 0,
+        "deadline": "",
         "status": "OPEN",
-        "cognitiveLoad": "MODERATE"
+        "cognitiveLoad": "LOW",
+        "dontScheduleBefore": "",
+        "customChunkSize": 0,
+        "dependencyIds": []
       }
   auth: inherit
 

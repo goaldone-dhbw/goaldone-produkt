@@ -36,6 +36,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -137,8 +138,10 @@ class SuperAdminIntegrationTest {
                     .authorities(new SimpleGrantedAuthority("ROLE_SUPER_ADMIN"))))
             .andExpect(status().isNoContent());
 
-        assertEquals(0, userAccountRepository.count());
+        // admin-1 is auto-provisioned during the request, admin-2 is deleted
+        assertEquals(1, userAccountRepository.count());
         assertFalse(userAccountRepository.findByZitadelSub("admin-2").isPresent());
+        assertTrue(userAccountRepository.findByZitadelSub("admin-1").isPresent());
     }
 
     @Test
@@ -179,8 +182,10 @@ class SuperAdminIntegrationTest {
             {
                 "user": {
                     "id": "%s",
-                    "email": { "email": "%s" },
-                    "profile": { "givenName": "Admin", "familyName": "User" },
+                    "human": {
+                        "email": { "email": "%s" },
+                        "profile": { "givenName": "Admin", "familyName": "User" }
+                    },
                     "state": "USER_STATE_ACTIVE",
                     "details": { "createdDate": "2023-10-27T10:00:00Z" }
                 }
@@ -224,6 +229,8 @@ class SuperAdminIntegrationTest {
             .subject(sub)
             .issuer("http://localhost:8099")
             .claim("urn:zitadel:iam:org:project:roles", rolesClaim)
+            .claim("urn:zitadel:iam:user:resourceowner:id", "test-main-org-id")
+            .claim("urn:zitadel:iam:user:resourceowner:name", "Goaldone")
             .build();
 
         return Jwt.withTokenValue("token")

@@ -56,8 +56,10 @@ class SuperAdminServiceTest {
         
         String userJson = """
             {
-                "email": { "email": "admin@test.com" },
-                "profile": { "givenName": "John", "familyName": "Doe" },
+                "human": {
+                    "email": { "email": "admin@test.com" },
+                    "profile": { "givenName": "John", "familyName": "Doe" }
+                },
                 "state": "USER_STATE_ACTIVE",
                 "details": { "createdDate": "2023-10-27T10:00:00Z" }
             }
@@ -70,8 +72,8 @@ class SuperAdminServiceTest {
 
         // Assert
         assertThat(result).hasSize(1);
-        assertThat(result.get(0).getEmail()).isEqualTo("admin@test.com");
-        assertThat(result.get(0).getFirstName()).isEqualTo("John");
+        assertThat(result.getFirst().getEmail()).isEqualTo("admin@test.com");
+        assertThat(result.getFirst().getFirstName()).isEqualTo("John");
     }
 
     @Test
@@ -118,7 +120,7 @@ class SuperAdminServiceTest {
         when(userAccountRepository.countByUserIdentityId(account.getUserIdentityId())).thenReturn(0L);
 
         // Act
-        superAdminService.deleteSuperAdmin("admin-1", "admin-2");
+        superAdminService.deleteSuperAdmin("admin-1");
 
         // Assert
         verify(zitadelClient).deleteUser("admin-1");
@@ -132,7 +134,7 @@ class SuperAdminServiceTest {
         when(zitadelClient.listUserIdsByRole(anyString(), anyString(), anyString())).thenReturn(List.of("last-admin"));
 
         // Act & Assert
-        assertThrows(ResponseStatusException.class, () -> superAdminService.deleteSuperAdmin("last-admin", "last-admin"));
+        assertThrows(ResponseStatusException.class, () -> superAdminService.deleteSuperAdmin("last-admin"));
         verify(zitadelClient, never()).deleteUser(anyString());
     }
 }

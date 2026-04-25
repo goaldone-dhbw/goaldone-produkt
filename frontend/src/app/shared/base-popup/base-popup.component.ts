@@ -1,11 +1,12 @@
 import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from '@angular/core';
 import { Dialog } from 'primeng/dialog';
 import { Button } from 'primeng/button';
+import { PrimeTemplate } from 'primeng/api';
 
 @Component({
   selector: 'app-base-popup',
   standalone: true,
-  imports: [Dialog, Button],
+  imports: [Dialog, Button, PrimeTemplate],
   templateUrl: './base-popup.component.html',
 })
 export class BasePopupComponent implements OnChanges {

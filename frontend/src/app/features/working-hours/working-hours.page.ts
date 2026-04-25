@@ -8,6 +8,7 @@ import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { TagModule } from 'primeng/tag';
 import { ToastModule } from 'primeng/toast';
 import { SelectButtonModule } from 'primeng/selectbutton';
+import { Tooltip } from 'primeng/tooltip';
 import { ConfirmationService, MessageService } from 'primeng/api';
 import {
   WorkingTimesService,
@@ -32,10 +33,10 @@ import { AccountStateService } from '../../core/services/account-state.service';
     ConfirmDialogModule,
     TagModule,
     ToastModule,
-    SelectButtonModule
+    SelectButtonModule,
+    Tooltip
   ],
   templateUrl: './working-hours.page.html',
-  styleUrl: './working-hours.page.scss',
   providers: [ConfirmationService, MessageService]
 })
 export class WorkingHoursPage implements OnInit {

@@ -12,7 +12,7 @@ http:
     type: json
     data: |-
       {
-        "linkToken": "df1af47b-c913-4052-a989-9ce3104be0bb"
+        "linkToken": ""
       }
   auth: inherit
 

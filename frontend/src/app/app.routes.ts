@@ -2,6 +2,8 @@ import { Routes } from '@angular/router';
 import { authGuard } from './core/auth/auth.guard';
 import { StartPageComponent } from './features/startpage/start-page.component';
 import { TasksPageComponent } from './features/tasks/tasks-page.component';
+import { CallbackPageComponent } from './features/callback/callback-page.component';
+import { SuperAdminsPageComponent } from './features/super-admins/super-admins-page.component';
 
 export const routes: Routes = [
   {
@@ -36,8 +38,7 @@ export const routes: Routes = [
       },
       {
         path: 'super-admin',
-        loadComponent: () =>
-          import('./features/super-admins-settings/super-admin.page').then((m) => m.SuperAdminPage),
+        component: SuperAdminsPageComponent
       },
       {
         path: 'settings',
@@ -49,6 +50,10 @@ export const routes: Routes = [
   {
     path: '',
     component: StartPageComponent
+  },
+  {
+    path: 'callback',
+    component: CallbackPageComponent,
   },
   {
     path: '**',
