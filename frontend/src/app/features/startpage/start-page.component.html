@@ -1,2 +1,23 @@
-<p class="p-5">startpage works!</p>
-<p-button class="p-5" label="Login" routerLink="/test"></p-button>
+<div class="flex flex-col items-center justify-center min-h-screen bg-slate-50 p-6">
+  <div class="max-w-md w-full flex flex-col items-center gap-8">
+    <img src="logo.png" alt="GoalDone Logo" class="w-48 h-auto" />
+
+    <div class="text-center flex flex-col gap-4">
+      <h1 class="text-3xl font-bold text-slate-800">Willkommen bei GoalDone</h1>
+      <p class="text-slate-600">
+        Erreiche deine Ziele mit Struktur und Leichtigkeit.
+        Melde dich an, um fortzufahren.
+      </p>
+    </div>
+
+    <div class="flex justify-center w-full">
+      <p-button
+        [label]="isLoggedIn ? 'Zur App' : 'Login'"
+        [icon]="isLoggedIn ? 'pi pi-arrow-right' : 'pi pi-sign-in'"
+        iconPos="right"
+        (onClick)="handleAction()"
+        size="large"
+      ></p-button>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,53 @@
+info:
+  name: Delete a task
+  type: http
+  seq: 5
+  tags:
+    - tasks
+
+http:
+  method: DELETE
+  url: "{{baseUrl}}/tasks/:taskId"
+  params:
+    - name: taskId
+      value: ""
+      type: path
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+examples:
+  - name: 204 Response
+    description: No Content
+    request:
+      url: "{{baseUrl}}/tasks/:taskId"
+      method: DELETE
+      params:
+        - name: taskId
+          value: ""
+          type: path
+    response:
+      status: 204
+      statusText: No Content
+      body:
+        type: text
+        data: ""
+  - name: 404 Response
+    description: Not Found
+    request:
+      url: "{{baseUrl}}/tasks/:taskId"
+      method: DELETE
+      params:
+        - name: taskId
+          value: ""
+          type: path
+    response:
+      status: 404
+      statusText: Not Found
+      body:
+        type: text
+        data: ""

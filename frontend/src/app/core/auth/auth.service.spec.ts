@@ -53,7 +53,7 @@ describe('AuthService', () => {
           scope: 'openid profile email offline_access urn:zitadel:iam:user:resourceowner',
           responseType: 'code',
           useSilentRefresh: false,
-        })
+        }),
       );
     });
 
@@ -113,6 +113,76 @@ describe('AuthService', () => {
       service.logout();
 
       expect(oauthService.logOut).toHaveBeenCalled();
+    });
+  });
+
+  describe('Token Information Extraction', () => {
+    const createMockJwt = (payload: any): string => {
+      const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
+      const payloadStr = btoa(JSON.stringify(payload));
+      const signature = 'mock-signature';
+      return `${header}.${payloadStr}.${signature}`;
+    };
+
+    it('should return null if no access token is available', () => {
+      vi.mocked(oauthService.getAccessToken).mockReturnValue('');
+      expect(service.getDecodedAccessToken()).toBeNull();
+    });
+
+    it('should return null if token format is invalid', () => {
+      vi.mocked(oauthService.getAccessToken).mockReturnValue('invalid.token');
+      expect(service.getDecodedAccessToken()).toBeNull();
+    });
+
+    it('should decode a valid JWT token payload', () => {
+      const payload = { sub: '123', name: 'John Doe' };
+      const token = createMockJwt(payload);
+      vi.mocked(oauthService.getAccessToken).mockReturnValue(token);
+
+      const decoded = service.getDecodedAccessToken();
+      expect(decoded).toEqual(payload);
+    });
+
+    describe('getUserRoles', () => {
+      it('should return an empty array if no roles are present', () => {
+        const token = createMockJwt({ sub: '123' });
+        vi.mocked(oauthService.getAccessToken).mockReturnValue(token);
+        expect(service.getUserRoles()).toEqual([]);
+      });
+
+      it('should extract roles from "roles" claim', () => {
+        const token = createMockJwt({ roles: ['admin', 'user'] });
+        vi.mocked(oauthService.getAccessToken).mockReturnValue(token);
+        expect(service.getUserRoles()).toEqual(['admin', 'user']);
+      });
+
+      it('should extract roles from Zitadel-specific claim', () => {
+        const token = createMockJwt({
+          'urn:zitadel:iam:org:project:roles': ['editor'],
+        });
+        vi.mocked(oauthService.getAccessToken).mockReturnValue(token);
+        expect(service.getUserRoles()).toEqual(['editor']);
+      });
+    });
+
+    describe('getUserOrganizationId', () => {
+      it('should return null if no org ID is present', () => {
+        const token = createMockJwt({ sub: '123' });
+        vi.mocked(oauthService.getAccessToken).mockReturnValue(token);
+        expect(service.getUserOrganizationId()).toBeNull();
+      });
+
+      it('should extract org ID from "org_id" claim', () => {
+        const token = createMockJwt({ org_id: 'org123' });
+        vi.mocked(oauthService.getAccessToken).mockReturnValue(token);
+        expect(service.getUserOrganizationId()).toBe('org123');
+      });
+
+      it('should extract org ID from "organisation_id" claim', () => {
+        const token = createMockJwt({ organisation_id: 'org456' });
+        vi.mocked(oauthService.getAccessToken).mockReturnValue(token);
+        expect(service.getUserOrganizationId()).toBe('org456');
+      });
     });
   });
 });

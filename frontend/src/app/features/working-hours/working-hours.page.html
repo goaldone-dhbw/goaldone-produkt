@@ -1,0 +1,181 @@
+<div class="min-h-screen bg-slate-50">
+  <div class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+    <p-toast />
+    <p-confirmDialog />
+
+    <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div>
+        <h1 class="text-3xl font-bold tracking-tight text-slate-900">Arbeitszeiten</h1>
+        <p class="mt-2 text-sm text-slate-600">
+          Verwalte deine regelmäßigen Arbeitszeiten für verschiedene Organisationen.
+        </p>
+      </div>
+
+      <p-button
+        label="Neue Arbeitszeit"
+        icon="pi pi-plus"
+        (onClick)="openCreateDialog()"
+        [loading]="loading()"
+      ></p-button>
+    </div>
+
+    <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div class="border-b border-slate-200 px-4 py-4">
+        <h2 class="text-lg font-semibold text-slate-900">Deine Arbeitszeiten</h2>
+      </div>
+
+      @if (loading()) {
+        <div class="px-6 py-8 text-sm text-slate-600">
+          Arbeitszeiten werden geladen...
+        </div>
+      } @else if (workingTimes().length === 0) {
+        <div class="px-6 py-8 text-sm text-slate-600">
+          Es sind noch keine Arbeitszeiten hinterlegt.
+        </div>
+      } @else {
+        <div class="divide-y divide-slate-200">
+          @for (item of workingTimes(); track item.id) {
+            <div class="px-4 py-3" [ngClass]="{ 'bg-rose-50/50': item.conflicting }">
+              <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div class="min-w-0 flex-1">
+                  <div class="mb-2 flex flex-wrap items-center gap-2">
+                    <h3 class="text-base font-semibold text-slate-900">
+                      {{ getAccountName(item.accountId) }}
+                    </h3>
+
+                    @if (item.conflicting) {
+                      <span class="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-100 px-2 py-0.5 text-xs font-medium text-rose-800">
+                        <i class="pi pi-exclamation-circle text-[10px]"></i>
+                        Konflikt
+                      </span>
+                    }
+                  </div>
+
+                  <div class="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-slate-600">
+                    <div class="flex items-center gap-2">
+                      <span class="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        <i class="pi pi-calendar text-xs text-primary-icon"></i> Tage:
+                      </span>
+                      <span>{{ formatDays(item.days) }}</span>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                      <span class="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        <i class="pi pi-clock text-xs text-primary-icon"></i> Zeit:
+                      </span>
+                      <span>{{ item.startTime }} – {{ item.endTime }}</span>
+                      <span class="text-slate-300">|</span>
+                      <span class="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                         Dauer:
+                      </span>
+                      <span>
+                        @if (item.startTime && item.endTime) {
+                          {{ calculateDuration(item.startTime, item.endTime) }}
+                        }
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="flex shrink-0 items-center gap-1 border-t border-slate-100 pt-3 sm:border-0 sm:pt-0">
+                  <p-button
+                    icon="pi pi-pencil"
+                    [text]="true"
+                    severity="secondary"
+                    (onClick)="openEditDialog(item)"
+                    pTooltip="Bearbeiten"
+                  />
+                  <p-button
+                    icon="pi pi-trash"
+                    [text]="true"
+                    severity="danger"
+                    (onClick)="deleteWorkingTime(item)"
+                    pTooltip="Löschen"
+                  />
+                </div>
+              </div>
+            </div>
+          }
+        </div>
+      }
+    </div>
+  </div>
+</div>
+
+<p-dialog
+  [visible]="showDialog()"
+  (visibleChange)="showDialog.set($event)"
+  [header]="isEditMode() ? 'Arbeitszeit bearbeiten' : 'Neue Arbeitszeit'"
+  [modal]="true"
+  [draggable]="false"
+  [resizable]="false"
+  [style]="{ width: '90vw', maxWidth: '500px' }"
+  class="custom-dialog"
+>
+  <div class="flex flex-col gap-4 py-4">
+    @if (!isEditMode()) {
+      <div class="flex flex-col gap-2">
+        <label class="text-sm font-semibold text-slate-700">Organisation</label>
+        <select
+          [(ngModel)]="selectedAccountId"
+          class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+        >
+          @for (account of accounts(); track account.accountId) {
+            <option [value]="account.accountId.toString()">
+              {{ account.organizationName }}
+            </option>
+          }
+        </select>
+      </div>
+    }
+
+    <div class="flex flex-col gap-2">
+      <label class="text-sm font-semibold text-slate-700">Wochentage</label>
+      <p-selectbutton
+        [(ngModel)]="selectedDays"
+        [options]="dayOptions"
+        optionLabel="label"
+        optionValue="value"
+        [multiple]="true"
+        class="custom-selectbutton"
+      >
+      </p-selectbutton>
+    </div>
+
+    <div class="grid grid-cols-2 gap-4">
+      <div class="flex flex-col gap-2">
+        <label class="text-sm font-semibold text-slate-700">Startzeit</label>
+        <input
+          type="time"
+          [(ngModel)]="startTimeString"
+          class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+        />
+      </div>
+
+      <div class="flex flex-col gap-2">
+        <label class="text-sm font-semibold text-slate-700">Endzeit</label>
+        <input
+          type="time"
+          [(ngModel)]="endTimeString"
+          class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+        />
+      </div>
+    </div>
+  </div>
+
+  <ng-template pTemplate="footer">
+    <div class="flex justify-end gap-2 border-t border-slate-100 pt-4">
+      <p-button
+        label="Abbrechen"
+        (onClick)="showDialog.set(false)"
+        [text]="true"
+        severity="secondary"
+      />
+      <p-button
+        label="Speichern"
+        (onClick)="saveWorkingTime()"
+        icon="pi pi-check"
+      />
+    </div>
+  </ng-template>
+</p-dialog>

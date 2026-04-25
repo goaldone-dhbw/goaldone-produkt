@@ -10,4 +10,5 @@ import java.util.UUID;
 @Repository
 public interface OrganizationRepository extends JpaRepository<OrganizationEntity, UUID> {
     Optional<OrganizationEntity> findByZitadelOrgId(String zitadelOrgId);
+    boolean existsByName(String name);
 }

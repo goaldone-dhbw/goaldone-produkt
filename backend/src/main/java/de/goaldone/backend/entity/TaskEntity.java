@@ -1,55 +1,81 @@
 package de.goaldone.backend.entity;
 
-import de.goaldone.backend.model.CognitiveLoad;
 import de.goaldone.backend.model.TaskStatus;
-import jakarta.persistence.*;
+import de.goaldone.backend.model.CognitiveLoad;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinTable;
+import jakarta.persistence.ManyToMany;
+import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
-import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
 
 import java.time.Instant;
+import java.util.LinkedHashSet;
+import java.util.Set;
 import java.util.UUID;
 
+/**
+ * JPA entity representing a task in the GoalDone system.
+ * This entity stores task details such as title, description, duration, status, and dependencies.
+ * It maps to the "tasks" table and uses UUID for identification.
+ */
 @Entity
-@Table(name = "tasks", indexes = {
-    @Index(name = "idx_tasks_account_id", columnList = "account_id")
-})
-@Data
+@Table(name = "tasks")
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
+@EqualsAndHashCode(of = "id")
+@ToString(exclude = "dependencies")
 public class TaskEntity {
+
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(nullable = false)
+    @Column(name = "account_id", nullable = false)
     private UUID accountId;
 
-    @Column(nullable = false)
+    @Column(name = "title", nullable = false)
     private String title;
 
-    @Column(columnDefinition = "TEXT")
+    @Column(name = "description", length = 65535)
     private String description;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private TaskStatus status;
+    @Column(name = "duration", nullable = false)
+    private Integer duration;
 
-    @Column(nullable = false)
-    private Integer estimatedDurationMinutes;
-
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private CognitiveLoad cognitiveLoad;
-
-    private Integer customChunkSizeMinutes;
-
+    @Column(name = "deadline")
     private Instant deadline;
 
-    private Instant notBefore;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false, length = 32)
+    private TaskStatus status;
 
-    private UUID dependsOnTaskId;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "cognitive_load", nullable = false, length = 32)
+    private CognitiveLoad cognitiveLoad;
 
-    @Column(nullable = false)
-    private Instant createdAt;
+    @Column(name = "dont_schedule_before")
+    private Instant dontScheduleBefore;
+
+    @Column(name = "custom_chunk_size")
+    private Integer customChunkSize;
+
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+        name = "task_dependencies",
+        joinColumns = @JoinColumn(name = "task_id"),
+        inverseJoinColumns = @JoinColumn(name = "depends_on_task_id")
+    )
+    private Set<TaskEntity> dependencies = new LinkedHashSet<>();
 }

@@ -1,0 +1,7 @@
+info:
+  name: working-times
+  type: folder
+  seq: 2
+
+request:
+  auth: inherit

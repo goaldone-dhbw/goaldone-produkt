@@ -18,6 +18,8 @@ public interface UserAccountRepository extends JpaRepository<UserAccountEntity, 
 
     List<UserAccountEntity> findAllByUserIdentityId(UUID userIdentityId);
 
+    Optional<UserAccountEntity> findByIdAndUserIdentityId(UUID id, UUID userIdentityId);
+
     @Query("""
             SELECT DISTINCT a.organizationId FROM UserAccountEntity a
             WHERE a.userIdentityId IN (:idA, :idB)

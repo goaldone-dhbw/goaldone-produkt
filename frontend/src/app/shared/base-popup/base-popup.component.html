@@ -1,0 +1,34 @@
+<p-dialog
+  [(visible)]="dialogVisible"
+  [modal]="true"
+  [closable]="true"
+  [dismissableMask]="true"
+  [draggable]="false"
+  [resizable]="false"
+  [style]="{ width: '32rem', 'max-width': 'calc(100vw - 2rem)' }"
+  (onHide)="onClose()"
+>
+  <ng-template pTemplate="header">
+    <div class="flex align-items-center justify-content-between w-full gap-2">
+      <span class="text-xl font-semibold">{{ title }}</span>
+      <ng-content select="[popup-header]"></ng-content>
+    </div>
+  </ng-template>
+
+  @if (content) {
+    <p class="m-0 mb-3">{{ content }}</p>
+  }
+  <ng-content select="[popup-content]"></ng-content>
+
+  <ng-template pTemplate="footer">
+    <div class="flex justify-end gap-2 w-full">
+      <ng-content select="[popup-footer]"></ng-content>
+      @if (showCancelButton) {
+        <p-button [label]="cancelLabel" icon="pi pi-times" severity="secondary" (onClick)="onCancel()"></p-button>
+      }
+      @if (showConfirmButton) {
+        <p-button [label]="confirmLabel" icon="pi pi-check" (onClick)="onConfirm()"></p-button>
+      }
+    </div>
+  </ng-template>
+</p-dialog>

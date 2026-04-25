@@ -1,11 +1,13 @@
 package de.goaldone.backend.service;
 
+import de.goaldone.backend.client.ZitadelManagementClient;
 import de.goaldone.backend.entity.OrganizationEntity;
 import de.goaldone.backend.entity.UserAccountEntity;
 import de.goaldone.backend.model.AccountListResponse;
 import de.goaldone.backend.model.AccountResponse;
 import de.goaldone.backend.repository.OrganizationRepository;
 import de.goaldone.backend.repository.UserAccountRepository;
+import de.goaldone.backend.repository.WorkingTimeRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -20,6 +22,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -30,6 +33,12 @@ class UserIdentityServiceTest {
 
     @Mock
     private OrganizationRepository organizationRepository;
+
+    @Mock
+    private ZitadelManagementClient zitadelManagementClient;
+
+    @Mock
+    private WorkingTimeRepository workingTimeRepository;
 
     @InjectMocks
     private UserIdentityService userIdentityService;
@@ -121,6 +130,12 @@ class UserIdentityServiceTest {
             .thenReturn(List.of(account));
         when(organizationRepository.findById(orgId))
             .thenReturn(Optional.of(org));
+        when(zitadelManagementClient.getUserGrantRoles(any(), any(), any()))
+            .thenReturn(List.of("COMPANY_ADMIN"));
+        when(zitadelManagementClient.getUser(any()))
+            .thenReturn(Optional.empty());
+        when(workingTimeRepository.hasConflictsForIdentity(identityId))
+            .thenReturn(false);
 
         AccountListResponse response = userIdentityService.buildAccountListResponse(jwt);
 
@@ -132,6 +147,7 @@ class UserIdentityServiceTest {
         assertEquals(accountId, accountResponse.getAccountId());
         assertEquals(orgId, accountResponse.getOrganizationId());
         assertEquals(orgName, accountResponse.getOrganizationName());
+        assertEquals(List.of("COMPANY_ADMIN"), accountResponse.getRoles());
     }
 
     @Test
@@ -174,6 +190,12 @@ class UserIdentityServiceTest {
             .thenReturn(Optional.of(org1));
         when(organizationRepository.findById(orgId2))
             .thenReturn(Optional.of(org2));
+        when(zitadelManagementClient.getUserGrantRoles(any(), any(), any()))
+            .thenReturn(List.of());
+        when(zitadelManagementClient.getUser(any()))
+            .thenReturn(Optional.empty());
+        when(workingTimeRepository.hasConflictsForIdentity(identityId))
+            .thenReturn(false);
 
         AccountListResponse response = userIdentityService.buildAccountListResponse(jwt);
 

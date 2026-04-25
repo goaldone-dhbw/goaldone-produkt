@@ -37,4 +37,46 @@ public class GlobalExceptionHandler {
         pd.setType(URI.create("https://goaldone.de/errors/not-linked"));
         return pd;
     }
+
+    @ExceptionHandler(ConflictException.class)
+    public ProblemDetail handleConflict(ConflictException ex) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
+        pd.setType(URI.create("https://goaldone.de/errors/conflict"));
+        return pd;
+    }
+
+    @ExceptionHandler(ZitadelApiException.class)
+    public ProblemDetail handleZitadelApi(ZitadelApiException ex) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_GATEWAY, ex.getMessage());
+        pd.setType(URI.create("https://goaldone.de/errors/upstream-error"));
+        return pd;
+    }
+
+    @ExceptionHandler(WorkingTimeValidationException.class)
+    public ProblemDetail handleWorkingTimeValidation(WorkingTimeValidationException ex) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
+        pd.setType(URI.create("https://goaldone.de/errors/working-time-validation"));
+        return pd;
+    }
+
+    @ExceptionHandler(WorkingTimeOverlapException.class)
+    public ProblemDetail handleWorkingTimeOverlap(WorkingTimeOverlapException ex) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
+        pd.setType(URI.create("https://goaldone.de/errors/working-time-overlap"));
+        return pd;
+    }
+
+    @ExceptionHandler(WorkingTimeAccessDeniedException.class)
+    public ProblemDetail handleWorkingTimeAccessDenied(WorkingTimeAccessDeniedException ex) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, ex.getMessage());
+        pd.setType(URI.create("https://goaldone.de/errors/working-time-access-denied"));
+        return pd;
+    }
+
+    @ExceptionHandler(org.springframework.web.server.ResponseStatusException.class)
+    public ProblemDetail handleResponseStatus(org.springframework.web.server.ResponseStatusException ex) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(ex.getStatusCode(), ex.getReason());
+        pd.setTitle(ex.getReason());
+        return pd;
+    }
 }

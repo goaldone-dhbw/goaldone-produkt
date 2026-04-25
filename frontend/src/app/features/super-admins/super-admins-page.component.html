@@ -1,0 +1,68 @@
+<div class="min-h-screen bg-slate-50">
+  <div class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+    <p-toast />
+    <p-confirmDialog />
+
+    <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div>
+        <h1 class="text-3xl font-bold tracking-tight text-slate-900">Super-Admins</h1>
+        <p class="mt-2 text-sm text-slate-600">
+          Verwalte die globalen Administratoren der GoalDone Plattform.
+        </p>
+      </div>
+
+      <p-button
+        label="Super-Admin hinzufügen"
+        icon="pi pi-plus"
+        (onClick)="openAddDialog()"
+      ></p-button>
+    </div>
+
+    <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div class="border-b border-slate-200 px-6 py-4">
+        <h2 class="text-lg font-semibold text-slate-900">Aktive Super-Admins</h2>
+      </div>
+
+      @if (isLoading()) {
+        <div class="px-6 py-8 text-sm text-slate-600">
+          Super-Admins werden geladen...
+        </div>
+      } @else if (superAdmins().length === 0) {
+        <div class="px-6 py-8 text-sm text-slate-600">
+          Es sind noch keine Super-Admins vorhanden.
+        </div>
+      } @else {
+        <div class="divide-y divide-slate-200">
+          @for (admin of superAdmins(); track admin.zitadelId) {
+            <div class="px-4 py-3">
+              <div class="flex items-center justify-between gap-4">
+                <div class="min-w-0 flex-1">
+                  <div class="flex flex-col">
+                    <h3 class="text-base font-semibold text-slate-900">
+                      {{ admin.firstName }} {{ admin.lastName }}
+                    </h3>
+                    <span class="text-sm text-slate-500">{{ admin.email }}</span>
+                  </div>
+                </div>
+
+                <p-button
+                  icon="pi pi-trash"
+                  [text]="true"
+                  severity="danger"
+                  (onClick)="confirmDelete(admin)"
+                  pTooltip="Löschen"
+                />
+              </div>
+            </div>
+          }
+        </div>
+      }
+    </div>
+  </div>
+</div>
+
+<app-add-super-admin-dialog
+  [visible]="addDialogVisible"
+  (visibleChange)="onDialogVisibleChange($event)"
+  (added)="onAdded()"
+></app-add-super-admin-dialog>

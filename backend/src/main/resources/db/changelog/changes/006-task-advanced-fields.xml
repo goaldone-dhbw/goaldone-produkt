@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="005" author="goaldone">
+        <addColumn tableName="tasks">
+            <column name="cognitive_load" type="VARCHAR(32)" defaultValue="MODERATE">
+                <constraints nullable="false"/>
+            </column>
+            <column name="dont_schedule_before" type="TIMESTAMP"/>
+            <column name="custom_chunk_size" type="INT"/>
+        </addColumn>
+
+        <sql>
+            ALTER TABLE tasks
+            ADD CONSTRAINT chk_tasks_custom_chunk_size_positive
+            CHECK (custom_chunk_size IS NULL OR custom_chunk_size &gt; 0);
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>
+

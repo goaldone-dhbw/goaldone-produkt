@@ -2,14 +2,49 @@ opencollection: 1.0.0
 
 info:
   name: GoalDone API
+config:
+  proxy:
+    inherit: true
+    config:
+      protocol: http
+      hostname: ""
+      port: ""
+      auth:
+        username: ""
+        password: ""
+      bypassProxy: ""
 
 request:
   auth:
-    type: bearer
-    token: "{{token}}"
+    type: oauth2
+    flow: authorization_code
+    authorizationUrl: "{{authorizationUrl}}"
+    accessTokenUrl: "{{tokenUrl}}"
+    refreshTokenUrl: "{{tokenUrl}}"
+    callbackUrl: https://oauth.usebruno.com/callback
+    credentials:
+      clientId: "{{clientId}}"
+      placement: body
+    scope: openid profile email offline_access urn:zitadel:iam:user:resourceowner
+    pkce: {}
+    tokenConfig:
+      id: credentials
+      placement:
+        header: Bearer
+      source: access_token
+    settings:
+      autoFetchToken: true
+      autoRefreshToken: false
 bundled: false
 extensions:
   bruno:
     ignore:
       - node_modules
       - .git
+    openapi:
+      - sourceUrl: ../../../../api-spec/openapi.yaml
+        groupBy: tags
+        lastSyncDate: 2026-04-25T19:32:20.054Z
+        specHash: 4c193bce89373ab2bfe3793fd3b99cec
+        autoCheck: true
+        autoCheckInterval: 5

@@ -1,10 +1,10 @@
 {
   "name": "frontend",
-  "version": "0.0.1",
+  "version": "0.0.17",
   "scripts": {
     "ng": "ng",
     "setup-env": "node scripts/setup-env.js",
-    "start": "ng serve",
+    "start": "npm run generate-api && ng serve",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
@@ -22,6 +22,7 @@
     "@angular/router": "^21.2.0",
     "@primeuix/themes": "^2.0.3",
     "angular-oauth2-oidc": "^20.0.2",
+    "primeicons": "^7.0.0",
     "primeng": "^21.1.6",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0"
