@@ -59,8 +59,19 @@ export class SuperAdminsPageComponent implements OnInit {
   }
 
   onAdded(): void {
+    console.log('onAdded called - reloading list');
     this.addDialogVisible = false;
-    this.loadSuperAdmins();
+    
+    this.messageService.add({
+      severity: 'success',
+      summary: 'Erfolg',
+      detail: 'Einladung wurde erfolgreich versendet.'
+    });
+
+    // Wir laden die Liste neu. Die Verzögerung hilft Zitadel, den Index zu aktualisieren.
+    setTimeout(() => {
+      this.loadSuperAdmins();
+    }, 1000);
   }
 
   confirmDelete(admin: SuperAdminResponse): void {
@@ -71,7 +82,10 @@ export class SuperAdminsPageComponent implements OnInit {
       acceptLabel: 'Löschen',
       rejectLabel: 'Abbrechen',
       acceptButtonStyleClass: 'p-button-danger',
-      accept: () => this.deleteAdmin(admin)
+      accept: () => {
+        console.log('Deleting admin:', admin.zitadelId);
+        this.deleteAdmin(admin);
+      }
     });
   }
 
@@ -79,18 +93,23 @@ export class SuperAdminsPageComponent implements OnInit {
     this.adminService.deleteSuperAdmin(admin.zitadelId)
       .subscribe({
         next: () => {
+          console.log('Admin deleted successfully');
           this.messageService.add({
             severity: 'success',
             summary: 'Erfolg',
             detail: 'Super-Admin wurde gelöscht.'
           });
-          this.loadSuperAdmins();
+          // Auch hier eine kurze Verzögerung für die Konsistenz
+          setTimeout(() => this.loadSuperAdmins(), 1000);
         },
-        error: () => this.messageService.add({
-          severity: 'error',
-          summary: 'Fehler',
-          detail: 'Super-Admin konnte nicht gelöscht werden.'
-        })
+        error: (err) => {
+          console.error('Failed to delete admin:', err);
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Fehler',
+            detail: 'Super-Admin konnte nicht gelöscht werden.'
+          });
+        }
       });
   }
 

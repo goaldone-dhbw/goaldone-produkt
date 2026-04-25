@@ -34,47 +34,24 @@
       } @else {
         <div class="divide-y divide-slate-200">
           @for (admin of superAdmins(); track admin.zitadelId) {
-            <div class="px-6 py-5">
-              <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div class="px-4 py-3">
+              <div class="flex items-center justify-between gap-4">
                 <div class="min-w-0 flex-1">
-                  <div class="mb-2 flex flex-wrap items-center gap-2">
-                    <h3 class="text-lg font-semibold text-slate-900">
+                  <div class="flex flex-col">
+                    <h3 class="text-base font-semibold text-slate-900">
                       {{ admin.firstName }} {{ admin.lastName }}
                     </h3>
-                    <span class="text-sm text-slate-500">({{ admin.email }})</span>
-
-                    <span class="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-800">
-                      <i class="pi pi-check text-xs"></i>
-                      Aktiv
-                    </span>
-                  </div>
-
-                  <div class="grid grid-cols-1 gap-3 text-sm text-slate-600 sm:grid-cols-2 lg:grid-cols-3">
-                    <div>
-                      <span class="mb-1 flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                        <i class="pi pi-calendar text-xs text-primary-icon"></i> Erstellt am
-                      </span>
-                      <span>{{ formatDate(admin.createdAt) }}</span>
-                    </div>
-
-                    <div>
-                      <span class="mb-1 flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                        <i class="pi pi-id-card text-xs text-primary-icon"></i> Zitadel ID
-                      </span>
-                      <span class="truncate block max-w-xs" [pTooltip]="admin.zitadelId">{{ admin.zitadelId }}</span>
-                    </div>
+                    <span class="text-sm text-slate-500">{{ admin.email }}</span>
                   </div>
                 </div>
 
-                <div class="flex shrink-0 items-center gap-2">
-                  <p-button
-                    icon="pi pi-trash"
-                    [text]="true"
-                    severity="danger"
-                    (onClick)="confirmDelete(admin)"
-                    pTooltip="Löschen"
-                  />
-                </div>
+                <p-button
+                  icon="pi pi-trash"
+                  [text]="true"
+                  severity="danger"
+                  (onClick)="confirmDelete(admin)"
+                  pTooltip="Löschen"
+                />
               </div>
             </div>
           }

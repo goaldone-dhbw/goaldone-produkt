@@ -41,11 +41,21 @@ export class AddSuperAdminDialogComponent {
   errorMessage = signal<string | null>(null);
   invitationResult = signal<SuperAdminResponse | null>(null);
 
+  private invitationSuccessful = false;
+
   close() {
+    console.log('Closing dialog, internal success flag:', this.invitationSuccessful);
+    
     this.visibleChange.emit(false);
     this.form.reset();
     this.errorMessage.set(null);
     this.invitationResult.set(null);
+
+    if (this.invitationSuccessful) {
+      console.log('Emitting added event on close');
+      this.added.emit();
+      this.invitationSuccessful = false; // Reset for next time
+    }
   }
 
   submit() {
@@ -66,6 +76,7 @@ export class AddSuperAdminDialogComponent {
       .pipe(
         finalize(() => this.loading.set(false)),
         catchError((error) => {
+          console.error('Invitation failed:', error);
           const detail = error.error;
           if (error.status === 409 && detail?.detail === 'super-admin-invitation-already-exists') {
             this.errorMessage.set('Für diese E-Mail-Adresse existiert bereits eine offene Einladung oder ein Super-Admin-Account.');
@@ -79,10 +90,14 @@ export class AddSuperAdminDialogComponent {
         }),
       )
       .subscribe((res) => {
-        if (res) {
-          this.invitationResult.set(res);
-          this.added.emit();
-        }
+        // Da die API 201 ohne Body zurückgibt, kann res null sein.
+        // Der catchError Block oben fängt tatsächliche Fehler ab.
+        // Wenn wir hier landen, war der Aufruf erfolgreich.
+        console.log('Invitation request finished successfully');
+        
+        this.invitationSuccessful = true;
+        // Wir setzen ein minimales Objekt, damit das UI die Erfolgsmeldung anzeigt
+        this.invitationResult.set({ email: email! } as any);
       });
   }
 }

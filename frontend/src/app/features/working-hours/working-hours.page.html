@@ -20,7 +20,7 @@
     </div>
 
     <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-      <div class="border-b border-slate-200 px-6 py-4">
+      <div class="border-b border-slate-200 px-4 py-4">
         <h2 class="text-lg font-semibold text-slate-900">Deine Arbeitszeiten</h2>
       </div>
 
@@ -35,45 +35,38 @@
       } @else {
         <div class="divide-y divide-slate-200">
           @for (item of workingTimes(); track item.id) {
-            <div class="px-6 py-5" [ngClass]="{ 'bg-rose-50/50': item.conflicting }">
-              <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div class="px-4 py-3" [ngClass]="{ 'bg-rose-50/50': item.conflicting }">
+              <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div class="min-w-0 flex-1">
                   <div class="mb-2 flex flex-wrap items-center gap-2">
-                    <h3 class="text-lg font-semibold text-slate-900">
+                    <h3 class="text-base font-semibold text-slate-900">
                       {{ getAccountName(item.accountId) }}
                     </h3>
 
                     @if (item.conflicting) {
-                      <span class="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-800">
-                        <i class="pi pi-exclamation-circle text-xs"></i>
+                      <span class="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-100 px-2 py-0.5 text-xs font-medium text-rose-800">
+                        <i class="pi pi-exclamation-circle text-[10px]"></i>
                         Konflikt
-                      </span>
-                    } @else {
-                      <span class="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-800">
-                        <i class="pi pi-check text-xs"></i>
-                        OK
                       </span>
                     }
                   </div>
 
-                  <div class="grid grid-cols-1 gap-3 text-sm text-slate-600 sm:grid-cols-2 lg:grid-cols-3">
-                    <div>
-                      <span class="mb-1 flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                        <i class="pi pi-calendar text-xs text-primary-icon"></i> Tage
+                  <div class="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-slate-600">
+                    <div class="flex items-center gap-2">
+                      <span class="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        <i class="pi pi-calendar text-xs text-primary-icon"></i> Tage:
                       </span>
                       <span>{{ formatDays(item.days) }}</span>
                     </div>
 
-                    <div>
-                      <span class="mb-1 flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                        <i class="pi pi-clock text-xs text-primary-icon"></i> Uhrzeit
+                    <div class="flex items-center gap-2">
+                      <span class="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        <i class="pi pi-clock text-xs text-primary-icon"></i> Zeit:
                       </span>
                       <span>{{ item.startTime }} – {{ item.endTime }}</span>
-                    </div>
-
-                    <div>
-                      <span class="mb-1 flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                        <i class="pi pi-hourglass text-xs text-primary-icon"></i> Dauer
+                      <span class="text-slate-300">|</span>
+                      <span class="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                         Dauer:
                       </span>
                       <span>
                         @if (item.startTime && item.endTime) {
@@ -84,7 +77,7 @@
                   </div>
                 </div>
 
-                <div class="flex shrink-0 items-center gap-2">
+                <div class="flex shrink-0 items-center gap-1 border-t border-slate-100 pt-3 sm:border-0 sm:pt-0">
                   <p-button
                     icon="pi pi-pencil"
                     [text]="true"

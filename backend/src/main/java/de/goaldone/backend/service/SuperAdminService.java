@@ -47,9 +47,11 @@ public class SuperAdminService {
             zitadelClient.getUser(userId).ifPresent(userNode -> {
                 SuperAdminResponse admin = new SuperAdminResponse();
                 admin.setZitadelId(userId);
-                admin.setEmail(userNode.path("email").path("email").asText());
-                admin.setFirstName(userNode.path("profile").path("givenName").asText());
-                admin.setLastName(userNode.path("profile").path("familyName").asText());
+
+                JsonNode human = userNode.path("human");
+                admin.setEmail(human.path("email").path("email").asText(""));
+                admin.setFirstName(human.path("profile").path("givenName").asText(""));
+                admin.setLastName(human.path("profile").path("familyName").asText(""));
                 admin.setStatus(userNode.path("state").asText());
                 
                 String createdAtStr = userNode.path("details").path("createdDate").asText();
