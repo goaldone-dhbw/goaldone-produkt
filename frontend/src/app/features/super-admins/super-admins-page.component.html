@@ -1,18 +1,91 @@
-<div class="p-5 flex flex-column gap-4">
-  <h1>Super-Admins</h1>
+<div class="min-h-screen bg-slate-50">
+  <div class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+    <p-toast />
+    <p-confirmDialog />
 
-  <p>
-    Testseite zum Öffnen des Dialogs.
-  </p>
+    <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div>
+        <h1 class="text-3xl font-bold tracking-tight text-slate-900">Super-Admins</h1>
+        <p class="mt-2 text-sm text-slate-600">
+          Verwalte die globalen Administratoren der GoalDone Plattform.
+        </p>
+      </div>
 
-  <p-button
-    label="Super-Admin hinzufügen"
-    (onClick)="openAddDialog()"
-  ></p-button>
+      <p-button
+        label="Super-Admin hinzufügen"
+        icon="pi pi-plus"
+        (onClick)="openAddDialog()"
+      ></p-button>
+    </div>
 
-  <app-add-super-admin-dialog
-    [visible]="addDialogVisible"
-    (visibleChange)="onDialogVisibleChange($event)"
-    (added)="onAdded()"
-  ></app-add-super-admin-dialog>
+    <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div class="border-b border-slate-200 px-6 py-4">
+        <h2 class="text-lg font-semibold text-slate-900">Aktive Super-Admins</h2>
+      </div>
+
+      @if (isLoading()) {
+        <div class="px-6 py-8 text-sm text-slate-600">
+          Super-Admins werden geladen...
+        </div>
+      } @else if (superAdmins().length === 0) {
+        <div class="px-6 py-8 text-sm text-slate-600">
+          Es sind noch keine Super-Admins vorhanden.
+        </div>
+      } @else {
+        <div class="divide-y divide-slate-200">
+          @for (admin of superAdmins(); track admin.zitadelId) {
+            <div class="px-6 py-5">
+              <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div class="min-w-0 flex-1">
+                  <div class="mb-2 flex flex-wrap items-center gap-2">
+                    <h3 class="text-lg font-semibold text-slate-900">
+                      {{ admin.firstName }} {{ admin.lastName }}
+                    </h3>
+                    <span class="text-sm text-slate-500">({{ admin.email }})</span>
+
+                    <span class="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-800">
+                      <i class="pi pi-check text-xs"></i>
+                      Aktiv
+                    </span>
+                  </div>
+
+                  <div class="grid grid-cols-1 gap-3 text-sm text-slate-600 sm:grid-cols-2 lg:grid-cols-3">
+                    <div>
+                      <span class="mb-1 flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        <i class="pi pi-calendar text-xs text-primary-icon"></i> Erstellt am
+                      </span>
+                      <span>{{ formatDate(admin.createdAt) }}</span>
+                    </div>
+
+                    <div>
+                      <span class="mb-1 flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        <i class="pi pi-id-card text-xs text-primary-icon"></i> Zitadel ID
+                      </span>
+                      <span class="truncate block max-w-xs" [pTooltip]="admin.zitadelId">{{ admin.zitadelId }}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="flex shrink-0 items-center gap-2">
+                  <p-button
+                    icon="pi pi-trash"
+                    [text]="true"
+                    severity="danger"
+                    (onClick)="confirmDelete(admin)"
+                    pTooltip="Löschen"
+                  />
+                </div>
+              </div>
+            </div>
+          }
+        </div>
+      }
+    </div>
+  </div>
 </div>
+
+<app-add-super-admin-dialog
+  [visible]="addDialogVisible"
+  (visibleChange)="onDialogVisibleChange($event)"
+  (added)="onAdded()"
+></app-add-super-admin-dialog>
