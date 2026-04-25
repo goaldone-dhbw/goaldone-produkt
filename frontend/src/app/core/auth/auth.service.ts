@@ -1,4 +1,4 @@
-import { inject, Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { OAuthService } from 'angular-oauth2-oidc';
 import { filter } from 'rxjs';
@@ -16,7 +16,8 @@ export class AuthService {
     const windowEnv = (window as any).__env || {};
     const issuerUri = windowEnv['issuerUri'] || 'https://sso.dev.goaldone.de';
     const clientId = windowEnv['clientId'] || 'YOUR_ZITADEL_CLIENT_ID';
-    const isProd = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+    const isProd =
+      window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
 
     this.oauthService.configure({
       issuer: issuerUri,
@@ -31,9 +32,7 @@ export class AuthService {
 
     // Handle refresh token errors: clear storage + redirect to login
     this.oauthService.events
-      .pipe(
-        filter((e) => e.type === 'token_refresh_error' || e.type === 'token_error')
-      )
+      .pipe(filter((e) => e.type === 'token_refresh_error' || e.type === 'token_error'))
       .subscribe(() => {
         this.oauthService.logOut(true); // noRedirectToLogoutUrl=true → just clears storage
         this.router.navigateByUrl('/');

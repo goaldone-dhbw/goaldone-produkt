@@ -24,10 +24,10 @@
     <div class="flex justify-end gap-2 w-full">
       <ng-content select="[popup-footer]"></ng-content>
       @if (showCancelButton) {
-        <p-button [label]="cancelLabel" severity="secondary" (onClick)="onCancel()"></p-button>
+        <p-button [label]="cancelLabel" icon="pi pi-times" severity="secondary" (onClick)="onCancel()"></p-button>
       }
       @if (showConfirmButton) {
-        <p-button [label]="confirmLabel" (onClick)="onConfirm()"></p-button>
+        <p-button [label]="confirmLabel" icon="pi pi-check" (onClick)="onConfirm()"></p-button>
       }
     </div>
   </ng-template>

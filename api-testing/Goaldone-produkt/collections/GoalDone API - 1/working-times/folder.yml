@@ -1,0 +1,12 @@
+info:
+  name: working-times
+  type: folder
+  seq: 1
+
+request:
+  auth: inherit
+  variables:
+    - name: accountId
+      value: 54ed9354-3764-4bb8-be2f-ced6553768a5
+    - name: workingTimeId
+      value: 6bfde1ec-be3b-4c64-a91c-80c969962752

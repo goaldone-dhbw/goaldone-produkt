@@ -3,5 +3,6 @@ GEMINI.md
 CLAUDE.md
 .planning/
 .claude/
-run-local.sh
-mprocs.yaml
+mprocs.log
+.idea/workspace.xml
+.DS_STORE

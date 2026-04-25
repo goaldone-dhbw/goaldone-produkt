@@ -12,14 +12,14 @@ tags:
     description: Health check operations
   - name: tasks
     description: Task management operations
-  - name: test
-    description: Test operations
-  - name: account-linking
-    description: Account linking operations
   - name: user-accounts
-    description: User account management
-  - name: OrganizationManagement
+    description: User Account operations
+  - name: working-times
+    description: Working time management
+  - name: org-management
     description: Organization management operations
+  - name: super-admin-management
+    description: Super Admin management operations
 
 paths:
   /health:
@@ -41,28 +41,10 @@ paths:
                     type: string
                     example: UP
 
-  /test/me:
-    get:
-      tags:
-        - test
-      summary: Get current user info
-      operationId: getCurrentUserInfo
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/UserInfoResponse'
-        '401':
-          description: Unauthorized
-
-  /accounts/links/request:
+  /users/accounts/links/request:
     post:
       tags:
-        - account-linking
+        - user-accounts
       summary: Request an account link token
       operationId: requestAccountLink
       security:
@@ -75,10 +57,10 @@ paths:
               schema:
                 $ref: '#/components/schemas/LinkTokenResponse'
 
-  /accounts/links/confirm:
+  /users/accounts/links/confirm:
     post:
       tags:
-        - account-linking
+        - user-accounts
       summary: Confirm an account link
       operationId: confirmAccountLink
       security:
@@ -90,17 +72,21 @@ paths:
             schema:
               $ref: '#/components/schemas/LinkConfirmRequest'
       responses:
-        '204':
+        '200':
           description: Linked successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LinkConfirmResponse'
         '409':
           description: Conflict - Already linked or same organization
         '410':
           description: Token expired
 
-  /accounts/links/{accountId}:
+  /users/accounts/links/{accountId}:
     delete:
       tags:
-        - account-linking
+        - user-accounts
       summary: Unlink an account
       operationId: unlinkAccount
       security:
@@ -136,10 +122,120 @@ paths:
               schema:
                 $ref: '#/components/schemas/AccountListResponse'
 
+  /working-times:
+    get:
+      tags:
+        - working-times
+      summary: Get all working time slots for current user
+      operationId: getWorkingTimes
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkingTimeListResponse'
+        '401':
+          description: Unauthorized
+
+    post:
+      tags:
+        - working-times
+      summary: Create a working time slot
+      operationId: createWorkingTime
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkingTimeCreateRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkingTimeResponse'
+        '400':
+          description: Bad Request
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '409':
+          description: Conflict
+
+  /working-times/{id}:
+    put:
+      tags:
+        - working-times
+      summary: Update an existing working time slot
+      operationId: updateWorkingTime
+      security:
+        - bearerAuth: [ ]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkingTimeUpdateRequest'
+      responses:
+        '200':
+          description: Updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkingTimeResponse'
+        '400':
+          description: Bad Request
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+        '409':
+          description: Conflict (e.g. overlapping times)
+
+    delete:
+      tags:
+        - working-times
+      summary: Delete a working time slot
+      operationId: deleteWorkingTime
+      security:
+        - bearerAuth: [ ]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Deleted successfully
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+
   /admins/organizations:
     post:
       tags:
-        - OrganizationManagement
+        - org-management
       summary: Neues Unternehmen mit erstem Unternehmens-Admin anlegen
       operationId: createOrganization
       security:
@@ -171,7 +267,7 @@ paths:
   /admins/super-admins :
     get:
       tags:
-        - SuperAdminManagement
+        - super-admin-management
       summary: Liste aller Super-Admins
       operationId: listSuperAdmins
       security:
@@ -192,7 +288,7 @@ paths:
 
     post:
       tags:
-        - SuperAdminManagement
+        - super-admin-management
       summary: Neuen Super-Admin einladen
       operationId: inviteSuperAdmin
       security:
@@ -220,7 +316,7 @@ paths:
   /admins/super-admins/{userId}:
     delete:
       tags:
-        - SuperAdminManagement
+        - super-admin-management
       summary: Super-Admin löschen
       operationId: deleteSuperAdmin
       security:
@@ -242,6 +338,117 @@ paths:
           description: User not found
         '409':
           description: Conflict (Last Super-Admin)
+
+  /tasks/all:
+    get:
+      tags:
+        - tasks
+      summary: Get all tasks for all accounts
+      operationId: getTasksForAllAccounts
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TaskAccountListResponse'
+  /tasks/account/{accountId}:
+    get:
+      tags:
+        - tasks
+      summary: Get all tasks for a specific account
+      operationId: getTasksByAccount
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TaskResponse'
+  /tasks:
+    post:
+      tags:
+        - tasks
+      summary: Create a new task
+      operationId: createTask
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskCreateRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskResponse'
+        '400':
+          description: Bad Request
+
+  /tasks/{taskId}:
+    put:
+      tags:
+        - tasks
+      summary: Update an existing task
+      operationId: updateTask
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskUpdateRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskResponse'
+        '400':
+          description: Bad Request
+        '404':
+          description: Not Found
+    delete:
+      tags:
+        - tasks
+      summary: Delete a task
+      operationId: deleteTask
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: No Content
+        '404':
+          description: Not Found
 
 components:
   securitySchemes:
@@ -289,27 +496,137 @@ components:
             type: string
           description: Roles from JWT claim (not mirrored in DB)
 
-    Task:
+    TaskStatus:
+      type: string
+      enum:
+        - OPEN
+        - IN_PROGRESS
+        - DONE
+
+    CognitiveLoad:
+      type: string
+      enum:
+        - LOW
+        - MODERATE
+        - HIGH
+
+    TaskAccountListResponse:
+      type: object
+      required:
+        - accountId
+        - Tasks
+      properties:
+        accountId:
+          type: string
+          format: uuid
+        tasks:
+          type: array
+          items:
+            $ref: '#/components/schemas/TaskResponse'
+
+
+    TaskResponse:
       type: object
       properties:
         id:
-          type: integer
-          format: int64
+          type: string
+          format: uuid
         title:
           type: string
         description:
           type: string
-        completed:
-          type: boolean
-    TaskCreate:
+        duration:
+          type: integer
+          format: int32
+        deadline:
+          type: string
+          format: date-time
+        status:
+          $ref: '#/components/schemas/TaskStatus'
+        cognitiveLoad:
+          $ref: '#/components/schemas/CognitiveLoad'
+        dontScheduleBefore:
+          type: string
+          format: date-time
+        customChunkSize:
+          type: integer
+          format: int32
+        dependencyIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+
+    TaskCreateRequest:
       type: object
       required:
+        - accountId
+        - duration
         - title
+        - status
+        - cognitiveLoad
+      properties:
+        accountId:
+          type: string
+          format: uuid
+        title:
+          type: string
+          minLength: 1
+        description:
+          type: string
+        duration:
+          type: integer
+          format: int32
+          minimum: 1
+        deadline:
+          type: string
+          format: date-time
+        status:
+          $ref: '#/components/schemas/TaskStatus'
+        cognitiveLoad:
+          $ref: '#/components/schemas/CognitiveLoad'
+        dontScheduleBefore:
+          type: string
+          format: date-time
+        customChunkSize:
+          type: integer
+          format: int32
+        dependencyIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+
+    TaskUpdateRequest:
+      type: object
       properties:
         title:
           type: string
+          minLength: 1
         description:
           type: string
+        duration:
+          type: integer
+          format: int32
+          minimum: 1
+        deadline:
+          type: string
+          format: date-time
+        status:
+          $ref: '#/components/schemas/TaskStatus'
+        cognitiveLoad:
+          $ref: '#/components/schemas/CognitiveLoad'
+        dontScheduleBefore:
+          type: string
+          format: date-time
+        customChunkSize:
+          type: integer
+          format: int32
+        dependencyIds:
+          type: array
+          items:
+            type: string
+            format: uuid
 
     LinkTokenResponse:
       type: object
@@ -339,6 +656,8 @@ components:
         - accountId
         - organizationId
         - organizationName
+        - roles
+        - hasConflicts
       properties:
         accountId:
           type: string
@@ -348,16 +667,149 @@ components:
           format: uuid
         organizationName:
           type: string
+        email:
+          type: string
+          format: email
+        firstName:
+          type: string
+        lastName:
+          type: string
+        roles:
+          type: array
+          items:
+            type: string
+        hasConflicts:
+          type: boolean
+          description: True if there are overlapping working time slots for this user identity
 
     AccountListResponse:
       type: object
       required:
         - accounts
       properties:
+
         accounts:
           type: array
           items:
             $ref: '#/components/schemas/AccountResponse'
+
+    DayOfWeek:
+      type: string
+      enum:
+        - MONDAY
+        - TUESDAY
+        - WEDNESDAY
+        - THURSDAY
+        - FRIDAY
+        - SATURDAY
+        - SUNDAY
+
+    WorkingTimeCreateRequest:
+      type: object
+      required:
+        - accountId
+        - days
+        - startTime
+        - endTime
+      properties:
+        accountId:
+          type: string
+          format: uuid
+          description: User account membership ID for which this working time is created
+        days:
+          type: array
+          items:
+            $ref: '#/components/schemas/DayOfWeek'
+          minItems: 1
+          description: Days of the week this schedule applies to
+        startTime:
+          type: string
+          pattern: '^([01]\d|2[0-3]):[0-5]\d$'
+          description: Time of day in HH:mm format
+        endTime:
+          type: string
+          pattern: '^([01]\d|2[0-3]):[0-5]\d$'
+          description: Time of day in HH:mm format
+
+    WorkingTimeUpdateRequest:
+      type: object
+      required:
+        - days
+        - startTime
+        - endTime
+      properties:
+        days:
+          type: array
+          items:
+            $ref: '#/components/schemas/DayOfWeek'
+          minItems: 1
+          description: Days of the week this schedule applies to
+        startTime:
+          type: string
+          pattern: '^([01]\d|2[0-3]):[0-5]\d$'
+          description: Time of day in HH:mm format
+        endTime:
+          type: string
+          pattern: '^([01]\d|2[0-3]):[0-5]\d$'
+          description: Time of day in HH:mm format
+
+    WorkingTimeResponse:
+      type: object
+      required:
+        - id
+        - accountId
+        - organizationId
+        - days
+        - startTime
+        - endTime
+        - createdAt
+        - conflicting
+      properties:
+        id:
+          type: string
+          format: uuid
+        accountId:
+          type: string
+          format: uuid
+        organizationId:
+          type: string
+          format: uuid
+        days:
+          type: array
+          items:
+            $ref: '#/components/schemas/DayOfWeek'
+          description: Days of the week this schedule applies to
+        startTime:
+          type: string
+          description: Time of day in HH:mm format
+        endTime:
+          type: string
+          description: Time of day in HH:mm format
+        createdAt:
+          type: string
+          format: date-time
+        conflicting:
+          type: boolean
+          description: True if this schedule overlaps with another working time schedule
+
+    WorkingTimeListResponse:
+      type: object
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkingTimeResponse'
+
+    LinkConfirmResponse:
+      type: object
+      required:
+        - hasConflicts
+      properties:
+        hasConflicts:
+          type: boolean
+          description: True if overlapping working times were detected after linking
 
     CreateOrganizationRequest:
       type: object
@@ -437,6 +889,14 @@ components:
         email:
           type: string
           format: email
+        firstName:
+          type: string
+          minLength: 1
+          maxLength: 50
+        lastName:
+          type: string
+          minLength: 1
+          maxLength: 50
 
 security:
   - bearerAuth: []

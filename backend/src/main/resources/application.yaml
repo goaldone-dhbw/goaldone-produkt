@@ -10,7 +10,7 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: ${ZITADEL_ISSUER_URI:http://localhost:8080}
+          issuer-uri: ${ZITADEL_ISSUER_URI:https://sso.dev.goaldone.de}
 
 zitadel:
   service-account-token: ${ZITADEL_SERVICE_ACCOUNT_TOKEN:}

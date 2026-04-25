@@ -1,20 +1,27 @@
 import { Component, inject } from '@angular/core';
 import { Button } from 'primeng/button';
-import { RouterLink } from '@angular/router';
-import { CommonModule } from '@angular/common';
+import { Router } from '@angular/router';
 import { AuthService } from '../../core/auth/auth.service';
 
 @Component({
   selector: 'app-startpage',
-  imports: [Button, RouterLink, CommonModule],
+  standalone: true,
+  imports: [Button],
   templateUrl: './start-page.component.html',
 })
 export class StartPageComponent {
   private authService = inject(AuthService);
+  private router = inject(Router);
 
-  isLoggedIn = () => this.authService.hasValidAccessToken();
+  get isLoggedIn(): boolean {
+    return this.authService.hasValidAccessToken();
+  }
 
-  login(): void {
-    this.authService.initLoginFlow();
+  handleAction(): void {
+    if (this.isLoggedIn) {
+      this.router.navigate(['/app']);
+    } else {
+      this.authService.initLoginFlow();
+    }
   }
 }
