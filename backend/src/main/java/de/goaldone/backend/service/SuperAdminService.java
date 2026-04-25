@@ -3,7 +3,6 @@ package de.goaldone.backend.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import de.goaldone.backend.client.ZitadelManagementClient;
 import de.goaldone.backend.entity.UserAccountEntity;
-import de.goaldone.backend.exception.ZitadelApiException;
 import de.goaldone.backend.model.InviteSuperAdminRequest;
 import de.goaldone.backend.model.SuperAdminResponse;
 import de.goaldone.backend.repository.UserAccountRepository;
@@ -99,7 +98,7 @@ public class SuperAdminService {
     }
 
     @Transactional
-    public void deleteSuperAdmin(String zitadelId, String currentSub) {
+    public void deleteSuperAdmin(String zitadelId) {
         // 1. Check if last Super-Admin
         List<String> admins = zitadelClient.listUserIdsByRole(goaldoneOrgId, goaldoneProjectId, ROLE_SUPER_ADMIN);
         if (admins.size() <= 1 && admins.contains(zitadelId)) {
