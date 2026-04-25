@@ -87,8 +87,7 @@ class UserAccountDeletionServiceIntegrationTest {
     void deleteOnlyAccount_deletesIdentityToo() throws Exception {
         // Provision one account
         Jwt jwt = buildJwt("test-user-1", "test1@example.com", "Test", "User 1", "org-id-1", "Test Org 1");
-        stubZitadelUserInfo("test1@example.com", "Test", "User 1");
-        mockMvc.perform(get("/test/me").with(jwt().jwt(jwt)));
+        mockMvc.perform(get("/users/accounts").with(jwt().jwt(jwt)));
 
         UserAccountEntity account = userAccountRepository.findByZitadelSub("test-user-1").orElseThrow();
         UUID identityId = account.getUserIdentityId();
@@ -112,10 +111,8 @@ class UserAccountDeletionServiceIntegrationTest {
         Jwt jwt1 = buildJwt("test-user-1", "test1@example.com", "Test", "User 1", "org-id-1", "Test Org 1");
         Jwt jwt2 = buildJwt("test-user-2", "test2@example.com", "Test", "User 2", "org-id-2", "Test Org 2");
 
-        stubZitadelUserInfo("test1@example.com", "Test", "User 1");
-        mockMvc.perform(get("/test/me").with(jwt().jwt(jwt1)));
-        stubZitadelUserInfo("test2@example.com", "Test", "User 2");
-        mockMvc.perform(get("/test/me").with(jwt().jwt(jwt2)));
+        mockMvc.perform(get("/users/accounts").with(jwt().jwt(jwt1)));
+        mockMvc.perform(get("/users/accounts").with(jwt().jwt(jwt2)));
 
         UserAccountEntity account1 = userAccountRepository.findByZitadelSub("test-user-1").orElseThrow();
         UserAccountEntity account2 = userAccountRepository.findByZitadelSub("test-user-2").orElseThrow();
@@ -179,15 +176,4 @@ class UserAccountDeletionServiceIntegrationTest {
             .build();
     }
 
-    private void stubZitadelUserInfo(String email, String givenName, String familyName) throws Exception {
-        Map<String, String> userInfo = new HashMap<>();
-        userInfo.put("email", email);
-        userInfo.put("given_name", givenName);
-        userInfo.put("family_name", familyName);
-
-        wireMockServer.stubFor(
-            WireMock.get(urlMatching("/oidc/v1/userinfo"))
-                .willReturn(okJson(objectMapper.writeValueAsString(userInfo)))
-        );
-    }
 }

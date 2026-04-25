@@ -51,6 +51,25 @@ public class UserIdentityService {
                 r.setOrganizationId(account.getOrganizationId());
                 r.setOrganizationName(org.getName());
                 r.setRoles(roles);
+
+                zitadelManagementClient.getUser(account.getZitadelSub()).ifPresent(userNode -> {
+                    if (userNode.has("human")) {
+                        var human = userNode.get("human");
+                        if (human.has("email") && human.get("email").has("email")) {
+                            r.setEmail(human.get("email").get("email").asText());
+                        }
+                        if (human.has("profile")) {
+                            var profile = human.get("profile");
+                            if (profile.has("givenName")) {
+                                r.setFirstName(profile.get("givenName").asText());
+                            }
+                            if (profile.has("familyName")) {
+                                r.setLastName(profile.get("familyName").asText());
+                            }
+                        }
+                    }
+                });
+
                 return r;
             })
             .toList();
