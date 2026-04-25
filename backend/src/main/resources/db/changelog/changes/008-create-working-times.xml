@@ -13,16 +13,13 @@
             <column name="user_account_id" type="UUID">
                 <constraints nullable="false"/>
             </column>
-            <column name="user_identity_id" type="UUID">
-                <constraints nullable="false"/>
-            </column>
             <column name="organization_id" type="UUID">
                 <constraints nullable="false"/>
             </column>
-            <column name="start_time" type="TIMESTAMP">
+            <column name="start_time" type="TIME">
                 <constraints nullable="false"/>
             </column>
-            <column name="end_time" type="TIMESTAMP">
+            <column name="end_time" type="TIME">
                 <constraints nullable="false"/>
             </column>
             <column name="created_at" type="TIMESTAMP" defaultValueComputed="NOW()">
@@ -30,20 +27,34 @@
             </column>
         </createTable>
 
+        <createTable tableName="working_time_days">
+            <column name="working_time_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="day_of_week" type="VARCHAR(20)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addPrimaryKey
+                tableName="working_time_days"
+                columnNames="working_time_id, day_of_week"
+                constraintName="pk_working_time_days"/>
+
+        <addForeignKeyConstraint
+                baseTableName="working_time_days"
+                baseColumnNames="working_time_id"
+                referencedTableName="working_times"
+                referencedColumnNames="id"
+                constraintName="fk_working_time_days_wt"
+                onDelete="CASCADE"/>
+
         <addForeignKeyConstraint
                 baseTableName="working_times"
                 baseColumnNames="user_account_id"
                 referencedTableName="user_accounts"
                 referencedColumnNames="id"
                 constraintName="fk_working_times_account"
-                onDelete="CASCADE"/>
-
-        <addForeignKeyConstraint
-                baseTableName="working_times"
-                baseColumnNames="user_identity_id"
-                referencedTableName="user_identities"
-                referencedColumnNames="id"
-                constraintName="fk_working_times_identity"
                 onDelete="CASCADE"/>
 
         <addForeignKeyConstraint
@@ -60,17 +71,9 @@
             CHECK (end_time &gt; start_time);
         </sql>
 
-        <createIndex tableName="working_times" indexName="idx_working_times_identity_start_end">
-            <column name="user_identity_id"/>
-            <column name="start_time"/>
-            <column name="end_time"/>
-        </createIndex>
-
         <createIndex tableName="working_times" indexName="idx_working_times_account">
             <column name="user_account_id"/>
         </createIndex>
     </changeSet>
 
 </databaseChangeLog>
-
-

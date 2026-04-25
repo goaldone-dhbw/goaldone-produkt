@@ -7,6 +7,7 @@ import de.goaldone.backend.model.AccountListResponse;
 import de.goaldone.backend.model.AccountResponse;
 import de.goaldone.backend.repository.OrganizationRepository;
 import de.goaldone.backend.repository.UserAccountRepository;
+import de.goaldone.backend.repository.WorkingTimeRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -35,6 +36,9 @@ class UserIdentityServiceTest {
 
     @Mock
     private ZitadelManagementClient zitadelManagementClient;
+
+    @Mock
+    private WorkingTimeRepository workingTimeRepository;
 
     @InjectMocks
     private UserIdentityService userIdentityService;
@@ -130,6 +134,8 @@ class UserIdentityServiceTest {
             .thenReturn(List.of("COMPANY_ADMIN"));
         when(zitadelManagementClient.getUser(any()))
             .thenReturn(Optional.empty());
+        when(workingTimeRepository.hasConflictsForIdentity(identityId))
+            .thenReturn(false);
 
         AccountListResponse response = userIdentityService.buildAccountListResponse(jwt);
 
@@ -188,6 +194,8 @@ class UserIdentityServiceTest {
             .thenReturn(List.of());
         when(zitadelManagementClient.getUser(any()))
             .thenReturn(Optional.empty());
+        when(workingTimeRepository.hasConflictsForIdentity(identityId))
+            .thenReturn(false);
 
         AccountListResponse response = userIdentityService.buildAccountListResponse(jwt);
 

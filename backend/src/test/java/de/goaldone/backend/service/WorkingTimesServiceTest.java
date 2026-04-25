@@ -2,33 +2,32 @@ package de.goaldone.backend.service;
 
 import de.goaldone.backend.entity.UserAccountEntity;
 import de.goaldone.backend.entity.WorkingTimeEntity;
-import de.goaldone.backend.exception.WorkingTimeAccessDeniedException;
 import de.goaldone.backend.exception.WorkingTimeOverlapException;
-import de.goaldone.backend.exception.WorkingTimeValidationException;
+import de.goaldone.backend.model.DayOfWeek;
 import de.goaldone.backend.model.WorkingTimeCreateRequest;
 import de.goaldone.backend.model.WorkingTimeResponse;
+import de.goaldone.backend.model.WorkingTimeUpdateRequest;
 import de.goaldone.backend.repository.UserAccountRepository;
 import de.goaldone.backend.repository.WorkingTimeRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.oauth2.jwt.Jwt;
 
-import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
+import java.time.Instant;
+import java.time.LocalTime;
+import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class WorkingTimesServiceTest {
@@ -39,108 +38,95 @@ class WorkingTimesServiceTest {
     @Mock
     private WorkingTimeRepository workingTimeRepository;
 
+    @Mock
+    private UserIdentityService userIdentityService;
+
     @InjectMocks
     private WorkingTimesService workingTimesService;
 
-    @Test
-    void createWorkingTime_happyPath_savesAndReturnsResponse() {
-        UUID identityId = UUID.randomUUID();
-        UUID currentAccountId = UUID.randomUUID();
-        UUID targetAccountId = UUID.randomUUID();
-        UUID organizationId = UUID.randomUUID();
+    private Jwt jwt;
+    private UserAccountEntity currentAccount;
+    private UUID identityId;
+    private UUID accountId;
 
-        UserAccountEntity currentAccount = new UserAccountEntity();
-        currentAccount.setId(currentAccountId);
+    @BeforeEach
+    void setUp() {
+        identityId = UUID.randomUUID();
+        accountId = UUID.randomUUID();
+        jwt = mock(Jwt.class);
+        when(jwt.getSubject()).thenReturn("zitadel-sub");
+
+        currentAccount = new UserAccountEntity();
+        currentAccount.setId(accountId);
         currentAccount.setUserIdentityId(identityId);
+        currentAccount.setOrganizationId(UUID.randomUUID());
 
-        UserAccountEntity targetAccount = new UserAccountEntity();
-        targetAccount.setId(targetAccountId);
-        targetAccount.setUserIdentityId(identityId);
-        targetAccount.setOrganizationId(organizationId);
-
-        OffsetDateTime start = OffsetDateTime.of(2026, 4, 20, 9, 0, 0, 0, ZoneOffset.UTC);
-        OffsetDateTime end = OffsetDateTime.of(2026, 4, 20, 17, 0, 0, 0, ZoneOffset.UTC);
-        WorkingTimeCreateRequest request = new WorkingTimeCreateRequest(targetAccountId, start, end);
-
-        when(userAccountRepository.findById(currentAccountId)).thenReturn(Optional.of(currentAccount));
-        when(userAccountRepository.findByIdAndUserIdentityId(targetAccountId, identityId)).thenReturn(Optional.of(targetAccount));
-        when(workingTimeRepository.existsOverlappingSlot(identityId, start.toInstant(), end.toInstant())).thenReturn(false);
-        when(workingTimeRepository.save(any(WorkingTimeEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
-
-        WorkingTimeResponse response = workingTimesService.createWorkingTime(currentAccountId, request);
-
-        assertNotNull(response.getId());
-        assertEquals(targetAccountId, response.getAccountId());
-        assertEquals(organizationId, response.getOrganizationId());
-        assertEquals(start, response.getStartTime());
-        assertEquals(end, response.getEndTime());
-
-        ArgumentCaptor<WorkingTimeEntity> captor = ArgumentCaptor.forClass(WorkingTimeEntity.class);
-        verify(workingTimeRepository).save(captor.capture());
-        assertEquals(identityId, captor.getValue().getUserIdentityId());
+        lenient().when(userAccountRepository.findByZitadelSub("zitadel-sub")).thenReturn(Optional.of(currentAccount));
     }
 
     @Test
-    void createWorkingTime_endEqualsStart_throwsValidationException() {
-        UUID accountId = UUID.randomUUID();
-        OffsetDateTime start = OffsetDateTime.of(2026, 4, 20, 14, 0, 0, 0, ZoneOffset.UTC);
-        WorkingTimeCreateRequest request = new WorkingTimeCreateRequest(accountId, start, start);
+    void createWorkingTime_Success() {
+        WorkingTimeCreateRequest request = new WorkingTimeCreateRequest();
+        request.setAccountId(accountId);
+        request.setDays(List.of(DayOfWeek.MONDAY, DayOfWeek.WEDNESDAY));
+        request.setStartTime("09:00");
+        request.setEndTime("17:00");
 
-        assertThrows(WorkingTimeValidationException.class,
-            () -> workingTimesService.createWorkingTime(UUID.randomUUID(), request));
+        when(userIdentityService.hasUserAccessToAccount(jwt, accountId)).thenReturn(true);
+        when(userAccountRepository.findById(accountId)).thenReturn(Optional.of(currentAccount));
+        when(workingTimeRepository.existsOverlappingSlot(eq(identityId), any(), any(), any())).thenReturn(false);
+        
+        when(workingTimeRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-        verify(workingTimeRepository, never()).save(any());
+        WorkingTimeResponse response = workingTimesService.createWorkingTime(jwt, request);
+
+        assertThat(response).isNotNull();
+        assertThat(response.getDays()).containsExactlyInAnyOrder(DayOfWeek.MONDAY, DayOfWeek.WEDNESDAY);
+        assertThat(response.getStartTime()).isEqualTo("09:00");
+        assertThat(response.getEndTime()).isEqualTo("17:00");
+        verify(workingTimeRepository).save(any(WorkingTimeEntity.class));
     }
 
     @Test
-    void createWorkingTime_accountNotInIdentity_throwsAccessDenied() {
-        UUID identityId = UUID.randomUUID();
-        UUID currentAccountId = UUID.randomUUID();
-        UUID targetAccountId = UUID.randomUUID();
+    void createWorkingTime_ThrowsOverlapException() {
+        WorkingTimeCreateRequest request = new WorkingTimeCreateRequest();
+        request.setAccountId(accountId);
+        request.setDays(List.of(DayOfWeek.MONDAY));
+        request.setStartTime("09:00");
+        request.setEndTime("17:00");
 
-        UserAccountEntity currentAccount = new UserAccountEntity();
-        currentAccount.setId(currentAccountId);
-        currentAccount.setUserIdentityId(identityId);
+        when(userIdentityService.hasUserAccessToAccount(jwt, accountId)).thenReturn(true);
+        when(userAccountRepository.findById(accountId)).thenReturn(Optional.of(currentAccount));
+        when(workingTimeRepository.existsOverlappingSlot(eq(identityId), any(), any(), any())).thenReturn(true);
 
-        OffsetDateTime start = OffsetDateTime.of(2026, 4, 20, 9, 0, 0, 0, ZoneOffset.UTC);
-        OffsetDateTime end = OffsetDateTime.of(2026, 4, 20, 17, 0, 0, 0, ZoneOffset.UTC);
-        WorkingTimeCreateRequest request = new WorkingTimeCreateRequest(targetAccountId, start, end);
-
-        when(userAccountRepository.findById(currentAccountId)).thenReturn(Optional.of(currentAccount));
-        when(userAccountRepository.findByIdAndUserIdentityId(targetAccountId, identityId)).thenReturn(Optional.empty());
-
-        assertThrows(WorkingTimeAccessDeniedException.class,
-            () -> workingTimesService.createWorkingTime(currentAccountId, request));
-
-        verify(workingTimeRepository, never()).save(any());
+        assertThatThrownBy(() -> workingTimesService.createWorkingTime(jwt, request))
+            .isInstanceOf(WorkingTimeOverlapException.class);
     }
 
     @Test
-    void createWorkingTime_overlapsAcrossCompanies_throwsOverlapException() {
-        UUID identityId = UUID.randomUUID();
-        UUID currentAccountId = UUID.randomUUID();
-        UUID targetAccountId = UUID.randomUUID();
+    void updateWorkingTime_Success() {
+        UUID wtId = UUID.randomUUID();
+        WorkingTimeEntity existing = new WorkingTimeEntity();
+        existing.setId(wtId);
+        existing.setUserAccount(currentAccount);
+        existing.setDays(Set.of(DayOfWeek.FRIDAY));
+        existing.setStartTime(LocalTime.of(8, 0));
+        existing.setEndTime(LocalTime.of(16, 0));
+        existing.setCreatedAt(Instant.now());
 
-        UserAccountEntity currentAccount = new UserAccountEntity();
-        currentAccount.setId(currentAccountId);
-        currentAccount.setUserIdentityId(identityId);
+        WorkingTimeUpdateRequest request = new WorkingTimeUpdateRequest();
+        request.setDays(List.of(DayOfWeek.MONDAY, DayOfWeek.TUESDAY));
+        request.setStartTime("10:00");
+        request.setEndTime("18:00");
 
-        UserAccountEntity targetAccount = new UserAccountEntity();
-        targetAccount.setId(targetAccountId);
-        targetAccount.setUserIdentityId(identityId);
-        targetAccount.setOrganizationId(UUID.randomUUID());
+        when(workingTimeRepository.findById(wtId)).thenReturn(Optional.of(existing));
+        when(workingTimeRepository.existsOverlappingSlotExcluding(eq(identityId), eq(wtId), any(), any(), any())).thenReturn(false);
+        when(workingTimeRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-        OffsetDateTime start = OffsetDateTime.of(2026, 4, 20, 11, 0, 0, 0, ZoneOffset.UTC);
-        OffsetDateTime end = OffsetDateTime.of(2026, 4, 20, 15, 0, 0, 0, ZoneOffset.UTC);
-        WorkingTimeCreateRequest request = new WorkingTimeCreateRequest(targetAccountId, start, end);
+        WorkingTimeResponse response = workingTimesService.updateWorkingTime(jwt, wtId, request);
 
-        when(userAccountRepository.findById(currentAccountId)).thenReturn(Optional.of(currentAccount));
-        when(userAccountRepository.findByIdAndUserIdentityId(targetAccountId, identityId)).thenReturn(Optional.of(targetAccount));
-        when(workingTimeRepository.existsOverlappingSlot(eq(identityId), eq(start.toInstant()), eq(end.toInstant()))).thenReturn(true);
-
-        assertThrows(WorkingTimeOverlapException.class,
-            () -> workingTimesService.createWorkingTime(currentAccountId, request));
-
-        verify(workingTimeRepository, never()).save(any());
+        assertThat(response.getDays()).containsExactlyInAnyOrder(DayOfWeek.MONDAY, DayOfWeek.TUESDAY);
+        assertThat(response.getStartTime()).isEqualTo("10:00");
+        assertThat(response.getEndTime()).isEqualTo("18:00");
     }
 }

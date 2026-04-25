@@ -11,6 +11,7 @@ import de.goaldone.backend.model.LinkTokenResponse;
 import de.goaldone.backend.repository.LinkTokenRepository;
 import de.goaldone.backend.repository.UserAccountRepository;
 import de.goaldone.backend.repository.UserIdentityRepository;
+import de.goaldone.backend.repository.WorkingTimeRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -35,6 +36,7 @@ public class AccountLinkingService {
     private final LinkTokenRepository linkTokenRepository;
     private final UserAccountRepository userAccountRepository;
     private final UserIdentityRepository userIdentityRepository;
+    private final WorkingTimeRepository workingTimeRepository;
 
     public LinkTokenResponse requestLink(UUID initiatorAccountId) {
         LinkTokenEntity token = new LinkTokenEntity();
@@ -51,7 +53,7 @@ public class AccountLinkingService {
     }
 
     @Transactional
-    public void confirmLink(UUID linkToken, UUID confirmingAccountId) {
+    public boolean confirmLink(UUID linkToken, UUID confirmingAccountId) {
         LinkTokenEntity tokenEntity = linkTokenRepository.findById(linkToken)
             .orElseThrow(() -> new LinkTokenExpiredException(linkToken));
 
@@ -86,8 +88,13 @@ public class AccountLinkingService {
         userIdentityRepository.deleteById(identityBId);
         linkTokenRepository.delete(tokenEntity);
 
-        log.info("Linked accounts {} and {} under identity {}",
-            accountA.getId(), accountB.getId(), accountA.getUserIdentityId());
+        // Check if there are conflicts after merging
+        boolean hasConflicts = workingTimeRepository.hasConflictsForIdentity(accountA.getUserIdentityId());
+
+        log.info("Linked accounts {} and {} under identity {}, hasConflicts: {}",
+            accountA.getId(), accountB.getId(), accountA.getUserIdentityId(), hasConflicts);
+
+        return hasConflicts;
     }
 
     @Transactional

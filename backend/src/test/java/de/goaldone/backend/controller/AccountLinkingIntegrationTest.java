@@ -27,8 +27,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
-import static com.github.tomakehurst.wiremock.client.WireMock.okJson;
-import static com.github.tomakehurst.wiremock.client.WireMock.urlMatching;
 import static org.hamcrest.Matchers.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
@@ -136,7 +134,8 @@ class AccountLinkingIntegrationTest {
             .content(objectMapper.writeValueAsString(req))
             .with(jwt()
                 .jwt(buildJwt("sub-b", "b@example.com", "User", "B", "org-b", "Org B"))))
-            .andExpect(status().isNoContent());
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.hasConflicts", notNullValue()));
 
         UserAccountEntity reloadedB = userAccountRepository.findById(b.getId()).orElseThrow();
         assertEquals(a.getUserIdentityId(), reloadedB.getUserIdentityId());
@@ -206,7 +205,8 @@ class AccountLinkingIntegrationTest {
             .content(objectMapper.writeValueAsString(req))
             .with(jwt()
                 .jwt(buildJwt("sub-b", "b@example.com", "User", "B", "org-b", "Org B"))))
-            .andExpect(status().isNoContent());
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.hasConflicts", notNullValue()));
 
         // Try again -> 409
         UUID token2Id = UUID.randomUUID();
@@ -288,7 +288,8 @@ class AccountLinkingIntegrationTest {
             .content(objectMapper.writeValueAsString(req))
             .with(jwt()
                 .jwt(buildJwt("sub-b", "b@example.com", "User", "B", "org-b", "Org B"))))
-            .andExpect(status().isNoContent());
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.hasConflicts", notNullValue()));
 
         mockMvc.perform(get("/users/accounts")
             .with(jwt()
@@ -320,7 +321,8 @@ class AccountLinkingIntegrationTest {
             .content(objectMapper.writeValueAsString(req))
             .with(jwt()
                 .jwt(buildJwt("sub-b", "b@example.com", "User", "B", "org-b", "Org B"))))
-            .andExpect(status().isNoContent());
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.hasConflicts", notNullValue()));
 
         mockMvc.perform(delete("/users/accounts/links/" + b.getId())
             .with(jwt()
@@ -409,7 +411,8 @@ class AccountLinkingIntegrationTest {
             .content(objectMapper.writeValueAsString(req))
             .with(jwt()
                 .jwt(buildJwt("sub-b", "b@example.com", "User", "B", "org-b", "Org B"))))
-            .andExpect(status().isNoContent());
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.hasConflicts", notNullValue()));
 
         mockMvc.perform(get("/users/accounts")
             .with(jwt()

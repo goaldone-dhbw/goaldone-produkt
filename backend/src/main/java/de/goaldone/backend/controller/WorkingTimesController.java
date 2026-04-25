@@ -2,6 +2,7 @@ package de.goaldone.backend.controller;
 
 import de.goaldone.backend.api.WorkingTimesApi;
 import de.goaldone.backend.model.WorkingTimeCreateRequest;
+import de.goaldone.backend.model.WorkingTimeListResponse;
 import de.goaldone.backend.model.WorkingTimeResponse;
 import de.goaldone.backend.model.WorkingTimeUpdateRequest;
 import de.goaldone.backend.service.CurrentUserResolver;
@@ -18,6 +19,13 @@ public class WorkingTimesController implements WorkingTimesApi {
 
     private final WorkingTimesService workingTimesService;
     private final CurrentUserResolver currentUserResolver;
+
+    @Override
+    public ResponseEntity<WorkingTimeListResponse> getWorkingTimes() {
+        var jwt = currentUserResolver.extractJwt();
+        WorkingTimeListResponse response = workingTimesService.getWorkingTimes(jwt);
+        return ResponseEntity.ok(response);
+    }
 
     @Override
     public ResponseEntity<WorkingTimeResponse> createWorkingTime(WorkingTimeCreateRequest workingTimeCreateRequest) {

@@ -3,6 +3,7 @@ package de.goaldone.backend.controller;
 import de.goaldone.backend.api.UserAccountsApi;
 import de.goaldone.backend.model.AccountListResponse;
 import de.goaldone.backend.model.LinkConfirmRequest;
+import de.goaldone.backend.model.LinkConfirmResponse;
 import de.goaldone.backend.model.LinkTokenResponse;
 import de.goaldone.backend.service.AccountLinkingService;
 import de.goaldone.backend.service.CurrentUserResolver;
@@ -36,10 +37,12 @@ public class UserAccountsController implements UserAccountsApi {
     }
 
     @Override
-    public ResponseEntity<Void> confirmAccountLink(LinkConfirmRequest request) {
+    public ResponseEntity<LinkConfirmResponse> confirmAccountLink(LinkConfirmRequest request) {
         var currentAccount = currentUserResolver.resolveCurrentAccount();
-        accountLinkingService.confirmLink(request.getLinkToken(), currentAccount.getId());
-        return ResponseEntity.noContent().build();
+        boolean hasConflicts = accountLinkingService.confirmLink(request.getLinkToken(), currentAccount.getId());
+        LinkConfirmResponse response = new LinkConfirmResponse();
+        response.setHasConflicts(hasConflicts);
+        return ResponseEntity.ok(response);
     }
 
     @Override
