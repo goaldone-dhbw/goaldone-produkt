@@ -1,6 +1,6 @@
 <div class="p-6">
-  <p-toast />
-  <p-confirmDialog />
+  <p-toast/>
+  <p-confirmDialog/>
 
   <div class="flex justify-between items-center mb-6">
     <h1 class="text-3xl font-bold">Arbeitszeiten</h1>
@@ -97,7 +97,7 @@
             class="w-full px-3 py-2 border border-gray-300 rounded"
           >
             @for (account of accounts(); track account.accountId) {
-              <option [value]="account.accountId?.toString()">
+              <option [value]="account.accountId.toString()">
                 {{ account.organizationName }}
               </option>
             }
@@ -113,7 +113,8 @@
           optionLabel="label"
           optionValue="value"
           [multiple]="true"
-        />
+        >
+        </p-selectbutton>
       </div>
 
       <div>

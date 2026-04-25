@@ -12,9 +12,12 @@ http:
     type: json
     data: |-
       {
-        "accountId": "{{accountId}}",
-        "startTime": "2026-04-20T09:00:00Z",
-        "endTime": "2026-04-20T17:00:00Z"
+        "accountId": "",
+        "days": [
+          "MONDAY"
+        ],
+        "startTime": "",
+        "endTime": ""
       }
   auth: inherit
 
@@ -131,4 +134,3 @@ examples:
       body:
         type: text
         data: ""
-

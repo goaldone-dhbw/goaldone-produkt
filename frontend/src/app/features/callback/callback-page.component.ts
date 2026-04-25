@@ -6,16 +6,7 @@ import { AuthService } from '../../core/auth/auth.service';
 @Component({
   selector: 'app-callback',
   imports: [CardModule],
-  template: `
-    <div class="flex flex-col items-center justify-center h-screen gap-4">
-      <p-card>
-        <ng-template pTemplate="header">
-          <p class="text-xl font-semibold">Login erfolgreich!</p>
-        </ng-template>
-        <p>Du wirst weitergeleitet...</p>
-      </p-card>
-    </div>
-  `,
+  templateUrl: './callback-page.component.html',
 })
 export class CallbackPageComponent implements OnInit {
   private authService = inject(AuthService);
@@ -26,7 +17,7 @@ export class CallbackPageComponent implements OnInit {
     // but ensure it's done, then redirect to /test
     if (this.authService.hasValidAccessToken()) {
       setTimeout(() => {
-        this.router.navigateByUrl('/test');
+        this.router.navigateByUrl('/app');
       }, 800);
     }
   }
