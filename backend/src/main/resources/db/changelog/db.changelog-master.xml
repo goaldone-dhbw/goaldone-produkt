@@ -10,5 +10,8 @@
     <include file="changes/003-user-identity-linking.xml" relativeToChangelogFile="true"/>
     <include file="changes/004-organizations-name-unique-constraint.xml" relativeToChangelogFile="true"/>
     <include file="changes/005-create-working-times.xml" relativeToChangelogFile="true"/>
+    <include file="changes/006-task-management.xml" relativeToChangelogFile="true"/>
+    <include file="changes/007-task-advanced-fields.xml" relativeToChangelogFile="true"/>
+    <include file="changes/008-fix-task-description-type.xml" relativeToChangelogFile="true"/>
 
 </databaseChangeLog>

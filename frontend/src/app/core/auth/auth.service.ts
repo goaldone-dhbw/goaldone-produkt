@@ -1,4 +1,4 @@
-import { inject, Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { OAuthService } from 'angular-oauth2-oidc';
 import { filter } from 'rxjs';
@@ -16,7 +16,8 @@ export class AuthService {
     const windowEnv = (window as any).__env || {};
     const issuerUri = windowEnv['issuerUri'] || 'https://sso.dev.goaldone.de';
     const clientId = windowEnv['clientId'] || 'YOUR_ZITADEL_CLIENT_ID';
-    const isProd = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+    const isProd =
+      window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
 
     this.oauthService.configure({
       issuer: issuerUri,
@@ -30,9 +31,7 @@ export class AuthService {
 
     // Handle refresh token errors: clear storage + redirect to login
     this.oauthService.events
-      .pipe(
-        filter((e) => e.type === 'token_refresh_error' || e.type === 'token_error')
-      )
+      .pipe(filter((e) => e.type === 'token_refresh_error' || e.type === 'token_error'))
       .subscribe(() => {
         this.oauthService.logOut(true); // noRedirectToLogoutUrl=true → just clears storage
         this.router.navigateByUrl('/');
@@ -96,9 +95,9 @@ export class AuthService {
     // 1. Generic 'roles'
     // 2. Generic Zitadel project roles 'urn:zitadel:iam:org:project:roles'
     // 3. Project-specific Zitadel roles 'urn:zitadel:iam:org:project:{projectId}:roles'
-    const rolesKey = Object.keys(decodedToken).find(key => 
-      key === 'roles' || 
-      key === 'urn:zitadel:iam:org:project:roles' || 
+    const rolesKey = Object.keys(decodedToken).find(key =>
+      key === 'roles' ||
+      key === 'urn:zitadel:iam:org:project:roles' ||
       (key.startsWith('urn:zitadel:iam:org:project:') && key.endsWith(':roles'))
     );
 
@@ -114,9 +113,9 @@ export class AuthService {
   getUserOrganizationId(): string | null {
     const decodedToken = this.getDecodedAccessToken();
     return (
-      decodedToken?.['org_id'] || 
-      decodedToken?.['organisation_id'] || 
-      decodedToken?.['urn:zitadel:iam:user:resourceowner:id'] || 
+      decodedToken?.['org_id'] ||
+      decodedToken?.['organisation_id'] ||
+      decodedToken?.['urn:zitadel:iam:user:resourceowner:id'] ||
       null
     );
   }

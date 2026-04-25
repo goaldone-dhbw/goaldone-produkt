@@ -3,6 +3,7 @@ package de.goaldone.backend.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
+import de.goaldone.backend.SharedWiremockSetup;
 import de.goaldone.backend.entity.OrganizationEntity;
 import de.goaldone.backend.entity.UserAccountEntity;
 import de.goaldone.backend.entity.UserIdentityEntity;
@@ -53,7 +54,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ActiveProfiles("local")
 class OrganizationManagementIntegrationTest {
 
-    private static final WireMockServer wireMockServer = TestControllerIntegrationTest.getSharedWireMockServer();
+    private static final WireMockServer wireMockServer = SharedWiremockSetup.getSharedWireMockServer();
 
     private MockMvc mockMvc;
 
@@ -254,9 +255,7 @@ class OrganizationManagementIntegrationTest {
             .content(objectMapper.writeValueAsString(body)))
             .andExpect(status().isCreated());
 
-        stubZitadelUserInfo("admin-jit@example.com", "Admin", "Jit");
-
-        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/test/me")
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/users/accounts")
             .with(jwt().jwt(buildJwtForInvitedUser("user-jit-xyz", "admin-jit@example.com", "org-jit-123"))
                     .authorities(new SimpleGrantedAuthority("ROLE_COMPANY_ADMIN"))))
             .andExpect(status().isOk());
@@ -308,19 +307,6 @@ class OrganizationManagementIntegrationTest {
         wireMockServer.stubFor(WireMock.post(urlPathMatching("/v2/users/.*/invite_code"))
             .withHeader(HttpHeaders.AUTHORIZATION, WireMock.containing("Bearer"))
             .willReturn(ok()));
-    }
-
-    private void stubZitadelUserInfo(String email, String givenName, String familyName) {
-        Map<String, String> userInfo = new HashMap<>();
-        userInfo.put("email", email);
-        userInfo.put("given_name", givenName);
-        userInfo.put("family_name", familyName);
-        try {
-            wireMockServer.stubFor(WireMock.get(urlMatching("/oidc/v1/userinfo"))
-                .willReturn(okJson(objectMapper.writeValueAsString(userInfo))));
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
     }
 
     // --- JWT builders ---

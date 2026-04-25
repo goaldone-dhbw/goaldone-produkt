@@ -1,0 +1,24 @@
+.app-header {
+  min-height: 4.5rem;
+  padding: 1.25rem 1rem; /* py-5, px-4 (X-Richtung auf Standard zurückgesetzt) */
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  background: var(--p-surface-card);
+  border-bottom: 1px solid var(--p-content-border-color);
+  z-index: 10;
+}
+
+.app-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--p-primary-color);
+  letter-spacing: -0.025em;
+  cursor: pointer;
+}
+
+.content-area {
+  flex: 1;
+  padding: var(--p-content-padding);
+  overflow: auto;
+}

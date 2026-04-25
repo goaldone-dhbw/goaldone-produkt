@@ -4,3 +4,5 @@ CLAUDE.md
 .planning/
 .claude/
 mprocs.log
+.idea/workspace.xml
+.DS_STORE
