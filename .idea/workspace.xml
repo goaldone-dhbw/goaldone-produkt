@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="203145a1-79ff-4397-bb55-de51f8154ed1" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/backend/src/test/java/de/goaldone/backend/SharedWiremockSetup.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/src/app/core/accounts/account.store.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/api-spec/openapi.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/api-spec/openapi.yaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/src/main/java/de/goaldone/backend/controller/TestController.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/src/test/java/de/goaldone/backend/controller/AccountLinkingIntegrationTest.java" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/test/java/de/goaldone/backend/controller/AccountLinkingIntegrationTest.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/src/test/java/de/goaldone/backend/controller/OrganizationManagementIntegrationTest.java" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/test/java/de/goaldone/backend/controller/OrganizationManagementIntegrationTest.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/src/test/java/de/goaldone/backend/controller/SuperAdminIntegrationTest.java" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/test/java/de/goaldone/backend/controller/SuperAdminIntegrationTest.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/src/test/java/de/goaldone/backend/controller/TestControllerIntegrationTest.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/src/test/java/de/goaldone/backend/service/UserAccountDeletionServiceIntegrationTest.java" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/test/java/de/goaldone/backend/service/UserAccountDeletionServiceIntegrationTest.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/app/shared/components/app-sidebar/app-sidebar.component.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/app/shared/components/app-sidebar/app-sidebar.component.ts" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Class" />
+      </list>
+    </option>
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="McpProjectServerCommands">
+    <commands />
+    <urls />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "JUnit.AccountLinkingServiceTest.executor": "Run",
+    "JUnit.de.goaldone.backend.service in backend.executor": "Run",
+    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
+    "git-widget-placeholder": "master",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "prettierjs.PrettierConfiguration.Package": "/Users/johannes/IdeaProjects/goaldone/goaldone-projekt/frontend/node_modules/prettier",
+    "ts.external.directory.path": "/Users/johannes/IdeaProjects/goaldone/goaldone-projekt/frontend/node_modules/typescript/lib"
+  }
+}]]></component>
+  <component name="RunManager">
+    <configuration default="true" type="Application" factoryName="Application">
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="de.goaldone.backend.service in backend" type="JUnit" factoryName="JUnit" temporary="true" nameIsGenerated="true">
+      <module name="backend" />
+      <extension name="coverage">
+        <pattern>
+          <option name="PATTERN" value="de.goaldone.backend.service.*" />
+          <option name="ENABLED" value="true" />
+        </pattern>
+      </extension>
+      <option name="PACKAGE_NAME" value="de.goaldone.backend.service" />
+      <option name="MAIN_CLASS_NAME" value="" />
+      <option name="METHOD_NAME" value="" />
+      <option name="TEST_OBJECT" value="package" />
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <recent_temporary>
+      <list>
+        <item itemvalue="JUnit.de.goaldone.backend.service in backend" />
+      </list>
+    </recent_temporary>
+  </component>
+  <component name="TaskManager">
+    <servers />
+  </component>
+</project>

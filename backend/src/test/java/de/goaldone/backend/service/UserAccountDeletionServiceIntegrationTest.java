@@ -3,7 +3,7 @@ package de.goaldone.backend.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
-import de.goaldone.backend.controller.TestControllerIntegrationTest;
+import de.goaldone.backend.SharedWiremockSetup;
 import de.goaldone.backend.entity.LinkTokenEntity;
 import de.goaldone.backend.entity.UserAccountEntity;
 import de.goaldone.backend.repository.LinkTokenRepository;
@@ -39,7 +39,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 @ActiveProfiles("local")
 class UserAccountDeletionServiceIntegrationTest {
 
-    private static final WireMockServer wireMockServer = TestControllerIntegrationTest.getSharedWireMockServer();
+    private static final WireMockServer wireMockServer = SharedWiremockSetup.getSharedWireMockServer();
 
     @Autowired
     private WebApplicationContext webApplicationContext;

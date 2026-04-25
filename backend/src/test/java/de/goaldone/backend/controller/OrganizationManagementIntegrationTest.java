@@ -3,6 +3,7 @@ package de.goaldone.backend.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
+import de.goaldone.backend.SharedWiremockSetup;
 import de.goaldone.backend.entity.OrganizationEntity;
 import de.goaldone.backend.entity.UserAccountEntity;
 import de.goaldone.backend.entity.UserIdentityEntity;
@@ -13,7 +14,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -48,7 +48,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ActiveProfiles("local")
 class OrganizationManagementIntegrationTest {
 
-    private static final WireMockServer wireMockServer = TestControllerIntegrationTest.getSharedWireMockServer();
+    private static final WireMockServer wireMockServer = SharedWiremockSetup.getSharedWireMockServer();
 
     private MockMvc mockMvc;
 

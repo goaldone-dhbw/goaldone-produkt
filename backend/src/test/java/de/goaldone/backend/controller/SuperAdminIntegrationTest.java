@@ -3,6 +3,7 @@ package de.goaldone.backend.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
+import de.goaldone.backend.SharedWiremockSetup;
 import de.goaldone.backend.entity.OrganizationEntity;
 import de.goaldone.backend.entity.UserAccountEntity;
 import de.goaldone.backend.entity.UserIdentityEntity;
@@ -50,7 +51,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ActiveProfiles("local")
 class SuperAdminIntegrationTest {
 
-    private static final WireMockServer wireMockServer = TestControllerIntegrationTest.getSharedWireMockServer();
+    private static final WireMockServer wireMockServer = SharedWiremockSetup.getSharedWireMockServer();
 
     private MockMvc mockMvc;
 
