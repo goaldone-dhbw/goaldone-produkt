@@ -1,0 +1,94 @@
+info:
+  name: Aktuellen Plan für einen Zeitraum abrufen
+  type: http
+  seq: 1
+  tags:
+    - schedule
+
+http:
+  method: GET
+  url: "{{baseUrl}}/schedule"
+  params:
+    - name: from
+      value: 2026-04-07
+      type: query
+      description: Startdatum (ISO 8601)
+    - name: to
+      value: 2026-04-11
+      type: query
+      description: Enddatum (ISO 8601)
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+examples:
+  - name: 200 Response
+    description: Wochenplan
+    request:
+      url: "{{baseUrl}}/schedule"
+      method: GET
+      params:
+        - name: from
+          value: 2026-04-07
+          type: query
+          description: Startdatum (ISO 8601)
+        - name: to
+          value: 2026-04-11
+          type: query
+          description: Enddatum (ISO 8601)
+    response:
+      status: 200
+      statusText: OK
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "generatedAt": "",
+            "from": "",
+            "to": "",
+            "totalWorkMinutes": 0,
+            "warnings": [
+              "deadline-missed:3fa85f64-5717-4562-b3fc-2c963f66afa6"
+            ],
+            "entries": [
+              {
+                "source": "ONE_TIME",
+                "entryId": "",
+                "templateId": "",
+                "occurrenceDate": "2026-04-07",
+                "date": "2026-04-07",
+                "startTime": "09:00",
+                "endTime": "10:30",
+                "type": "TASK",
+                "isCompleted": false,
+                "isPinned": false,
+                "taskId": "",
+                "taskTitle": "",
+                "breakId": "",
+                "breakLabel": "",
+                "templateTitle": ""
+              }
+            ]
+          }
+
+docs: |
+  Gibt den Plan für den angegebenen Zeitraum als **unified Response** zurück.
+  Die Antwort enthält zwei Arten von Einträgen, erkennbar am `source`-Feld:
+
+  - `source: ONE_TIME` – echte `ScheduleEntry`-Objekte aus der Datenbank
+    (einmalige Tasks). Das Feld `entryId` ist gesetzt und wird für
+    PATCH-Aktionen (complete, pin, unpin) benötigt.
+
+  - `source: RECURRING` – virtuelle Vorkommen, server-seitig on-the-fly
+    aus `RecurringTemplate`-Regeln berechnet. Kein DB-Eintrag –
+    stattdessen sind `templateId` und `occurrenceDate` gesetzt.
+    Aktionen über `POST /schedule/recurring/{templateId}/exceptions`.
+
+  Beide Typen werden nach Datum und Uhrzeit sortiert zurückgegeben.
