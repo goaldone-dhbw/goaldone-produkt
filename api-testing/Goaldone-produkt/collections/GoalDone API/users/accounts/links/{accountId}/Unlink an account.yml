@@ -7,7 +7,7 @@ info:
 
 http:
   method: DELETE
-  url: "{{baseUrl}}/accounts/links/:accountId"
+  url: "{{baseUrl}}/users/accounts/links/:accountId"
   params:
     - name: accountId
       value: ""

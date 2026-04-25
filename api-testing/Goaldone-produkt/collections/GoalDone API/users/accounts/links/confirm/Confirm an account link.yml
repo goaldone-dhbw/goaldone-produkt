@@ -7,16 +7,14 @@ info:
 
 http:
   method: POST
-  url: "{{baseUrl}}/accounts/links/confirm"
+  url: "{{baseUrl}}/users/accounts/links/confirm"
   body:
     type: json
     data: |-
       {
-        "linkToken": ""
+        "linkToken": "df1af47b-c913-4052-a989-9ce3104be0bb"
       }
-  auth:
-    type: bearer
-    token: "{{token}}"
+  auth: inherit
 
 settings:
   encodeUrl: true

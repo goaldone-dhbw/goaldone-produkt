@@ -4,17 +4,20 @@ import { Menu } from 'primeng/menu';
 import { Drawer } from 'primeng/drawer';
 import { AccountStore } from '../../../core/accounts/account.store';
 import { UserAccountsService } from '../../../api';
+import { Button } from 'primeng/button';
+import { AuthService } from '../../../core/auth/auth.service';
 
 @Component({
   selector: 'app-sidebar',
   standalone: true,
   templateUrl: './app-sidebar.component.html',
   styleUrl: './app-sidebar.component.scss',
-  imports: [Menu, Drawer],
+  imports: [Menu, Drawer, Button],
 })
 export class AppSidebarComponent {
   private accountStore = inject(AccountStore);
   private userAccountsService = inject(UserAccountsService);
+  private authService = inject(AuthService);
 
   constructor() {
     this.userAccountsService.getMyAccounts().subscribe({
@@ -26,6 +29,10 @@ export class AppSidebarComponent {
         console.error('Error loading accounts:', err);
       },
     });
+  }
+
+  logout(): void {
+    this.authService.logout();
   }
 
   visible = model<boolean>(false);
