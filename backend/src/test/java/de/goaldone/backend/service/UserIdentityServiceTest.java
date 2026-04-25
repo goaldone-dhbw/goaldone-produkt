@@ -128,6 +128,8 @@ class UserIdentityServiceTest {
             .thenReturn(Optional.of(org));
         when(zitadelManagementClient.getUserGrantRoles(any(), any(), any()))
             .thenReturn(List.of("COMPANY_ADMIN"));
+        when(zitadelManagementClient.getUser(any()))
+            .thenReturn(Optional.empty());
 
         AccountListResponse response = userIdentityService.buildAccountListResponse(jwt);
 
@@ -184,6 +186,8 @@ class UserIdentityServiceTest {
             .thenReturn(Optional.of(org2));
         when(zitadelManagementClient.getUserGrantRoles(any(), any(), any()))
             .thenReturn(List.of());
+        when(zitadelManagementClient.getUser(any()))
+            .thenReturn(Optional.empty());
 
         AccountListResponse response = userIdentityService.buildAccountListResponse(jwt);
 

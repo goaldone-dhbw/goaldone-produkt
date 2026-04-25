@@ -1,7 +1,7 @@
 import { Component, OnInit, inject, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Button } from 'primeng/button';
-import { TestService, UserInfoResponse } from '../../api';
+import { UserAccountsService, AccountResponse } from '../../api';
 import { AuthService } from '../../core/auth/auth.service';
 
 @Component({
@@ -11,29 +11,29 @@ import { AuthService } from '../../core/auth/auth.service';
   templateUrl: './user-settings.page.html',
 })
 export class UserSettingsPage implements OnInit {
-  private testService = inject(TestService);
+  private userAccountsService = inject(UserAccountsService);
   private authService = inject(AuthService);
   private cdr = inject(ChangeDetectorRef);
 
   loading = false;
   error: string | null = null;
-  userInfo: UserInfoResponse | null = null;
+  accounts: AccountResponse[] = [];
 
   ngOnInit(): void {
-    this.fetchUserInfo();
+    this.fetchAccounts();
   }
 
-  private fetchUserInfo(): void {
+  private fetchAccounts(): void {
     this.loading = true;
     this.error = null;
-    this.testService.getCurrentUserInfo().subscribe({
+    this.userAccountsService.getMyAccounts().subscribe({
       next: (data) => {
-        this.userInfo = data;
+        this.accounts = data.accounts ?? [];
         this.loading = false;
         this.cdr.detectChanges();
       },
       error: (err) => {
-        this.error = err.message || 'Failed to fetch user info';
+        this.error = err.message || 'Failed to fetch accounts';
         this.loading = false;
         this.cdr.detectChanges();
       },

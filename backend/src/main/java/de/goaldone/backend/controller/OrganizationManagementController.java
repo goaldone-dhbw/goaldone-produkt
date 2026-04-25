@@ -1,6 +1,6 @@
 package de.goaldone.backend.controller;
 
-import de.goaldone.backend.api.OrganizationManagementApi;
+import de.goaldone.backend.api.OrgManagementApi;
 import de.goaldone.backend.model.CreateOrganizationRequest;
 import de.goaldone.backend.model.OrganizationResponse;
 import de.goaldone.backend.service.OrganizationManagementService;
@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequiredArgsConstructor
-public class OrganizationManagementController implements OrganizationManagementApi {
+public class OrganizationManagementController implements OrgManagementApi {
 
     private final OrganizationManagementService organizationManagementService;
 

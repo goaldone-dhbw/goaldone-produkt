@@ -8,6 +8,12 @@
     color: var(--p-primary-color) !important;
   }
 
+  .p-drawer-content {
+    display: flex !important;
+    flex-direction: column !important;
+    height: 100% !important;
+  }
+
   /* Menu Styling */
   .p-menu {
     width: 100% !important;
@@ -33,6 +39,12 @@
 
   .p-menuitem-text {
     font-weight: 500 !important;
+  }
+
+  /* Logout Button Alignment */
+  .logout-button {
+    margin-top: auto !important;
+    margin-bottom: 1rem !important;
   }
 
   /* Submenu Header mit viel Platz in Y-Richtung */

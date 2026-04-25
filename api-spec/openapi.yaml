@@ -12,14 +12,12 @@ tags:
     description: Health check operations
   - name: tasks
     description: Task management operations
-  - name: test
-    description: Test operations
-  - name: account-linking
-    description: Account linking operations
   - name: user-accounts
-    description: User account management
-  - name: OrganizationManagement
+    description: User Account operations
+  - name: org-management
     description: Organization management operations
+  - name: super-admin-management
+    description: Super Admin management operations
 
 paths:
   /health:
@@ -41,28 +39,10 @@ paths:
                     type: string
                     example: UP
 
-  /test/me:
-    get:
-      tags:
-        - test
-      summary: Get current user info
-      operationId: getCurrentUserInfo
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/UserInfoResponse'
-        '401':
-          description: Unauthorized
-
-  /accounts/links/request:
+  /users/accounts/links/request:
     post:
       tags:
-        - account-linking
+        - user-accounts
       summary: Request an account link token
       operationId: requestAccountLink
       security:
@@ -75,10 +55,10 @@ paths:
               schema:
                 $ref: '#/components/schemas/LinkTokenResponse'
 
-  /accounts/links/confirm:
+  /users/accounts/links/confirm:
     post:
       tags:
-        - account-linking
+        - user-accounts
       summary: Confirm an account link
       operationId: confirmAccountLink
       security:
@@ -97,10 +77,10 @@ paths:
         '410':
           description: Token expired
 
-  /accounts/links/{accountId}:
+  /users/accounts/links/{accountId}:
     delete:
       tags:
-        - account-linking
+        - user-accounts
       summary: Unlink an account
       operationId: unlinkAccount
       security:
@@ -139,7 +119,7 @@ paths:
   /admins/organizations:
     post:
       tags:
-        - OrganizationManagement
+        - org-management
       summary: Neues Unternehmen mit erstem Unternehmens-Admin anlegen
       operationId: createOrganization
       security:
@@ -171,7 +151,7 @@ paths:
   /admins/super-admins :
     get:
       tags:
-        - SuperAdminManagement
+        - super-admin-management
       summary: Liste aller Super-Admins
       operationId: listSuperAdmins
       security:
@@ -192,7 +172,7 @@ paths:
 
     post:
       tags:
-        - SuperAdminManagement
+        - super-admin-management
       summary: Neuen Super-Admin einladen
       operationId: inviteSuperAdmin
       security:
@@ -220,7 +200,7 @@ paths:
   /admins/super-admins/{userId}:
     delete:
       tags:
-        - SuperAdminManagement
+        - super-admin-management
       summary: Super-Admin löschen
       operationId: deleteSuperAdmin
       security:
@@ -570,6 +550,13 @@ components:
           format: uuid
         organizationName:
           type: string
+        email:
+          type: string
+          format: email
+        firstName:
+          type: string
+        lastName:
+          type: string
         roles:
           type: array
           items:
@@ -580,6 +567,7 @@ components:
       required:
         - accounts
       properties:
+
         accounts:
           type: array
           items:

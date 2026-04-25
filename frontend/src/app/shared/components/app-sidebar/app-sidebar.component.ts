@@ -1,23 +1,43 @@
 import { Component, computed, inject, model } from '@angular/core';
 import { MenuItem } from 'primeng/api';
 import { Menu } from 'primeng/menu';
-import { AuthService } from '../../../core/auth/auth.service';
 import { Drawer } from 'primeng/drawer';
+import { AccountStore } from '../../../core/accounts/account.store';
+import { UserAccountsService } from '../../../api';
+import { Button } from 'primeng/button';
+import { AuthService } from '../../../core/auth/auth.service';
 
 @Component({
   selector: 'app-sidebar',
   standalone: true,
   templateUrl: './app-sidebar.component.html',
   styleUrl: './app-sidebar.component.scss',
-  imports: [Menu, Drawer],
+  imports: [Menu, Drawer, Button],
 })
 export class AppSidebarComponent {
+  private accountStore = inject(AccountStore);
+  private userAccountsService = inject(UserAccountsService);
   private authService = inject(AuthService);
+
+  constructor() {
+    this.userAccountsService.getMyAccounts().subscribe({
+      next: (response) => {
+        console.log('Accounts loaded:', response.accounts);
+        this.accountStore.setAccounts(response.accounts);
+      },
+      error: (err) => {
+        console.error('Error loading accounts:', err);
+      },
+    });
+  }
+
+  logout(): void {
+    this.authService.logout();
+  }
 
   visible = model<boolean>(false);
 
   protected menuItems = computed<MenuItem[]>(() => {
-    const roles = this.authService.getUserRoles();
     const closeSidebar = () => this.visible.set(false);
 
     const workspaceItems: MenuItem[] = [
@@ -57,7 +77,7 @@ export class AppSidebarComponent {
     ];
 
     // Add Admin pages if applicable
-    if (roles.includes('COMPANY_ADMIN')) {
+    if (this.accountStore.hasCompanyAdminRole()) {
       settingsItems.unshift({
         label: 'Organisation verwalten',
         icon: 'pi pi-building',
@@ -66,7 +86,7 @@ export class AppSidebarComponent {
       });
     }
 
-    if (roles.includes('SUPER_ADMIN')) {
+    if (this.accountStore.hasSuperAdminRole()) {
       settingsItems.unshift({
         label: 'Super-Admin',
         icon: 'pi pi-key',

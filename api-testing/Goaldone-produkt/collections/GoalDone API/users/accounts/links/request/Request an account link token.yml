@@ -7,10 +7,8 @@ info:
 
 http:
   method: POST
-  url: "{{baseUrl}}/accounts/links/request"
-  auth:
-    type: bearer
-    token: "{{token}}"
+  url: "{{baseUrl}}/users/accounts/links/request"
+  auth: inherit
 
 settings:
   encodeUrl: true
