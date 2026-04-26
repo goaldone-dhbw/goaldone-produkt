@@ -4,6 +4,17 @@ on:
   push:
     branches:
       - master
+  workflow_dispatch:
+    inputs:
+      version_bump:
+        description: 'Version bump level (patch, minor, major)'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
 
 permissions:
   contents: write      # For creating and pushing git tags
@@ -15,8 +26,7 @@ jobs:
     runs-on: ubuntu-latest
 
     outputs:
-      backend_version: ${{ steps.backend-version.outputs.version }}
-      frontend_version: ${{ steps.frontend-version.outputs.version }}
+      version: ${{ steps.version.outputs.version }}
 
     steps:
       - name: Checkout code with full history
@@ -31,66 +41,48 @@ jobs:
           git config --global user.email "actions@github.com"
 
       # ======================================================================
-      # Backend versioning: find latest tag, increment patch, create new tag
+      # Unified versioning: find latest tag, increment based on bump type, create new tag
       # ======================================================================
-      - name: Determine backend version
-        id: backend-version
+      - name: Determine version
+        id: version
         run: |
-          # Find all backend version tags, sort, get the latest
-          LATEST=$(git tag -l "backend/v*" --sort=-version:refname | head -1)
-          LATEST=${LATEST:-backend/v0.0.0}
-          echo "Latest backend tag: $LATEST"
+          # Find all version tags, sort, get the latest
+          LATEST=$(git tag -l "v*" --sort=-version:refname | head -1)
+          LATEST=${LATEST:-v0.0.0}
+          echo "Latest tag: $LATEST"
 
-          # Extract version number (e.g., "0.0.0" from "backend/v0.0.0")
-          VERSION=${LATEST#backend/v}
+          # Extract version number (e.g., "0.0.0" from "v0.0.0")
+          VERSION=${LATEST#v}
 
           # Split version into parts
           IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
-          PATCH=$((PATCH + 1))
+          
+          BUMP="${{ github.event.inputs.version_bump || 'patch' }}"
+          echo "Bumping version with: $BUMP"
+
+          if [ "$BUMP" == "major" ]; then
+            MAJOR=$((MAJOR + 1))
+            MINOR=0
+            PATCH=0
+          elif [ "$BUMP" == "minor" ]; then
+            MINOR=$((MINOR + 1))
+            PATCH=0
+          else
+            PATCH=$((PATCH + 1))
+          fi
 
           NEW_VERSION="$MAJOR.$MINOR.$PATCH"
-          NEW_TAG="backend/v$NEW_VERSION"
+          NEW_TAG="v$NEW_VERSION"
 
-          echo "New backend version: $NEW_VERSION"
-          echo "New backend tag: $NEW_TAG"
+          echo "New version: $NEW_VERSION"
+          echo "New tag: $NEW_TAG"
           echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=$NEW_TAG" >> "$GITHUB_OUTPUT"
 
-      - name: Create and push backend version tag
+      - name: Create and push version tag
         run: |
-          git tag ${{ steps.backend-version.outputs.tag }}
-          git push origin ${{ steps.backend-version.outputs.tag }}
-
-      # ======================================================================
-      # Frontend versioning: find latest tag, increment patch, create new tag
-      # ======================================================================
-      - name: Determine frontend version
-        id: frontend-version
-        run: |
-          # Find all frontend version tags, sort, get the latest
-          LATEST=$(git tag -l "frontend/v*" --sort=-version:refname | head -1)
-          LATEST=${LATEST:-frontend/v0.0.0}
-          echo "Latest frontend tag: $LATEST"
-
-          # Extract version number
-          VERSION=${LATEST#frontend/v}
-
-          # Split version into parts
-          IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
-          PATCH=$((PATCH + 1))
-
-          NEW_VERSION="$MAJOR.$MINOR.$PATCH"
-          NEW_TAG="frontend/v$NEW_VERSION"
-
-          echo "New frontend version: $NEW_VERSION"
-          echo "New frontend tag: $NEW_TAG"
-          echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
-          echo "tag=$NEW_TAG" >> "$GITHUB_OUTPUT"
-
-      - name: Create and push frontend version tag
-        run: |
-          git tag ${{ steps.frontend-version.outputs.tag }}
-          git push origin ${{ steps.frontend-version.outputs.tag }}
+          git tag ${{ steps.version.outputs.tag }}
+          git push origin ${{ steps.version.outputs.tag }}
 
       # ======================================================================
       # Update version numbers in code and commit
@@ -108,21 +100,20 @@ jobs:
 
       - name: Update version files
         run: |
-          BACKEND_VER="${{ steps.backend-version.outputs.version }}"
-          FRONTEND_VER="${{ steps.frontend-version.outputs.version }}"
+          NEW_VER="${{ steps.version.outputs.version }}"
 
           # Update backend/pom.xml (replace version tag)
-          sed -i "s/<version>0\.[0-9]*\.[0-9]*-SNAPSHOT<\/version>/<version>${BACKEND_VER}-SNAPSHOT<\/version>/" backend/pom.xml
+          sed -i "s/<version>[0-9]*\.[0-9]*\.[0-9]*-SNAPSHOT<\/version>/<version>${NEW_VER}-SNAPSHOT<\/version>/" backend/pom.xml
 
           # Update frontend/package.json (replace version field)
-          sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"${FRONTEND_VER}\"/" frontend/package.json
+          sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"${NEW_VER}\"/" frontend/package.json
 
       - name: Commit and push version updates
         env:
           GIT_SSH_COMMAND: "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no"
         run: |
           git add backend/pom.xml frontend/package.json
-          git commit -m "chore: bump versions to backend/${{ steps.backend-version.outputs.version }} and frontend/${{ steps.frontend-version.outputs.version }} [skip ci]"
+          git commit -m "chore: bump versions to ${{ steps.version.outputs.version }} [skip ci]"
           git push origin master
           
 
@@ -149,7 +140,7 @@ jobs:
           file: ./backend/Dockerfile
           push: true
           tags: |
-            ghcr.io/goaldone-dhbw/goaldone-backend:${{ steps.backend-version.outputs.version }}
+            ghcr.io/goaldone-dhbw/goaldone-backend:${{ steps.version.outputs.version }}
             ghcr.io/goaldone-dhbw/goaldone-backend:latest
 
       # ======================================================================
@@ -162,7 +153,7 @@ jobs:
           file: ./frontend/Dockerfile
           push: true
           tags: |
-            ghcr.io/goaldone-dhbw/goaldone-frontend:${{ steps.frontend-version.outputs.version }}
+            ghcr.io/goaldone-dhbw/goaldone-frontend:${{ steps.version.outputs.version }}
             ghcr.io/goaldone-dhbw/goaldone-frontend:latest
 
   deploy-dev:
@@ -202,7 +193,7 @@ jobs:
           username: goaldone
           key: ${{ secrets.VPS_SSH_KEY }}
           port: 6767
-          envs: BACKEND_VERSION,FRONTEND_VERSION,GHCR_TOKEN,DEV_POSTGRES_PASSWORD,DEV_ZITADEL_CLIENT_ID
+          envs: VERSION,GHCR_TOKEN,DEV_POSTGRES_PASSWORD,DEV_ZITADEL_CLIENT_ID
           script: |
             set -e
             mkdir -p ~/docker/dev
@@ -226,10 +217,9 @@ jobs:
             fi
 
             # Run deployment (versions passed as arguments)
-            ~/docker/scripts/deploy.sh dev $BACKEND_VERSION $FRONTEND_VERSION
+            ~/docker/scripts/deploy.sh dev $VERSION $VERSION
         env:
-          BACKEND_VERSION: ${{ needs.build-and-push.outputs.backend_version }}
-          FRONTEND_VERSION: ${{ needs.build-and-push.outputs.frontend_version }}
+          VERSION: ${{ needs.build-and-push.outputs.version }}
           GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
           DEV_POSTGRES_PASSWORD: ${{ secrets.DEV_POSTGRES_PASSWORD }}
           DEV_ZITADEL_CLIENT_ID: ${{ secrets.DEV_ZITADEL_CLIENT_ID }}
@@ -271,7 +261,7 @@ jobs:
           username: goaldone
           key: ${{ secrets.VPS_SSH_KEY }}
           port: 6767
-          envs: BACKEND_VERSION,FRONTEND_VERSION,GHCR_TOKEN,PROD_POSTGRES_PASSWORD,PROD_ZITADEL_CLIENT_ID
+          envs: VERSION,GHCR_TOKEN,PROD_POSTGRES_PASSWORD,PROD_ZITADEL_CLIENT_ID
           script: |
             set -e
             mkdir -p ~/docker/prod
@@ -295,10 +285,9 @@ jobs:
             fi
 
             # Run deployment (versions passed as arguments)
-            ~/docker/scripts/deploy.sh prod $BACKEND_VERSION $FRONTEND_VERSION
+            ~/docker/scripts/deploy.sh prod $VERSION $VERSION
         env:
-          BACKEND_VERSION: ${{ needs.build-and-push.outputs.backend_version }}
-          FRONTEND_VERSION: ${{ needs.build-and-push.outputs.frontend_version }}
+          VERSION: ${{ needs.build-and-push.outputs.version }}
           GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
           PROD_POSTGRES_PASSWORD: ${{ secrets.PROD_POSTGRES_PASSWORD }}
           PROD_ZITADEL_CLIENT_ID: ${{ secrets.PROD_ZITADEL_CLIENT_ID }}
