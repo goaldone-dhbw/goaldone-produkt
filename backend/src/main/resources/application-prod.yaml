@@ -12,5 +12,4 @@ spring:
 
 app:
   cors:
-    allowed-origins:
-      - https://goaldone.de
+    allowed-origins: https://goaldone.de

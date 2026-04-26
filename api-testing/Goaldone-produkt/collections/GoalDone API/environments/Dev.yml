@@ -1,0 +1,14 @@
+name: Dev
+variables:
+  - name: baseUrl
+    value: https://dev.goaldone.de/api/v1
+  - name: authorizationUrl
+    value: https://sso.dev.goaldone.de/oauth/v2/authorize
+  - name: tokenUrl
+    value: https://sso.dev.goaldone.de/oauth/v2/token
+  - secret: true
+    name: clientId
+  - name: linkedAccountId
+    value: ""
+  - name: foreignAccountId
+    value: ""
