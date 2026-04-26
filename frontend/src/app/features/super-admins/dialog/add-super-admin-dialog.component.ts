@@ -6,7 +6,7 @@ import { MessageModule } from 'primeng/message';
 import { ButtonModule } from 'primeng/button';
 
 
-import { catchError, finalize, of } from 'rxjs';
+import { catchError, finalize, EMPTY } from 'rxjs';
 import { BasePopupComponent } from '../../../shared/base-popup/base-popup.component';
 import { SuperAdminManagementService, SuperAdminResponse } from '../../../api';
 
@@ -86,7 +86,7 @@ export class AddSuperAdminDialogComponent {
           } else {
             this.errorMessage.set('Fehler beim Einladen. Bitte versuche es erneut.');
           }
-          return of(null);
+          return EMPTY;
         }),
       )
       .subscribe((res) => {

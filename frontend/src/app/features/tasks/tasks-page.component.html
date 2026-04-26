@@ -170,6 +170,7 @@
 
 <app-base-popup
   [isOpen]="isTaskPopupOpen()"
+  [autoCloseOnConfirm]="false"
   [title]="popupTitle()"
   [showConfirmButton]="true"
   [showCancelButton]="true"
@@ -379,6 +380,7 @@
 
 <app-base-popup
   [isOpen]="isDeletePopupOpen()"
+  [autoCloseOnConfirm]="false"
   title="Aufgabe löschen"
   content="Möchtest du diese Aufgabe wirklich löschen?"
   confirmLabel="Löschen"
