@@ -283,7 +283,15 @@ export class TasksPageComponent {
     const nextStatus = select.value as TaskStatus;
 
     const payload: TaskUpdateRequest = {
+      title: task.title,
+      description: task.description || undefined,
+      duration: task.duration,
+      deadline: task.deadline || undefined,
       status: nextStatus,
+      cognitiveLoad: task.cognitiveLoad || undefined,
+      dontScheduleBefore: task.dontScheduleBefore || undefined,
+      customChunkSize: task.customChunkSize || undefined,
+      dependencyIds: task.dependencyIds || [],
     };
 
     try {

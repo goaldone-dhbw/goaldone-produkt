@@ -1,5 +1,6 @@
 <app-base-popup
   [isOpen]="visible"
+  [autoCloseOnConfirm]="false"
   (isOpenChange)="visibleChange.emit($event)"
   [title]="invitationResult() ? 'Einladung versendet' : 'Super-Admin hinzufügen'"
   [content]="''"

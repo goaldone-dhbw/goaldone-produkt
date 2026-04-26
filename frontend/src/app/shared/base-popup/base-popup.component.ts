@@ -19,6 +19,7 @@ export class BasePopupComponent implements OnChanges {
 
   @Input() showConfirmButton = true;
   @Input() showCancelButton = true;
+  @Input() autoCloseOnConfirm = true;
 
   @Output() confirm = new EventEmitter<void>();
   @Output() cancel = new EventEmitter<void>();
@@ -35,8 +36,10 @@ export class BasePopupComponent implements OnChanges {
 
   onConfirm(): void {
     this.confirm.emit();
-    this.dialogVisible = false;
-    this.isOpenChange.emit(false);
+    if (this.autoCloseOnConfirm) {
+      this.dialogVisible = false;
+      this.isOpenChange.emit(false);
+    }
   }
 
   onCancel(): void {
