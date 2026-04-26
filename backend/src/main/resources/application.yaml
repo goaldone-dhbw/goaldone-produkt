@@ -19,6 +19,7 @@ zitadel:
     org-id: ${ZITADEL_GOALDONE_ORG_ID:}
 
 server:
+  forward-headers-strategy: framework
   servlet:
     context-path: /api/v1
 
