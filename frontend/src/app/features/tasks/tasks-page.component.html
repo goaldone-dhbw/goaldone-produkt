@@ -187,33 +187,36 @@
       </div>
     }
 
-    @if (hasSingleAccount() && currentAccountLabel()) {
-      <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-        Aufgabe wird dem Account <span class="font-semibold">{{ currentAccountLabel() }}</span> zugeordnet.
-      </div>
-    }
-
     <form [formGroup]="taskForm" class="space-y-5">
-      @if (hasMultipleAccounts()) {
-        <div class="space-y-2">
-          <label for="accountId" class="block text-sm font-medium text-slate-800">
-            Unternehmen / Verein <span class="text-rose-600">*</span>
-          </label>
-          <select
-            id="accountId"
-            formControlName="accountId"
-            class="w-full h-12 rounded-xl border border-slate-300 bg-white px-4 pr-8 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
-          >
-            <option value="">Bitte auswählen</option>
-            @for (account of accounts(); track account.id) {
-              <option [value]="account.id">{{ account.label }}</option>
-            }
-          </select>
+      <div class="space-y-2">
+        <label for="accountId" class="block text-sm font-medium text-slate-800">
+          Unternehmen / Verein <span class="text-rose-600">*</span>
+        </label>
+        @if (hasMultipleAccounts()) {
+          <div class="relative">
+            <select
+              id="accountId"
+              formControlName="accountId"
+              class="w-full h-12 appearance-none rounded-xl border border-slate-300 bg-white px-4 pr-10 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+            >
+              <option value="">Bitte auswählen</option>
+              @for (account of accounts(); track account.id) {
+                <option [value]="account.id">{{ account.label }}</option>
+              }
+            </select>
+            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-500">
+              <i class="pi pi-chevron-down text-xs"></i>
+            </div>
+          </div>
           @if (showFieldError('accountId')) {
             <p class="text-sm text-rose-600">Bitte wähle ein Unternehmen oder einen Verein aus.</p>
           }
-        </div>
-      }
+        } @else {
+          <div class="flex h-12 items-center rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-600">
+            {{ currentAccountLabel() || 'Keine Organisation' }}
+          </div>
+        }
+      </div>
 
       <div class="space-y-2">
         <label for="title" class="block text-sm font-medium text-slate-800">
@@ -266,15 +269,20 @@
           <label for="status" class="block text-sm font-medium text-slate-800">
             Status <span class="text-rose-600">*</span>
           </label>
-          <select
-            id="status"
-            formControlName="status"
-            class="w-full h-12 rounded-xl border border-slate-300 bg-white px-4 pr-10 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
-          >
-            @for (status of statuses; track status) {
-              <option [value]="status">{{ formatStatus(status) }}</option>
-            }
-          </select>
+          <div class="relative">
+            <select
+              id="status"
+              formControlName="status"
+              class="w-full h-12 appearance-none rounded-xl border border-slate-300 bg-white px-4 pr-10 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+            >
+              @for (status of statuses; track status) {
+                <option [value]="status">{{ formatStatus(status) }}</option>
+              }
+            </select>
+            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-500">
+              <i class="pi pi-chevron-down text-xs"></i>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -315,16 +323,21 @@
           <label for="cognitiveLoad" class="block text-sm font-medium text-slate-800">
             Anforderungsgrad
           </label>
-          <select
-            id="cognitiveLoad"
-            formControlName="cognitiveLoad"
-            class="w-full h-12 rounded-xl border border-slate-300 bg-white px-4 pr-10 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
-          >
-            <option value="">Bitte auswählen</option>
-            @for (load of cognitiveLoads; track load) {
-              <option [value]="load">{{ formatCognitiveLoad(load) }}</option>
-            }
-          </select>
+          <div class="relative">
+            <select
+              id="cognitiveLoad"
+              formControlName="cognitiveLoad"
+              class="w-full h-12 appearance-none rounded-xl border border-slate-300 bg-white px-4 pr-10 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+            >
+              <option value="">Bitte auswählen</option>
+              @for (load of cognitiveLoads; track load) {
+                <option [value]="load">{{ formatCognitiveLoad(load) }}</option>
+              }
+            </select>
+            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-500">
+              <i class="pi pi-chevron-down text-xs"></i>
+            </div>
+          </div>
         </div>
 
         <div class="space-y-2">
