@@ -104,10 +104,18 @@ export class SuperAdminsPageComponent implements OnInit {
         },
         error: (err) => {
           console.error('Failed to delete admin:', err);
+          
+          let errorMessage = 'Super-Admin konnte nicht gelöscht werden.';
+          
+          // Check for specific error message from backend
+          if (err.status === 409 && (err.error?.detail === 'LAST_SUPER_ADMIN_CANNOT_BE_DELETED' || err.error?.title === 'LAST_SUPER_ADMIN_CANNOT_BE_DELETED')) {
+            errorMessage = 'Der letzte Super-Admin kann nicht gelöscht werden. Es muss mindestens ein Administrator im System verbleiben.';
+          }
+
           this.messageService.add({
             severity: 'error',
             summary: 'Fehler',
-            detail: 'Super-Admin konnte nicht gelöscht werden.'
+            detail: errorMessage
           });
         }
       });
