@@ -49,8 +49,10 @@
                   icon="pi pi-trash"
                   [text]="true"
                   severity="danger"
+                  [disabled]="superAdmins().length <= 1"
                   (onClick)="confirmDelete(admin)"
-                  pTooltip="Löschen"
+                  [pTooltip]="superAdmins().length <= 1 ? 'Der letzte Super-Admin kann nicht gelöscht werden' : 'Löschen'"
+                  tooltipPosition="top"
                 />
               </div>
             </div>

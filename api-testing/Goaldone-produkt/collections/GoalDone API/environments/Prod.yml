@@ -1,7 +1,7 @@
 name: Prod
 variables:
   - name: baseUrl
-    value: https://dev.goaldone.de/api/v1
+    value: https://goaldone.de/api/v1
   - name: authorizationUrl
     value: https://sso.goaldone.de/oauth/v2/authorize
   - name: tokenUrl
