@@ -38,10 +38,10 @@ public class OrganizationManagementService {
         if (projectId == null || projectId.isBlank() || mainOrgId == null || mainOrgId.isBlank()) {
             throw new IllegalStateException("ZITADEL_GOALDONE_PROJECT_ID or ZITADEL_GOALDONE_ORG_ID is not configured");
         }
-
+        String adminEmail = normalizeEmail(req.getAdminEmail());
         // Preconditions: check before any Zitadel writes
-        if (zitadelManagementClient.emailExists(req.getAdminEmail())) {
-            log.warn("Email {} already exists in Zitadel", req.getAdminEmail());
+        if (zitadelManagementClient.emailExists(adminEmail)) {
+            log.warn("Email {} already exists in Zitadel", adminEmail);
             throw new ConflictException("EMAIL_ALREADY_IN_USE");
         }
         if (organizationRepository.existsByName(req.getName())) {
@@ -70,8 +70,12 @@ public class OrganizationManagementService {
 
             // Step 5: Create human user in Zitadel organization
             log.info("Creating human user in Zitadel organization {}", zitadelOrgId);
-            zitadelUserId = zitadelManagementClient.addHumanUser(zitadelOrgId, req.getAdminEmail(), req.getAdminFirstName(), req.getAdminLastName());
-
+            zitadelUserId = zitadelManagementClient.addHumanUser(
+                    zitadelOrgId,
+                    adminEmail,
+                    req.getAdminFirstName(),
+                    req.getAdminLastName()
+            );
             // Step 6: Assign COMPANY_ADMIN role to user
             log.info("Assigning COMPANY_ADMIN role to user {}", zitadelUserId);
             zitadelManagementClient.addUserGrant(zitadelUserId, mainOrgId, projectId, "COMPANY_ADMIN");
@@ -84,7 +88,7 @@ public class OrganizationManagementService {
                     .id(localOrgId)
                     .zitadelOrganizationId(zitadelOrgId)
                     .name(req.getName())
-                    .adminEmail(req.getAdminEmail())
+                    .adminEmail(adminEmail)
                     .createdAt(OffsetDateTime.now(ZoneId.systemDefault()));
 
         } catch (Exception e) {
@@ -128,5 +132,11 @@ public class OrganizationManagementService {
         } catch (Exception e) {
             log.error("Error deleting Zitadel organization {} during compensation: {}", zitadelOrgId, e.getMessage());
         }
+    }
+    private String normalizeEmail(String email) {
+        if (email == null) {
+            return null;
+        }
+        return email.trim();
     }
 }
