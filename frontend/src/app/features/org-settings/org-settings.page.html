@@ -1,1 +1,33 @@
-<h1>OrgSettings works!</h1>
+<p-card header="Einladungen" class="settings-card admin-section">
+  <div class="invite-form">
+    <form (ngSubmit)="sendInvitation()" class="invite-input-row">
+      <input
+        type="text"
+        pInputText
+        name="inviteEmail"
+        placeholder="E-Mail-Adresse"
+        [ngModel]="inviteEmail()"
+        (ngModelChange)="inviteEmail.set($event)"
+        class="invite-input" />
+
+      <p-button
+        type="submit"
+        label="Einladen"
+        icon="pi pi-send"
+        [loading]="inviteSending()"
+        [disabled]="!isInviteEmailValid() || inviteSending()" />
+    </form>
+
+    @if (inviteError()) {
+      <p-message severity="error" styleClass="full-width mt-1">
+        {{ inviteError() }}
+      </p-message>
+    }
+
+    @if (inviteWarn()) {
+      <p-message severity="warn" styleClass="full-width mt-1">
+        {{ inviteWarn() }}
+      </p-message>
+    }
+  </div>
+</p-card>
