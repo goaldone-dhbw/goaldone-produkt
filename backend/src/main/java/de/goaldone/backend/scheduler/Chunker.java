@@ -52,7 +52,7 @@ public class Chunker {
                                     .taskId(task.getId())
                                     .chunkIndex(i)
                                     .totalChunks(totalChunks)
-                                    .durationMinutes(totalChunks)
+                                    .durationMinutes(chunkDurations.get(i))
                                     .topologicalLevel(0)
                                     .slackMinutes(0)
                                     .cognitiveLoad(task.getCognitiveLoad())
@@ -120,6 +120,10 @@ public class Chunker {
         while (remaining > chunkSize) {
             chunks.add(chunkSize);
             remaining -= chunkSize;
+        }
+
+        if (remaining == 0) {
+            return chunks;
         }
 
         if (remaining < MIN_CHUNK_SIZE_MINUTES) {
