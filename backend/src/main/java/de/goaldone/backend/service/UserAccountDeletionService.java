@@ -10,6 +10,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.UUID;
 
+/**
+ * Service for deleting user accounts.
+ * Handles the removal of user account records and their associated identities if they are no longer needed.
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -19,6 +23,13 @@ public class UserAccountDeletionService {
     private final UserIdentityRepository userIdentityRepository;
     // TODO: inject ZitadelManagementClient once implemented for deleteUser calls
 
+    /**
+     * Deletes a user account by its ID.
+     * If the account is the last one associated with a user identity, the identity is also deleted.
+     *
+     * @param accountId The UUID of the account to be deleted.
+     * @throws IllegalStateException if the account cannot be found.
+     */
     @Transactional
     public void deleteUserAccount(UUID accountId) {
         UserAccountEntity account = userAccountRepository.findById(accountId)
