@@ -22,6 +22,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+/**
+ * Main security configuration for the application.
+ * Configures OAuth2 resource server support, method-level security, CORS, and
+ * Just-In-Time (JIT) user provisioning.
+ */
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
@@ -30,13 +35,32 @@ public class SecurityConfig {
     @Value("${app.cors.allowed-origins:http://localhost:4200}")
     private List<String> allowedOrigins;
 
+    /**
+     * Creates a {@link JitProvisioningFilter} bean.
+     * This filter ensures that users are provisioned in the local database upon their first request.
+     *
+     * @param jitProvisioningService the service responsible for provisioning logic
+     * @return a new JitProvisioningFilter
+     */
     @Bean
     public JitProvisioningFilter jitProvisioningFilter(JitProvisioningService jitProvisioningService) {
         return new JitProvisioningFilter(jitProvisioningService);
     }
 
+    /**
+     * Configures the {@link SecurityFilterChain} for the application.
+     * <p>
+     * Defines access rules, stateless session management, JWT-based authentication,
+     * and registers the JIT provisioning filter.
+     * </p>
+     *
+     * @param http the HttpSecurity object to configure
+     * @param jitProvisioningFilter the custom filter for user provisioning
+     * @return the built SecurityFilterChain
+     * @throws Exception if an error occurs during configuration
+     */
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http, JitProvisioningFilter jitProvisioningFilter) {
+    public SecurityFilterChain filterChain(HttpSecurity http, JitProvisioningFilter jitProvisioningFilter) throws Exception {
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(AbstractHttpConfigurer::disable)
@@ -52,6 +76,15 @@ public class SecurityConfig {
         return http.build();
     }
 
+    /**
+     * Configures a {@link JwtAuthenticationConverter} to extract roles from Zitadel-specific claims.
+     * <p>
+     * It maps keys from the {@code urn:zitadel:iam:org:project:roles} claim to Spring Security roles
+     * with a {@code ROLE_} prefix.
+     * </p>
+     *
+     * @return a configured JwtAuthenticationConverter
+     */
     @Bean
     public JwtAuthenticationConverter jwtAuthenticationConverter() {
         JwtAuthenticationConverter jwtConverter = new JwtAuthenticationConverter();
@@ -69,6 +102,12 @@ public class SecurityConfig {
         return jwtConverter;
     }
 
+    /**
+     * Defines the CORS configuration source for the application.
+     * Allows requests from specified origins and defines permitted HTTP methods and headers.
+     *
+     * @return a configured CorsConfigurationSource
+     */
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
