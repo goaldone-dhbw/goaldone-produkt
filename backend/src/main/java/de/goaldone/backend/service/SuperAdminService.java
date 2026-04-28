@@ -21,6 +21,10 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+/**
+ * Service for managing Super-Admin users.
+ * Handles listing, inviting, and deleting Super-Admins, coordinating with Zitadel and local shadow records.
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -38,6 +42,11 @@ public class SuperAdminService {
 
     private static final String ROLE_SUPER_ADMIN = "SUPER_ADMIN";
 
+    /**
+     * Retrieves a list of all users with the Super-Admin role from Zitadel.
+     *
+     * @return A list of {@link SuperAdminResponse} objects containing details about each Super-Admin.
+     */
     public List<SuperAdminResponse> listSuperAdmins() {
         List<String> userIds = zitadelClient.listUserIdsByRole(goaldoneOrgId, goaldoneProjectId, ROLE_SUPER_ADMIN);
         List<SuperAdminResponse> result = new ArrayList<>();
@@ -64,6 +73,12 @@ public class SuperAdminService {
         return result;
     }
 
+    /**
+     * Invites a new Super-Admin by creating a user in Zitadel, assigning the role, and generating an invite code.
+     *
+     * @param request The {@link InviteSuperAdminRequest} containing the email of the person to invite.
+     * @throws ResponseStatusException with CONFLICT if the email is already in use, or BAD_GATEWAY if a Zitadel error occurs.
+     */
     public void inviteSuperAdmin(InviteSuperAdminRequest request) {
         String email = normalizeEmail(request.getEmail());
         // 1. Check if email already exists in Zitadel (instance-wide)
@@ -96,6 +111,13 @@ public class SuperAdminService {
         }
     }
 
+    /**
+     * Deletes a Super-Admin user from Zitadel and their local shadow record.
+     * Prevents deletion of the last remaining Super-Admin.
+     *
+     * @param zitadelId The Zitadel ID of the Super-Admin to delete.
+     * @throws ResponseStatusException with CONFLICT if attempting to delete the last Super-Admin.
+     */
     @Transactional
     public void deleteSuperAdmin(String zitadelId) {
         // 1. Check if last Super-Admin
