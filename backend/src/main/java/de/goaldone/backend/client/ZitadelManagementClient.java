@@ -54,16 +54,18 @@ public class ZitadelManagementClient {
      * @throws ZitadelApiException if the API call fails
      */
     public boolean emailExists(String email) {
+        String normalizedEmail = normalizeEmail(email);
+
         try {
             Map<String, Object> emailQuery = Map.of(
-                    "emailAddress", email,
+                    "emailAddress", normalizedEmail,
                     "method", "TEXT_QUERY_METHOD_EQUALS"
             );
             Map<String, Object> body = Map.of(
                     "queries", List.of(Map.of("emailQuery", emailQuery))
             );
 
-            log.debug("Checking email existence for: {}", email);
+            log.debug("Checking email existence for: {}", normalizedEmail);
             String responseBody = restClient.post()
                     .uri("/v2/users")
                     .header(HttpHeaders.AUTHORIZATION, "Bearer " + serviceAccountToken)
@@ -83,11 +85,10 @@ public class ZitadelManagementClient {
             log.error(errorMsg);
             throw new ZitadelApiException(errorMsg, e);
         } catch (Exception e) {
-            log.error("Failed to check email existence for {}: {}", email, e.getMessage());
+            log.error("Failed to check email existence for {}: {}", normalizedEmail, e.getMessage());
             throw new ZitadelApiException("Failed to check email existence: " + e.getMessage(), e);
         }
     }
-
     /**
      * Checks if an organization with the specified ID exists.
      *
@@ -246,9 +247,11 @@ public class ZitadelManagementClient {
      * @throws ZitadelApiException if the creation fails or no user ID is returned
      */
     public String addHumanUser(String zitadelOrgId, String email, String firstName, String lastName) {
+        String normalizedEmail = normalizeEmail(email);
+
         try {
             Map<String, Object> emailObj = Map.of(
-                    "email", email,
+                    "email", normalizedEmail,
                     "isVerified", false
             );
             Map<String, Object> orgObj = Map.of("orgId", zitadelOrgId);
@@ -284,7 +287,6 @@ public class ZitadelManagementClient {
             throw new ZitadelApiException("Failed to create user in Zitadel: " + e.getMessage(), e);
         }
     }
-
     /**
      * Assigns a specific project role to a user.
      *
@@ -414,5 +416,11 @@ public class ZitadelManagementClient {
         } catch (RestClientException e) {
             log.error("Failed to delete user {}: {}", userId, e.getMessage());
         }
+    }
+    private String normalizeEmail(String email) {
+        if (email == null) {
+            return null;
+        }
+        return email.trim();
     }
 }

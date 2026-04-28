@@ -61,12 +61,12 @@ public class SuperAdminService {
                 admin.setFirstName(human.path("profile").path("givenName").asText(""));
                 admin.setLastName(human.path("profile").path("familyName").asText(""));
                 admin.setStatus(userNode.path("state").asText());
-                
+
                 String createdAtStr = userNode.path("details").path("createdDate").asText();
                 if (!createdAtStr.isEmpty()) {
                     admin.setCreatedAt(OffsetDateTime.parse(createdAtStr));
                 }
-                
+
                 result.add(admin);
             });
         }
@@ -80,8 +80,7 @@ public class SuperAdminService {
      * @throws ResponseStatusException with CONFLICT if the email is already in use, or BAD_GATEWAY if a Zitadel error occurs.
      */
     public void inviteSuperAdmin(InviteSuperAdminRequest request) {
-        String email = request.getEmail();
-
+        String email = normalizeEmail(request.getEmail());
         // 1. Check if email already exists in Zitadel (instance-wide)
         if (zitadelClient.emailExists(email)) {
             log.warn("Attempt to invite existing email as Super-Admin: {}", email);
@@ -135,12 +134,12 @@ public class SuperAdminService {
         if (accountOpt.isPresent()) {
             UserAccountEntity account = accountOpt.get();
             UUID identityId = account.getUserIdentityId();
-            
+
             // TODO: Cascade delete Tasks, Breaks, etc. (Stubs)
             log.info("TODO: Cascade delete tasks for user {}", account.getId());
 
             userAccountRepository.delete(account);
-            
+
             // Clean up identity if it was the last account
             if (userAccountRepository.countByUserIdentityId(identityId) == 0) {
                 userIdentityRepository.deleteById(identityId);
@@ -149,5 +148,11 @@ public class SuperAdminService {
         } else {
             log.info("No local shadow record found for Super-Admin {}, Zitadel user was deleted.", zitadelId);
         }
+    }
+    private String normalizeEmail(String email) {
+        if (email == null) {
+            return null;
+        }
+        return email.trim();
     }
 }
