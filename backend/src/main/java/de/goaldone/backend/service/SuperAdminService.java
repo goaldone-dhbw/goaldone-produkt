@@ -21,6 +21,10 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+/**
+ * Service for managing Super-Admin users.
+ * Handles listing, inviting, and deleting Super-Admins, coordinating with Zitadel and local shadow records.
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -38,6 +42,11 @@ public class SuperAdminService {
 
     private static final String ROLE_SUPER_ADMIN = "SUPER_ADMIN";
 
+    /**
+     * Retrieves a list of all users with the Super-Admin role from Zitadel.
+     *
+     * @return A list of {@link SuperAdminResponse} objects containing details about each Super-Admin.
+     */
     public List<SuperAdminResponse> listSuperAdmins() {
         List<String> userIds = zitadelClient.listUserIdsByRole(goaldoneOrgId, goaldoneProjectId, ROLE_SUPER_ADMIN);
         List<SuperAdminResponse> result = new ArrayList<>();
@@ -52,21 +61,26 @@ public class SuperAdminService {
                 admin.setFirstName(human.path("profile").path("givenName").asText(""));
                 admin.setLastName(human.path("profile").path("familyName").asText(""));
                 admin.setStatus(userNode.path("state").asText());
-                
+
                 String createdAtStr = userNode.path("details").path("createdDate").asText();
                 if (!createdAtStr.isEmpty()) {
                     admin.setCreatedAt(OffsetDateTime.parse(createdAtStr));
                 }
-                
+
                 result.add(admin);
             });
         }
         return result;
     }
 
+    /**
+     * Invites a new Super-Admin by creating a user in Zitadel, assigning the role, and generating an invite code.
+     *
+     * @param request The {@link InviteSuperAdminRequest} containing the email of the person to invite.
+     * @throws ResponseStatusException with CONFLICT if the email is already in use, or BAD_GATEWAY if a Zitadel error occurs.
+     */
     public void inviteSuperAdmin(InviteSuperAdminRequest request) {
-        String email = request.getEmail();
-
+        String email = normalizeEmail(request.getEmail());
         // 1. Check if email already exists in Zitadel (instance-wide)
         if (zitadelClient.emailExists(email)) {
             log.warn("Attempt to invite existing email as Super-Admin: {}", email);
@@ -97,6 +111,13 @@ public class SuperAdminService {
         }
     }
 
+    /**
+     * Deletes a Super-Admin user from Zitadel and their local shadow record.
+     * Prevents deletion of the last remaining Super-Admin.
+     *
+     * @param zitadelId The Zitadel ID of the Super-Admin to delete.
+     * @throws ResponseStatusException with CONFLICT if attempting to delete the last Super-Admin.
+     */
     @Transactional
     public void deleteSuperAdmin(String zitadelId) {
         // 1. Check if last Super-Admin
@@ -113,12 +134,12 @@ public class SuperAdminService {
         if (accountOpt.isPresent()) {
             UserAccountEntity account = accountOpt.get();
             UUID identityId = account.getUserIdentityId();
-            
+
             // TODO: Cascade delete Tasks, Breaks, etc. (Stubs)
             log.info("TODO: Cascade delete tasks for user {}", account.getId());
 
             userAccountRepository.delete(account);
-            
+
             // Clean up identity if it was the last account
             if (userAccountRepository.countByUserIdentityId(identityId) == 0) {
                 userIdentityRepository.deleteById(identityId);
@@ -127,5 +148,11 @@ public class SuperAdminService {
         } else {
             log.info("No local shadow record found for Super-Admin {}, Zitadel user was deleted.", zitadelId);
         }
+    }
+    private String normalizeEmail(String email) {
+        if (email == null) {
+            return null;
+        }
+        return email.trim();
     }
 }

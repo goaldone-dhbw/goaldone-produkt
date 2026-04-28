@@ -12,10 +12,16 @@ tags:
     description: Health check operations
   - name: tasks
     description: Task management operations
-  - name: user-accounts
-    description: User Account operations
   - name: working-times
     description: Working time management
+  - name: appointments
+    description: Appointment management operations
+  - name: schedules
+    description: Schedule management operations
+  - name: user-accounts
+    description: User Account operations
+  - name: member-management
+    description: Organization member management operations
   - name: org-management
     description: Organization management operations
   - name: super-admin-management
@@ -581,6 +587,74 @@ paths:
         '409':
           description: Conflict (Last Super-Admin)
 
+  # ============================================================
+  # MEMBER MANAGEMENT – Invite
+  # ============================================================
+  /organizations/{orgId}/members/invite:
+    post:
+      tags:
+        - member-management
+      summary: Neuen Nutzer in die Organisation einladen
+      description: |
+        Legt einen neuen Zitadel-User in der Org an, vergibt die gewünschte
+        Projektrolle und löst den Versand einer gebrandeten Einladungs-E-Mail aus.
+        Ein lokaler Shadow-Record wird nicht angelegt – das geschieht über
+        JIT-Provisioning beim ersten Login des eingeladenen Nutzers.
+      operationId: inviteMember
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrgIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InviteMemberRequest'
+      responses:
+        '201':
+          description: Einladung versendet
+        '400':
+          description: Bad Request (Validation)
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden – nicht COMPANY_ADMIN oder nicht Mitglied dieser Org
+        '409':
+          description: Conflict (EMAIL_ALREADY_IN_USE)
+        '502':
+          description: Upstream Error (Zitadel)
+
+  /organizations/{orgId}/members/{zitadelUserId}/reinvite:
+    post:
+      tags:
+        - member-management
+      summary: Einladung erneut versenden
+      description: |
+        Generiert einen neuen Einladungscode für einen noch nicht aktiven
+        Nutzer und versendet erneut eine gebrandete Einladungs-E-Mail.
+        Der vorherige Einladungslink wird dabei invalidiert.
+        Nur für Nutzer mit Status INVITED aufrufbar.
+      operationId: reinviteMember
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrgIdPath'
+        - $ref: '#/components/parameters/ZitadelUserIdPath'
+      responses:
+        '204':
+          description: Einladung erneut versendet
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '409':
+          description: Conflict (USER_ALREADY_ACTIVE)
+        '404':
+          description: Nutzer nicht gefunden
+        '502':
+          description: Upstream Error (Zitadel)
+
   /tasks/all:
     get:
       tags:
@@ -731,6 +805,23 @@ components:
         type: string
         format: date
         example: "2026-04-11"
+
+    OrgIdPath:
+      name: orgId
+      in: path
+      required: true
+      description: Lokale Organisations-ID
+      schema:
+        type: string
+        format: uuid
+
+    ZitadelUserIdPath:
+      name: zitadelUserId
+      in: path
+      required: true
+      description: Zitadel User ID
+      schema:
+        type: string
 
   # ============================================================
   # SCHEMAS
@@ -1256,6 +1347,37 @@ components:
           type: string
           minLength: 1
           maxLength: 50
+
+    # ----------------------------------------------------------
+    # Member Management
+    # ----------------------------------------------------------
+    MemberRole:
+      type: string
+      enum:
+        - USER
+        - COMPANY_ADMIN
+
+    InviteMemberRequest:
+      type: object
+      required:
+        - email
+        - firstName
+        - lastName
+      properties:
+        email:
+          type: string
+          format: email
+        firstName:
+          type: string
+          minLength: 1
+          maxLength: 200
+        lastName:
+          type: string
+          minLength: 1
+          maxLength: 200
+        role:
+          $ref: '#/components/schemas/MemberRole'
+          default: USER
 
     # ----------------------------------------------------------
     # Schedule – Request

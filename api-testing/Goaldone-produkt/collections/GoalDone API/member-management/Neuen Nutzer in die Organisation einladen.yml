@@ -1,0 +1,28 @@
+info:
+  name: Neuen Nutzer in die Organisation einladen
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{baseUrl}}/organizations/:orgId/members/invite"
+  params:
+    - name: orgId
+      value: ""
+      type: path
+  body:
+    type: json
+    data: |-
+      {
+        "email": "johannes3@fampopprol.me",
+        "firstName": "Johannes",
+        "lastName": "Test",
+        "role": "USER"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
