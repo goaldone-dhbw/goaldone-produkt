@@ -1,5 +1,6 @@
 package de.goaldone.backend.service;
 
+import de.goaldone.backend.client.ZitadelManagementClient;
 import de.goaldone.backend.entity.UserAccountEntity;
 import de.goaldone.backend.repository.UserAccountRepository;
 import de.goaldone.backend.repository.UserIdentityRepository;
@@ -21,7 +22,7 @@ public class UserAccountDeletionService {
 
     private final UserAccountRepository userAccountRepository;
     private final UserIdentityRepository userIdentityRepository;
-    // TODO: inject ZitadelManagementClient once implemented for deleteUser calls
+    private final ZitadelManagementClient zitadelManagementClient;
 
     /**
      * Deletes a user account by its ID.
@@ -38,7 +39,7 @@ public class UserAccountDeletionService {
         UUID identityId = account.getUserIdentityId();
         long count = userAccountRepository.countByUserIdentityId(identityId);
 
-        // TODO: zitadelManagementClient.deleteUser(account.getZitadelSub());
+        zitadelManagementClient.deleteUser(account.getZitadelSub());
 
         userAccountRepository.delete(account);
 

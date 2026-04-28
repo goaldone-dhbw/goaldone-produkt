@@ -167,6 +167,145 @@ public class ZitadelManagementClient {
     }
 
     /**
+     * Lists all user grants for a specific project and restricted to a specific user organization.
+     *
+     * @param rootOrgId the root organization ID where the project is defined
+     * @param projectId the project ID
+     * @param userOrgId the organization ID of the users to list
+     * @return a JsonNode containing the search results
+     */
+    public JsonNode listAllGrants(String rootOrgId, String projectId, String userOrgId) {
+        try {
+            Map<String, Object> body = Map.of(
+                    "queries", List.of(
+                            Map.of("projectIdQuery", Map.of("projectId", projectId)),
+                            Map.of("organizationIdQuery", Map.of("organizationId", userOrgId))
+                    )
+            );
+
+            String responseBody = restClient.post()
+                    .uri("/management/v1/users/grants/_search")
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + serviceAccountToken)
+                    .header("x-zitadel-orgid", rootOrgId)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(body)
+                    .retrieve()
+                    .body(String.class);
+
+            return objectMapper.readTree(responseBody);
+        } catch (Exception e) {
+            log.error("Failed to list all grants in project {} for user org {} (root org {}): {}", projectId, userOrgId, rootOrgId, e.getMessage());
+            throw new ZitadelApiException("Failed to list all grants: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Searches for a user grant for a specific user and project in the context of the root organization.
+     *
+     * @param rootOrgId the root organization ID
+     * @param projectId the project ID
+     * @param userId the user ID
+     * @return an Optional containing the grant details as a JsonNode, or empty if not found
+     */
+    public Optional<JsonNode> searchUserGrants(String rootOrgId, String projectId, String userId) {
+        try {
+            Map<String, Object> body = Map.of(
+                    "queries", List.of(
+                            Map.of("userIdQuery", Map.of("userId", userId)),
+                            Map.of("projectIdQuery", Map.of("projectId", projectId))
+                    )
+            );
+
+            String responseBody = restClient.post()
+                    .uri("/management/v1/users/grants/_search")
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + serviceAccountToken)
+                    .header("x-zitadel-orgid", rootOrgId)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(body)
+                    .retrieve()
+                    .body(String.class);
+
+            JsonNode response = objectMapper.readTree(responseBody);
+            if (response != null && response.has("result") && !response.get("result").isEmpty()) {
+                return Optional.of(response.get("result").get(0));
+            }
+            return Optional.empty();
+        } catch (Exception e) {
+            log.error("Failed to search user grant for user {} in project {} (root org {}): {}", userId, projectId, rootOrgId, e.getMessage());
+            return Optional.empty();
+        }
+    }
+
+    /**
+     * Updates an existing user grant with new roles.
+     *
+     * @param grantId the ID of the grant to update
+     * @param orgId the organization ID
+     * @param roleKeys the new list of role keys
+     * @throws ZitadelApiException if the operation fails
+     */
+    public void updateUserGrant(String grantId, String orgId, List<String> roleKeys) {
+        try {
+            Map<String, Object> body = Map.of(
+                    "roleKeys", roleKeys
+            );
+
+            restClient.put()
+                    .uri("/management/v1/users/grants/{grantId}", grantId)
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + serviceAccountToken)
+                    .header("x-zitadel-orgid", orgId)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(body)
+                    .retrieve()
+                    .toBodilessEntity();
+        } catch (RestClientResponseException e) {
+            String errorMsg = String.format("Failed to update user grant in Zitadel: %s: %s", e.getMessage(), e.getResponseBodyAsString());
+            log.error(errorMsg);
+            throw new ZitadelApiException(errorMsg, e);
+        } catch (Exception e) {
+            throw new ZitadelApiException("Failed to update user grant: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Lists users by their IDs.
+     *
+     * @param userIds the list of user IDs to retrieve
+     * @return a list of user details as JsonNodes
+     */
+    public List<JsonNode> listUsersByIds(List<String> userIds) {
+        if (userIds == null || userIds.isEmpty()) {
+            return List.of();
+        }
+
+        try {
+            Map<String, Object> body = Map.of(
+                    "queries", List.of(
+                            Map.of("idsQuery", Map.of("userIds", userIds))
+                    )
+            );
+
+            String responseBody = restClient.post()
+                    .uri("/v2/users")
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + serviceAccountToken)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(body)
+                    .retrieve()
+                    .body(String.class);
+
+            JsonNode response = objectMapper.readTree(responseBody);
+            List<JsonNode> users = new ArrayList<>();
+            if (response != null && response.has("result")) {
+                response.get("result").forEach(users::add);
+            }
+            return users;
+        } catch (Exception e) {
+            log.error("Failed to list users by IDs: {}", e.getMessage());
+            throw new ZitadelApiException("Failed to list users: " + e.getMessage(), e);
+        }
+    }
+
+    /**
      * Retrieves the roles assigned to a specific user within a project and organization.
      *
      * @param userId the user ID
@@ -417,6 +556,43 @@ public class ZitadelManagementClient {
             log.error("Failed to delete user {}: {}", userId, e.getMessage());
         }
     }
+    /**
+     * Counts how many users have a specific role in an organization's project grant.
+     *
+     * @param orgId the organization ID
+     * @param projectId the project ID
+     * @param roleKey the role key to count
+     * @return the number of users with the given role
+     */
+    public int countGrantsByRole(String orgId, String projectId, String roleKey) {
+        try {
+            Map<String, Object> body = Map.of(
+                    "queries", List.of(
+                            Map.of("projectIdQuery", Map.of("projectId", projectId)),
+                            Map.of("roleKeyQuery", Map.of("roleKey", roleKey, "method", "TEXT_QUERY_METHOD_EQUALS"))
+                    )
+            );
+
+            String responseBody = restClient.post()
+                    .uri("/management/v1/users/grants/_search")
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + serviceAccountToken)
+                    .header("x-zitadel-orgid", orgId)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(body)
+                    .retrieve()
+                    .body(String.class);
+
+            JsonNode response = objectMapper.readTree(responseBody);
+            if (response != null && response.has("details") && response.get("details").has("totalResult")) {
+                return response.get("details").get("totalResult").asInt();
+            }
+            return 0;
+        } catch (Exception e) {
+            log.error("Failed to count grants by role {} in project {} (org {}): {}", roleKey, projectId, orgId, e.getMessage());
+            return 0;
+        }
+    }
+
     private String normalizeEmail(String email) {
         if (email == null) {
             return null;
