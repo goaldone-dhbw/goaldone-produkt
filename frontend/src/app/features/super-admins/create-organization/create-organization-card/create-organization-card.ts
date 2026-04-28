@@ -20,8 +20,20 @@ import {
   OrganizationResponse,
 } from '../../../../api';
 
+/**
+ * Names of all form controls used in the create organization form.
+ * This type is used to access form controls in a type-safe way.
+ */
 type CreateOrganizationControlName = 'name' | 'adminFirstName' | 'adminLastName' | 'adminEmail';
 
+/**
+ * Creates a validator that checks whether a text input is not empty after trimming
+ * and whether its length is within the given minimum and maximum range.
+ *
+ * @param min Minimum allowed length after trimming whitespace.
+ * @param max Maximum allowed length after trimming whitespace.
+ * @returns A validator function for Angular reactive forms.
+ */
 function trimmedLengthValidator(min: number, max: number): ValidatorFn {
   return (control: AbstractControl<string | null>): ValidationErrors | null => {
     const value = control.value?.trim() ?? '';
@@ -58,17 +70,54 @@ function trimmedLengthValidator(min: number, max: number): ValidatorFn {
   imports: [CommonModule, ReactiveFormsModule, ButtonModule, InputTextModule],
   templateUrl: './create-organization-card.html',
 })
+/**
+ * Component for creating a new organization from the super-admin area.
+ *
+ * The component provides a reactive form for entering the organization name
+ * and the first organization admin's personal data. It validates all fields
+ * on the client side and sends a create request to the backend only if the
+ * form is valid.
+ *
+ * After a successful request, the component shows a success message and emits
+ * the created organization response to the parent component. API errors are
+ * mapped to user-friendly German error messages.
+ */
 export class CreateOrganizationCardComponent {
   private readonly fb = inject(FormBuilder);
   private readonly organizationService = inject(OrgManagementService);
   private readonly messageService = inject(MessageService);
 
+  /**
+   * Emits the created organization after a successful API request.
+   * Parent components can use this event to refresh organization lists.
+   */
   @Output() readonly created = new EventEmitter<OrganizationResponse>();
 
+  /**
+   * Indicates whether the create request is currently running.
+   * Used to show the loading state and prevent duplicate submissions.
+   */
   readonly isSubmitting = signal(false);
+
+  /**
+   * Contains the success message shown after an organization was created.
+   */
   readonly successMessage = signal<string | null>(null);
+
+  /**
+   * Contains the user-friendly error message shown after failed requests.
+   */
   readonly errorMessage = signal<string | null>(null);
 
+  /**
+   * Reactive form for creating an organization and inviting the first admin.
+   *
+   * Validates:
+   * - organization name: required, 2 to 255 characters
+   * - admin first name: required, 1 to 255 characters
+   * - admin last name: required, 1 to 255 characters
+   * - admin email: required, valid email format
+   */
   readonly form = this.fb.nonNullable.group({
     name: ['', [trimmedLengthValidator(2, 255)]],
     adminFirstName: ['', [trimmedLengthValidator(1, 255)]],
@@ -76,6 +125,17 @@ export class CreateOrganizationCardComponent {
     adminEmail: ['', [Validators.required, Validators.email]],
   });
 
+  /**
+   * Submits the create organization form.
+   *
+   * If the form is invalid, all controls are marked as touched and no API request
+   * is sent. If the form is valid, the input values are trimmed and sent to the
+   * backend via the generated OpenAPI service.
+   *
+   * On success, the form is reset, a success message is shown and the created
+   * organization is emitted. On error, the API error is mapped to a readable
+   * message for the user.
+   */
   submit(): void {
     this.successMessage.set(null);
     this.errorMessage.set(null);
@@ -98,7 +158,7 @@ export class CreateOrganizationCardComponent {
       .createOrganization(request)
       .pipe(finalize(() => this.isSubmitting.set(false)))
       .subscribe({
-        next: (organization) => {
+        next: (organization: OrganizationResponse) => {
           const adminEmail = organization.adminEmail ?? request.adminEmail;
 
           this.successMessage.set(
@@ -127,11 +187,22 @@ export class CreateOrganizationCardComponent {
       });
   }
 
+  /**
+   * Checks whether a specific form control is invalid and should display an error.
+   *
+   * @param controlName Name of the form control to check.
+   * @returns True if the control is invalid and was touched or changed.
+   */
   isInvalid(controlName: CreateOrganizationControlName): boolean {
     const control = this.form.controls[controlName];
     return control.invalid && (control.dirty || control.touched);
   }
 
+  /**
+   * Returns the validation error message for the organization name field.
+   *
+   * @returns A German validation message or an empty string if there is no error.
+   */
   getNameError(): string {
     const control = this.form.controls.name;
 
@@ -150,6 +221,11 @@ export class CreateOrganizationCardComponent {
     return '';
   }
 
+  /**
+   * Returns the validation error message for the admin first name field.
+   *
+   * @returns A German validation message or an empty string if there is no error.
+   */
   getAdminFirstNameError(): string {
     const control = this.form.controls.adminFirstName;
 
@@ -164,6 +240,11 @@ export class CreateOrganizationCardComponent {
     return '';
   }
 
+  /**
+   * Returns the validation error message for the admin last name field.
+   *
+   * @returns A German validation message or an empty string if there is no error.
+   */
   getAdminLastNameError(): string {
     const control = this.form.controls.adminLastName;
 
@@ -178,6 +259,11 @@ export class CreateOrganizationCardComponent {
     return '';
   }
 
+  /**
+   * Returns the validation error message for the admin email field.
+   *
+   * @returns A German validation message or an empty string if there is no error.
+   */
   getAdminEmailError(): string {
     const control = this.form.controls.adminEmail;
 
@@ -192,6 +278,15 @@ export class CreateOrganizationCardComponent {
     return '';
   }
 
+  /**
+   * Maps backend error responses to user-friendly German error messages.
+   *
+   * Handles known error codes such as EMAIL_ALREADY_IN_USE and
+   * ORGANIZATION_NAME_ALREADY_EXISTS, as well as common HTTP status codes.
+   *
+   * @param error The HTTP error returned by the backend.
+   * @returns A readable German error message for the UI.
+   */
   private mapApiError(error: HttpErrorResponse): string {
     const errorCode =
       error.error?.detail ??

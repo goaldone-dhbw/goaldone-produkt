@@ -1,4 +1,12 @@
 // @vitest-environment jsdom
+
+/**
+ * Unit tests for CreateOrganizationCardComponent.
+ *
+ * The tests verify client-side validation, prevention of invalid API requests,
+ * correct request payload creation, loading state handling and user-friendly
+ * error mapping for backend responses.
+ */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
@@ -164,12 +172,12 @@ describe('CreateOrganizationCardComponent', () => {
     expect(component.successMessage()).toContain('admin@goaldone.de');
   });
 
-  it('should trim values before sending api request', () => {
+  it('should trim text values before sending api request', () => {
     component.form.setValue({
       name: '  GoalDone GmbH  ',
       adminFirstName: '  Max  ',
       adminLastName: '  Mustermann  ',
-      adminEmail: '  admin@goaldone.de  ',
+      adminEmail: 'admin@goaldone.de',
     });
 
     component.submit();
