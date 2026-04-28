@@ -2,20 +2,44 @@
   <div class="invite-form">
     <form (ngSubmit)="sendInvitation()" class="invite-input-row">
       <input
-        type="text"
+        type="email"
         pInputText
         name="inviteEmail"
         placeholder="E-Mail-Adresse"
         [ngModel]="inviteEmail()"
         (ngModelChange)="inviteEmail.set($event)"
-        class="invite-input" />
+        class="invite-input"
+      />
+
+      <input
+        pInputText
+        type="text"
+        name="inviteFirstName"
+        placeholder="Vorname"
+        maxlength="200"
+        [ngModel]="inviteFirstName()"
+        (ngModelChange)="inviteFirstName.set($event)"
+        class="invite-input"
+      />
+
+      <input
+        pInputText
+        type="text"
+        name="inviteLastName"
+        placeholder="Nachname"
+        maxlength="200"
+        [ngModel]="inviteLastName()"
+        (ngModelChange)="inviteLastName.set($event)"
+        class="invite-input"
+      />
 
       <p-button
         type="submit"
         label="Einladen"
         icon="pi pi-send"
         [loading]="inviteSending()"
-        [disabled]="!isInviteEmailValid() || inviteSending()" />
+        [disabled]="!isInviteFormValid() || inviteSending()"
+      />
     </form>
 
     @if (inviteError()) {
@@ -24,9 +48,9 @@
       </p-message>
     }
 
-    @if (inviteWarn()) {
-      <p-message severity="warn" styleClass="full-width mt-1">
-        {{ inviteWarn() }}
+    @if (inviteSuccess()) {
+      <p-message severity="success" styleClass="full-width mt-1">
+        {{ inviteSuccess() }}
       </p-message>
     }
   </div>
