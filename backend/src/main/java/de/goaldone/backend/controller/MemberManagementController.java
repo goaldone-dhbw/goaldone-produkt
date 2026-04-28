@@ -1,8 +1,11 @@
 package de.goaldone.backend.controller;
 
 import de.goaldone.backend.api.MemberManagementApi;
+import de.goaldone.backend.model.ChangeRoleRequest;
 import de.goaldone.backend.model.InviteMemberRequest;
+import de.goaldone.backend.model.MemberListResponse;
 import de.goaldone.backend.service.MemberInviteService;
+import de.goaldone.backend.service.MemberManagementService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -15,6 +18,7 @@ import java.util.UUID;
 public class MemberManagementController implements MemberManagementApi {
 
     private final MemberInviteService memberInviteService;
+    private final MemberManagementService memberManagementService;
 
     @Override
     @PreAuthorize("hasRole('COMPANY_ADMIN')")
@@ -27,6 +31,26 @@ public class MemberManagementController implements MemberManagementApi {
     @PreAuthorize("hasRole('COMPANY_ADMIN')")
     public ResponseEntity<Void> reinviteMember(UUID orgId, String zitadelUserId) {
         memberInviteService.reinviteMember(orgId, zitadelUserId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @Override
+    @PreAuthorize("hasRole('COMPANY_ADMIN')")
+    public ResponseEntity<MemberListResponse> listMembers(UUID orgId) {
+        return ResponseEntity.ok(memberManagementService.listMembers(orgId));
+    }
+
+    @Override
+    @PreAuthorize("hasRole('COMPANY_ADMIN')")
+    public ResponseEntity<Void> changeMemberRole(UUID orgId, String zitadelUserId, ChangeRoleRequest changeRoleRequest) {
+        memberManagementService.changeMemberRole(orgId, zitadelUserId, changeRoleRequest);
+        return ResponseEntity.ok().build();
+    }
+
+    @Override
+    @PreAuthorize("hasRole('COMPANY_ADMIN')")
+    public ResponseEntity<Void> removeMember(UUID orgId, String zitadelUserId) {
+        memberManagementService.removeMember(orgId, zitadelUserId);
         return ResponseEntity.noContent().build();
     }
 }
