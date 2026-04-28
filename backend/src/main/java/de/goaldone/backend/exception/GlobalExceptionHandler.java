@@ -104,6 +104,16 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * Handles NotMemberOfOrganizationException and returns HTTP 403 (Forbidden).
+     */
+    @ExceptionHandler(NotMemberOfOrganizationException.class)
+    public ProblemDetail handleNotMemberOfOrganization(NotMemberOfOrganizationException ex) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, ex.getMessage());
+        pd.setType(URI.create("https://goaldone.de/errors/not-member-of-organization"));
+        return pd;
+    }
+
+    /**
      * Handles Spring's ResponseStatusException and returns the corresponding status and title.
      */
     @ExceptionHandler(org.springframework.web.server.ResponseStatusException.class)
