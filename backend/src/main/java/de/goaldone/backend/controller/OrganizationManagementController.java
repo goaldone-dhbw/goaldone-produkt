@@ -9,12 +9,23 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * REST controller for managing organization-related operations.
+ * This controller handles the creation of new organizations and their initial administrators.
+ */
 @RestController
 @RequiredArgsConstructor
 public class OrganizationManagementController implements OrgManagementApi {
 
     private final OrganizationManagementService organizationManagementService;
 
+    /**
+     * Creates a new organization along with its first organization administrator.
+     * Access is restricted to users with the 'SUPER_ADMIN' role.
+     *
+     * @param createOrganizationRequest the request object containing organization and admin details
+     * @return a {@link ResponseEntity} containing the created {@link OrganizationResponse} and HTTP status 201 (Created)
+     */
     @Override
     @PreAuthorize("hasRole('SUPER_ADMIN')")
     public ResponseEntity<OrganizationResponse> createOrganization(CreateOrganizationRequest createOrganizationRequest) {
