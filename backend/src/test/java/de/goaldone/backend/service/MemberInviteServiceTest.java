@@ -55,11 +55,13 @@ class MemberInviteServiceTest {
     private final UUID orgId = UUID.randomUUID();
     private final String callerSub = "caller-sub";
     private final String projectId = "project-id";
+    private final String mainOrgId = "main-org-id";
 
     @BeforeEach
     void setUp() {
         SecurityContextHolder.setContext(securityContext);
         ReflectionTestUtils.setField(memberInviteService, "goaldoneProjectId", projectId);
+        ReflectionTestUtils.setField(memberInviteService, "mainOrgId", mainOrgId);
     }
 
     @Test
@@ -80,7 +82,7 @@ class MemberInviteServiceTest {
         when(userAccountRepository.findByZitadelSub(callerSub)).thenReturn(Optional.of(callerAccount));
 
         OrganizationEntity organization = new OrganizationEntity();
-        organization.setZitadelOrgId("zitadel-org-id");
+        organization.setZitadelOrgId("customer-org-id");
         when(organizationRepository.findById(orgId)).thenReturn(Optional.of(organization));
 
         when(zitadelManagementClient.emailExists(request.getEmail())).thenReturn(false);
@@ -90,8 +92,8 @@ class MemberInviteServiceTest {
         memberInviteService.inviteMember(orgId, request);
 
         // Assert
-        verify(zitadelManagementClient).addHumanUser("zitadel-org-id", "new@example.com", "Max", "Mustermann");
-        verify(zitadelManagementClient).addUserGrant("new-user-id", "zitadel-org-id", projectId, "USER");
+        verify(zitadelManagementClient).addHumanUser("customer-org-id", "new@example.com", "Max", "Mustermann");
+        verify(zitadelManagementClient).addUserGrant("new-user-id", mainOrgId, projectId, "USER");
         verify(zitadelManagementClient).createInviteCode("new-user-id");
     }
 

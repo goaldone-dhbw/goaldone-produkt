@@ -32,6 +32,9 @@ public class MemberInviteService {
     @Value("${zitadel.goaldone.project-id}")
     private String goaldoneProjectId;
 
+    @Value("${zitadel.goaldone.org-id}")
+    private String mainOrgId;
+
     public void inviteMember(UUID orgId, InviteMemberRequest request) {
         String callerSub = getCallerSub();
         UserAccountEntity callerAccount = userAccountRepository.findByZitadelSub(callerSub)
@@ -60,7 +63,7 @@ public class MemberInviteService {
             String roleKey = request.getRole() != null ? request.getRole().getValue() : MemberRole.USER.getValue();
             zitadelManagementClient.addUserGrant(
                     zitadelUserId,
-                    organization.getZitadelOrgId(),
+                    mainOrgId,
                     goaldoneProjectId,
                     roleKey
             );
