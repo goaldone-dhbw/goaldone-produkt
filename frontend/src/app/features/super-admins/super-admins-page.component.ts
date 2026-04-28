@@ -8,6 +8,7 @@ import { ConfirmationService, MessageService } from 'primeng/api';
 import { SuperAdminManagementService, SuperAdminResponse } from '../../api';
 import { AddSuperAdminDialogComponent } from './dialog/add-super-admin-dialog.component';
 import { finalize } from 'rxjs';
+import { CreateOrganizationCardComponent } from './create-organization/create-organization-card/create-organization-card';
 
 @Component({
   selector: 'app-super-admins-page',
@@ -19,9 +20,10 @@ import { finalize } from 'rxjs';
     ConfirmDialog,
     Toast,
     AddSuperAdminDialogComponent,
+    CreateOrganizationCardComponent,
   ],
   templateUrl: './super-admins-page.component.html',
-  providers: [ConfirmationService, MessageService]
+  providers: [ConfirmationService, MessageService],
 })
 export class SuperAdminsPageComponent implements OnInit {
   private readonly adminService = inject(SuperAdminManagementService);
@@ -36,17 +38,22 @@ export class SuperAdminsPageComponent implements OnInit {
     this.loadSuperAdmins();
   }
 
+  onOrganizationCreated(): void {
+  }
+
   loadSuperAdmins(): void {
     this.isLoading.set(true);
-    this.adminService.listSuperAdmins()
+    this.adminService
+      .listSuperAdmins()
       .pipe(finalize(() => this.isLoading.set(false)))
       .subscribe({
         next: (admins) => this.superAdmins.set(admins),
-        error: () => this.messageService.add({
-          severity: 'error',
-          summary: 'Fehler',
-          detail: 'Super-Admins konnten nicht geladen werden.'
-        })
+        error: () =>
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Fehler',
+            detail: 'Super-Admins konnten nicht geladen werden.',
+          }),
       });
   }
 
@@ -61,11 +68,11 @@ export class SuperAdminsPageComponent implements OnInit {
   onAdded(): void {
     console.log('onAdded called - reloading list');
     this.addDialogVisible = false;
-    
+
     this.messageService.add({
       severity: 'success',
       summary: 'Erfolg',
-      detail: 'Einladung wurde erfolgreich versendet.'
+      detail: 'Einladung wurde erfolgreich versendet.',
     });
 
     // Wir laden die Liste neu. Die Verzögerung hilft Zitadel, den Index zu aktualisieren.
@@ -85,40 +92,44 @@ export class SuperAdminsPageComponent implements OnInit {
       accept: () => {
         console.log('Deleting admin:', admin.zitadelId);
         this.deleteAdmin(admin);
-      }
+      },
     });
   }
 
   private deleteAdmin(admin: SuperAdminResponse): void {
-    this.adminService.deleteSuperAdmin(admin.zitadelId)
-      .subscribe({
-        next: () => {
-          console.log('Admin deleted successfully');
-          this.messageService.add({
-            severity: 'success',
-            summary: 'Erfolg',
-            detail: 'Super-Admin wurde gelöscht.'
-          });
-          // Auch hier eine kurze Verzögerung für die Konsistenz
-          setTimeout(() => this.loadSuperAdmins(), 1000);
-        },
-        error: (err) => {
-          console.error('Failed to delete admin:', err);
-          
-          let errorMessage = 'Super-Admin konnte nicht gelöscht werden.';
-          
-          // Check for specific error message from backend
-          if (err.status === 409 && (err.error?.detail === 'LAST_SUPER_ADMIN_CANNOT_BE_DELETED' || err.error?.title === 'LAST_SUPER_ADMIN_CANNOT_BE_DELETED')) {
-            errorMessage = 'Der letzte Super-Admin kann nicht gelöscht werden. Es muss mindestens ein Administrator im System verbleiben.';
-          }
+    this.adminService.deleteSuperAdmin(admin.zitadelId).subscribe({
+      next: () => {
+        console.log('Admin deleted successfully');
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Erfolg',
+          detail: 'Super-Admin wurde gelöscht.',
+        });
+        // Auch hier eine kurze Verzögerung für die Konsistenz
+        setTimeout(() => this.loadSuperAdmins(), 1000);
+      },
+      error: (err) => {
+        console.error('Failed to delete admin:', err);
 
-          this.messageService.add({
-            severity: 'error',
-            summary: 'Fehler',
-            detail: errorMessage
-          });
+        let errorMessage = 'Super-Admin konnte nicht gelöscht werden.';
+
+        // Check for specific error message from backend
+        if (
+          err.status === 409 &&
+          (err.error?.detail === 'LAST_SUPER_ADMIN_CANNOT_BE_DELETED' ||
+            err.error?.title === 'LAST_SUPER_ADMIN_CANNOT_BE_DELETED')
+        ) {
+          errorMessage =
+            'Der letzte Super-Admin kann nicht gelöscht werden. Es muss mindestens ein Administrator im System verbleiben.';
         }
-      });
+
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Fehler',
+          detail: errorMessage,
+        });
+      },
+    });
   }
 
   formatDate(dateStr: string): string {
