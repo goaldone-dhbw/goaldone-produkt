@@ -1,13 +1,15 @@
 package de.goaldone.backend.scheduler;
 
-import de.goaldone.backend.scheduler.types.MoveType;
 import de.goaldone.backend.scheduler.types.model.ScheduledChunk;
 import de.goaldone.backend.scheduler.types.model.SolverState;
 import de.goaldone.backend.scheduler.types.model.TaskChunk;
 import de.goaldone.backend.scheduler.types.model.TimeSlot;
+import de.goaldone.backend.scheduler.types.moves.ChangeMove;
+import de.goaldone.backend.scheduler.types.moves.Move;
 import de.goaldone.backend.scheduler.types.moves.MoveSelector;
+import de.goaldone.backend.scheduler.types.moves.PillarMove;
+import de.goaldone.backend.scheduler.types.moves.SwapMove;
 import org.junit.jupiter.api.Test;
-
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.ArrayDeque;
@@ -16,37 +18,40 @@ import java.util.List;
 import java.util.Queue;
 import java.util.Random;
 import java.util.UUID;
-
 import static org.junit.jupiter.api.Assertions.*;
 
 class MoveSelectorTest {
 
     @Test
-    void selectedMoveTypeReturnsChangeForRollBelowChangeWeight() {
-        MoveSelector selector = new MoveSelector(new FixedRandom(List.of(), List.of()), 1);
+    void selectMoveReturnsChangeMoveForRollBelowChangeWeight() {
+        MoveSelector selector = new MoveSelector(new FixedRandom(List.of(0.49), List.of()), 1);
 
-        assertEquals(MoveType.CHANGE, selector.selectedMoveType(0.49));
+        Move selectedMove = selector.selectMove();
+
+        assertInstanceOf(ChangeMove.class, selectedMove);
     }
 
     @Test
-    void selectedMoveTypeReturnsSwapForRollAtChangeBoundary() {
-        MoveSelector selector = new MoveSelector(new FixedRandom(List.of(), List.of()), 1);
+    void selectMoveReturnsSwapMoveForRollAtChangeBoundary() {
+        MoveSelector selector = new MoveSelector(new FixedRandom(List.of(0.50), List.of()), 1);
 
-        assertEquals(MoveType.SWAP, selector.selectedMoveType(0.50));
+        Move selectedMove = selector.selectMove();
+
+        assertInstanceOf(SwapMove.class, selectedMove);
     }
 
     @Test
-    void selectedMoveTypeReturnsSwapForRollBelowPillarBoundary() {
-        MoveSelector selector = new MoveSelector(new FixedRandom(List.of(), List.of()), 1);
-
-        assertEquals(MoveType.SWAP, selector.selectedMoveType(0.79));
+    void selectMoveReturnsSwapMoveForRollBelowPillarBoundary() {
+        MoveSelector selector = new MoveSelector(new FixedRandom(List.of(0.79), List.of()), 1);
+        Move selectedMove = selector.selectMove();
+        assertInstanceOf(SwapMove.class, selectedMove);
     }
 
     @Test
-    void selectedMoveTypeReturnsPillarForRollAtPillarBoundary() {
-        MoveSelector selector = new MoveSelector(new FixedRandom(List.of(), List.of()), 1);
-
-        assertEquals(MoveType.PILLAR, selector.selectedMoveType(0.80));
+    void selectMoveReturnsPillarMoveForRollAtPillarBoundary() {
+        MoveSelector selector = new MoveSelector(new FixedRandom(List.of(0.80), List.of()), 1);
+        Move selectedMove = selector.selectMove();
+        assertInstanceOf(PillarMove.class, selectedMove);
     }
 
     @Test
@@ -88,11 +93,6 @@ class MoveSelectorTest {
                 new ArrayList<>(List.of(newSlot))
         );
 
-        /*
-         * nextDouble = 0.1 -> ChangeMove wird ausgewählt.
-         * nextInt(1) = 0 -> erster Chunk.
-         * nextInt(1) = 0 -> erster freier Slot.
-         */
         MoveSelector selector = new MoveSelector(
                 new FixedRandom(List.of(0.1), List.of(0, 0)),
                 1

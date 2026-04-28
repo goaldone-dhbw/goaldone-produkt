@@ -1,4 +1,5 @@
 package de.goaldone.backend.scheduler.types.moves;
+
 import de.goaldone.backend.scheduler.types.model.ScheduledChunk;
 import de.goaldone.backend.scheduler.types.model.SolverState;
 import de.goaldone.backend.scheduler.types.model.TimeSlot;
@@ -11,10 +12,23 @@ import java.util.Random;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+/**
+ * Move, der alle nicht fixierten Chunks einer zufällig ausgewählten Aufgabe gemeinsam verschiebt.
+ * Die Chunks werden um eine zufällige Anzahl von Slots nach vorne oder hinten verschoben.
+ * Dabei bleiben Reihenfolge und Abstand der Chunks innerhalb der Aufgabe erhalten.</p>
+ * Der Move ist nur gültig, wenn alle Zielslots verfügbar sind oder bereits zur selben Aufgabe
+ * gehören und alle zeitlichen Einschränkungen der Chunks eingehalten werden.</p>
+ */
 public class PillarMove extends Move {
     private final Random random;
     private final int maxShift;
 
+    /**
+     * Erstellt einen neuen PillarMove.
+     * @param random Zufallsgenerator für die Auswahl der Aufgabe und der Verschiebung
+     * @param maxShift maximale Anzahl an Slots, um die eine Aufgabe verschoben werden darf
+     * @throws IllegalArgumentException wenn maxShift kleiner oder gleich 0 ist
+     */
     public PillarMove(Random random, int maxShift) {
         if (maxShift <= 0) {
             throw new IllegalArgumentException("maxShift muss größer als 0 sein.");
@@ -23,6 +37,11 @@ public class PillarMove extends Move {
         this.maxShift = maxShift;
     }
 
+    /**
+     * Verschiebt alle nicht fixierten Chunks einer zufällig ausgewählten Aufgabe gemeinsam.
+     * @param current aktueller Zustand des Solvers
+     * @return neuer SolverState nach der Verschiebung oder {@code null}, wenn kein gültiger Move möglich ist
+     */
     @Override
     public SolverState apply(SolverState current) {
         Map<UUID, List<ScheduledChunk>> chunksByTask = current.scheduledChunks().stream()
@@ -73,21 +92,11 @@ public class PillarMove extends Move {
             if (!slotIsFree && !slotBelongsToSameTask) {
                 return null;
             }
-            if (targetSlot.durationMinutes() < chunk.chunk().durationMinutes()) {
+
+            if (!isValidTargetSlot(targetSlot, chunk)) {
                 return null;
             }
-            if (chunk.chunk().deadline() != null) {
-                LocalDateTime chunkEnd = LocalDateTime.of(targetSlot.date(), targetSlot.endTime());
-                if (chunkEnd.isAfter(chunk.chunk().deadline())) {
-                    return null;
-                }
-            }
-            if (chunk.chunk().notBefore() != null) {
-                LocalDateTime chunkStart = LocalDateTime.of(targetSlot.date(), targetSlot.startTime());
-                if (chunkStart.isBefore(chunk.chunk().notBefore())) {
-                    return null;
-                }
-            }
+
             newSlotsForChunks.add(targetSlot);
             freedSlots.add(chunk.slot());
         }
@@ -110,14 +119,25 @@ public class PillarMove extends Move {
                 next.freeSlots().add(freed);
             }
         }
+
         return next;
     }
 
+    /**
+     * Gibt die betroffenen Chunk-IDs für diesen Move zurück.
+     *
+     * @return leere Liste, da die betroffenen Chunks erst bei konkreter Auswahl bekannt sind
+     */
     @Override
     public List<UUID> affectedChunkIds() {
         return List.of();
     }
 
+    /**
+     * Gibt die IDs der verschobenen Chunks zurück.
+     * @param movedChunks verschobene Chunks
+     * @return Liste der IDs der verschobenen Chunks
+     */
     public List<UUID> affectedChunkIds(List<ScheduledChunk> movedChunks) {
         return movedChunks.stream()
                 .map(sc -> sc.chunk().chunkId())
@@ -129,5 +149,26 @@ public class PillarMove extends Move {
         state.scheduledChunks().forEach(sc -> all.add(sc.slot()));
         all.sort(Comparator.comparing(TimeSlot::date).thenComparing(TimeSlot::startTime));
         return all;
+    }
+
+    private boolean isValidTargetSlot(TimeSlot targetSlot, ScheduledChunk chunk) {
+        if (targetSlot.durationMinutes() < chunk.chunk().durationMinutes()) {
+            return false;
+        }
+
+        if (chunk.chunk().deadline() != null) {
+            LocalDateTime chunkEnd = LocalDateTime.of(targetSlot.date(), targetSlot.endTime());
+            if (chunkEnd.isAfter(chunk.chunk().deadline())) {
+                return false;
+            }
+        }
+
+        if (chunk.chunk().notBefore() != null) {
+            LocalDateTime chunkStart = LocalDateTime.of(targetSlot.date(), targetSlot.startTime());
+            if (chunkStart.isBefore(chunk.chunk().notBefore())) {
+                return false;
+            }
+        }
+        return true;
     }
 }

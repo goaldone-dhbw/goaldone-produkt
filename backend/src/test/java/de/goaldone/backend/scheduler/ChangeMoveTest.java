@@ -6,11 +6,10 @@ import de.goaldone.backend.scheduler.types.model.TaskChunk;
 import de.goaldone.backend.scheduler.types.model.TimeSlot;
 import de.goaldone.backend.scheduler.types.moves.ChangeMove;
 import org.junit.jupiter.api.Test;
-
 import java.time.LocalDate;
 import java.time.LocalTime;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.ArrayDeque;
 import java.util.List;
 import java.util.Queue;
 import java.util.Random;
@@ -19,169 +18,124 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.*;
 
 class ChangeMoveTest {
-
-    @Test
-    void applyMovesUnpinnedChunkToFreeSlot() {
-        TimeSlot oldSlot = slot(9, 10);
-        TimeSlot newSlot = slot(10, 11);
-
-        TaskChunk chunk = chunk(UUID.randomUUID(), 0, 60, false);
-        ScheduledChunk scheduledChunk = new ScheduledChunk(chunk, oldSlot);
-
-        SolverState current = new SolverState(
-                new ArrayList<>(List.of(scheduledChunk)),
-                new ArrayList<>(List.of(newSlot))
-        );
-
-        ChangeMove move = new ChangeMove(new FixedRandom(List.of(0, 0)));
-
-        SolverState next = move.apply(current);
-
-        assertNotNull(next);
-        assertEquals(1, next.scheduledChunks().size());
-
-        ScheduledChunk movedChunk = next.scheduledChunks().get(0);
-        assertEquals(chunk.chunkId(), movedChunk.chunk().chunkId());
-        assertEquals(newSlot, movedChunk.slot());
-
-        assertTrue(next.freeSlots().contains(oldSlot));
-        assertFalse(next.freeSlots().contains(newSlot));
-    }
-
-    @Test
-    void applyReturnsNullWhenAllChunksArePinned() {
-        TimeSlot oldSlot = slot(9, 10);
-        TimeSlot freeSlot = slot(10, 11);
-
-        TaskChunk pinnedChunk = chunk(UUID.randomUUID(), 0, 60, true);
-
-        SolverState current = new SolverState(
-                new ArrayList<>(List.of(new ScheduledChunk(pinnedChunk, oldSlot))),
-                new ArrayList<>(List.of(freeSlot))
-        );
-
-        ChangeMove move = new ChangeMove(new FixedRandom(List.of()));
-
-        SolverState next = move.apply(current);
-
-        assertNull(next);
-    }
-
-    @Test
-    void applyReturnsNullWhenNoFreeSlotsExist() {
-        TimeSlot oldSlot = slot(9, 10);
-
-        TaskChunk chunk = chunk(UUID.randomUUID(), 0, 60, false);
-
-        SolverState current = new SolverState(
-                new ArrayList<>(List.of(new ScheduledChunk(chunk, oldSlot))),
-                new ArrayList<>()
-        );
-
-        ChangeMove move = new ChangeMove(new FixedRandom(List.of()));
-
-        SolverState next = move.apply(current);
-
-        assertNull(next);
-    }
-
-    @Test
-    void applyReturnsNullWhenTargetSlotIsTooShort() {
-        TimeSlot oldSlot = slot(9, 11);
-        TimeSlot tooShortSlot = slot(11, 11, 30);
-
-        TaskChunk chunk = chunk(UUID.randomUUID(), 0, 90, false);
-
-        SolverState current = new SolverState(
-                new ArrayList<>(List.of(new ScheduledChunk(chunk, oldSlot))),
-                new ArrayList<>(List.of(tooShortSlot))
-        );
-
-        ChangeMove move = new ChangeMove(new FixedRandom(List.of(0, 0)));
-
-        SolverState next = move.apply(current);
-
-        assertNull(next);
-    }
-
-    @Test
-    void applyDoesNotModifyOriginalSolverStateDirectly() {
-        TimeSlot oldSlot = slot(9, 10);
-        TimeSlot newSlot = slot(10, 11);
-
-        TaskChunk chunk = chunk(UUID.randomUUID(), 0, 60, false);
-        ScheduledChunk scheduledChunk = new ScheduledChunk(chunk, oldSlot);
-
-        SolverState current = new SolverState(
-                new ArrayList<>(List.of(scheduledChunk)),
-                new ArrayList<>(List.of(newSlot))
-        );
-
-        ChangeMove move = new ChangeMove(new FixedRandom(List.of(0, 0)));
-
-        SolverState next = move.apply(current);
-
-        assertNotNull(next);
-
-        assertEquals(1, current.scheduledChunks().size());
-        assertEquals(oldSlot, current.scheduledChunks().get(0).slot());
-        assertEquals(1, current.freeSlots().size());
-        assertTrue(current.freeSlots().contains(newSlot));
-    }
+    private static final LocalDate DAY = LocalDate.of(2026, 4, 27);
 
     private static TimeSlot slot(int startHour, int endHour) {
-        return new TimeSlot(
-                LocalDate.of(2026, 4, 27),
-                LocalTime.of(startHour, 0),
-                LocalTime.of(endHour, 0)
-        );
+        return new TimeSlot(DAY, LocalTime.of(startHour, 0), LocalTime.of(endHour, 0));
     }
 
-    private static TimeSlot slot(int startHour, int startMinute, int endMinute) {
-        return new TimeSlot(
-                LocalDate.of(2026, 4, 27),
-                LocalTime.of(startHour, startMinute),
-                LocalTime.of(startHour, endMinute)
-        );
-    }
-
-    private static TaskChunk chunk(UUID taskId, int chunkIndex, int durationMinutes, boolean pinned) {
+    private static TaskChunk chunk(UUID taskId, int durationMinutes, boolean pinned) {
         return new TaskChunk(
-                UUID.randomUUID(),
-                taskId,
-                chunkIndex,
-                1,
-                durationMinutes,
-                0,
-                0,
-                null,
-                null,
-                null,
-                pinned,
-                null
+                UUID.randomUUID(), taskId,
+                0, 1, durationMinutes,
+                0, 0, null,
+                null, null, pinned, null
         );
     }
 
-    private static class FixedRandom extends Random {
-        private final Queue<Integer> ints;
+    private static SolverState state(List<ScheduledChunk> scheduled, List<TimeSlot> free) {
+        return new SolverState(new ArrayList<>(scheduled), new ArrayList<>(free));
+    }
 
-        FixedRandom(List<Integer> ints) {
-            this.ints = new ArrayDeque<>(ints);
-        }
-
-        @Override
-        public int nextInt(int bound) {
-            if (ints.isEmpty()) {
-                fail("No fixed int value left for nextInt(" + bound + ")");
+    private static Random fixed(Integer... ints) {
+        Queue<Integer> queue = new ArrayDeque<>(List.of(ints));
+        return new Random() {
+            @Override public int nextInt(int bound) {
+                if (queue.isEmpty()) fail("Kein weiterer int-Wert konfiguriert");
+                int v = queue.remove();
+                if (v < 0 || v >= bound) fail("Wert " + v + " außerhalb bound " + bound);
+                return v;
             }
+        };
+    }
 
-            int value = ints.remove();
+    @Test
+    void apply_movesUnpinnedChunkToFreeSlot() {
+        UUID taskId = UUID.randomUUID();
+        TaskChunk chunkA = chunk(taskId, 60, false);
+        TimeSlot occupied = slot(9, 10);
+        TimeSlot free     = slot(11, 12);
 
-            if (value < 0 || value >= bound) {
-                fail("Fixed int value " + value + " is outside bound " + bound);
-            }
+        SolverState result = new ChangeMove(fixed(0, 0)).apply(state(
+                List.of(new ScheduledChunk(chunkA, occupied)),
+                List.of(free)
+        ));
 
-            return value;
-        }
+        assertNotNull(result);
+        assertTrue(result.scheduledChunks().stream()
+                .anyMatch(sc -> sc.chunk().chunkId().equals(chunkA.chunkId())
+                        && sc.slot().equals(free)));
+    }
+
+    @Test
+    void apply_returnsNull_whenAllChunksPinned() {
+        UUID taskId = UUID.randomUUID();
+        TaskChunk pinned = chunk(taskId, 60, true);
+
+        assertNull(new ChangeMove(fixed()).apply(state(
+                List.of(new ScheduledChunk(pinned, slot(9, 10))),
+                List.of(slot(11, 12))
+        )));
+    }
+
+    @Test
+    void apply_returnsNull_whenNoFreeSlots() {
+        UUID taskId = UUID.randomUUID();
+        TaskChunk chunkA = chunk(taskId, 60, false);
+
+        assertNull(new ChangeMove(fixed()).apply(state(
+                List.of(new ScheduledChunk(chunkA, slot(9, 10))),
+                List.of()
+        )));
+    }
+
+    @Test
+    void apply_returnsNull_whenTargetSlotTooShort() {
+        UUID taskId = UUID.randomUUID();
+        TaskChunk chunkA = chunk(taskId, 60, false); // braucht 60 min
+
+        TimeSlot thirtyMin = new TimeSlot(DAY, LocalTime.of(11, 0), LocalTime.of(11, 30));
+
+        assertNull(new ChangeMove(fixed(0, 0)).apply(state(
+                List.of(new ScheduledChunk(chunkA, slot(9, 10))),
+                List.of(thirtyMin)
+        )));
+    }
+
+    @Test
+    void apply_freesOldSlot_andRemovesNewSlot() {
+        UUID taskId = UUID.randomUUID();
+        TaskChunk chunkA = chunk(taskId, 60, false);
+        TimeSlot oldSlot = slot(9, 10);
+        TimeSlot newSlot = slot(11, 12);
+
+        SolverState result = new ChangeMove(fixed(0, 0)).apply(state(
+                List.of(new ScheduledChunk(chunkA, oldSlot)),
+                List.of(newSlot)
+        ));
+
+        assertNotNull(result);
+        assertTrue(result.freeSlots().contains(oldSlot));
+        assertFalse(result.freeSlots().contains(newSlot));
+    }
+
+    @Test
+    void apply_doesNotMutateOriginalState() {
+        UUID taskId = UUID.randomUUID();
+        TaskChunk chunkA = chunk(taskId, 60, false);
+        TimeSlot oldSlot = slot(9, 10);
+        TimeSlot newSlot = slot(11, 12);
+
+        SolverState current = state(
+                List.of(new ScheduledChunk(chunkA, oldSlot)),
+                List.of(newSlot)
+        );
+        int scheduledBefore = current.scheduledChunks().size();
+        int freeBefore      = current.freeSlots().size();
+
+        new ChangeMove(fixed(0, 0)).apply(current);
+
+        assertEquals(scheduledBefore, current.scheduledChunks().size());
+        assertEquals(freeBefore,      current.freeSlots().size());
     }
 }

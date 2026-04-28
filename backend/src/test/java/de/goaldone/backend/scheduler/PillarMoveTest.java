@@ -6,7 +6,6 @@ import de.goaldone.backend.scheduler.types.model.TaskChunk;
 import de.goaldone.backend.scheduler.types.model.TimeSlot;
 import de.goaldone.backend.scheduler.types.moves.PillarMove;
 import org.junit.jupiter.api.Test;
-
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -16,260 +15,208 @@ import java.util.List;
 import java.util.Queue;
 import java.util.Random;
 import java.util.UUID;
-
 import static org.junit.jupiter.api.Assertions.*;
 
 class PillarMoveTest {
-
-    @Test
-    void constructorThrowsExceptionWhenMaxShiftIsZeroOrNegative() {
-        assertThrows(IllegalArgumentException.class, () -> new PillarMove(new FixedRandom(List.of()), 0));
-        assertThrows(IllegalArgumentException.class, () -> new PillarMove(new FixedRandom(List.of()), -1));
-    }
-
-    @Test
-    void applyMovesAllUnpinnedChunksOfOneTaskTogether() {
-        UUID taskId = UUID.randomUUID();
-
-        TimeSlot slot0 = slot(9, 10);
-        TimeSlot slot1 = slot(10, 11);
-        TimeSlot slot2 = slot(11, 12);
-
-        TaskChunk chunk0 = chunk(taskId, 0, 60, false, null, null);
-        TaskChunk chunk1 = chunk(taskId, 1, 60, false, null, null);
-
-        SolverState current = new SolverState(
-                new ArrayList<>(List.of(
-                        new ScheduledChunk(chunk0, slot0),
-                        new ScheduledChunk(chunk1, slot1)
-                )),
-                new ArrayList<>(List.of(slot2))
-        );
-
-        PillarMove move = new PillarMove(new FixedRandom(List.of(0, 2)), 1);
-
-        SolverState next = move.apply(current);
-
-        assertNotNull(next);
-        assertEquals(slot1, findSlot(next, chunk0.chunkId()));
-        assertEquals(slot2, findSlot(next, chunk1.chunkId()));
-
-        assertTrue(next.freeSlots().contains(slot0));
-        assertFalse(next.freeSlots().contains(slot2));
-    }
-
-    @Test
-    void orderAndDistanceRemainAfterMoving() {
-        UUID taskId = UUID.randomUUID();
-
-        TimeSlot slot0 = slot(9, 10);
-        TimeSlot slot1 = slot(10, 11);
-        TimeSlot slot2 = slot(11, 12);
-
-        TaskChunk chunk0 = chunk(taskId, 0, 60, false, null, null);
-        TaskChunk chunk1 = chunk(taskId, 1, 60, false, null, null);
-
-        SolverState current = new SolverState(
-                new ArrayList<>(List.of(
-                        new ScheduledChunk(chunk0, slot0),
-                        new ScheduledChunk(chunk1, slot1)
-                )),
-                new ArrayList<>(List.of(slot2))
-        );
-
-        PillarMove move = new PillarMove(new FixedRandom(List.of(0, 2)), 1);
-
-        SolverState next = move.apply(current);
-
-        assertNotNull(next);
-
-        TimeSlot newSlot0 = findSlot(next, chunk0.chunkId());
-        TimeSlot newSlot1 = findSlot(next, chunk1.chunkId());
-
-        assertTrue(newSlot0.startTime().isBefore(newSlot1.startTime()));
-        assertEquals(60, java.time.temporal.ChronoUnit.MINUTES.between(newSlot0.startTime(), newSlot1.startTime()));
-    }
-
-    @Test
-    void applyReturnsNullWhenTargetSlotIsOutsideSlotRange() {
-        UUID taskId = UUID.randomUUID();
-
-        TimeSlot lastSlot = slot(9, 10);
-
-        TaskChunk chunk = chunk(taskId, 0, 60, false, null, null);
-
-        SolverState current = new SolverState(
-                new ArrayList<>(List.of(new ScheduledChunk(chunk, lastSlot))),
-                new ArrayList<>()
-        );
-
-        PillarMove move = new PillarMove(new FixedRandom(List.of(0, 2)), 1);
-
-        SolverState next = move.apply(current);
-
-        assertNull(next);
-    }
-
-    @Test
-    void applyReturnsNullWhenTargetSlotIsOccupiedByForeignTask() {
-        UUID targetTaskId = UUID.randomUUID();
-        UUID foreignTaskId = UUID.randomUUID();
-
-        TimeSlot slot0 = slot(9, 10);
-        TimeSlot occupiedSlot = slot(10, 11);
-
-        TaskChunk targetChunk = chunk(targetTaskId, 0, 60, false, null, null);
-        TaskChunk foreignPinnedChunk = chunk(foreignTaskId, 0, 60, true, null, null);
-
-        SolverState current = new SolverState(
-                new ArrayList<>(List.of(
-                        new ScheduledChunk(targetChunk, slot0),
-                        new ScheduledChunk(foreignPinnedChunk, occupiedSlot)
-                )),
-                new ArrayList<>()
-        );
-
-        PillarMove move = new PillarMove(new FixedRandom(List.of(0, 2)), 1);
-
-        SolverState next = move.apply(current);
-
-        assertNull(next);
-    }
-
-    @Test
-    void applyReturnsNullWhenTargetSlotWouldExceedDeadline() {
-        UUID taskId = UUID.randomUUID();
-
-        TimeSlot slot0 = slot(9, 10);
-        TimeSlot slot1 = slot(10, 11);
-
-        LocalDateTime deadline = LocalDateTime.of(slot1.date(), LocalTime.of(10, 30));
-
-        TaskChunk chunk = chunk(taskId, 0, 60, false, null, deadline);
-
-        SolverState current = new SolverState(
-                new ArrayList<>(List.of(new ScheduledChunk(chunk, slot0))),
-                new ArrayList<>(List.of(slot1))
-        );
-
-        PillarMove move = new PillarMove(new FixedRandom(List.of(0, 2)), 1);
-
-        SolverState next = move.apply(current);
-
-        assertNull(next);
-    }
-
-    @Test
-    void applyReturnsNullWhenTargetSlotWouldStartBeforeNotBefore() {
-        UUID taskId = UUID.randomUUID();
-
-        TimeSlot slot0 = slot(9, 10);
-        TimeSlot slot1 = slot(10, 11);
-
-        LocalDateTime notBefore = LocalDateTime.of(slot1.date(), LocalTime.of(10, 0));
-
-        TaskChunk chunk = chunk(taskId, 0, 60, false, notBefore, null);
-
-        SolverState current = new SolverState(
-                new ArrayList<>(List.of(new ScheduledChunk(chunk, slot1))),
-                new ArrayList<>(List.of(slot0))
-        );
-
-        PillarMove move = new PillarMove(new FixedRandom(List.of(0, 0)), 1);
-
-        SolverState next = move.apply(current);
-
-        assertNull(next);
-    }
-
-    @Test
-    void pinnedChunksAreNotMoved() {
-        UUID taskId = UUID.randomUUID();
-
-        TimeSlot slot0 = slot(9, 10);
-        TimeSlot slot1 = slot(10, 11);
-        TimeSlot slot2 = slot(11, 12);
-
-        TaskChunk movableChunk = chunk(taskId, 0, 60, false, null, null);
-        TaskChunk pinnedChunk = chunk(taskId, 1, 60, true, null, null);
-
-        SolverState current = new SolverState(
-                new ArrayList<>(List.of(
-                        new ScheduledChunk(movableChunk, slot0),
-                        new ScheduledChunk(pinnedChunk, slot2)
-                )),
-                new ArrayList<>(List.of(slot1))
-        );
-
-        PillarMove move = new PillarMove(new FixedRandom(List.of(0, 2)), 1);
-
-        SolverState next = move.apply(current);
-
-        assertNotNull(next);
-        assertEquals(slot1, findSlot(next, movableChunk.chunkId()));
-        assertEquals(slot2, findSlot(next, pinnedChunk.chunkId()));
-    }
-
-    private static TimeSlot findSlot(SolverState state, UUID chunkId) {
-        return state.scheduledChunks().stream()
-                .filter(sc -> sc.chunk().chunkId().equals(chunkId))
-                .findFirst()
-                .orElseThrow()
-                .slot();
-    }
+    private static final LocalDate DAY = LocalDate.of(2026, 4, 27);
 
     private static TimeSlot slot(int startHour, int endHour) {
-        return new TimeSlot(
-                LocalDate.of(2026, 4, 27),
-                LocalTime.of(startHour, 0),
-                LocalTime.of(endHour, 0)
-        );
+        return new TimeSlot(DAY, LocalTime.of(startHour, 0), LocalTime.of(endHour, 0));
     }
 
-    private static TaskChunk chunk(
-            UUID taskId,
-            int chunkIndex,
-            int durationMinutes,
-            boolean pinned,
-            LocalDateTime notBefore,
-            LocalDateTime deadline
-    ) {
+    private static TaskChunk chunk(UUID taskId, int chunkIndex, int durationMinutes,
+                                   boolean pinned, LocalDateTime notBefore, LocalDateTime deadline) {
         return new TaskChunk(
-                UUID.randomUUID(),
-                taskId,
-                chunkIndex,
-                2,
-                durationMinutes,
-                0,
-                0,
-                null,
-                notBefore,
-                deadline,
-                pinned,
-                null
+                UUID.randomUUID(), taskId,
+                chunkIndex, 3, durationMinutes,
+                0, 0, null,
+                notBefore, deadline, pinned, null
         );
     }
 
-    private static class FixedRandom extends Random {
-        private final Queue<Integer> ints;
+    private static TaskChunk chunk(UUID taskId, int chunkIndex, int durationMinutes, boolean pinned) {
+        return chunk(taskId, chunkIndex, durationMinutes, pinned, null, null);
+    }
 
-        FixedRandom(List<Integer> ints) {
-            this.ints = new ArrayDeque<>(ints);
-        }
+    private static SolverState state(List<ScheduledChunk> scheduled, List<TimeSlot> free) {
+        return new SolverState(new ArrayList<>(scheduled), new ArrayList<>(free));
+    }
 
-        @Override
-        public int nextInt(int bound) {
-            if (ints.isEmpty()) {
-                fail("No fixed int value left for nextInt(" + bound + ")");
+    private static Random fixed(Integer... ints) {
+        Queue<Integer> queue = new ArrayDeque<>(List.of(ints));
+        return new Random() {
+            @Override public int nextInt(int bound) {
+                if (queue.isEmpty()) fail("Kein weiterer int-Wert konfiguriert");
+                int v = queue.remove();
+                if (v < 0 || v >= bound) fail("Wert " + v + " außerhalb bound " + bound);
+                return v;
             }
+        };
+    }
 
-            int value = ints.remove();
+    @Test
+    void constructor_throwsException_whenMaxShiftIsZeroOrNegative() {
+        assertThrows(IllegalArgumentException.class,
+                () -> new PillarMove(new Random(), 0));
+        assertThrows(IllegalArgumentException.class,
+                () -> new PillarMove(new Random(), -1));
+    }
 
-            if (value < 0 || value >= bound) {
-                fail("Fixed int value " + value + " is outside bound " + bound);
-            }
+    @Test
+    void apply_shiftsAllChunksOfTask_byPositiveN() {
+        UUID taskId = UUID.randomUUID();
+        TaskChunk chunkA = chunk(taskId, 0, 60, false);
+        TaskChunk chunkB = chunk(taskId, 1, 60, false);
+        TaskChunk chunkC = chunk(taskId, 2, 60, false);
 
-            return value;
-        }
+        TimeSlot s8  = slot(8,  9);
+        TimeSlot s9  = slot(9,  10);
+        TimeSlot s10 = slot(10, 11);
+        TimeSlot s11 = slot(11, 12);
+        TimeSlot s12 = slot(12, 13);
+
+        SolverState current = state(
+                List.of(new ScheduledChunk(chunkA, s8),
+                        new ScheduledChunk(chunkB, s9),
+                        new ScheduledChunk(chunkC, s10)),
+                List.of(s11, s12)
+        );
+
+        SolverState result = new PillarMove(fixed(0, 4), 2).apply(current);
+
+        assertNotNull(result);
+        assertTrue(result.scheduledChunks().stream()
+                .anyMatch(sc -> sc.chunk().chunkId().equals(chunkA.chunkId()) && sc.slot().equals(s10)));
+        assertTrue(result.scheduledChunks().stream()
+                .anyMatch(sc -> sc.chunk().chunkId().equals(chunkB.chunkId()) && sc.slot().equals(s11)));
+        assertTrue(result.scheduledChunks().stream()
+                .anyMatch(sc -> sc.chunk().chunkId().equals(chunkC.chunkId()) && sc.slot().equals(s12)));
+    }
+
+    @Test
+    void apply_preservesOrderAndSpacing() {
+        UUID taskId = UUID.randomUUID();
+        TaskChunk chunkA = chunk(taskId, 0, 60, false);
+        TaskChunk chunkB = chunk(taskId, 1, 60, false);
+
+        TimeSlot s8  = slot(8,  9);
+        TimeSlot s9  = slot(9,  10);
+        TimeSlot s10 = slot(10, 11);
+        TimeSlot s11 = slot(11, 12);
+
+        SolverState current = state(
+                List.of(new ScheduledChunk(chunkA, s8),
+                        new ScheduledChunk(chunkB, s10)),
+                List.of(s9, s11)
+        );
+
+        SolverState result = new PillarMove(fixed(0, 2), 1).apply(current);
+
+        assertNotNull(result);
+        assertTrue(result.scheduledChunks().stream()
+                .anyMatch(sc -> sc.chunk().chunkId().equals(chunkA.chunkId()) && sc.slot().equals(s9)));
+        assertTrue(result.scheduledChunks().stream()
+                .anyMatch(sc -> sc.chunk().chunkId().equals(chunkB.chunkId()) && sc.slot().equals(s11)));
+    }
+
+    @Test
+    void apply_returnsNull_whenTargetIndexOutOfBounds() {
+        UUID taskId = UUID.randomUUID();
+        TaskChunk chunkA = chunk(taskId, 0, 60, false);
+        TaskChunk chunkB = chunk(taskId, 1, 60, false);
+
+        TimeSlot s8 = slot(8, 9);
+        TimeSlot s9 = slot(9, 10);
+
+        SolverState current = state(
+                List.of(new ScheduledChunk(chunkA, s8),
+                        new ScheduledChunk(chunkB, s9)),
+                List.of()
+        );
+
+        assertNull(new PillarMove(fixed(0, 0), 3).apply(current));
+    }
+
+    @Test
+    void apply_returnsNull_whenTargetSlotOccupiedByOtherTask() {
+        UUID taskId      = UUID.randomUUID();
+        UUID otherTaskId = UUID.randomUUID();
+
+        TaskChunk chunkA = chunk(taskId,      0, 60, false);
+        TaskChunk other  = chunk(otherTaskId, 0, 60, false);
+
+        TimeSlot s8 = slot(8, 9);
+        TimeSlot s9 = slot(9, 10); // belegt durch andere Task
+
+        SolverState current = state(
+                List.of(new ScheduledChunk(chunkA, s8),
+                        new ScheduledChunk(other,  s9)),
+                List.of()
+        );
+
+        assertNull(new PillarMove(fixed(0, 2), 1).apply(current));
+    }
+
+    @Test
+    void apply_returnsNull_whenTargetSlotExceedsDeadline() {
+        UUID taskId = UUID.randomUUID();
+        LocalDateTime deadline = LocalDateTime.of(DAY, LocalTime.of(10, 0)); // Ende spätestens 10:00
+
+        TaskChunk chunkA = chunk(taskId, 0, 60, false, null, deadline);
+
+        TimeSlot s8  = slot(8,  9);
+        TimeSlot s10 = slot(10, 11); // endet 11:00 → nach deadline
+
+        SolverState current = state(
+                List.of(new ScheduledChunk(chunkA, s8)),
+                List.of(s10)
+        );
+        assertNull(new PillarMove(fixed(0, 2), 1).apply(current));
+    }
+
+    @Test
+    void apply_returnsNull_whenTargetSlotBeforeNotBefore() {
+        UUID taskId = UUID.randomUUID();
+        LocalDateTime notBefore = LocalDateTime.of(DAY, LocalTime.of(10, 0));
+
+        TaskChunk chunkA = chunk(taskId, 0, 60, false, notBefore, null);
+
+        TimeSlot s8  = slot(8,  9);
+        TimeSlot s9  = slot(9, 10);
+        TimeSlot s10 = slot(10, 11);
+
+        SolverState current = state(
+                List.of(new ScheduledChunk(chunkA, s10)),
+                List.of(s8, s9)
+        );
+
+        assertNull(new PillarMove(fixed(0, 0), 1).apply(current));
+    }
+
+    @Test
+    void apply_doesNotMovePinnedChunks() {
+        UUID taskId = UUID.randomUUID();
+        TaskChunk pinned   = chunk(taskId, 0, 60, true);
+        TaskChunk unpinned = chunk(taskId, 1, 60, false);
+
+        TimeSlot s8  = slot(8,  9);
+        TimeSlot s9  = slot(9,  10);
+        TimeSlot s10 = slot(10, 11);
+
+        SolverState current = state(
+                List.of(new ScheduledChunk(pinned,   s8),
+                        new ScheduledChunk(unpinned, s9)),
+                List.of(s10)
+        );
+
+        SolverState result = new PillarMove(fixed(0, 2), 1).apply(current);
+
+        assertNotNull(result);
+        assertTrue(result.scheduledChunks().stream()
+                .anyMatch(sc -> sc.chunk().chunkId().equals(pinned.chunkId())
+                        && sc.slot().equals(s8)));
+        assertTrue(result.scheduledChunks().stream()
+                .anyMatch(sc -> sc.chunk().chunkId().equals(unpinned.chunkId())
+                        && sc.slot().equals(s10)));
     }
 }
