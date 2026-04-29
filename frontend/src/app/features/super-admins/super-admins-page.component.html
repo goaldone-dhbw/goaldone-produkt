@@ -7,7 +7,7 @@
       <div>
         <h1 class="text-3xl font-bold tracking-tight text-slate-900">Super-Admins</h1>
         <p class="mt-2 text-sm text-slate-600">
-          Verwalte Unternehmen und globale Administratoren der GoalDone Plattform.
+          Verwalte die globalen Administratoren der GoalDone Plattform.
         </p>
       </div>
 
@@ -87,6 +87,10 @@
         </div>
       }
     </div>
+
+    <app-create-organization-card
+      (created)="onOrganizationCreated()"
+    ></app-create-organization-card>
 
     <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
       <div class="border-b border-slate-200 px-6 py-4">

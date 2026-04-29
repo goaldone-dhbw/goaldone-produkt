@@ -52,13 +52,25 @@ export class SuperAdminsPageComponent implements OnInit {
     this.loadOrganizations();
   }
 
+  onOrganizationCreated(): void {
+  }
+
   loadSuperAdmins(): void {
     this.isLoading.set(true);
+    this.adminService
+      .listSuperAdmins()
 
     this.adminService
       .listSuperAdmins()
       .pipe(finalize(() => this.isLoading.set(false)))
       .subscribe({
+        next: (admins) => this.superAdmins.set(admins),
+        error: () =>
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Fehler',
+            detail: 'Super-Admins konnten nicht geladen werden.',
+          }),
         next: (admins: SuperAdminResponse[]) => this.superAdmins.set(admins),
         error: () =>
           this.messageService.add({
@@ -196,6 +208,31 @@ export class SuperAdminsPageComponent implements OnInit {
   private deleteAdmin(admin: SuperAdminResponse): void {
     this.adminService.deleteSuperAdmin(admin.zitadelId).subscribe({
       next: () => {
+        console.log('Admin deleted successfully');
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Erfolg',
+          detail: 'Super-Admin wurde gelöscht.',
+        });
+        // Auch hier eine kurze Verzögerung für die Konsistenz
+        setTimeout(() => this.loadSuperAdmins(), 1000);
+      },
+      error: (err) => {
+        console.error('Failed to delete admin:', err);
+
+        let errorMessage = 'Super-Admin konnte nicht gelöscht werden.';
+
+        // Check for specific error message from backend
+        if (
+          err.status === 409 &&
+          (err.error?.detail === 'LAST_SUPER_ADMIN_CANNOT_BE_DELETED' ||
+            err.error?.title === 'LAST_SUPER_ADMIN_CANNOT_BE_DELETED')
+        ) {
+          errorMessage =
+            'Der letzte Super-Admin kann nicht gelöscht werden. Es muss mindestens ein Administrator im System verbleiben.';
+        }
+    this.adminService.deleteSuperAdmin(admin.zitadelId).subscribe({
+      next: () => {
         this.messageService.add({
           severity: 'success',
           summary: 'Erfolg',
@@ -216,6 +253,13 @@ export class SuperAdminsPageComponent implements OnInit {
             'Der letzte Super-Admin kann nicht gelöscht werden. Es muss mindestens ein Administrator im System verbleiben.';
         }
 
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Fehler',
+          detail: errorMessage,
+        });
+      },
+    });
         this.messageService.add({
           severity: 'error',
           summary: 'Fehler',
