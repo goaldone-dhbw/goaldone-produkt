@@ -14,6 +14,8 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.*;
 
@@ -52,7 +54,7 @@ public class ScheduleService {
 
         // Generate schedules in parallel
         try (ExecutorService executor = Executors.newFixedThreadPool(accountIds.size())) {
-            // Create async tasks for each account with index tracking
+            // Create async tasks for each account
             List<CompletableFuture<ScheduleResponse>> futures = accountIds.stream()
                 .map(accountId ->
                     CompletableFuture.supplyAsync(
@@ -78,8 +80,9 @@ public class ScheduleService {
 
             // Collect results
             return futures.stream()
-                .map(CompletableFuture::join)
-                .toList();
+                    .map(CompletableFuture::join)   // non-blocking due to completeOnTimeout
+                    .filter(Objects::nonNull)       // remove timed-out or failed tasks
+                    .toList();
         } catch (Exception e) {
             throw new RuntimeException("Failed to create executor for account scheduling", e);
         }
@@ -135,6 +138,9 @@ public class ScheduleService {
      */
     public ScheduleResponse generateSchedule(Jwt jwt, UUID accountId, GenerateScheduleRequest generateScheduleRequest) {
 
+        // Validate request
+        validateRequest(jwt, accountId, generateScheduleRequest);
+
         // Get data
         List<TaskResponse> allTasks = taskService.getTasksForAccountId(jwt, accountId);
 
@@ -160,7 +166,6 @@ public class ScheduleService {
         // Forward to schedule generator
         SchedulingResult bestResult = solver.createSchedule(schedulingContext);
 
-
         // TODO: Map result to ScheduleResponse and return
         return null;
     }
@@ -178,6 +183,26 @@ public class ScheduleService {
                 errorMessage
         )));
         return response;
+    }
+
+    private void validateRequest(Jwt jwt, UUID accountId, GenerateScheduleRequest generateScheduleRequest) {
+        // Check if account exists
+        Optional<UserAccountEntity> accountOpt = userAccountRepository.findById(accountId);
+        if (accountOpt.isEmpty()) {
+            throw new IllegalArgumentException("Account with ID " + accountId + " does not exist");
+        }
+
+        // Check if user has access to this account
+        String userId = jwt.getSubject();
+        UserAccountEntity account = accountOpt.get();
+        if (!account.getZitadelSub().equals(userId)) {
+            throw new SecurityException("User " + userId + " does not have access to account " + accountId);
+        }
+
+        // Validate fromDate (e.g. cannot be in the past)
+        if (generateScheduleRequest.getFrom().isBefore(LocalDate.now())) {
+            throw new IllegalArgumentException("From date cannot be in the past");
+        }
     }
 
     public ScheduleResponse getSchedule() {
