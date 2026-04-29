@@ -1,57 +1,143 @@
-<p-card header="Einladungen" class="settings-card admin-section">
-  <div class="invite-form">
-    <form (ngSubmit)="sendInvitation()" class="invite-input-row">
-      <input
-        type="email"
-        pInputText
-        name="inviteEmail"
-        placeholder="E-Mail-Adresse"
-        [ngModel]="inviteEmail()"
-        (ngModelChange)="inviteEmail.set($event)"
-        class="invite-input"
-      />
+<p-toast />
+<p-confirmDialog />
 
-      <input
-        pInputText
-        type="text"
-        name="inviteFirstName"
-        placeholder="Vorname"
-        maxlength="200"
-        [ngModel]="inviteFirstName()"
-        (ngModelChange)="inviteFirstName.set($event)"
-        class="invite-input"
-      />
+<div class="settings-page">
+  <p-card header="Einladungen" class="settings-card admin-section">
+    <div class="invite-form">
+      <form (ngSubmit)="sendInvitation()" class="invite-input-row">
+        <input
+          type="email"
+          pInputText
+          name="inviteEmail"
+          placeholder="E-Mail-Adresse"
+          [ngModel]="inviteEmail()"
+          (ngModelChange)="inviteEmail.set($event)"
+          class="invite-input"
+        />
 
-      <input
-        pInputText
-        type="text"
-        name="inviteLastName"
-        placeholder="Nachname"
-        maxlength="200"
-        [ngModel]="inviteLastName()"
-        (ngModelChange)="inviteLastName.set($event)"
-        class="invite-input"
-      />
+        <input
+          pInputText
+          type="text"
+          name="inviteFirstName"
+          placeholder="Vorname"
+          maxlength="200"
+          [ngModel]="inviteFirstName()"
+          (ngModelChange)="inviteFirstName.set($event)"
+          class="invite-input"
+        />
 
-      <p-button
-        type="submit"
-        label="Einladen"
-        icon="pi pi-send"
-        [loading]="inviteSending()"
-        [disabled]="!isInviteFormValid() || inviteSending()"
-      />
-    </form>
+        <input
+          pInputText
+          type="text"
+          name="inviteLastName"
+          placeholder="Nachname"
+          maxlength="200"
+          [ngModel]="inviteLastName()"
+          (ngModelChange)="inviteLastName.set($event)"
+          class="invite-input"
+        />
 
-    @if (inviteError()) {
+        <p-button
+          type="submit"
+          label="Einladen"
+          icon="pi pi-send"
+          [loading]="inviteSending()"
+          [disabled]="!isInviteFormValid() || inviteSending()"
+        />
+      </form>
+
+      @if (inviteError()) {
+        <p-message severity="error" styleClass="full-width mt-1">
+          {{ inviteError() }}
+        </p-message>
+      }
+
+      @if (inviteSuccess()) {
+        <p-message severity="success" styleClass="full-width mt-1">
+          {{ inviteSuccess() }}
+        </p-message>
+      }
+    </div>
+  </p-card>
+
+  <p-card header="Nutzer des Unternehmens" class="settings-card admin-section">
+    @if (membersError()) {
       <p-message severity="error" styleClass="full-width mt-1">
-        {{ inviteError() }}
+        {{ membersError() }}
       </p-message>
     }
 
-    @if (inviteSuccess()) {
-      <p-message severity="success" styleClass="full-width mt-1">
-        {{ inviteSuccess() }}
+    <p-table
+      [value]="members()"
+      [loading]="membersLoading()"
+      responsiveLayout="scroll"
+      styleClass="p-datatable-sm"
+    >
+      <ng-template pTemplate="header">
+        <tr>
+          <th>Name</th>
+          <th>E-Mail</th>
+          <th>Rolle</th>
+          <th>Status</th>
+          <th>Erstellt am</th>
+          <th>Aktionen</th>
+        </tr>
+      </ng-template>
+
+      <ng-template pTemplate="body" let-member>
+        <tr>
+          <td>{{ formatName(member) }}</td>
+          <td>{{ member.email }}</td>
+          <td>
+            <p-tag
+              [value]="getRoleLabel(member.role)"
+              [severity]="getRoleSeverity(member.role)"
+            />
+          </td>
+          <td>{{ member.status }}</td>
+          <td>{{ formatDate(member.createdAt) }}</td>
+          <td>
+            <div class="table-actions">
+              <p-button
+                [icon]="member.role === 'COMPANY_ADMIN' ? 'pi pi-user-minus' : 'pi pi-user-plus'"
+                [label]="member.role === 'COMPANY_ADMIN' ? 'Zum Nutzer machen' : 'Zum Admin machen'"
+                [loading]="roleUpdatingUserId() === member.zitadelUserId"
+                [disabled]="!!roleUpdatingUserId() || !!deletingUserId()"
+                (onClick)="changeRole(member)"
+              />
+
+              <p-button
+                icon="pi pi-trash"
+                label="Löschen"
+                severity="danger"
+                [loading]="deletingUserId() === member.zitadelUserId"
+                [disabled]="!!roleUpdatingUserId() || !!deletingUserId()"
+                (onClick)="confirmDeleteMember(member)"
+              />
+            </div>
+          </td>
+        </tr>
+      </ng-template>
+
+      <ng-template pTemplate="emptymessage">
+        <tr>
+          <td colspan="6">
+            Aktuell sind keine Nutzer vorhanden.
+          </td>
+        </tr>
+      </ng-template>
+    </p-table>
+
+    @if (roleUpdateError()) {
+      <p-message severity="error" styleClass="full-width mt-1">
+        {{ roleUpdateError() }}
       </p-message>
     }
-  </div>
-</p-card>
+
+    @if (deleteError()) {
+      <p-message severity="error" styleClass="full-width mt-1">
+        {{ deleteError() }}
+      </p-message>
+    }
+  </p-card>
+</div>
