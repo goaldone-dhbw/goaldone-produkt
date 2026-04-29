@@ -74,6 +74,17 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * Handles PartialDeletionException and returns HTTP 502 (Bad Gateway) with the list of failed user IDs.
+     */
+    @ExceptionHandler(PartialDeletionException.class)
+    public ProblemDetail handlePartialDeletion(PartialDeletionException ex) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_GATEWAY, "PARTIAL_DELETION_FAILURE");
+        pd.setType(URI.create("https://goaldone.de/errors/upstream-error"));
+        pd.setProperty("failedUserIds", ex.getFailedUserIds());
+        return pd;
+    }
+
+    /**
      * Handles WorkingTimeValidationException and returns HTTP 400 (Bad Request).
      */
     @ExceptionHandler(WorkingTimeValidationException.class)
