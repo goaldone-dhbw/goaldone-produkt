@@ -10,7 +10,6 @@ import de.goaldone.backend.repository.OrganizationRepository;
 import de.goaldone.backend.repository.UserAccountRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.openapitools.jackson.nullable.JsonNullable;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -46,52 +45,70 @@ public class MemberManagementService {
         OrganizationEntity organization = organizationRepository.findById(orgId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Organization not found"));
 
-        JsonNode grantsResponse = zitadelManagementClient.listAllGrants(mainOrgId, goaldoneProjectId, organization.getZitadelOrgId());
+        JsonNode grantsResponse = zitadelManagementClient.listAllGrants(
+                mainOrgId, goaldoneProjectId, organization.getZitadelOrgId()
+        );
+
         List<String> userIds = new ArrayList<>();
         Map<String, List<String>> userRoles = new HashMap<>();
 
-        if (grantsResponse.has("result")) {
-            grantsResponse.get("result").forEach(grant -> {
-                String userId = grant.get("userId").asText();
+        // "authorizations" ist der korrekte Feldname laut tatsächlichem Response
+        if (grantsResponse.has("authorizations")) {
+            grantsResponse.get("authorizations").forEach(auth -> {
+                // Struktur: auth -> user -> id  (NICHT auth -> userId)
+                String userId = auth.path("user").path("id").asText(null);
+                if (userId == null || userId.isBlank()) return;
+
                 userIds.add(userId);
-                List<String> roles = new ArrayList<>();
-                grant.get("roleKeys").forEach(role -> roles.add(role.asText()));
-                userRoles.put(userId, roles);
+
+                List<String> rolesList = new ArrayList<>();
+                if (auth.has("roles")) {
+                    auth.get("roles").forEach(role -> {
+                        String key = role.path("key").asText(null);
+                        if (key != null) rolesList.add(key);
+                    });
+                }
+                userRoles.put(userId, rolesList);
             });
         }
 
         List<JsonNode> zitadelUsers = zitadelManagementClient.listUsersByIds(userIds);
-        List<UserAccountEntity> localAccounts = userAccountRepository.findAll(); // Optimization: could filter by orgId if repository supported it
+        List<UserAccountEntity> localAccounts = userAccountRepository.findAll();
 
         List<MemberResponse> members = zitadelUsers.stream().map(userNode -> {
-            String zitadelUserId = userNode.get("id").asText();
-            String email = userNode.path("human").path("email").path("email").asText();
-            String firstName = userNode.path("human").path("profile").path("givenName").asText();
-            String lastName = userNode.path("human").path("profile").path("familyName").asText();
-            String state = userNode.get("state").asText();
-            Instant createdAtInstant = Instant.parse(userNode.path("details").get("creationDate").asText());
+            String zitadelUserId  = userNode.path("userId").asText();
+            String email          = userNode.path("human").path("email").path("email").asText();
+            String firstName      = userNode.path("human").path("profile").path("givenName").asText();
+            String lastName       = userNode.path("human").path("profile").path("familyName").asText();
+            String state          = userNode.path("state").asText();
+
+            log.info("User info: zitadelUserId {}, email {}, firstName {}, lastName {}, state {}", zitadelUserId, email, firstName, lastName, state);
+
+            String creationDateStr = userNode.path("details").path("creationDate").asText(null);
+            Instant createdAtInstant = (creationDateStr != null && !creationDateStr.isBlank())
+                    ? Instant.parse(creationDateStr)
+                    : Instant.now();
             OffsetDateTime createdAt = createdAtInstant.atOffset(ZoneOffset.UTC);
 
             Optional<UserAccountEntity> localAccount = localAccounts.stream()
-                    .filter(acc -> acc.getZitadelSub().equals(zitadelUserId) && acc.getOrganizationId().equals(orgId))
+                    .filter(acc -> acc.getZitadelSub().equals(zitadelUserId)
+                            && acc.getOrganizationId().equals(orgId))
                     .findFirst();
 
             MemberResponse member = new MemberResponse();
             member.setZitadelUserId(zitadelUserId);
             member.setEmail(email);
-            member.setFirstName(JsonNullable.of(firstName));
-            member.setLastName(JsonNullable.of(lastName));
+            member.setFirstName(firstName);
+            member.setLastName(lastName);
             member.setCreatedAt(createdAt);
-            member.setAccountId(JsonNullable.of(localAccount.map(UserAccountEntity::getId).orElse(null)));
+            member.setAccountId(localAccount.map(UserAccountEntity::getId).orElse(null));
 
-            // Status: ACTIVE if local account exists AND Zitadel state is ACTIVE
             if (localAccount.isPresent() && "USER_STATE_ACTIVE".equals(state)) {
                 member.setStatus(MemberStatus.ACTIVE);
             } else {
                 member.setStatus(MemberStatus.INVITED);
             }
 
-            // Role mapping
             List<String> roles = userRoles.getOrDefault(zitadelUserId, List.of());
             if (roles.contains(MemberRole.COMPANY_ADMIN.getValue())) {
                 member.setRole(MemberRole.COMPANY_ADMIN);
@@ -137,12 +154,14 @@ public class MemberManagementService {
             // Re-fetch all grants for this org to be sure
             JsonNode allGrants = zitadelManagementClient.listAllGrants(mainOrgId, goaldoneProjectId, organization.getZitadelOrgId());
             long orgAdminCount = 0;
-            if (allGrants.has("result")) {
-                for (JsonNode g : allGrants.get("result")) {
-                    for (JsonNode r : g.get("roleKeys")) {
-                        if (MemberRole.COMPANY_ADMIN.getValue().equals(r.asText())) {
-                            orgAdminCount++;
-                            break;
+            if (allGrants.has("authorizations")) {
+                for (JsonNode auth : allGrants.get("authorizations")) {
+                    if (auth.has("roles")) {
+                        for (JsonNode role : auth.get("roles")) {
+                            if (MemberRole.COMPANY_ADMIN.getValue().equals(role.path("key").asText())) {
+                                orgAdminCount++;
+                                break;
+                            }
                         }
                     }
                 }
@@ -180,12 +199,14 @@ public class MemberManagementService {
             // Check if last admin
             JsonNode allGrants = zitadelManagementClient.listAllGrants(mainOrgId, goaldoneProjectId, organization.getZitadelOrgId());
             long orgAdminCount = 0;
-            if (allGrants.has("result")) {
-                for (JsonNode g : allGrants.get("result")) {
-                    for (JsonNode r : g.get("roleKeys")) {
-                        if (MemberRole.COMPANY_ADMIN.getValue().equals(r.asText())) {
-                            orgAdminCount++;
-                            break;
+            if (allGrants.has("authorizations")) {
+                for (JsonNode auth : allGrants.get("authorizations")) {
+                    if (auth.has("roles")) {
+                        for (JsonNode role : auth.get("roles")) {
+                            if (MemberRole.COMPANY_ADMIN.getValue().equals(role.path("key").asText())) {
+                                orgAdminCount++;
+                                break;
+                            }
                         }
                     }
                 }

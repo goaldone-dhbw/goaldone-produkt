@@ -202,7 +202,7 @@ class SuperAdminIntegrationTest {
     }
 
     private void stubEmailNotExists() {
-        wireMockServer.stubFor(WireMock.post(urlPathMatching("/v2/users"))
+        wireMockServer.stubFor(WireMock.post(urlPathMatching("/v2/users/_search"))
             .willReturn(okJson("{\"result\": []}")));
     }
 

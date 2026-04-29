@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -39,6 +40,13 @@ public interface UserAccountRepository extends JpaRepository<UserAccountEntity, 
      * @return A list of {@link UserAccountEntity} objects.
      */
     List<UserAccountEntity> findAllByUserIdentityId(UUID userIdentityId);
+
+    /**
+     * Finds all user accounts by their IDs.
+     * @param ids
+     * @return A list of {@link UserAccountEntity} objects.
+     */
+    List<UserAccountEntity> findAllByIdIn(Collection<UUID> ids);
 
     /**
      * Finds a user account by its ID and the associated user identity ID.
