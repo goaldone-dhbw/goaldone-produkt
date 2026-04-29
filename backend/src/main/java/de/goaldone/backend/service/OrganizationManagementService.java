@@ -178,22 +178,33 @@ public class OrganizationManagementService {
      * Deletion order: active members (via {@link UserAccountDeletionService}) → invited members (direct Zitadel delete)
      * → Zitadel organization → local record.
      * <p>
+     * The operation does not require a local database record to exist. If the organization exists in Zitadel,
+     * it will be deleted even if its local shadow record is missing (e.g., creation failed and was compensated,
+     * or the row was manually deleted).
+     * <p>
      * If any individual user deletion fails, the operation collects all failures and throws a
      * {@link PartialDeletionException} without deleting the organization itself, enabling a retry.
      *
-     * @param zitadelOrgId the local UUID of the organization to delete
-     * @throws ResponseStatusException   with 404 if the organization is not found
+     * @param zitadelOrgId the Zitadel organization ID to delete
+     * @throws ResponseStatusException   with 403 if attempting to delete the home organization
      * @throws ZitadelApiException       if listing org members or deleting the Zitadel organization fails
      * @throws PartialDeletionException  if one or more member deletions fail
      */
     public void deleteOrganization(String zitadelOrgId) {
 
-        ZitadelOrgInfo zitadelOrg = zitadelManagementClient.getOrgInfo(zitadelOrgId);
+        ZitadelOrgInfo zitadelOrg;
+        try {
+            zitadelOrg = zitadelManagementClient.getOrgInfo(zitadelOrgId);
+        } catch (ZitadelApiException e) {
+            if (e.getMessage() != null && e.getMessage().contains("No organization found for id")) {
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "ORGANIZATION_NOT_FOUND");
+            }
+            throw e;
+        }
 
-        OrganizationEntity org = organizationRepository.findByZitadelOrgId(zitadelOrg.id())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "ORGANIZATION_NOT_FOUND"));
+        Optional<OrganizationEntity> orgOptional = organizationRepository.findByZitadelOrgId(zitadelOrg.id());
 
-        if (mainOrgId.equals(org.getZitadelOrgId())) {
+        if (mainOrgId.equals(zitadelOrg.id())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "HOME_ORGANIZATION_CANNOT_BE_DELETED");
         }
 
@@ -236,15 +247,17 @@ public class OrganizationManagementService {
             throw new PartialDeletionException(failedUserIds);
         }
 
-        zitadelManagementClient.deleteOrganizationOrThrow(org.getZitadelOrgId());
+        zitadelManagementClient.deleteOrganizationOrThrow(zitadelOrg.id());
 
-        try {
-            organizationRepository.deleteById(org.getId());
-            log.info("Deleted organization {} (zitadelOrgId={})", org.getId(), org.getZitadelOrgId());
-        } catch (Exception e) {
-            log.error("Failed to delete local organization record {}: {}", org.getId(), e.getMessage());
-            throw new ZitadelApiException("Failed to delete local organization record: " + e.getMessage(), e);
-        }
+        orgOptional.ifPresent(org -> {
+            try {
+                organizationRepository.deleteById(org.getId());
+                log.info("Deleted organization {} (zitadelOrgId={})", org.getId(), org.getZitadelOrgId());
+            } catch (Exception e) {
+                log.error("Failed to delete local organization record {}: {}", org.getId(), e.getMessage());
+                throw new ZitadelApiException("Failed to delete local organization record: " + e.getMessage(), e);
+            }
+        });
     }
 
     /**

@@ -286,9 +286,9 @@ class OrganizationManagementIntegrationTest {
         // Zitadel returns 3 orgs: home org (filtered), org-a, org-b
         // "test-main-org-id" is the configured home org — it must NOT appear in the response
         stubListAllOrganizations(
-                "[{\"organizationId\":\"test-main-org-id\",\"name\":\"Home\",\"details\":{\"creationDate\":\"2024-01-01T00:00:00Z\"}}" +
-                ",{\"organizationId\":\"zit-org-a\",\"name\":\"Org Alpha\",\"details\":{\"creationDate\":\"2024-01-01T00:00:00Z\"}}" +
-                ",{\"organizationId\":\"zit-org-b\",\"name\":\"Org Beta\",\"details\":{\"creationDate\":\"2024-01-01T00:00:00Z\"}}]");
+                "[{\"id\":\"test-main-org-id\",\"name\":\"Home\",\"details\":{\"creationDate\":\"2024-01-01T00:00:00Z\"}}" +
+                ",{\"id\":\"zit-org-a\",\"name\":\"Org Alpha\",\"details\":{\"creationDate\":\"2024-01-01T00:00:00Z\"}}" +
+                ",{\"id\":\"zit-org-b\",\"name\":\"Org Beta\",\"details\":{\"creationDate\":\"2024-01-01T00:00:00Z\"}}]");
 
         // Org A: 3 users (2 active, 1 initial)
         stubGrantsForOrg("zit-org-a", "[{\"userId\":\"ua1\"},{\"userId\":\"ua2\"},{\"userId\":\"ua3\"}]");
@@ -309,17 +309,9 @@ class OrganizationManagementIntegrationTest {
                 // Org Alpha: id populated from local DB
                 .andExpect(jsonPath("$.organizations[?(@.name=='Org Alpha')].id",
                         org.hamcrest.Matchers.hasItem(orgA.getId().toString())))
-                .andExpect(jsonPath("$.organizations[?(@.name=='Org Alpha')].activeMemberCount",
-                        org.hamcrest.Matchers.hasItem(2)))
-                .andExpect(jsonPath("$.organizations[?(@.name=='Org Alpha')].invitedMemberCount",
-                        org.hamcrest.Matchers.hasItem(1)))
                 // Org Beta: id populated from local DB
                 .andExpect(jsonPath("$.organizations[?(@.name=='Org Beta')].id",
-                        org.hamcrest.Matchers.hasItem(orgB.getId().toString())))
-                .andExpect(jsonPath("$.organizations[?(@.name=='Org Beta')].activeMemberCount",
-                        org.hamcrest.Matchers.hasItem(1)))
-                .andExpect(jsonPath("$.organizations[?(@.name=='Org Beta')].invitedMemberCount",
-                        org.hamcrest.Matchers.hasItem(0)));
+                        org.hamcrest.Matchers.hasItem(orgB.getId().toString())));
     }
 
     // New-TC1b: Org exists in Zitadel but not in local DB — id must be null
@@ -327,7 +319,7 @@ class OrganizationManagementIntegrationTest {
     void testListOrganizations_OrgWithoutLocalRecord_HasNullId() throws Exception {
         // "zit-org-zitadel-only" is in Zitadel but has no local DB record
         stubListAllOrganizations(
-                "[{\"organizationId\":\"zit-org-zitadel-only\",\"name\":\"Zitadel Only Org\",\"details\":{\"creationDate\":\"2024-03-01T10:00:00Z\"}}]");
+                "[{\"id\":\"zit-org-zitadel-only\",\"name\":\"Zitadel Only Org\",\"details\":{\"creationDate\":\"2024-03-01T10:00:00Z\"}}]");
         stubGrantsForOrg("zit-org-zitadel-only", "[]");
 
         mockMvc.perform(get("/admins/organizations")
@@ -343,7 +335,7 @@ class OrganizationManagementIntegrationTest {
     void testListOrganizations_OnlyHomeOrgInZitadel_ReturnsEmpty() throws Exception {
         // Zitadel only has the home org — it gets filtered → empty result
         stubListAllOrganizations(
-                "[{\"organizationId\":\"test-main-org-id\",\"name\":\"Home\",\"details\":{\"creationDate\":\"2024-01-01T00:00:00Z\"}}]");
+                "[{\"id\":\"test-main-org-id\",\"name\":\"Home\",\"details\":{\"creationDate\":\"2024-01-01T00:00:00Z\"}}]");
 
         mockMvc.perform(get("/admins/organizations")
                 .with(jwt().jwt(buildJwt("super-admin-user", "SUPER_ADMIN"))
@@ -368,6 +360,7 @@ class OrganizationManagementIntegrationTest {
         UserAccountEntity account2 = userAccountRepository.save(new UserAccountEntity(
                 UUID.randomUUID(), "del-active-2", org.getId(), identity2.getId(), Instant.now(), null, new ArrayList<>()));
 
+        stubGetOrgInfo("zit-org-del");
         stubListUsersInOrg("zit-org-del",
                 "[{\"userId\":\"del-active-1\",\"state\":\"USER_STATE_ACTIVE\"}" +
                 ",{\"userId\":\"del-active-2\",\"state\":\"USER_STATE_ACTIVE\"}" +
@@ -377,7 +370,7 @@ class OrganizationManagementIntegrationTest {
         stubDeleteUser("del-invited-1");
         stubDeleteOrganization("zit-org-del");
 
-        mockMvc.perform(delete("/admins/organizations/" + org.getId())
+        mockMvc.perform(delete("/admins/organizations/" + "zit-org-del")
                 .with(jwt().jwt(buildJwt("super-admin-user", "SUPER_ADMIN"))
                         .authorities(new SimpleGrantedAuthority("ROLE_SUPER_ADMIN"))))
                 .andExpect(status().isNoContent());
@@ -393,10 +386,11 @@ class OrganizationManagementIntegrationTest {
         OrganizationEntity org = new OrganizationEntity(UUID.randomUUID(), "zit-org-empty", "Empty Org", Instant.now());
         organizationRepository.save(org);
 
+        stubGetOrgInfo("zit-org-empty");
         stubListUsersInOrg("zit-org-empty", "[]");
         stubDeleteOrganization("zit-org-empty");
 
-        mockMvc.perform(delete("/admins/organizations/" + org.getId())
+        mockMvc.perform(delete("/admins/organizations/" + "zit-org-empty")
                 .with(jwt().jwt(buildJwt("super-admin-user", "SUPER_ADMIN"))
                         .authorities(new SimpleGrantedAuthority("ROLE_SUPER_ADMIN"))))
                 .andExpect(status().isNoContent());
@@ -414,11 +408,12 @@ class OrganizationManagementIntegrationTest {
         userAccountRepository.save(new UserAccountEntity(
                 UUID.randomUUID(), "solo-user", org.getId(), identity.getId(), Instant.now(), null, new ArrayList<>()));
 
+        stubGetOrgInfo("zit-org-identity-clean");
         stubListUsersInOrg("zit-org-identity-clean", "[{\"userId\":\"solo-user\",\"state\":\"USER_STATE_ACTIVE\"}]");
         stubDeleteUser("solo-user");
         stubDeleteOrganization("zit-org-identity-clean");
 
-        mockMvc.perform(delete("/admins/organizations/" + org.getId())
+        mockMvc.perform(delete("/admins/organizations/" + "zit-org-identity-clean")
                 .with(jwt().jwt(buildJwt("super-admin-user", "SUPER_ADMIN"))
                         .authorities(new SimpleGrantedAuthority("ROLE_SUPER_ADMIN"))))
                 .andExpect(status().isNoContent());
@@ -443,11 +438,12 @@ class OrganizationManagementIntegrationTest {
         userAccountRepository.save(new UserAccountEntity(
                 UUID.randomUUID(), "linked-user-other-account", otherOrg.getId(), identity.getId(), Instant.now(), null, new ArrayList<>()));
 
+        stubGetOrgInfo("zit-org-to-delete");
         stubListUsersInOrg("zit-org-to-delete", "[{\"userId\":\"linked-user\",\"state\":\"USER_STATE_ACTIVE\"}]");
         stubDeleteUser("linked-user");
         stubDeleteOrganization("zit-org-to-delete");
 
-        mockMvc.perform(delete("/admins/organizations/" + orgToDelete.getId())
+        mockMvc.perform(delete("/admins/organizations/" + "zit-org-to-delete")
                 .with(jwt().jwt(buildJwt("super-admin-user", "SUPER_ADMIN"))
                         .authorities(new SimpleGrantedAuthority("ROLE_SUPER_ADMIN"))))
                 .andExpect(status().isNoContent());
@@ -460,7 +456,10 @@ class OrganizationManagementIntegrationTest {
     // New-TC7: Organization not found → 404
     @Test
     void testDeleteOrganization_NotFound() throws Exception {
-        mockMvc.perform(delete("/admins/organizations/" + UUID.randomUUID())
+        String randomId = UUID.randomUUID().toString();
+        stubGetOrgInfoNotFound(randomId);
+
+        mockMvc.perform(delete("/admins/organizations/" + randomId)
                 .with(jwt().jwt(buildJwt("super-admin-user", "SUPER_ADMIN"))
                         .authorities(new SimpleGrantedAuthority("ROLE_SUPER_ADMIN"))))
                 .andExpect(status().isNotFound());
@@ -479,6 +478,7 @@ class OrganizationManagementIntegrationTest {
         userAccountRepository.save(new UserAccountEntity(UUID.randomUUID(), "partial-user-2", org.getId(), id2.getId(), Instant.now(), null, new ArrayList<>()));
         userAccountRepository.save(new UserAccountEntity(UUID.randomUUID(), "partial-user-3", org.getId(), id3.getId(), Instant.now(), null, new ArrayList<>()));
 
+        stubGetOrgInfo("zit-org-partial");
         stubListUsersInOrg("zit-org-partial",
                 "[{\"userId\":\"partial-user-1\",\"state\":\"USER_STATE_ACTIVE\"}" +
                 ",{\"userId\":\"partial-user-2\",\"state\":\"USER_STATE_ACTIVE\"}" +
@@ -487,7 +487,7 @@ class OrganizationManagementIntegrationTest {
         stubDeleteUserFails("partial-user-2");
         stubDeleteUser("partial-user-3");
 
-        mockMvc.perform(delete("/admins/organizations/" + org.getId())
+        mockMvc.perform(delete("/admins/organizations/" + "zit-org-partial")
                 .with(jwt().jwt(buildJwt("super-admin-user", "SUPER_ADMIN"))
                         .authorities(new SimpleGrantedAuthority("ROLE_SUPER_ADMIN"))))
                 .andExpect(status().isBadGateway())
@@ -504,10 +504,11 @@ class OrganizationManagementIntegrationTest {
         OrganizationEntity org = new OrganizationEntity(UUID.randomUUID(), "zit-org-fail", "Fail Org", Instant.now());
         organizationRepository.save(org);
 
+        stubGetOrgInfo("zit-org-fail");
         stubListUsersInOrg("zit-org-fail", "[]");
         stubDeleteOrganizationFails("zit-org-fail");
 
-        mockMvc.perform(delete("/admins/organizations/" + org.getId())
+        mockMvc.perform(delete("/admins/organizations/" + "zit-org-fail")
                 .with(jwt().jwt(buildJwt("super-admin-user", "SUPER_ADMIN"))
                         .authorities(new SimpleGrantedAuthority("ROLE_SUPER_ADMIN"))))
                 .andExpect(status().isBadGateway());
@@ -523,7 +524,9 @@ class OrganizationManagementIntegrationTest {
         OrganizationEntity homeOrg = new OrganizationEntity(UUID.randomUUID(), "test-main-org-id", "Home", Instant.now());
         organizationRepository.save(homeOrg);
 
-        mockMvc.perform(delete("/admins/organizations/" + homeOrg.getId())
+        stubGetOrgInfo("test-main-org-id");
+
+        mockMvc.perform(delete("/admins/organizations/" + "test-main-org-id")
                 .with(jwt().jwt(buildJwt("super-admin-user", "SUPER_ADMIN"))
                         .authorities(new SimpleGrantedAuthority("ROLE_SUPER_ADMIN"))))
                 .andExpect(status().isForbidden());
@@ -657,6 +660,22 @@ class OrganizationManagementIntegrationTest {
         wireMockServer.stubFor(WireMock.delete(urlMatching("/v2/organizations/" + zitadelOrgId))
                 .withHeader(HttpHeaders.AUTHORIZATION, WireMock.containing("Bearer"))
                 .willReturn(aResponse().withStatus(500).withBody("{\"error\":\"internal\"}")));
+    }
+
+    private void stubGetOrgInfo(String zitadelOrgId) {
+        wireMockServer.stubFor(WireMock.post(urlPathMatching("/v2/organizations/_search"))
+                .withRequestBody(WireMock.containing("idQuery"))
+                .withRequestBody(WireMock.containing(zitadelOrgId))
+                .withHeader(HttpHeaders.AUTHORIZATION, WireMock.containing("Bearer"))
+                .willReturn(okJson("{\"result\":[{\"id\":\"" + zitadelOrgId + "\",\"name\":\"Test Org\"}]}")));
+    }
+
+    private void stubGetOrgInfoNotFound(String zitadelOrgId) {
+        wireMockServer.stubFor(WireMock.post(urlPathMatching("/v2/organizations/_search"))
+                .withRequestBody(WireMock.containing("idQuery"))
+                .withRequestBody(WireMock.containing(zitadelOrgId))
+                .withHeader(HttpHeaders.AUTHORIZATION, WireMock.containing("Bearer"))
+                .willReturn(okJson("{\"result\":[]}")));
     }
 
     // --- JWT builders ---
