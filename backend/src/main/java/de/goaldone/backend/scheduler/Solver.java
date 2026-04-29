@@ -27,11 +27,10 @@ public class Solver {
         // Calculate initial schedule using CPM
         Schedule initialSchedule = this.cpmAlgorithm.generateInitialSchedule(context);
 
-        // TODO: Generate variants: Call metaheuristic (MoveStrategies + Late Acceptance + Tabu Search) to improve
+        // TODO: Generate variants (MoveStrategies + Late Acceptance + Tabu Search)
 
         // Example data
         Schedule schedule = new Schedule();
-
 
         // Collect warnings for violated soft constraints
         List<ScheduleWarning> warnings = constraintHandler.getWarnings(schedule);

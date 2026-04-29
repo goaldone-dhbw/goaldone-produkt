@@ -14,7 +14,6 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.*;
 
@@ -46,28 +45,29 @@ public class ScheduleService {
             GenerateScheduleRequest request,
             long timeoutMilliseconds) {
 
+        // No accounts linked to identity
         if (accountIds.isEmpty()) {
             return List.of();
         }
 
+        // Generate schedules in parallel
         try (ExecutorService executor = Executors.newFixedThreadPool(accountIds.size())) {
-            // Create async tasks for each account
+            // Create async tasks for each account with index tracking
             List<CompletableFuture<ScheduleResponse>> futures = accountIds.stream()
-                    .map(accountId ->
-                            CompletableFuture.supplyAsync(
-                                            () -> generateSchedule(jwt, accountId, request), executor
-                                    )
-                                    // If task takes too long -> complete with null instead of blocking
-                                    .completeOnTimeout(null, timeoutMilliseconds, TimeUnit.MILLISECONDS)
-
-                                    // Handle exceptions per task (prevents whole pipeline from failing)
-                                    .exceptionally(ex -> {
-                                        // log error if needed
-                                        System.err.println("Error processing account " + accountId + ": " + ex.getMessage());
-                                        return null;
-                                    })
+                .map(accountId ->
+                    CompletableFuture.supplyAsync(
+                        () -> generateSchedule(jwt, accountId, request), executor
                     )
-                    .toList();
+                    // If task takes too long -> complete with error response
+                    .completeOnTimeout(createErrorResponse("Schedule generation timed out"), timeoutMilliseconds, TimeUnit.MILLISECONDS)
+
+                    // Handle exceptions per task (prevents whole pipeline from failing)
+                    .exceptionally(ex -> {
+                        log.error("Error generating schedule: {}", ex.getMessage(), ex);
+                        return createErrorResponse("Schedule generation failed: " + ex.getMessage());
+                    })
+                )
+                .toList();
 
             /*
              * At this point:
@@ -76,12 +76,10 @@ public class ScheduleService {
              * - No global blocking is required
              */
 
-            // Collect results (JOIN is safe here because each future is guaranteed to complete)
-
+            // Collect results
             return futures.stream()
-                    .map(CompletableFuture::join)   // non-blocking due to completeOnTimeout
-                    .filter(Objects::nonNull)       // remove timed-out or failed tasks
-                    .toList();
+                .map(CompletableFuture::join)
+                .toList();
         } catch (Exception e) {
             throw new RuntimeException("Failed to create executor for account scheduling", e);
         }
@@ -105,7 +103,28 @@ public class ScheduleService {
 
 
     /**
-     * Orders the generation of a scheduling for a single account
+     * Generates schedule for a single account with exception handling
+     *
+     * @param jwt                     JWT token containing user information
+     * @param accountId               Specific account
+     * @param generateScheduleRequest Request parameters
+     * @return ScheduleResponse with schedule or error warnings
+     */
+    public ScheduleResponse generateSingleAccountSchedule(
+            Jwt jwt,
+            UUID accountId,
+            GenerateScheduleRequest generateScheduleRequest) {
+
+        try {
+            return generateSchedule(jwt, accountId, generateScheduleRequest);
+        } catch (Exception ex) {
+            log.error("Error generating schedule for account {}: {}", accountId, ex.getMessage(), ex);
+            return createErrorResponse("Schedule generation failed: " + ex.getMessage());
+        }
+    }
+
+    /**
+     * Orders the generation of a scheduling for an account
      *
      * @param accountId               Specific account
      * @param generateScheduleRequest Request
@@ -144,6 +163,21 @@ public class ScheduleService {
 
         // TODO: Map result to ScheduleResponse and return
         return null;
+    }
+
+    /**
+     * Creates an error response with a warning message
+     *
+     * @param errorMessage The error message to include
+     * @return ScheduleResponse with error warning
+     */
+    private ScheduleResponse createErrorResponse(String errorMessage) {
+        ScheduleResponse response = new ScheduleResponse();
+        response.setWarnings(List.of(new ScheduleWarning(
+                ScheduleWarning.TypeEnum.UNKNOWN,
+                errorMessage
+        )));
+        return response;
     }
 
     public ScheduleResponse getSchedule() {
