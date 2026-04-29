@@ -67,7 +67,7 @@ public class ZitadelManagementClient {
 
             log.debug("Checking email existence for: {}", normalizedEmail);
             String responseBody = restClient.post()
-                    .uri("/v2/users")
+                    .uri("/v2/users/_search")
                     .header(HttpHeaders.AUTHORIZATION, "Bearer " + serviceAccountToken)
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(body)
@@ -167,34 +167,38 @@ public class ZitadelManagementClient {
     }
 
     /**
-     * Lists all user grants for a specific project and restricted to a specific user organization.
+     * Retrieves all user grants for a specific project.
      *
-     * @param rootOrgId the root organization ID where the project is defined
+     * @param rootOrgId the root organization ID
      * @param projectId the project ID
-     * @param userOrgId the organization ID of the users to list
-     * @return a JsonNode containing the search results
+     * @param userOrgId the user organization ID to filter by
+     * @return the list of user grants as a JsonNode
      */
     public JsonNode listAllGrants(String rootOrgId, String projectId, String userOrgId) {
         try {
             Map<String, Object> body = Map.of(
-                    "queries", List.of(
-                            Map.of("projectIdQuery", Map.of("projectId", projectId)),
-                            Map.of("organizationIdQuery", Map.of("organizationId", userOrgId))
-                    )
+                    "filters", List.of(
+                            Map.of("projectId", Map.of("id", projectId)),
+                            Map.of("userOrganizationId", Map.of("id", userOrgId))
+                    ),
+                    "pagination", Map.of("limit", 1000)
             );
 
             String responseBody = restClient.post()
-                    .uri("/management/v1/users/grants/_search")
+                    .uri("/zitadel.authorization.v2.AuthorizationService/ListAuthorizations")
                     .header(HttpHeaders.AUTHORIZATION, "Bearer " + serviceAccountToken)
-                    .header("x-zitadel-orgid", rootOrgId)
+                    .header("Connect-Protocol-Version", "1")
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(body)
                     .retrieve()
                     .body(String.class);
 
+            log.info("List all grants request: {}", body);
+            log.info("List all grants response: {}", responseBody);
+
             return objectMapper.readTree(responseBody);
         } catch (Exception e) {
-            log.error("Failed to list all grants in project {} for user org {} (root org {}): {}", projectId, userOrgId, rootOrgId, e.getMessage());
+            log.error("Failed to list all authorizations in project {} for user org {} (root org {}): {}", projectId, userOrgId, rootOrgId, e.getMessage());
             throw new ZitadelApiException("Failed to list all grants: " + e.getMessage(), e);
         }
     }
@@ -281,9 +285,11 @@ public class ZitadelManagementClient {
         try {
             Map<String, Object> body = Map.of(
                     "queries", List.of(
-                            Map.of("idsQuery", Map.of("userIds", userIds))
+                            Map.of("inUserIdsQuery", Map.of("userIds", userIds))
                     )
             );
+
+            log.info("List users by IDs request: {}", body);
 
             String responseBody = restClient.post()
                     .uri("/v2/users")
@@ -294,6 +300,7 @@ public class ZitadelManagementClient {
                     .body(String.class);
 
             JsonNode response = objectMapper.readTree(responseBody);
+            log.info("List users by IDs response: {}", response);
             List<JsonNode> users = new ArrayList<>();
             if (response != null && response.has("result")) {
                 response.get("result").forEach(users::add);

@@ -196,12 +196,12 @@ class MemberManagementIntegrationTest {
     // --- Stubs ---
 
     private void stubEmailNotExists() {
-        wireMockServer.stubFor(WireMock.post(urlPathMatching("/v2/users"))
+        wireMockServer.stubFor(WireMock.post(urlPathMatching("/v2/users/_search"))
             .willReturn(okJson("{\"result\": []}")));
     }
 
     private void stubEmailExists() {
-        wireMockServer.stubFor(WireMock.post(urlPathMatching("/v2/users"))
+        wireMockServer.stubFor(WireMock.post(urlPathMatching("/v2/users/_search"))
             .willReturn(okJson("{\"result\": [{\"userId\": \"existing-user\"}]}")));
     }
 

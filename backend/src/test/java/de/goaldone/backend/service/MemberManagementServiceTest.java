@@ -89,9 +89,9 @@ class MemberManagementServiceTest {
 
         String grantsJson = """
                 {
-                  "result": [
-                    { "userId": "user-1", "roleKeys": ["USER"] },
-                    { "userId": "user-2", "roleKeys": ["COMPANY_ADMIN"] }
+                  "authorizations": [
+                    { "user": { "id": "user-1" }, "roles": [{ "key": "USER" }] },
+                    { "user": { "id": "user-2" }, "roles": [{ "key": "COMPANY_ADMIN" }] }
                   ]
                 }
                 """;
@@ -99,7 +99,7 @@ class MemberManagementServiceTest {
 
         String user1Json = """
                 {
-                  "id": "user-1",
+                  "userId": "user-1",
                   "state": "USER_STATE_ACTIVE",
                   "human": { "email": { "email": "user1@test.com" }, "profile": { "givenName": "User", "familyName": "One" } },
                   "details": { "creationDate": "2023-01-01T00:00:00Z" }
@@ -107,7 +107,7 @@ class MemberManagementServiceTest {
                 """;
         String user2Json = """
                 {
-                  "id": "user-2",
+                  "userId": "user-2",
                   "state": "USER_STATE_INITIAL",
                   "human": { "email": { "email": "user2@test.com" }, "profile": { "givenName": "User", "familyName": "Two" } },
                   "details": { "creationDate": "2023-01-02T00:00:00Z" }
@@ -130,12 +130,12 @@ class MemberManagementServiceTest {
         var m1 = response.getMembers().stream().filter(m -> m.getZitadelUserId().equals("user-1")).findFirst().get();
         assertThat(m1.getStatus()).isEqualTo(MemberStatus.ACTIVE);
         assertThat(m1.getRole()).isEqualTo(MemberRole.USER);
-        assertThat(m1.getAccountId().get()).isNotNull();
+        assertThat(m1.getAccountId()).isNotNull();
 
         var m2 = response.getMembers().stream().filter(m -> m.getZitadelUserId().equals("user-2")).findFirst().get();
         assertThat(m2.getStatus()).isEqualTo(MemberStatus.INVITED);
         assertThat(m2.getRole()).isEqualTo(MemberRole.COMPANY_ADMIN);
-        assertThat(m2.getAccountId().get()).isNull();
+        assertThat(m2.getAccountId()).isNull();
     }
 
     @Test
@@ -182,9 +182,9 @@ class MemberManagementServiceTest {
 
         String allGrantsJson = """
                 {
-                  "result": [
-                    { "userId": "target-user", "roleKeys": ["COMPANY_ADMIN"] },
-                    { "userId": "user-3", "roleKeys": ["USER"] }
+                  "authorizations": [
+                    { "user": { "id": "target-user" }, "roles": [{ "key": "COMPANY_ADMIN" }] },
+                    { "user": { "id": "user-3" }, "roles": [{ "key": "USER" }] }
                   ]
                 }
                 """;
@@ -288,9 +288,9 @@ class MemberManagementServiceTest {
 
         String allGrantsJson = """
                 {
-                  "result": [
-                    { "userId": "target-user", "roleKeys": ["COMPANY_ADMIN"] },
-                    { "userId": "other-admin", "roleKeys": ["COMPANY_ADMIN"] }
+                  "authorizations": [
+                    { "user": { "id": "target-user" }, "roles": [{ "key": "COMPANY_ADMIN" }] },
+                    { "user": { "id": "other-admin" }, "roles": [{ "key": "COMPANY_ADMIN" }] }
                   ]
                 }
                 """;
@@ -326,9 +326,9 @@ class MemberManagementServiceTest {
 
         String allGrantsJson = """
                 {
-                  "result": [
-                    { "userId": "caller-sub", "roleKeys": ["COMPANY_ADMIN"] },
-                    { "userId": "other-admin", "roleKeys": ["COMPANY_ADMIN"] }
+                  "authorizations": [
+                    { "user": { "id": "caller-sub" }, "roles": [{ "key": "COMPANY_ADMIN" }] },
+                    { "user": { "id": "other-admin" }, "roles": [{ "key": "COMPANY_ADMIN" }] }
                   ]
                 }
                 """;
@@ -364,8 +364,8 @@ class MemberManagementServiceTest {
 
         String allGrantsJson = """
                 {
-                  "result": [
-                    { "userId": "target-user", "roleKeys": ["COMPANY_ADMIN"] }
+                  "authorizations": [
+                    { "user": { "id": "target-user" }, "roles": [{ "key": "COMPANY_ADMIN" }] }
                   ]
                 }
                 """;
