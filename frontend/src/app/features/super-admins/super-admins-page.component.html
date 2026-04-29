@@ -7,7 +7,7 @@
       <div>
         <h1 class="text-3xl font-bold tracking-tight text-slate-900">Super-Admins</h1>
         <p class="mt-2 text-sm text-slate-600">
-          Verwalte die globalen Administratoren der GoalDone Plattform.
+          Verwalte Unternehmen und globale Administratoren der GoalDone Plattform.
         </p>
       </div>
 
@@ -16,6 +16,76 @@
         icon="pi pi-plus"
         (onClick)="openAddDialog()"
       ></p-button>
+    </div>
+
+    <app-create-organization-card
+      (created)="onOrganizationCreated()"
+    ></app-create-organization-card>
+
+    <div class="mb-8 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div class="border-b border-slate-200 px-6 py-4">
+        <h2 class="text-lg font-semibold text-slate-900">Vorhandene Unternehmen</h2>
+        <p class="mt-1 text-sm text-slate-600">
+          Übersicht aller registrierten Unternehmen inklusive aktiver und eingeladener Mitglieder.
+        </p>
+      </div>
+
+      @if (isOrganizationsLoading()) {
+        <div class="px-6 py-8 text-sm text-slate-600">
+          Unternehmen werden geladen...
+        </div>
+      } @else if (organizations().length === 0) {
+        <div class="px-6 py-8 text-sm text-slate-600">
+          Es sind aktuell keine Unternehmen vorhanden.
+        </div>
+      } @else {
+        <div class="divide-y divide-slate-200">
+          @for (organization of organizations(); track organization.id) {
+            <div class="px-4 py-4">
+              <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div class="min-w-0 flex-1">
+                  <h3 class="text-base font-semibold text-slate-900">
+                    {{ organization.name }}
+                  </h3>
+
+                  <div class="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-sm text-slate-600">
+                    <span>
+                      Aktive Mitglieder:
+                      <strong class="font-semibold text-slate-900">
+                        {{ organization.activeMemberCount }}
+                      </strong>
+                    </span>
+
+                    <span>
+                      Eingeladen:
+                      <strong class="font-semibold text-slate-900">
+                        {{ organization.invitedMemberCount }}
+                      </strong>
+                    </span>
+
+                    <span>
+                      Erstellt:
+                      <strong class="font-semibold text-slate-900">
+                        {{ formatDate(organization.createdAt) }}
+                      </strong>
+                    </span>
+                  </div>
+                </div>
+
+                <p-button
+                  icon="pi pi-trash"
+                  label="Löschen"
+                  [outlined]="true"
+                  severity="danger"
+                  [loading]="isDeletingOrganization(organization.id)"
+                  [disabled]="isDeletingOrganization(organization.id)"
+                  (onClick)="confirmDeleteOrganization(organization)"
+                ></p-button>
+              </div>
+            </div>
+          }
+        </div>
+      }
     </div>
 
     <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
