@@ -1,5 +1,6 @@
 package de.goaldone.backend.service;
 
+import com.zitadel.model.UserServiceUser;
 import de.goaldone.backend.client.ZitadelManagementClient;
 import de.goaldone.backend.entity.OrganizationEntity;
 import de.goaldone.backend.entity.UserAccountEntity;
@@ -98,19 +99,19 @@ public class UserIdentityService {
                 r.setRoles(roles);
                 r.setHasConflicts(hasConflicts);
 
-                zitadelManagementClient.getUser(account.getZitadelSub()).ifPresent(userNode -> {
-                    if (userNode.has("human")) {
-                        var human = userNode.get("human");
-                        if (human.has("email") && human.get("email").has("email")) {
-                            r.setEmail(human.get("email").get("email").asText());
+                zitadelManagementClient.getUser(account.getZitadelSub()).ifPresent(user -> {
+                    if (user.getHuman() != null) {
+                        var human = user.getHuman();
+                        if (human.getEmail() != null) {
+                            r.setEmail(human.getEmail().getEmail());
                         }
-                        if (human.has("profile")) {
-                            var profile = human.get("profile");
-                            if (profile.has("givenName")) {
-                                r.setFirstName(profile.get("givenName").asText());
+                        if (human.getProfile() != null) {
+                            var profile = human.getProfile();
+                            if (profile.getGivenName() != null) {
+                                r.setFirstName(profile.getGivenName());
                             }
-                            if (profile.has("familyName")) {
-                                r.setLastName(profile.get("familyName").asText());
+                            if (profile.getFamilyName() != null) {
+                                r.setLastName(profile.getFamilyName());
                             }
                         }
                     }

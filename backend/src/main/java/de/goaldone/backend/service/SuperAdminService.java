@@ -1,6 +1,6 @@
 package de.goaldone.backend.service;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import com.zitadel.model.UserServiceUser;
 import de.goaldone.backend.client.ZitadelManagementClient;
 import de.goaldone.backend.entity.UserAccountEntity;
 import de.goaldone.backend.model.InviteSuperAdminRequest;
@@ -15,7 +15,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.Instant;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -52,19 +54,33 @@ public class SuperAdminService {
         List<SuperAdminResponse> result = new ArrayList<>();
 
         for (String userId : userIds) {
-            zitadelClient.getUser(userId).ifPresent(userNode -> {
+            zitadelClient.getUser(userId).ifPresent(user -> {
                 SuperAdminResponse admin = new SuperAdminResponse();
                 admin.setZitadelId(userId);
 
-                JsonNode human = userNode.path("human");
-                admin.setEmail(human.path("email").path("email").asText(""));
-                admin.setFirstName(human.path("profile").path("givenName").asText(""));
-                admin.setLastName(human.path("profile").path("familyName").asText(""));
-                admin.setStatus(userNode.path("state").asText());
+                if (user.getHuman() != null) {
+                    var human = user.getHuman();
+                    admin.setEmail(human.getEmail() != null ? human.getEmail().getEmail() : "");
+                    if (human.getProfile() != null) {
+                        admin.setFirstName(human.getProfile().getGivenName() != null ? human.getProfile().getGivenName() : "");
+                        admin.setLastName(human.getProfile().getFamilyName() != null ? human.getProfile().getFamilyName() : "");
+                    }
+                }
+                admin.setStatus(user.getState() != null ? user.getState().toString() : "");
 
-                String createdAtStr = userNode.path("details").path("createdDate").asText();
-                if (!createdAtStr.isEmpty()) {
-                    admin.setCreatedAt(OffsetDateTime.parse(createdAtStr));
+                if (user.getDetails() != null && user.getDetails().getCreationDate() != null) {
+                    Object creationDate = user.getDetails().getCreationDate();
+                    if (creationDate instanceof OffsetDateTime) {
+                        admin.setCreatedAt((OffsetDateTime) creationDate);
+                    } else {
+                        // Fallback: try to parse as string if it's not already an OffsetDateTime
+                        try {
+                            Instant createdAtInstant = Instant.parse(creationDate.toString());
+                            admin.setCreatedAt(createdAtInstant.atOffset(ZoneOffset.UTC));
+                        } catch (Exception e) {
+                            log.warn("Could not parse creation date for user {}: {}", userId, e.getMessage());
+                        }
+                    }
                 }
 
                 result.add(admin);

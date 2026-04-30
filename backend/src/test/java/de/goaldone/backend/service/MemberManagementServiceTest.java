@@ -1,6 +1,10 @@
 package de.goaldone.backend.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.zitadel.model.*;
+import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import de.goaldone.backend.client.UserGrantDto;
 import de.goaldone.backend.client.ZitadelManagementClient;
 import de.goaldone.backend.entity.OrganizationEntity;
 import de.goaldone.backend.entity.UserAccountEntity;
@@ -25,6 +29,8 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -49,7 +55,6 @@ class MemberManagementServiceTest {
     @InjectMocks
     private MemberManagementService memberManagementService;
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
     private UUID orgId;
     private String callerSub = "caller-sub";
 
@@ -87,33 +92,15 @@ class MemberManagementServiceTest {
         org.setZitadelOrgId("zitadel-org-id");
         when(organizationRepository.findById(orgId)).thenReturn(Optional.of(org));
 
-        String grantsJson = """
-                {
-                  "authorizations": [
-                    { "user": { "id": "user-1" }, "roles": [{ "key": "USER" }] },
-                    { "user": { "id": "user-2" }, "roles": [{ "key": "COMPANY_ADMIN" }] }
-                  ]
-                }
-                """;
-        when(zitadelManagementClient.listAllGrants(anyString(), anyString(), anyString())).thenReturn(objectMapper.readTree(grantsJson));
+        AuthorizationServiceListAuthorizationsResponse grantsResponse = buildAuthorizationsResponse(
+                List.of("user-1", "user-2"),
+                List.of("USER", "COMPANY_ADMIN")
+        );
+        when(zitadelManagementClient.listAllGrants(anyString(), anyString(), anyString())).thenReturn(grantsResponse);
 
-        String user1Json = """
-                {
-                  "userId": "user-1",
-                  "state": "USER_STATE_ACTIVE",
-                  "human": { "email": { "email": "user1@test.com" }, "profile": { "givenName": "User", "familyName": "One" } },
-                  "details": { "creationDate": "2023-01-01T00:00:00Z" }
-                }
-                """;
-        String user2Json = """
-                {
-                  "userId": "user-2",
-                  "state": "USER_STATE_INITIAL",
-                  "human": { "email": { "email": "user2@test.com" }, "profile": { "givenName": "User", "familyName": "Two" } },
-                  "details": { "creationDate": "2023-01-02T00:00:00Z" }
-                }
-                """;
-        when(zitadelManagementClient.listUsersByIds(anyList())).thenReturn(List.of(objectMapper.readTree(user1Json), objectMapper.readTree(user2Json)));
+        UserServiceUser user1 = buildUser("user-1", "USER_STATE_ACTIVE", "user1@test.com", "User", "One", "2023-01-01T00:00:00Z");
+        UserServiceUser user2 = buildUser("user-2", "USER_STATE_INITIAL", "user2@test.com", "User", "Two", "2023-01-02T00:00:00Z");
+        when(zitadelManagementClient.listUsersByIds(anyList())).thenReturn(List.of(user1, user2));
 
         UserAccountEntity acc1 = new UserAccountEntity();
         acc1.setId(UUID.randomUUID());
@@ -147,11 +134,9 @@ class MemberManagementServiceTest {
 
         when(organizationRepository.findById(orgId)).thenReturn(Optional.of(new OrganizationEntity()));
 
-        String grantJson = """
-                { "grantId": "grant-1", "roleKeys": ["USER"] }
-                """;
+        UserGrantDto grant = new UserGrantDto("grant-1", List.of("USER"));
         when(zitadelManagementClient.searchUserGrants(anyString(), anyString(), eq("target-user")))
-                .thenReturn(Optional.of(objectMapper.readTree(grantJson)));
+                .thenReturn(Optional.of(grant));
 
         ChangeRoleRequest request = new ChangeRoleRequest();
         request.setRole(MemberRole.COMPANY_ADMIN);
@@ -174,22 +159,16 @@ class MemberManagementServiceTest {
         org.setZitadelOrgId("user-org");
         when(organizationRepository.findById(orgId)).thenReturn(Optional.of(org));
 
-        String grantJson = """
-                { "grantId": "grant-1", "roleKeys": ["COMPANY_ADMIN"] }
-                """;
+        UserGrantDto grant = new UserGrantDto("grant-1", List.of("COMPANY_ADMIN"));
         when(zitadelManagementClient.searchUserGrants(anyString(), anyString(), eq("target-user")))
-                .thenReturn(Optional.of(objectMapper.readTree(grantJson)));
+                .thenReturn(Optional.of(grant));
 
-        String allGrantsJson = """
-                {
-                  "authorizations": [
-                    { "user": { "id": "target-user" }, "roles": [{ "key": "COMPANY_ADMIN" }] },
-                    { "user": { "id": "user-3" }, "roles": [{ "key": "USER" }] }
-                  ]
-                }
-                """;
+        AuthorizationServiceListAuthorizationsResponse allGrants = buildAuthorizationsResponse(
+                List.of("target-user", "user-3"),
+                List.of("COMPANY_ADMIN", "USER")
+        );
         when(zitadelManagementClient.listAllGrants(anyString(), anyString(), eq("user-org")))
-                .thenReturn(objectMapper.readTree(allGrantsJson));
+                .thenReturn(allGrants);
 
         ChangeRoleRequest request = new ChangeRoleRequest();
         request.setRole(MemberRole.USER);
@@ -210,11 +189,9 @@ class MemberManagementServiceTest {
 
         when(organizationRepository.findById(orgId)).thenReturn(Optional.of(new OrganizationEntity()));
 
-        String grantJson = """
-                { "roleKeys": ["USER"] }
-                """;
+        UserGrantDto grant = new UserGrantDto("grant-1", List.of("USER"));
         when(zitadelManagementClient.searchUserGrants(anyString(), anyString(), eq("target-user")))
-                .thenReturn(Optional.of(objectMapper.readTree(grantJson)));
+                .thenReturn(Optional.of(grant));
 
         UserAccountEntity targetAcc = new UserAccountEntity();
         UUID targetAccId = UUID.randomUUID();
@@ -239,11 +216,9 @@ class MemberManagementServiceTest {
 
         when(organizationRepository.findById(orgId)).thenReturn(Optional.of(new OrganizationEntity()));
 
-        String grantJson = """
-                { "roleKeys": ["USER"] }
-                """;
+        UserGrantDto grant = new UserGrantDto("grant-1", List.of("USER"));
         when(zitadelManagementClient.searchUserGrants(anyString(), anyString(), eq("target-user")))
-                .thenReturn(Optional.of(objectMapper.readTree(grantJson)));
+                .thenReturn(Optional.of(grant));
 
         when(userAccountRepository.findByZitadelSub("target-user")).thenReturn(Optional.empty());
 
@@ -280,22 +255,16 @@ class MemberManagementServiceTest {
         org.setZitadelOrgId("user-org");
         when(organizationRepository.findById(orgId)).thenReturn(Optional.of(org));
 
-        String grantJson = """
-                { "grantId": "grant-1", "roleKeys": ["COMPANY_ADMIN"] }
-                """;
+        UserGrantDto grant = new UserGrantDto("grant-1", List.of("COMPANY_ADMIN"));
         when(zitadelManagementClient.searchUserGrants(anyString(), anyString(), eq("target-user")))
-                .thenReturn(Optional.of(objectMapper.readTree(grantJson)));
+                .thenReturn(Optional.of(grant));
 
-        String allGrantsJson = """
-                {
-                  "authorizations": [
-                    { "user": { "id": "target-user" }, "roles": [{ "key": "COMPANY_ADMIN" }] },
-                    { "user": { "id": "other-admin" }, "roles": [{ "key": "COMPANY_ADMIN" }] }
-                  ]
-                }
-                """;
+        AuthorizationServiceListAuthorizationsResponse allGrants = buildAuthorizationsResponse(
+                List.of("target-user", "other-admin"),
+                List.of("COMPANY_ADMIN", "COMPANY_ADMIN")
+        );
         when(zitadelManagementClient.listAllGrants(anyString(), anyString(), eq("user-org")))
-                .thenReturn(objectMapper.readTree(allGrantsJson));
+                .thenReturn(allGrants);
 
         ChangeRoleRequest request = new ChangeRoleRequest();
         request.setRole(MemberRole.USER);
@@ -318,22 +287,16 @@ class MemberManagementServiceTest {
         org.setZitadelOrgId("user-org");
         when(organizationRepository.findById(orgId)).thenReturn(Optional.of(org));
 
-        String grantJson = """
-                { "grantId": "grant-1", "roleKeys": ["COMPANY_ADMIN"] }
-                """;
+        UserGrantDto grant = new UserGrantDto("grant-1", List.of("COMPANY_ADMIN"));
         when(zitadelManagementClient.searchUserGrants(anyString(), anyString(), eq(callerSub)))
-                .thenReturn(Optional.of(objectMapper.readTree(grantJson)));
+                .thenReturn(Optional.of(grant));
 
-        String allGrantsJson = """
-                {
-                  "authorizations": [
-                    { "user": { "id": "caller-sub" }, "roles": [{ "key": "COMPANY_ADMIN" }] },
-                    { "user": { "id": "other-admin" }, "roles": [{ "key": "COMPANY_ADMIN" }] }
-                  ]
-                }
-                """;
+        AuthorizationServiceListAuthorizationsResponse allGrants = buildAuthorizationsResponse(
+                List.of("caller-sub", "other-admin"),
+                List.of("COMPANY_ADMIN", "COMPANY_ADMIN")
+        );
         when(zitadelManagementClient.listAllGrants(anyString(), anyString(), eq("user-org")))
-                .thenReturn(objectMapper.readTree(allGrantsJson));
+                .thenReturn(allGrants);
 
         ChangeRoleRequest request = new ChangeRoleRequest();
         request.setRole(MemberRole.USER);
@@ -356,21 +319,16 @@ class MemberManagementServiceTest {
         org.setZitadelOrgId("user-org");
         when(organizationRepository.findById(orgId)).thenReturn(Optional.of(org));
 
-        String grantJson = """
-                { "roleKeys": ["COMPANY_ADMIN"] }
-                """;
+        UserGrantDto grant = new UserGrantDto("grant-1", List.of("COMPANY_ADMIN"));
         when(zitadelManagementClient.searchUserGrants(anyString(), anyString(), eq("target-user")))
-                .thenReturn(Optional.of(objectMapper.readTree(grantJson)));
+                .thenReturn(Optional.of(grant));
 
-        String allGrantsJson = """
-                {
-                  "authorizations": [
-                    { "user": { "id": "target-user" }, "roles": [{ "key": "COMPANY_ADMIN" }] }
-                  ]
-                }
-                """;
+        AuthorizationServiceListAuthorizationsResponse allGrants = buildAuthorizationsResponse(
+                List.of("target-user"),
+                List.of("COMPANY_ADMIN")
+        );
         when(zitadelManagementClient.listAllGrants(anyString(), anyString(), eq("user-org")))
-                .thenReturn(objectMapper.readTree(allGrantsJson));
+                .thenReturn(allGrants);
 
         // Act & Assert
         ResponseStatusException ex = assertThrows(ResponseStatusException.class,
@@ -402,11 +360,9 @@ class MemberManagementServiceTest {
 
         when(organizationRepository.findById(orgId)).thenReturn(Optional.of(new OrganizationEntity()));
 
-        String grantJson = """
-                { "grantId": "grant-1", "roleKeys": ["USER"] }
-                """;
+        UserGrantDto grant = new UserGrantDto("grant-1", List.of("USER"));
         when(zitadelManagementClient.searchUserGrants(anyString(), anyString(), eq("target-user")))
-                .thenReturn(Optional.of(objectMapper.readTree(grantJson)));
+                .thenReturn(Optional.of(grant));
 
         ChangeRoleRequest request = new ChangeRoleRequest();
         request.setRole(MemberRole.USER);
@@ -435,5 +391,63 @@ class MemberManagementServiceTest {
                 () -> memberManagementService.removeMember(orgId, "unknown-user"));
         assertThat(ex.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
         verify(zitadelManagementClient, never()).deleteUser(anyString());
+    }
+
+    // Helper methods for building SDK objects using mocks
+    private UserServiceUser buildUser(String userId, String state, String email, String firstName, String lastName, String creationDate) {
+        UserServiceUserState userState = "USER_STATE_ACTIVE".equals(state)
+                ? UserServiceUserState.USER_STATE_ACTIVE
+                : UserServiceUserState.USER_STATE_INITIAL;
+
+        UserServiceHumanEmail humanEmail = mock(UserServiceHumanEmail.class);
+        when(humanEmail.getEmail()).thenReturn(email);
+
+        UserServiceHumanProfile profile = mock(UserServiceHumanProfile.class);
+        when(profile.getGivenName()).thenReturn(firstName);
+        when(profile.getFamilyName()).thenReturn(lastName);
+
+        UserServiceHumanUser human = mock(UserServiceHumanUser.class);
+        when(human.getEmail()).thenReturn(humanEmail);
+        when(human.getProfile()).thenReturn(profile);
+
+        // SDK getCreationDate() returns OffsetDateTime
+        OffsetDateTime creationDateODT = OffsetDateTime.parse(creationDate);
+
+        UserServiceDetails details = mock(UserServiceDetails.class);
+        when(details.getCreationDate()).thenReturn(creationDateODT);
+
+        UserServiceUser user = mock(UserServiceUser.class);
+        when(user.getUserId()).thenReturn(userId);
+        when(user.getState()).thenReturn(userState);
+        when(user.getHuman()).thenReturn(human);
+        when(user.getDetails()).thenReturn(details);
+
+        return user;
+    }
+
+    private AuthorizationServiceListAuthorizationsResponse buildAuthorizationsResponse(List<String> userIds, List<String> roleKeys) {
+        List<AuthorizationServiceAuthorization> authorizations = new java.util.ArrayList<>();
+
+        for (int i = 0; i < userIds.size(); i++) {
+            String userId = userIds.get(i);
+            String roleKey = roleKeys.get(i);
+
+            AuthorizationServiceUser user = mock(AuthorizationServiceUser.class);
+            lenient().when(user.getId()).thenReturn(userId);
+
+            AuthorizationServiceRole role = mock(AuthorizationServiceRole.class);
+            when(role.getKey()).thenReturn(roleKey);
+
+            AuthorizationServiceAuthorization auth = mock(AuthorizationServiceAuthorization.class);
+            lenient().when(auth.getUser()).thenReturn(user);
+            when(auth.getRoles()).thenReturn(List.of(role));
+
+            authorizations.add(auth);
+        }
+
+        AuthorizationServiceListAuthorizationsResponse response = mock(AuthorizationServiceListAuthorizationsResponse.class);
+        when(response.getAuthorizations()).thenReturn(authorizations);
+
+        return response;
     }
 }

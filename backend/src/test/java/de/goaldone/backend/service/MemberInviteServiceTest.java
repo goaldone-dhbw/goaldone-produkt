@@ -1,7 +1,7 @@
 package de.goaldone.backend.service;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.zitadel.model.UserServiceUser;
+import com.zitadel.model.UserServiceUserState;
 import de.goaldone.backend.client.ZitadelManagementClient;
 import de.goaldone.backend.entity.OrganizationEntity;
 import de.goaldone.backend.entity.UserAccountEntity;
@@ -175,9 +175,9 @@ class MemberInviteServiceTest {
         callerAccount.setOrganizationId(orgId);
         when(userAccountRepository.findByZitadelSub(callerSub)).thenReturn(Optional.of(callerAccount));
 
-        ObjectMapper mapper = new ObjectMapper();
-        JsonNode userNode = mapper.readTree("{\"state\": \"USER_STATE_INITIAL\"}");
-        when(zitadelManagementClient.getUser(zitadelUserId)).thenReturn(Optional.of(userNode));
+        UserServiceUser user = mock(UserServiceUser.class);
+        when(user.getState()).thenReturn(UserServiceUserState.USER_STATE_INITIAL);
+        when(zitadelManagementClient.getUser(zitadelUserId)).thenReturn(Optional.of(user));
 
         // Act
         memberInviteService.reinviteMember(orgId, zitadelUserId);
@@ -198,9 +198,9 @@ class MemberInviteServiceTest {
         callerAccount.setOrganizationId(orgId);
         when(userAccountRepository.findByZitadelSub(callerSub)).thenReturn(Optional.of(callerAccount));
 
-        ObjectMapper mapper = new ObjectMapper();
-        JsonNode userNode = mapper.readTree("{\"state\": \"USER_STATE_ACTIVE\"}");
-        when(zitadelManagementClient.getUser(zitadelUserId)).thenReturn(Optional.of(userNode));
+        UserServiceUser user = mock(UserServiceUser.class);
+        when(user.getState()).thenReturn(UserServiceUserState.USER_STATE_ACTIVE);
+        when(zitadelManagementClient.getUser(zitadelUserId)).thenReturn(Optional.of(user));
 
         // Act & Assert
         assertThrows(UserAlreadyActiveException.class, () -> memberInviteService.reinviteMember(orgId, zitadelUserId));

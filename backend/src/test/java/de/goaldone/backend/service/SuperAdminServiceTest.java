@@ -1,7 +1,6 @@
 package de.goaldone.backend.service;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.zitadel.model.*;
 import de.goaldone.backend.client.ZitadelManagementClient;
 import de.goaldone.backend.entity.UserAccountEntity;
 import de.goaldone.backend.model.InviteSuperAdminRequest;
@@ -17,6 +16,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -41,8 +43,6 @@ class SuperAdminServiceTest {
     @InjectMocks
     private SuperAdminService superAdminService;
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
-
     @BeforeEach
     void setUp() {
         ReflectionTestUtils.setField(superAdminService, "goaldoneOrgId", "org-123");
@@ -53,19 +53,9 @@ class SuperAdminServiceTest {
     void listSuperAdmins_ShouldReturnAdmins() throws Exception {
         // Arrange
         when(zitadelClient.listUserIdsByRole(anyString(), anyString(), anyString())).thenReturn(List.of("user-1"));
-        
-        String userJson = """
-            {
-                "human": {
-                    "email": { "email": "admin@test.com" },
-                    "profile": { "givenName": "John", "familyName": "Doe" }
-                },
-                "state": "USER_STATE_ACTIVE",
-                "details": { "createdDate": "2023-10-27T10:00:00Z" }
-            }
-            """;
-        JsonNode userNode = objectMapper.readTree(userJson);
-        when(zitadelClient.getUser("user-1")).thenReturn(Optional.of(userNode));
+
+        UserServiceUser user = buildUser("user-1", "USER_STATE_ACTIVE", "admin@test.com", "John", "Doe", "2023-10-27T10:00:00Z");
+        when(zitadelClient.getUser("user-1")).thenReturn(Optional.of(user));
 
         // Act
         List<SuperAdminResponse> result = superAdminService.listSuperAdmins();
@@ -136,5 +126,37 @@ class SuperAdminServiceTest {
         // Act & Assert
         assertThrows(ResponseStatusException.class, () -> superAdminService.deleteSuperAdmin("last-admin"));
         verify(zitadelClient, never()).deleteUser(anyString());
+    }
+
+    // Helper method for building SDK objects using mocks
+    private UserServiceUser buildUser(String userId, String state, String email, String firstName, String lastName, String creationDate) {
+        UserServiceUserState userState = "USER_STATE_ACTIVE".equals(state)
+                ? UserServiceUserState.USER_STATE_ACTIVE
+                : UserServiceUserState.USER_STATE_INITIAL;
+
+        UserServiceHumanEmail humanEmail = mock(UserServiceHumanEmail.class);
+        when(humanEmail.getEmail()).thenReturn(email);
+
+        UserServiceHumanProfile profile = mock(UserServiceHumanProfile.class);
+        when(profile.getGivenName()).thenReturn(firstName);
+        when(profile.getFamilyName()).thenReturn(lastName);
+
+        UserServiceHumanUser human = mock(UserServiceHumanUser.class);
+        when(human.getEmail()).thenReturn(humanEmail);
+        when(human.getProfile()).thenReturn(profile);
+
+        // SDK getCreationDate() returns OffsetDateTime
+        OffsetDateTime creationDateODT = OffsetDateTime.parse(creationDate);
+
+        UserServiceDetails details = mock(UserServiceDetails.class);
+        when(details.getCreationDate()).thenReturn(creationDateODT);
+
+        UserServiceUser user = mock(UserServiceUser.class);
+        lenient().when(user.getUserId()).thenReturn(userId);  // Not used by SuperAdminService but kept for consistency with buildUser
+        when(user.getState()).thenReturn(userState);
+        when(user.getHuman()).thenReturn(human);
+        when(user.getDetails()).thenReturn(details);
+
+        return user;
     }
 }

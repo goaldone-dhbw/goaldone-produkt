@@ -1,5 +1,6 @@
 package de.goaldone.backend.service;
 
+import com.zitadel.model.UserServiceUser;
 import de.goaldone.backend.client.ZitadelManagementClient;
 import de.goaldone.backend.entity.OrganizationEntity;
 import de.goaldone.backend.entity.UserAccountEntity;
@@ -91,13 +92,13 @@ public class MemberInviteService {
             throw new NotMemberOfOrganizationException("Caller does not belong to organization: " + orgId);
         }
 
-        var userNodeOpt = zitadelManagementClient.getUser(zitadelUserId);
-        if (userNodeOpt.isEmpty()) {
+        var userOpt = zitadelManagementClient.getUser(zitadelUserId);
+        if (userOpt.isEmpty()) {
             throw new RuntimeException("User not found in Zitadel: " + zitadelUserId);
         }
 
-        var userNode = userNodeOpt.get();
-        String state = userNode.has("state") ? userNode.get("state").asText() : "";
+        var user = userOpt.get();
+        String state = user.getState() != null ? user.getState().toString() : "";
 
         // Status names in Zitadel v2 are usually USER_STATE_INITIAL, USER_STATE_ACTIVE, etc.
         if (!"USER_STATE_INITIAL".equals(state)) {

@@ -1,6 +1,8 @@
 package de.goaldone.backend.service;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import com.zitadel.model.AuthorizationServiceListAuthorizationsResponse;
+import com.zitadel.model.UserServiceUser;
+import de.goaldone.backend.client.UserGrantDto;
 import de.goaldone.backend.client.ZitadelManagementClient;
 import de.goaldone.backend.entity.OrganizationEntity;
 import de.goaldone.backend.entity.UserAccountEntity;
@@ -45,50 +47,58 @@ public class MemberManagementService {
         OrganizationEntity organization = organizationRepository.findById(orgId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Organization not found"));
 
-        JsonNode grantsResponse = zitadelManagementClient.listAllGrants(
+        AuthorizationServiceListAuthorizationsResponse grantsResponse = zitadelManagementClient.listAllGrants(
                 mainOrgId, goaldoneProjectId, organization.getZitadelOrgId()
         );
 
         List<String> userIds = new ArrayList<>();
         Map<String, List<String>> userRoles = new HashMap<>();
 
-        // "authorizations" ist der korrekte Feldname laut tatsächlichem Response
-        if (grantsResponse.has("authorizations")) {
-            grantsResponse.get("authorizations").forEach(auth -> {
-                // Struktur: auth -> user -> id  (NICHT auth -> userId)
-                String userId = auth.path("user").path("id").asText(null);
+        if (grantsResponse.getAuthorizations() != null) {
+            grantsResponse.getAuthorizations().forEach(auth -> {
+                String userId = auth.getUser() != null ? auth.getUser().getId() : null;
                 if (userId == null || userId.isBlank()) return;
 
                 userIds.add(userId);
 
                 List<String> rolesList = new ArrayList<>();
-                if (auth.has("roles")) {
-                    auth.get("roles").forEach(role -> {
-                        String key = role.path("key").asText(null);
-                        if (key != null) rolesList.add(key);
-                    });
+                if (auth.getRoles() != null) {
+                    auth.getRoles().forEach(role -> rolesList.add(role.getKey()));
                 }
                 userRoles.put(userId, rolesList);
             });
         }
 
-        List<JsonNode> zitadelUsers = zitadelManagementClient.listUsersByIds(userIds);
+        List<UserServiceUser> zitadelUsers = zitadelManagementClient.listUsersByIds(userIds);
         List<UserAccountEntity> localAccounts = userAccountRepository.findAll();
 
-        List<MemberResponse> members = zitadelUsers.stream().map(userNode -> {
-            String zitadelUserId  = userNode.path("userId").asText();
-            String email          = userNode.path("human").path("email").path("email").asText();
-            String firstName      = userNode.path("human").path("profile").path("givenName").asText();
-            String lastName       = userNode.path("human").path("profile").path("familyName").asText();
-            String state          = userNode.path("state").asText();
+        List<MemberResponse> members = zitadelUsers.stream().map(user -> {
+            String zitadelUserId  = user.getUserId();
+            String email          = user.getHuman() != null && user.getHuman().getEmail() != null ? user.getHuman().getEmail().getEmail() : "";
+            String firstName      = user.getHuman() != null && user.getHuman().getProfile() != null ? user.getHuman().getProfile().getGivenName() : "";
+            String lastName       = user.getHuman() != null && user.getHuman().getProfile() != null ? user.getHuman().getProfile().getFamilyName() : "";
+            String state          = user.getState() != null ? user.getState().toString() : "";
 
             log.info("User info: zitadelUserId {}, email {}, firstName {}, lastName {}, state {}", zitadelUserId, email, firstName, lastName, state);
 
-            String creationDateStr = userNode.path("details").path("creationDate").asText(null);
-            Instant createdAtInstant = (creationDateStr != null && !creationDateStr.isBlank())
-                    ? Instant.parse(creationDateStr)
-                    : Instant.now();
-            OffsetDateTime createdAt = createdAtInstant.atOffset(ZoneOffset.UTC);
+            OffsetDateTime createdAt = null;
+            if (user.getDetails() != null && user.getDetails().getCreationDate() != null) {
+                Object creationDate = user.getDetails().getCreationDate();
+                if (creationDate instanceof OffsetDateTime) {
+                    createdAt = (OffsetDateTime) creationDate;
+                } else {
+                    // Fallback: try to parse as string if it's not already an OffsetDateTime
+                    try {
+                        Instant createdAtInstant = Instant.parse(creationDate.toString());
+                        createdAt = createdAtInstant.atOffset(ZoneOffset.UTC);
+                    } catch (Exception e) {
+                        log.warn("Could not parse creation date for user {}: {}", zitadelUserId, e.getMessage());
+                        createdAt = Instant.now().atOffset(ZoneOffset.UTC);
+                    }
+                }
+            } else {
+                createdAt = Instant.now().atOffset(ZoneOffset.UTC);
+            }
 
             Optional<UserAccountEntity> localAccount = localAccounts.stream()
                     .filter(acc -> acc.getZitadelSub().equals(zitadelUserId)
@@ -131,15 +141,14 @@ public class MemberManagementService {
         OrganizationEntity organization = organizationRepository.findById(orgId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Organization not found"));
 
-        Optional<JsonNode> grantOpt = zitadelManagementClient.searchUserGrants(mainOrgId, goaldoneProjectId, zitadelUserId);
+        Optional<UserGrantDto> grantOpt = zitadelManagementClient.searchUserGrants(mainOrgId, goaldoneProjectId, zitadelUserId);
         if (grantOpt.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User grant not found");
         }
 
-        JsonNode grant = grantOpt.get();
-        String grantId = grant.get("grantId").asText();
-        List<String> currentRoles = new ArrayList<>();
-        grant.get("roleKeys").forEach(role -> currentRoles.add(role.asText()));
+        UserGrantDto grant = grantOpt.get();
+        String grantId = grant.grantId();
+        List<String> currentRoles = new ArrayList<>(grant.roleKeys());
 
         if (currentRoles.contains(newRole.getValue()) && currentRoles.size() == 1) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "ROLE_UNCHANGED");
@@ -152,13 +161,13 @@ public class MemberManagementService {
             // Actually, we need to count admins ONLY in this organization.
             
             // Re-fetch all grants for this org to be sure
-            JsonNode allGrants = zitadelManagementClient.listAllGrants(mainOrgId, goaldoneProjectId, organization.getZitadelOrgId());
+            AuthorizationServiceListAuthorizationsResponse allGrants = zitadelManagementClient.listAllGrants(mainOrgId, goaldoneProjectId, organization.getZitadelOrgId());
             long orgAdminCount = 0;
-            if (allGrants.has("authorizations")) {
-                for (JsonNode auth : allGrants.get("authorizations")) {
-                    if (auth.has("roles")) {
-                        for (JsonNode role : auth.get("roles")) {
-                            if (MemberRole.COMPANY_ADMIN.getValue().equals(role.path("key").asText())) {
+            if (allGrants.getAuthorizations() != null) {
+                for (var auth : allGrants.getAuthorizations()) {
+                    if (auth.getRoles() != null) {
+                        for (var role : auth.getRoles()) {
+                            if (MemberRole.COMPANY_ADMIN.getValue().equals(role.getKey())) {
                                 orgAdminCount++;
                                 break;
                             }
@@ -186,24 +195,23 @@ public class MemberManagementService {
         OrganizationEntity organization = organizationRepository.findById(orgId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Organization not found"));
 
-        Optional<JsonNode> grantOpt = zitadelManagementClient.searchUserGrants(mainOrgId, goaldoneProjectId, zitadelUserId);
+        Optional<UserGrantDto> grantOpt = zitadelManagementClient.searchUserGrants(mainOrgId, goaldoneProjectId, zitadelUserId);
         if (grantOpt.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found in organization");
         }
 
-        JsonNode grant = grantOpt.get();
-        List<String> roles = new ArrayList<>();
-        grant.get("roleKeys").forEach(role -> roles.add(role.asText()));
+        UserGrantDto grant = grantOpt.get();
+        List<String> roles = new ArrayList<>(grant.roleKeys());
 
         if (roles.contains(MemberRole.COMPANY_ADMIN.getValue())) {
             // Check if last admin
-            JsonNode allGrants = zitadelManagementClient.listAllGrants(mainOrgId, goaldoneProjectId, organization.getZitadelOrgId());
+            AuthorizationServiceListAuthorizationsResponse allGrants = zitadelManagementClient.listAllGrants(mainOrgId, goaldoneProjectId, organization.getZitadelOrgId());
             long orgAdminCount = 0;
-            if (allGrants.has("authorizations")) {
-                for (JsonNode auth : allGrants.get("authorizations")) {
-                    if (auth.has("roles")) {
-                        for (JsonNode role : auth.get("roles")) {
-                            if (MemberRole.COMPANY_ADMIN.getValue().equals(role.path("key").asText())) {
+            if (allGrants.getAuthorizations() != null) {
+                for (var auth : allGrants.getAuthorizations()) {
+                    if (auth.getRoles() != null) {
+                        for (var role : auth.getRoles()) {
+                            if (MemberRole.COMPANY_ADMIN.getValue().equals(role.getKey())) {
                                 orgAdminCount++;
                                 break;
                             }
