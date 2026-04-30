@@ -1,6 +1,5 @@
 package de.goaldone.backend.service;
 
-import com.zitadel.model.UserServiceUser;
 import de.goaldone.backend.client.ZitadelManagementClient;
 import de.goaldone.backend.entity.UserAccountEntity;
 import de.goaldone.backend.model.InviteSuperAdminRequest;
@@ -69,9 +68,9 @@ public class SuperAdminService {
                 admin.setStatus(user.getState() != null ? user.getState().toString() : "");
 
                 if (user.getDetails() != null && user.getDetails().getCreationDate() != null) {
-                    Object creationDate = user.getDetails().getCreationDate();
-                    if (creationDate instanceof OffsetDateTime) {
-                        admin.setCreatedAt((OffsetDateTime) creationDate);
+                    OffsetDateTime creationDate = user.getDetails().getCreationDate();
+                    if (creationDate != null) {
+                        admin.setCreatedAt(creationDate);
                     } else {
                         // Fallback: try to parse as string if it's not already an OffsetDateTime
                         try {

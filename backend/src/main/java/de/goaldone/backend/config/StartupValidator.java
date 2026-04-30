@@ -12,12 +12,16 @@ import java.util.List;
 /**
  * Validator component that performs sanity checks on the Zitadel configuration during application startup.
  * It ensures that the required organizational structure and administrative roles are present.
+ * Validation is skipped in test profiles to allow WireMock stubs to be set up.
  */
 @Component
 @Slf4j
 public class StartupValidator {
 
     private final ZitadelManagementClient zitadelClient;
+
+    @Value("${spring.profiles.active:default}")
+    private String activeProfile;
 
     /**
      * Constructs a new StartupValidator.
@@ -43,10 +47,17 @@ public class StartupValidator {
      * 1. The configured Goaldone organization exists in Zitadel.
      * 2. At least one user with the {@code SUPER_ADMIN} role is present.
      * </p>
+     * Validation is skipped in test profiles since WireMock stubs are set up after context initialization.
      * Any discrepancies are logged as errors or warnings.
      */
     @EventListener(ApplicationReadyEvent.class)
     public void validateZitadelConfiguration() {
+        // Skip validation in test profiles since WireMock stubs are not yet configured
+        if ("test".equals(activeProfile) || "local".equals(activeProfile)) {
+            log.debug("Skipping Zitadel configuration validation in {} profile", activeProfile);
+            return;
+        }
+
         log.info("Starting Zitadel configuration validation...");
 
         // 1. Check if Goaldone Org exists

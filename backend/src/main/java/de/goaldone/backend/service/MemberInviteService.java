@@ -1,6 +1,5 @@
 package de.goaldone.backend.service;
 
-import com.zitadel.model.UserServiceUser;
 import de.goaldone.backend.client.ZitadelManagementClient;
 import de.goaldone.backend.entity.OrganizationEntity;
 import de.goaldone.backend.entity.UserAccountEntity;

@@ -181,18 +181,21 @@ class SuperAdminIntegrationTest {
         String userJson = String.format("""
             {
                 "user": {
-                    "id": "%s",
+                    "userId": "%s",
                     "human": {
                         "email": { "email": "%s" },
                         "profile": { "givenName": "Admin", "familyName": "User" }
                     },
                     "state": "USER_STATE_ACTIVE",
-                    "details": { "createdDate": "2023-10-27T10:00:00Z" }
+                    "details": { "creationDate": "2023-10-27T10:00:00Z" }
                 }
             }
             """, userId, email);
 
-        wireMockServer.stubFor(WireMock.get(urlPathEqualTo("/v2/users/" + userId))
+        // Match both REST and Connect-RPC requests for user endpoints
+        wireMockServer.stubFor(WireMock.get(urlPathMatching(".*/users.*"))
+            .willReturn(okJson(userJson)));
+        wireMockServer.stubFor(WireMock.post(urlPathMatching(".*/users.*"))
             .willReturn(okJson(userJson)));
     }
 
@@ -202,12 +205,13 @@ class SuperAdminIntegrationTest {
     }
 
     private void stubEmailNotExists() {
-        wireMockServer.stubFor(WireMock.post(urlPathMatching("/v2/users/_search"))
+        // Handle both REST and Connect-RPC style requests for user searches
+        wireMockServer.stubFor(WireMock.post(urlPathMatching(".*/users.*"))
             .willReturn(okJson("{\"result\": []}")));
     }
 
     private void stubAddHumanUser(String userId) {
-        wireMockServer.stubFor(WireMock.post(urlPathMatching("/v2/users/human"))
+        wireMockServer.stubFor(WireMock.post(urlPathMatching(".*/users.*"))
             .willReturn(okJson("{\"userId\": \"" + userId + "\"}")));
     }
 
@@ -217,7 +221,7 @@ class SuperAdminIntegrationTest {
     }
 
     private void stubCreateInviteCode() {
-        wireMockServer.stubFor(WireMock.post(urlPathMatching("/v2/users/.*/invite_code"))
+        wireMockServer.stubFor(WireMock.post(urlPathMatching(".*/invite_code.*"))
             .willReturn(ok()));
     }
 

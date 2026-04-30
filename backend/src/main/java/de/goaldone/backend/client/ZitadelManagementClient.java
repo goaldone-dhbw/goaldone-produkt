@@ -51,7 +51,6 @@ import java.util.Optional;
  * Client for interacting with the Zitadel Management API.
  * Provides methods for user management, organization management, and handling user grants
  * within the Zitadel identity management system.
- *
  * Methods that interact with v2 APIs use the official Zitadel Java SDK.
  * Methods that interact with Management v1 APIs (which lack SDK typed models) use RestClient with JSON parsing.
  */
@@ -67,9 +66,9 @@ public class ZitadelManagementClient {
     /**
      * Constructs a new ZitadelManagementClient.
      *
-     * @param zitadel the Zitadel SDK client
-     * @param restClientBuilder the builder used to create the RestClient for Management v1 APIs
-     * @param managementApiUrl the base URL for the Zitadel Management API
+     * @param zitadel             the Zitadel SDK client
+     * @param restClientBuilder   the builder used to create the RestClient for Management v1 APIs
+     * @param managementApiUrl    the base URL for the Zitadel Management API
      * @param serviceAccountToken the service account token used for authentication
      */
     public ZitadelManagementClient(
@@ -328,6 +327,7 @@ public class ZitadelManagementClient {
     public void createInviteCode(String userId) {
         try {
             UserServiceCreateInviteCodeRequest request = new UserServiceCreateInviteCodeRequest()
+                    .userId(userId)
                     .sendCode(new UserServiceSendInviteCode());
             zitadel.getUsers().createInviteCode(request);
         } catch (ApiException e) {
@@ -341,7 +341,8 @@ public class ZitadelManagementClient {
 
     public String addOrganization(String name) {
         try {
-            OrganizationServiceAddOrganizationRequest request = new OrganizationServiceAddOrganizationRequest().name(name);
+            OrganizationServiceAddOrganizationRequest request = new OrganizationServiceAddOrganizationRequest()
+                    .name(name);
             OrganizationServiceAddOrganizationResponse response = zitadel.getOrganizations().addOrganization(request);
             log.debug("Created organization: {}", response.getOrganizationId());
             return response.getOrganizationId();
@@ -358,7 +359,8 @@ public class ZitadelManagementClient {
 
     public void deleteOrganization(String zitadelOrgId) {
         try {
-            OrganizationServiceDeleteOrganizationRequest request = new OrganizationServiceDeleteOrganizationRequest();
+            OrganizationServiceDeleteOrganizationRequest request = new OrganizationServiceDeleteOrganizationRequest()
+                    .organizationId(zitadelOrgId);
             zitadel.getOrganizations().deleteOrganization(request);
         } catch (ApiException e) {
             log.error("Failed to delete organization {}: HTTP {}", zitadelOrgId, e.getCode());
@@ -369,7 +371,8 @@ public class ZitadelManagementClient {
 
     public void deleteUser(String userId) {
         try {
-            UserServiceDeleteUserRequest request = new UserServiceDeleteUserRequest().userId(userId);
+            UserServiceDeleteUserRequest request = new UserServiceDeleteUserRequest()
+                    .userId(userId);
             zitadel.getUsers().deleteUser(request);
         } catch (ApiException e) {
             log.error("Failed to delete user {}: HTTP {}", userId, e.getCode());

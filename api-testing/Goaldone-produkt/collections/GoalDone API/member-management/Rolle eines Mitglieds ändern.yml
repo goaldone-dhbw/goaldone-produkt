@@ -4,15 +4,21 @@ info:
   seq: 4
 
 http:
-  method: GET
+  method: PUT
   url: "{{baseUrl}}/organizations/:orgId/members/:zitadelUserId/role"
   params:
     - name: orgId
-      value: ""
+      value: 9e800cb8-9356-441a-bb95-5048ec624e2b
       type: path
     - name: zitadelUserId
-      value: ""
+      value: "370716114662981634"
       type: path
+  body:
+    type: json
+    data: |-
+      {
+        "role": "COMPANY_ADMIN"
+      }
   auth: inherit
 
 settings:

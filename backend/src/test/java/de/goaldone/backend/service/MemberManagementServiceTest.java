@@ -1,9 +1,7 @@
 package de.goaldone.backend.service;
 
 import com.zitadel.model.*;
-import java.time.Instant;
 import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
 import de.goaldone.backend.client.UserGrantDto;
 import de.goaldone.backend.client.ZitadelManagementClient;
 import de.goaldone.backend.entity.OrganizationEntity;
@@ -28,9 +26,6 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.time.Instant;
-import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -126,7 +121,7 @@ class MemberManagementServiceTest {
     }
 
     @Test
-    void changeMemberRole_Success() throws Exception {
+    void changeMemberRole_Success() {
         // Arrange
         UserAccountEntity callerAccount = new UserAccountEntity();
         callerAccount.setOrganizationId(orgId);

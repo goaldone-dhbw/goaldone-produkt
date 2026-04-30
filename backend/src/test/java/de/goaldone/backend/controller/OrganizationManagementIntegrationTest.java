@@ -34,7 +34,7 @@ import java.util.UUID;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.ok;
 import static com.github.tomakehurst.wiremock.client.WireMock.okJson;
-import static com.github.tomakehurst.wiremock.client.WireMock.urlMatching;
+import static com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -272,14 +272,18 @@ class OrganizationManagementIntegrationTest {
     // --- Stubs ---
 
     private void stubEmailNotExists() {
-        wireMockServer.stubFor(WireMock.post(urlPathMatching("/v2/users/_search"))
+        wireMockServer.stubFor(WireMock.post(urlPathMatching("/v2/users.*"))
             .withHeader(HttpHeaders.AUTHORIZATION, WireMock.containing("Bearer"))
+            .willReturn(okJson("{\"result\": []}")));
+        wireMockServer.stubFor(WireMock.post(urlPathMatching("/zitadel\\.user\\.v2\\.Users/.*"))
             .willReturn(okJson("{\"result\": []}")));
     }
 
     private void stubEmailExists() {
-        wireMockServer.stubFor(WireMock.post(urlPathMatching("/v2/users/_search"))
+        wireMockServer.stubFor(WireMock.post(urlPathMatching("/v2/users.*"))
             .withHeader(HttpHeaders.AUTHORIZATION, WireMock.containing("Bearer"))
+            .willReturn(okJson("{\"result\": [{\"userId\": \"existing-user\"}]}")));
+        wireMockServer.stubFor(WireMock.post(urlPathMatching("/zitadel\\.user\\.v2\\.Users/.*"))
             .willReturn(okJson("{\"result\": [{\"userId\": \"existing-user\"}]}")));
     }
 
@@ -287,12 +291,16 @@ class OrganizationManagementIntegrationTest {
         wireMockServer.stubFor(WireMock.post(urlPathMatching("/v2/organizations"))
             .withHeader(HttpHeaders.AUTHORIZATION, WireMock.containing("Bearer"))
             .willReturn(okJson("{\"organizationId\": \"" + orgId + "\"}")));
+        wireMockServer.stubFor(WireMock.post(urlPathMatching("/zitadel\\.organization\\.v2\\.Organizations/AddOrganization"))
+            .willReturn(okJson("{\"organizationId\": \"" + orgId + "\"}")));
     }
 
     private void stubAddHumanUser(String userId) {
         wireMockServer.stubFor(WireMock.post(urlPathMatching("/v2/users/human"))
             .withHeader(HttpHeaders.AUTHORIZATION, WireMock.containing("Bearer"))
             .withHeader("x-zitadel-orgid", WireMock.matching(".*"))
+            .willReturn(okJson("{\"userId\": \"" + userId + "\"}")));
+        wireMockServer.stubFor(WireMock.post(urlPathMatching("/zitadel\\.user\\.v2\\.Users/AddHumanUser"))
             .willReturn(okJson("{\"userId\": \"" + userId + "\"}")));
     }
 
@@ -306,6 +314,8 @@ class OrganizationManagementIntegrationTest {
     private void stubCreateInviteCode() {
         wireMockServer.stubFor(WireMock.post(urlPathMatching("/v2/users/.*/invite_code"))
             .withHeader(HttpHeaders.AUTHORIZATION, WireMock.containing("Bearer"))
+            .willReturn(ok()));
+        wireMockServer.stubFor(WireMock.post(urlPathMatching("/zitadel\\.user\\.v2\\.Users/CreateInviteCode"))
             .willReturn(ok()));
     }
 

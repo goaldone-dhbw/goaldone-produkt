@@ -196,17 +196,23 @@ class MemberManagementIntegrationTest {
     // --- Stubs ---
 
     private void stubEmailNotExists() {
-        wireMockServer.stubFor(WireMock.post(urlPathMatching("/v2/users/_search"))
+        wireMockServer.stubFor(WireMock.post(urlPathMatching("/v2/users.*"))
+            .willReturn(okJson("{\"result\": []}")));
+        wireMockServer.stubFor(WireMock.post(urlPathMatching("/zitadel\\.user\\.v2\\.Users/.*"))
             .willReturn(okJson("{\"result\": []}")));
     }
 
     private void stubEmailExists() {
-        wireMockServer.stubFor(WireMock.post(urlPathMatching("/v2/users/_search"))
+        wireMockServer.stubFor(WireMock.post(urlPathMatching("/v2/users.*"))
+            .willReturn(okJson("{\"result\": [{\"userId\": \"existing-user\"}]}")));
+        wireMockServer.stubFor(WireMock.post(urlPathMatching("/zitadel\\.user\\.v2\\.Users/.*"))
             .willReturn(okJson("{\"result\": [{\"userId\": \"existing-user\"}]}")));
     }
 
     private void stubAddHumanUser(String userId) {
         wireMockServer.stubFor(WireMock.post(urlPathMatching("/v2/users/human"))
+            .willReturn(okJson("{\"userId\": \"" + userId + "\"}")));
+        wireMockServer.stubFor(WireMock.post(urlPathMatching("/zitadel\\.user\\.v2\\.Users/AddHumanUser"))
             .willReturn(okJson("{\"userId\": \"" + userId + "\"}")));
     }
 
@@ -218,10 +224,14 @@ class MemberManagementIntegrationTest {
     private void stubCreateInviteCode() {
         wireMockServer.stubFor(WireMock.post(urlPathMatching("/v2/users/.*/invite_code"))
             .willReturn(ok()));
+        wireMockServer.stubFor(WireMock.post(urlPathMatching("/zitadel\\.user\\.v2\\.Users/CreateInviteCode"))
+            .willReturn(ok()));
     }
 
     private void stubGetUser(String state) {
         wireMockServer.stubFor(WireMock.get(urlPathMatching("/v2/users/.*"))
+            .willReturn(okJson("{\"user\": {\"state\": \"" + state + "\"}}")));
+        wireMockServer.stubFor(WireMock.post(urlPathMatching("/zitadel\\.user\\.v2\\.Users/GetUser"))
             .willReturn(okJson("{\"user\": {\"state\": \"" + state + "\"}}")));
     }
 
