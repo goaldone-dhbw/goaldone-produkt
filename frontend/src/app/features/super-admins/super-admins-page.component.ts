@@ -10,10 +10,17 @@ import { finalize } from 'rxjs';
 
 import {
   OrgManagementService,
-  OrganizationListItem,
   SuperAdminManagementService,
   SuperAdminResponse,
 } from '../../api';
+
+type OrganizationListItem = {
+  id?: string | null;
+  zitadelOrganizationId: string;
+  name: string;
+  createdAt: string;
+};
+
 import { AddSuperAdminDialogComponent } from './dialog/add-super-admin-dialog.component';
 import { CreateOrganizationCardComponent } from './create-organization/create-organization-card/create-organization-card';
 
