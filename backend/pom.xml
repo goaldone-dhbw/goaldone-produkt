@@ -141,6 +141,7 @@
                                 <skipDefaultInterface>true</skipDefaultInterface>
                                 <unhandledException>true</unhandledException>
                                 <contextPath>/</contextPath>
+                                <openApiNullable>false</openApiNullable>
                             </configOptions>
                         </configuration>
                     </execution>

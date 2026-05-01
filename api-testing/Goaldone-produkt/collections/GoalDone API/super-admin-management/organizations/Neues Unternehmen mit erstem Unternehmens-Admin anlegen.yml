@@ -1,0 +1,24 @@
+info:
+  name: Neues Unternehmen mit erstem Unternehmens-Admin anlegen
+  type: http
+  seq: 2
+
+http:
+  method: POST
+  url: "{{baseUrl}}/admins/organizations"
+  body:
+    type: json
+    data: |-
+      {
+        "name": "Goaldone",
+        "adminEmail": "admin@goaldone.de",
+        "adminFirstName": "Test",
+        "adminLastName": "Admin"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
