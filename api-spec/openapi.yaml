@@ -12,10 +12,16 @@ tags:
     description: Health check operations
   - name: tasks
     description: Task management operations
-  - name: user-accounts
-    description: User Account operations
   - name: working-times
     description: Working time management
+  - name: appointments
+    description: Appointment management operations
+  - name: schedules
+    description: Schedule management operations
+  - name: user-accounts
+    description: User Account operations
+  - name: member-management
+    description: Organization member management operations
   - name: org-management
     description: Organization management operations
   - name: super-admin-management
@@ -581,6 +587,168 @@ paths:
         '409':
           description: Conflict (Last Super-Admin)
 
+  # ============================================================
+  # MEMBER MANAGEMENT – Invite
+  # ============================================================
+  /organizations/{orgId}/members/invite:
+    post:
+      tags:
+        - member-management
+      summary: Neuen Nutzer in die Organisation einladen
+      description: |
+        Legt einen neuen Zitadel-User in der Org an, vergibt die gewünschte
+        Projektrolle und löst den Versand einer gebrandeten Einladungs-E-Mail aus.
+        Ein lokaler Shadow-Record wird nicht angelegt – das geschieht über
+        JIT-Provisioning beim ersten Login des eingeladenen Nutzers.
+      operationId: inviteMember
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrgIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InviteMemberRequest'
+      responses:
+        '201':
+          description: Einladung versendet
+        '400':
+          description: Bad Request (Validation)
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden – nicht COMPANY_ADMIN oder nicht Mitglied dieser Org
+        '409':
+          description: Conflict (EMAIL_ALREADY_IN_USE)
+        '502':
+          description: Upstream Error (Zitadel)
+
+  /organizations/{orgId}/members/{zitadelUserId}/reinvite:
+    post:
+      tags:
+        - member-management
+      summary: Einladung erneut versenden
+      description: |
+        Generiert einen neuen Einladungscode für einen noch nicht aktiven
+        Nutzer und versendet erneut eine gebrandete Einladungs-E-Mail.
+        Der vorherige Einladungslink wird dabei invalidiert.
+        Nur für Nutzer mit Status INVITED aufrufbar.
+      operationId: reinviteMember
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrgIdPath'
+        - $ref: '#/components/parameters/ZitadelUserIdPath'
+      responses:
+        '204':
+          description: Einladung erneut versendet
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '409':
+          description: Conflict (USER_ALREADY_ACTIVE)
+        '404':
+          description: Nutzer nicht gefunden
+        '502':
+          description: Upstream Error (Zitadel)
+
+  # ============================================================
+  # MEMBER MANAGEMENT – List, Role, Remove
+  # ============================================================
+  /organizations/{orgId}/members:
+    get:
+      tags:
+        - member-management
+      summary: Alle Mitglieder einer Organisation auflisten
+      description: |
+        Listet alle Mitglieder der Organisation auf, inklusive eingeladener
+        aber noch nicht aktiver Nutzer. Status INVITED bedeutet, die Einladung
+        wurde noch nicht angenommen (kein JIT-Record vorhanden).
+      operationId: listMembers
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrgIdPath'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemberListResponse'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden – nicht COMPANY_ADMIN oder nicht Mitglied dieser Org
+
+  /organizations/{orgId}/members/{zitadelUserId}/role:
+    put:
+      tags:
+        - member-management
+      summary: Rolle eines Mitglieds ändern
+      description: |
+        Ändert die Projektrolle eines Mitglieds auf dem Goaldone-Projekt
+        über Zitadels ManagementService.UpdateUserGrant. Die Änderung wird
+        nicht lokal in der DB gespeichert – die neue Rolle ist ab dem
+        nächsten Token-Refresh des betroffenen Nutzers wirksam.
+        Degradierung des letzten COMPANY_ADMIN wird verhindert.
+      operationId: changeMemberRole
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrgIdPath'
+        - $ref: '#/components/parameters/ZitadelUserIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangeRoleRequest'
+      responses:
+        '200':
+          description: Rolle geändert
+        '400':
+          description: Bad Request (ROLE_UNCHANGED)
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '409':
+          description: Conflict (LAST_ADMIN_CANNOT_BE_DEMOTED)
+        '502':
+          description: Upstream Error (Zitadel)
+
+  /organizations/{orgId}/members/{zitadelUserId}:
+    delete:
+      tags:
+        - member-management
+      summary: Mitglied aus der Organisation entfernen
+      description: |
+        Entfernt den Nutzer aus Zitadel und löscht den lokalen Account
+        inklusive aller verknüpften Daten (Tasks, Appointments, Working-Times).
+        Bei eingeladenen, noch nicht aktiven Nutzern wird nur der Zitadel-User
+        gelöscht. Selbst-Entfernung ist nicht erlaubt.
+      operationId: removeMember
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrgIdPath'
+        - $ref: '#/components/parameters/ZitadelUserIdPath'
+      responses:
+        '204':
+          description: Nutzer entfernt
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (CANNOT_REMOVE_SELF / nicht Mitglied der Org)
+        '409':
+          description: Conflict (LAST_ADMIN_CANNOT_BE_REMOVED)
+        '502':
+          description: Upstream Error (Zitadel)
+
   /tasks/all:
     get:
       tags:
@@ -731,6 +899,23 @@ components:
         type: string
         format: date
         example: "2026-04-11"
+
+    OrgIdPath:
+      name: orgId
+      in: path
+      required: true
+      description: Interne UUID der Organisation
+      schema:
+        type: string
+        format: uuid
+
+    ZitadelUserIdPath:
+      name: zitadelUserId
+      in: path
+      required: true
+      description: Zitadel User ID
+      schema:
+        type: string
 
   # ============================================================
   # SCHEMAS
@@ -1256,6 +1441,97 @@ components:
           type: string
           minLength: 1
           maxLength: 50
+
+    # ----------------------------------------------------------
+    # Member Management
+    # ----------------------------------------------------------
+    MemberRole:
+      type: string
+      enum:
+        - USER
+        - COMPANY_ADMIN
+
+    InviteMemberRequest:
+      type: object
+      required:
+        - email
+        - firstName
+        - lastName
+      properties:
+        email:
+          type: string
+          format: email
+        firstName:
+          type: string
+          minLength: 1
+          maxLength: 200
+        lastName:
+          type: string
+          minLength: 1
+          maxLength: 200
+        role:
+          $ref: '#/components/schemas/MemberRole'
+          default: USER
+
+    MemberStatus:
+      type: string
+      enum:
+        - INVITED
+        - ACTIVE
+
+    ChangeRoleRequest:
+      type: object
+      required:
+        - role
+      properties:
+        role:
+          $ref: '#/components/schemas/MemberRole'
+
+    MemberResponse:
+      type: object
+      required:
+        - zitadelUserId
+        - email
+        - role
+        - status
+        - createdAt
+      properties:
+        accountId:
+          type: string
+          format: uuid
+          nullable: true
+          description: |
+            Lokale Account-ID aus user_accounts.
+            null wenn der Nutzer die Einladung noch nicht angenommen hat.
+        zitadelUserId:
+          type: string
+          description: Zitadel-User-ID
+        email:
+          type: string
+          format: email
+        firstName:
+          type: string
+          nullable: true
+        lastName:
+          type: string
+          nullable: true
+        role:
+          $ref: '#/components/schemas/MemberRole'
+        status:
+          $ref: '#/components/schemas/MemberStatus'
+        createdAt:
+          type: string
+          format: date-time
+
+    MemberListResponse:
+      type: object
+      required:
+        - members
+      properties:
+        members:
+          type: array
+          items:
+            $ref: '#/components/schemas/MemberResponse'
 
     # ----------------------------------------------------------
     # Schedule – Request

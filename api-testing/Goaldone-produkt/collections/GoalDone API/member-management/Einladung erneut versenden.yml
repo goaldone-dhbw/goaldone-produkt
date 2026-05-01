@@ -1,0 +1,22 @@
+info:
+  name: Einladung erneut versenden
+  type: http
+  seq: 2
+
+http:
+  method: POST
+  url: "{{baseUrl}}/organizations/:orgId/members/:zitadelUserId/reinvite"
+  params:
+    - name: orgId
+      value: ""
+      type: path
+    - name: zitadelUserId
+      value: ""
+      type: path
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
