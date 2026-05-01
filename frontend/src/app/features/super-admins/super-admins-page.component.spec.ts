@@ -1,8 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { inject, Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { provideHttpClient } from '@angular/common/http';
+import { HttpClient, provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
@@ -13,11 +12,9 @@ import { BASE_PATH, OrgManagementService } from '../../api';
 import { SuperAdminsPageComponent } from './super-admins-page.component';
 
 interface OrganizationListItem {
-  id: string;
+  id?: string | null;
   zitadelOrganizationId: string;
   name: string;
-  activeMemberCount: number;
-  invitedMemberCount: number;
   createdAt: string;
 }
 
@@ -25,12 +22,6 @@ interface OrganizationListResponse {
   organizations: OrganizationListItem[];
 }
 
-/**
- * Test double for the future generated OrgManagementService.
- *
- * The real generated service will receive listOrganizations and deleteOrganization
- * after the backend OpenAPI specification has been extended.
- */
 @Injectable()
 class FutureOrgManagementServiceMock {
   private readonly http = inject(HttpClient);
@@ -40,8 +31,8 @@ class FutureOrgManagementServiceMock {
     return this.http.get<OrganizationListResponse>(`${this.basePath}/admins/organizations`);
   }
 
-  deleteOrganization(organizationId: string): Observable<void> {
-    return this.http.delete<void>(`${this.basePath}/admins/organizations/${organizationId}`);
+  deleteOrganization(zitadelOrganizationId: string): Observable<void> {
+    return this.http.delete<void>(`${this.basePath}/admins/organizations/${zitadelOrganizationId}`);
   }
 }
 
@@ -56,8 +47,6 @@ describe('SuperAdminsPageComponent', () => {
     id: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
     zitadelOrganizationId: 'org-123',
     name: 'GoalDone GmbH',
-    activeMemberCount: 2,
-    invitedMemberCount: 1,
     createdAt: '2026-01-01T12:00:00Z',
   };
 
@@ -124,11 +113,14 @@ describe('SuperAdminsPageComponent', () => {
     const text = fixture.nativeElement.textContent;
 
     expect(text).toContain('GoalDone GmbH');
-    expect(text).toContain('Aktive Mitglieder:');
-    expect(text).toContain('Eingeladen:');
+    expect(text).toContain('Zitadel-ID:');
+    expect(text).toContain('org-123');
   });
 
   it('should reload organizations after organization was created', () => {
+    const messageService = fixture.debugElement.injector.get(MessageService);
+    const messageSpy = vi.spyOn(messageService, 'add');
+
     flushInitialRequests({
       organizations: [],
     });
@@ -141,6 +133,12 @@ describe('SuperAdminsPageComponent', () => {
     });
 
     expect(component.organizations()).toEqual([organization]);
+    expect(messageSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        severity: 'success',
+        summary: 'Unternehmen angelegt',
+      }),
+    );
   });
 
   it('should open confirmation dialog before deleting an organization', () => {
@@ -151,7 +149,7 @@ describe('SuperAdminsPageComponent', () => {
     const confirmationService = fixture.debugElement.injector.get(ConfirmationService);
     const confirmSpy = vi.spyOn(confirmationService, 'confirm');
 
-    component.confirmDeleteOrganization(organization);
+    component.confirmDeleteOrganization(organization as any);
 
     expect(confirmSpy).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -174,9 +172,11 @@ describe('SuperAdminsPageComponent', () => {
       return confirmationService;
     });
 
-    component.confirmDeleteOrganization(organization);
+    component.confirmDeleteOrganization(organization as any);
 
-    const deleteRequest = httpMock.expectOne(`${API_BASE}/admins/organizations/${organization.id}`);
+    const deleteRequest = httpMock.expectOne(
+      `${API_BASE}/admins/organizations/${organization.zitadelOrganizationId}`,
+    );
 
     expect(deleteRequest.request.method).toBe('DELETE');
 
@@ -189,6 +189,9 @@ describe('SuperAdminsPageComponent', () => {
   });
 
   it('should keep organization in list when delete fails', () => {
+    const messageService = fixture.debugElement.injector.get(MessageService);
+    const messageSpy = vi.spyOn(messageService, 'add');
+
     flushInitialRequests({
       organizations: [organization],
     });
@@ -200,9 +203,11 @@ describe('SuperAdminsPageComponent', () => {
       return confirmationService;
     });
 
-    component.confirmDeleteOrganization(organization);
+    component.confirmDeleteOrganization(organization as any);
 
-    const deleteRequest = httpMock.expectOne(`${API_BASE}/admins/organizations/${organization.id}`);
+    const deleteRequest = httpMock.expectOne(
+      `${API_BASE}/admins/organizations/${organization.zitadelOrganizationId}`,
+    );
 
     deleteRequest.flush(
       { detail: 'FORBIDDEN' },
@@ -213,6 +218,50 @@ describe('SuperAdminsPageComponent', () => {
     );
 
     expect(component.organizations()).toEqual([organization]);
+    expect(messageSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        severity: 'error',
+      }),
+    );
+  });
+
+  it('should show specific partial deletion error message', () => {
+    const messageService = fixture.debugElement.injector.get(MessageService);
+    const messageSpy = vi.spyOn(messageService, 'add');
+
+    flushInitialRequests({
+      organizations: [organization],
+    });
+
+    const confirmationService = fixture.debugElement.injector.get(ConfirmationService);
+
+    vi.spyOn(confirmationService, 'confirm').mockImplementation((confirmation: any) => {
+      confirmation.accept();
+      return confirmationService;
+    });
+
+    component.confirmDeleteOrganization(organization as any);
+
+    const deleteRequest = httpMock.expectOne(
+      `${API_BASE}/admins/organizations/${organization.zitadelOrganizationId}`,
+    );
+
+    deleteRequest.flush(
+      { detail: 'PARTIAL_DELETION_FAILURE' },
+      {
+        status: 502,
+        statusText: 'Bad Gateway',
+      },
+    );
+
+    expect(component.organizations()).toEqual([organization]);
+    expect(messageSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        severity: 'error',
+        detail:
+          'Das Unternehmen konnte nicht vollständig gelöscht werden, weil mindestens ein Mitglied nicht entfernt werden konnte. Das Unternehmen bleibt bestehen.',
+      }),
+    );
   });
 
   it('should disable delete button when only one super admin exists', () => {
