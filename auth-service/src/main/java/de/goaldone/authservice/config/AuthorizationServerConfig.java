@@ -10,28 +10,29 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configuration.OAuth2AuthorizationServerConfiguration;
 import org.springframework.security.config.annotation.web.configurers.oauth2.server.authorization.OAuth2AuthorizationServerConfigurer;
-import org.springframework.security.oauth2.core.AuthorizationGrantType;
-import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
-import org.springframework.security.oauth2.core.oidc.OidcScopes;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
-import org.springframework.security.oauth2.server.authorization.client.InMemoryRegisteredClientRepository;
-import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
+import org.springframework.security.oauth2.server.authorization.client.JdbcRegisteredClientRepository;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
 import org.springframework.security.oauth2.server.authorization.settings.AuthorizationServerSettings;
-import org.springframework.security.oauth2.server.authorization.settings.ClientSettings;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
 import org.springframework.security.web.util.matcher.MediaTypeRequestMatcher;
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
+import java.text.ParseException;
 import java.util.UUID;
 
 /**
@@ -40,6 +41,8 @@ import java.util.UUID;
 @Configuration
 @EnableWebSecurity
 public class AuthorizationServerConfig {
+
+    private static final String KEY_FILE = "var/auth-service/keys/jwk.json";
 
     @Bean
     @Order(Ordered.HIGHEST_PRECEDENCE)
@@ -66,44 +69,41 @@ public class AuthorizationServerConfig {
     }
 
     @Bean
-    public RegisteredClientRepository registeredClientRepository() {
-        RegisteredClient testClient = RegisteredClient.withId(UUID.randomUUID().toString())
-                .clientId("test-client")
-                .clientSecret("{noop}secret")
-                .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
-                .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
-                .authorizationGrantType(AuthorizationGrantType.REFRESH_TOKEN)
-                .redirectUri("http://127.0.0.1:8080/login/oauth2/code/test-client")
-                .scope(OidcScopes.OPENID)
-                .scope(OidcScopes.PROFILE)
-                .clientSettings(ClientSettings.builder().requireAuthorizationConsent(true).build())
-                .build();
-
-        RegisteredClient mgmtClient = RegisteredClient.withId(UUID.randomUUID().toString())
-                .clientId("mgmt-client")
-                .clientSecret("{noop}mgmt-secret")
-                .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
-                .authorizationGrantType(AuthorizationGrantType.CLIENT_CREDENTIALS)
-                .scope("mgmt:admin")
-                .build();
-
-        return new InMemoryRegisteredClientRepository(testClient, mgmtClient);
+    public RegisteredClientRepository registeredClientRepository(JdbcTemplate jdbcTemplate) {
+        return new JdbcRegisteredClientRepository(jdbcTemplate);
     }
 
     @Bean
     public JWKSource<SecurityContext> jwkSource() {
-        KeyPair keyPair = generateRsaKey();
-        RSAPublicKey publicKey = (RSAPublicKey) keyPair.getPublic();
-        RSAPrivateKey privateKey = (RSAPrivateKey) keyPair.getPrivate();
-        RSAKey rsaKey = new RSAKey.Builder(publicKey)
-                .privateKey(privateKey)
-                .keyID(UUID.randomUUID().toString())
-                .build();
+        RSAKey rsaKey = loadOrGenerateKey();
         JWKSet jwkSet = new JWKSet(rsaKey);
         return new ImmutableJWKSet<>(jwkSet);
     }
 
-    private static KeyPair generateRsaKey() {
+    private RSAKey loadOrGenerateKey() {
+        File file = new File(KEY_FILE);
+        if (file.exists()) {
+            try {
+                String content = Files.readString(file.toPath(), StandardCharsets.UTF_8);
+                return RSAKey.parse(content);
+            } catch (IOException | ParseException e) {
+                throw new IllegalStateException("Failed to load JWK from " + KEY_FILE, e);
+            }
+        }
+
+        RSAKey generatedKey = generateRsaKey();
+        try {
+            if (file.getParentFile() != null) {
+                Files.createDirectories(file.getParentFile().toPath());
+            }
+            Files.writeString(file.toPath(), generatedKey.toJSONString(), StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new IllegalStateException("Failed to save JWK to " + KEY_FILE, e);
+        }
+        return generatedKey;
+    }
+
+    private static RSAKey generateRsaKey() {
         KeyPair keyPair;
         try {
             KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("RSA");
@@ -112,7 +112,13 @@ public class AuthorizationServerConfig {
         } catch (Exception ex) {
             throw new IllegalStateException(ex);
         }
-        return keyPair;
+
+        RSAPublicKey publicKey = (RSAPublicKey) keyPair.getPublic();
+        RSAPrivateKey privateKey = (RSAPrivateKey) keyPair.getPrivate();
+        return new RSAKey.Builder(publicKey)
+                .privateKey(privateKey)
+                .keyID(UUID.randomUUID().toString())
+                .build();
     }
 
     @Bean

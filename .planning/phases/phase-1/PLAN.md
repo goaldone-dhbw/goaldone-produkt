@@ -9,37 +9,38 @@ files_modified:
   - auth-service/src/main/resources/db/changelog/db.changelog-master.xml
   - auth-service/src/main/java/de/goaldone/authservice/config/AuthorizationServerConfig.java
   - auth-service/src/main/java/de/goaldone/authservice/config/TokenCustomizerConfig.java
-  - auth-service/src/main/java/de/goaldone/authservice/security/JdbcJWKSource.java
-  - auth-service/src/main/resources/db/changelog/07-seed-clients.xml
+  - auth-service/src/main/java/de/goaldone/authservice/startup/ClientSeedingRunner.java
+  - auth-service/src/main/java/de/goaldone/authservice/config/WebConfig.java
 autonomous: true
 requirements: [AUTH-01, AUTH-02, AUTH-03, AUTH-04, AUTH-05, AUTH-06, INFRA-04]
 
 must_haves:
   truths:
-    - "Auth-service JWKS endpoint returns the same Key ID (kid) after a service restart."
-    - "JWT issued for the 'frontend' client contains 'authorities', 'user_id', 'primary_email', 'emails', and 'active_org_id' claims."
-    - "RegisteredClientRepository uses the database (jdbc) instead of in-memory storage."
+    - "Auth-service JWKS endpoint returns a stable Key ID (kid) persisted on the filesystem."
+    - "JWT contains 'orgs' array of objects {id, slug, role} and 'super_admin' boolean."
+    - "OAuth2 client details are loaded from environment variables and seeded into JDBC repository."
+    - "JWKS endpoint has Cache-Control headers."
   artifacts:
     - path: "auth-service/src/main/java/de/goaldone/authservice/config/AuthorizationServerConfig.java"
-      provides: "JDBC-backed registry and persistent JWK source"
+      provides: "JDBC-backed registries and filesystem-based JWK source"
+    - path: "auth-service/src/main/java/de/goaldone/authservice/startup/ClientSeedingRunner.java"
+      provides: "Environment-based client seeding logic"
     - path: "auth-service/src/main/java/de/goaldone/authservice/config/TokenCustomizerConfig.java"
-      provides: "Hardened claims with multi-org support"
-    - path: "auth-service/src/main/resources/db/changelog/06-auth-server-schema.xml"
-      provides: "Spring Authorization Server database schema"
+      provides: "Option B multi-org claim strategy"
   key_links:
     - from: "auth-service/src/main/java/de/goaldone/authservice/config/AuthorizationServerConfig.java"
-      to: "auth-service/src/main/java/de/goaldone/authservice/security/JdbcJWKSource.java"
-      via: "bean injection"
-    - from: "auth-service/src/main/java/de/goaldone/authservice/config/TokenCustomizerConfig.java"
-      to: "JWT Claims"
-      via: "context.getClaims()"
+      to: "/keys/signing-key.pem"
+      via: "filesystem I/O"
+    - from: "auth-service/src/main/java/de/goaldone/authservice/startup/ClientSeedingRunner.java"
+      to: "JdbcRegisteredClientRepository"
+      via: "save() if missing"
 ---
 
 <objective>
-Harden the Auth-Service by moving from in-memory configuration to persistent, production-ready storage for clients, authorizations, and RSA keys. This ensures stable JWT issuance and consistent claims required by the backend and frontend.
+Harden the Auth-Service by implementing persistent RSA key management on the filesystem, switching to a JDBC-backed client registry seeded from environment variables, and aligning the JWT claim shape with the Multi-Org Option B strategy.
 
-Purpose: Establish a reliable foundation for the Zitadel replacement.
-Output: Persistent Auth-Service with stabilized token contract.
+Purpose: Provide a stable, production-ready identity foundation.
+Output: Persistent Auth-Service with hardened token contract and configuration.
 </objective>
 
 <execution_context>
@@ -50,6 +51,8 @@ Output: Persistent Auth-Service with stabilized token contract.
 @.planning/PROJECT.md
 @.planning/ROADMAP.md
 @.planning/STATE.md
+@1-CONTEXT.md
+@.planning/phases/phase-1/VALIDATION.md
 @auth-service/src/main/java/de/goaldone/authservice/config/AuthorizationServerConfig.java
 @auth-service/src/main/java/de/goaldone/authservice/config/TokenCustomizerConfig.java
 </context>
@@ -57,83 +60,91 @@ Output: Persistent Auth-Service with stabilized token contract.
 <tasks>
 
 <task type="auto">
-  <name>Task 1: Implement Persistent Schema and Registry</name>
+  <name>Task 1: JDBC Registry and Environment-based Client Seeding</name>
   <files>
     auth-service/src/main/resources/db/changelog/06-auth-server-schema.xml,
     auth-service/src/main/resources/db/changelog/db.changelog-master.xml,
-    auth-service/src/main/java/de/goaldone/authservice/config/AuthorizationServerConfig.java
+    auth-service/src/main/java/de/goaldone/authservice/config/AuthorizationServerConfig.java,
+    auth-service/src/main/java/de/goaldone/authservice/startup/ClientSeedingRunner.java
   </files>
   <action>
-    1. Create a new Liquibase changelog `06-auth-server-schema.xml` containing the standard Spring Authorization Server tables: `oauth2_registered_client`, `oauth2_authorization`, and `oauth2_authorization_consent`. Include an `rsa_keys` table with columns: `id` (UUID), `key_id` (VARCHAR), `public_key` (TEXT), `private_key` (TEXT), `created_at` (TIMESTAMP).
-    2. Register the new changelog in `db.changelog-master.xml`.
+    1. Create Liquibase changelog `06-auth-server-schema.xml` with standard Spring Auth Server tables (`oauth2_registered_client`, `oauth2_authorization`, `oauth2_authorization_consent`).
+    2. Register in `db.changelog-master.xml`.
     3. Update `AuthorizationServerConfig.java`:
        - Replace `InMemoryRegisteredClientRepository` with `JdbcRegisteredClientRepository`.
        - Define `JdbcOAuth2AuthorizationService` and `JdbcOAuth2AuthorizationConsentService` beans.
-       - Ensure these beans use the `JdbcTemplate` or `DataSource`.
+    4. Create `ClientSeedingRunner.java` (ApplicationRunner) that:
+       - Reads `FRONTEND_CLIENT_ID` (default: 'goaldone-web'), `FRONTEND_CLIENT_SECRET`, `FRONTEND_REDIRECT_URIS` (default: 'http://localhost:4200/callback'), `FRONTEND_POST_LOGOUT_REDIRECT_URIS` from environment.
+       - Checks if `FRONTEND_CLIENT_ID` exists in `RegisteredClientRepository`.
+       - If missing, builds and saves a new `RegisteredClient` with:
+         - Scopes: `openid, profile, email, offline_access`
+         - Grants: `authorization_code, refresh_token`
+         - Methods: `none` for public client (PKCE) or `client_secret_basic` if secret provided.
+       - Also ensure 'mgmt-client' is seeded if missing.
   </action>
   <verify>
-    <automated>./mvnw -f auth-service/pom.xml compile</automated>
+    <automated>mvn -f auth-service/pom.xml test -Dtest=ClientSeedingIntegrationTest</automated>
   </verify>
-  <done>Database schema created and Spring Auth Server configured to use JDBC repositories.</done>
+  <done>Clients are seeded from ENV into JDBC repository.</done>
 </task>
 
 <task type="auto">
-  <name>Task 2: Implement Persistent RSA Key Management and Client Seeding</name>
+  <name>Task 2: Persistent Filesystem RSA Keys and JWKS Caching</name>
   <files>
-    auth-service/src/main/java/de/goaldone/authservice/security/JdbcJWKSource.java,
     auth-service/src/main/java/de/goaldone/authservice/config/AuthorizationServerConfig.java,
-    auth-service/src/main/resources/db/changelog/07-seed-clients.xml,
-    auth-service/src/main/resources/db/changelog/db.changelog-master.xml
+    auth-service/src/main/java/de/goaldone/authservice/config/WebConfig.java
   </files>
   <action>
-    1. Create `JdbcJWKSource.java` that implements `JWKSource<SecurityContext>`. It should:
-       - Attempt to load an RSA key from the `rsa_keys` table.
-       - If no key exists, generate a new 2048-bit RSA key pair, store it in the table, and return it.
-       - Ensure the `keyID` is stable (stored in DB).
-    2. Update `AuthorizationServerConfig.java` to use `JdbcJWKSource` instead of the current in-memory `generateRsaKey()` approach.
-    3. Create `07-seed-clients.xml` to register the 'frontend' and 'mgmt-client' clients in `oauth2_registered_client`.
-       - Frontend: clientId='frontend', clientSecret='', methods='none' (public client), grants='authorization_code,refresh_token', redirectUris='http://localhost:4200/callback', scopes='openid,profile,email,offline_access'.
-       - Mgmt: clientId='mgmt-client', clientSecret='{noop}mgmt-secret', methods='client_secret_basic', grants='client_credentials', scopes='mgmt:admin'.
-    4. Register `07-seed-clients.xml` in `db.changelog-master.xml`.
+    1. Update `jwkSource()` in `AuthorizationServerConfig.java`:
+       - Use `APP_KEY_PATH` (default: `/keys/signing-key.pem`) to locate the key.
+       - Logic: Check if file exists. If so, load RSA Key. If not, generate new 2048-bit RSA key pair, save to path, and ensure directory exists.
+       - Implementation MUST ensure stable `kid` (e.g., store `kid` in a separate `.kid` file or use a stable thumbprint).
+    2. Create `WebConfig.java` to add a Filter or Interceptor that adds `Cache-Control: public, max-age=3600` to the `/oauth2/jwks` endpoint.
   </action>
   <verify>
-    <automated>./mvnw -f auth-service/pom.xml test</automated>
+    <automated>mvn -f auth-service/pom.xml test -Dtest=KeyPersistenceIntegrationTest</automated>
   </verify>
-  <done>RSA keys are persisted in the database and the 'frontend' client is registered.</done>
+  <done>RSA keys persist on filesystem and JWKS is cacheable.</done>
 </task>
 
 <task type="auto">
-  <name>Task 3: Harden Token Claims and Multi-Org Strategy</name>
+  <name>Task 3: Multi-Org Claim Strategy (Option B)</name>
   <files>
     auth-service/src/main/java/de/goaldone/authservice/config/TokenCustomizerConfig.java
   </files>
+  <behavior>
+    - Token must include 'orgs' claim as list of objects: {id, slug, role}
+    - Token must include 'super_admin' boolean claim
+    - Standard claims: authorities, user_id, primary_email, emails
+  </behavior>
   <action>
-    1. Update `TokenCustomizerConfig.java` to fulfill AUTH-05 and the Multi-Org strategy:
-       - Ensure `authorities` claim is a flat set of strings.
-       - Ensure `user_id`, `primary_email`, and `emails` are present and correctly typed (per CustomUserDetails).
-       - Implement `active_org_id` strategy: If the user has organization memberships, set the first one's ID as `active_org_id` in the JWT claims.
-    2. Add null-safety and logging to the customizer to prevent token issuance failures if user details are partially missing.
+    1. Update `TokenCustomizerConfig.java`:
+       - Extract memberships from `CustomUserDetails`.
+       - Map memberships to List of Maps: `[{id: UUID, slug: String, role: String}]`.
+       - Add `orgs` claim to JWT.
+       - Add `super_admin` claim (boolean) from `userDetails.getUser().isSuperAdmin()`.
+       - Ensure `authorities` is a flat Set of Strings.
   </action>
   <verify>
-    <automated>./mvnw -f auth-service/pom.xml test</automated>
+    <automated>mvn -f auth-service/pom.xml test -Dtest=TokenClaimsIntegrationTest</automated>
   </verify>
-  <done>JWTs contain all required claims including active_org_id.</done>
+  <done>JWT tokens fulfill Multi-Org Option B requirement.</done>
 </task>
 
 </tasks>
 
 <verification>
-1. Restart the auth-service and verify `/oauth2/jwks` returns a consistent `kid`.
-2. Use `curl` or a test to request a token for the 'frontend' client and inspect the JWT payload (e.g., via jwt.io) for required claims.
+See .planning/phases/phase-1/VALIDATION.md for detailed verification steps.
 </verification>
 
 <success_criteria>
-- RSA key persistence verified across restarts.
-- 'frontend' client successfully registered in DB.
-- JWT tokens include: authorities, user_id, primary_email, emails, and active_org_id.
-- JWKS endpoint responds with the persisted key.
+- RegisteredClientRepository uses JDBC.
+- Frontend client seeded from environment variables.
+- RSA keys persisted at APP_KEY_PATH; kid is stable.
+- /oauth2/jwks endpoint returns Cache-Control headers.
+- JWT contains 'orgs' (array of objects) and 'super_admin' (boolean) claims.
 </success_criteria>
 
 <output>
-After completion, create `.planning/phases/01-auth-hardening/01-01-SUMMARY.md`
+After completion, create `.planning/phases/phase-1/01-01-SUMMARY.md`
 </output>

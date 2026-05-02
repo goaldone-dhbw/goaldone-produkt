@@ -33,6 +33,18 @@ public class TokenCustomizerConfig {
                 context.getClaims().claim("emails", userDetails.getVerifiedEmails());
                 context.getClaims().claim("primary_email", userDetails.getPrimaryEmail());
                 context.getClaims().claim("user_id", userDetails.getUserId().toString());
+                context.getClaims().claim("super_admin", userDetails.getUser().isSuperAdmin());
+
+                List<java.util.Map<String, Object>> orgs = userDetails.getUser().getMemberships().stream()
+                        .map(membership -> {
+                            java.util.Map<String, Object> org = new java.util.HashMap<>();
+                            org.put("id", membership.getCompany().getId());
+                            org.put("slug", membership.getCompany().getSlug());
+                            org.put("role", membership.getRole().name());
+                            return org;
+                        })
+                        .toList();
+                context.getClaims().claim("orgs", orgs);
             }
         };
     }
