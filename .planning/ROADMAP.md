@@ -50,15 +50,19 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] 02-04-PLAN.md — Multi-Org Authorization & Test Helpers
 
 ### Phase 3: Database Schema Migration
-**Goal**: Database schema is free of all Zitadel-specific columns; all queries use auth-service identifiers
-**Depends on**: Phase 2 (can be authored in parallel but must deploy before Phase 2 code goes live)
+**Goal**: Finalize the database schema and entity model transition from Zitadel to auth-service model.
+**Depends on**: Phase 2
 **Requirements**: DB-01, DB-02, DB-03, DB-04, DB-05, DB-06
 **Success Criteria** (what must be TRUE):
-  1. Liquibase changesets run cleanly on H2 and PostgreSQL: `zitadel_sub` renamed to `auth_user_id`, `zitadel_org_id` renamed to `auth_company_id`
-  2. `UserAccountEntity` and `OrganizationEntity` no longer contain any Zitadel field names
-  3. User lookup by `auth_user_id` succeeds and is indexed for login latency
-  4. `CurrentUserResolver` resolves the current user by `auth_user_id` without any Zitadel fallback paths
-**Plans**: TBD
+  1. Liquibase changesets run cleanly: Rename UserIdentityEntity -> UserEntity, UserAccountEntity -> MembershipEntity
+  2. Normalize auth_user_id: Move it from memberships to users table
+  3. User lookup by auth_user_id succeeds and is indexed for login latency
+  4. CurrentUserResolver uses X-Org-ID header and auth_user_id from JWT
+**Plans**: 4 plans
+- [ ] 03-00-PLAN.md — OpenAPI Update (X-Org-ID header)
+- [ ] 03-01-PLAN.md — Database Schema Migration (Liquibase)
+- [ ] 03-02-PLAN.md — Entity and Repository Refactoring
+- [ ] 03-03-PLAN.md — Context Resolution & Provisioning Update
 
 ### Phase 4: Frontend Auth Switch
 **Goal**: Angular frontend authenticates against auth-service end-to-end and correctly reads roles and org context from auth-service tokens
@@ -94,6 +98,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 |-------|----------------|--------|-----------|
 | 1. Auth-Service Hardening | 1/1 | In progress | - |
 | 2. Backend JWT Validation | 4/4 | Not started | - |
-| 3. Database Schema Migration | 0/? | Not started | - |
+| 3. Database Schema Migration | 4/4 | Not started | - |
 | 4. Frontend Auth Switch | 0/? | Not started | - |
 | 5. Member Management Rewrite & Cutover | 0/? | Not started | - |
