@@ -1473,12 +1473,12 @@ components:
       properties:
         type:
           type: string
-          enum: [DEADLINE_TIGHT, OVERLOADED_DAY, PIN_CONFLICT, UNKNOWN]
+          enum: [DEADLINE_TIGHT, OVERLOADED_DAY, PIN_CONFLICT, OTHER]
           description: |
             - `DEADLINE_TIGHT`: Task eingeplant, aber < 30 min Puffer bis Deadline.
             - `OVERLOADED_DAY`: Ein Tag übersteigt die verfügbare Arbeitszeit.
             - `PIN_CONFLICT`: Gepinnter Eintrag überlappt mit einem anderen.
-            - `UNKNOWN`: Sonstige Warnung, z.B. aus unerwarteten Fehlern oder Randfällen.
+            - `OTHER`: Sonstige Warnung, z.B. aus unerwarteten Fehlern oder Randfällen.
         message:
           type: string
           description: Menschenlesbare Beschreibung
