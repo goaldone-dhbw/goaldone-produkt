@@ -78,10 +78,10 @@ class MemberInviteServiceTest {
 
         UserAccountEntity callerAccount = new UserAccountEntity();
         callerAccount.setOrganizationId(orgId);
-        when(userAccountRepository.findByZitadelSub(callerSub)).thenReturn(Optional.of(callerAccount));
+        when(userAccountRepository.findByAuthUserId(callerSub)).thenReturn(Optional.of(callerAccount));
 
         OrganizationEntity organization = new OrganizationEntity();
-        organization.setZitadelOrgId("customer-org-id");
+        organization.setAuthCompanyId("customer-org-id");
         when(organizationRepository.findById(orgId)).thenReturn(Optional.of(organization));
 
         when(zitadelManagementClient.emailExists(request.getEmail())).thenReturn(false);
@@ -108,7 +108,7 @@ class MemberInviteServiceTest {
 
         UserAccountEntity callerAccount = new UserAccountEntity();
         callerAccount.setOrganizationId(orgId);
-        when(userAccountRepository.findByZitadelSub(callerSub)).thenReturn(Optional.of(callerAccount));
+        when(userAccountRepository.findByAuthUserId(callerSub)).thenReturn(Optional.of(callerAccount));
 
         when(zitadelManagementClient.emailExists(request.getEmail())).thenReturn(true);
 
@@ -130,10 +130,10 @@ class MemberInviteServiceTest {
 
         UserAccountEntity callerAccount = new UserAccountEntity();
         callerAccount.setOrganizationId(orgId);
-        when(userAccountRepository.findByZitadelSub(callerSub)).thenReturn(Optional.of(callerAccount));
+        when(userAccountRepository.findByAuthUserId(callerSub)).thenReturn(Optional.of(callerAccount));
 
         OrganizationEntity organization = new OrganizationEntity();
-        organization.setZitadelOrgId("zitadel-org-id");
+        organization.setAuthCompanyId("zitadel-org-id");
         when(organizationRepository.findById(orgId)).thenReturn(Optional.of(organization));
 
         when(zitadelManagementClient.addHumanUser(any(), any(), any(), any())).thenReturn("new-user-id");
@@ -156,7 +156,7 @@ class MemberInviteServiceTest {
 
         UserAccountEntity callerAccount = new UserAccountEntity();
         callerAccount.setOrganizationId(otherOrgId);
-        when(userAccountRepository.findByZitadelSub(callerSub)).thenReturn(Optional.of(callerAccount));
+        when(userAccountRepository.findByAuthUserId(callerSub)).thenReturn(Optional.of(callerAccount));
 
         // Act & Assert
         assertThrows(NotMemberOfOrganizationException.class, () -> memberInviteService.inviteMember(orgId, request));
@@ -172,7 +172,7 @@ class MemberInviteServiceTest {
 
         UserAccountEntity callerAccount = new UserAccountEntity();
         callerAccount.setOrganizationId(orgId);
-        when(userAccountRepository.findByZitadelSub(callerSub)).thenReturn(Optional.of(callerAccount));
+        when(userAccountRepository.findByAuthUserId(callerSub)).thenReturn(Optional.of(callerAccount));
 
         UserServiceUser user = mock(UserServiceUser.class);
         when(user.getState()).thenReturn(UserServiceUserState.USER_STATE_INITIAL);
@@ -195,7 +195,7 @@ class MemberInviteServiceTest {
 
         UserAccountEntity callerAccount = new UserAccountEntity();
         callerAccount.setOrganizationId(orgId);
-        when(userAccountRepository.findByZitadelSub(callerSub)).thenReturn(Optional.of(callerAccount));
+        when(userAccountRepository.findByAuthUserId(callerSub)).thenReturn(Optional.of(callerAccount));
 
         UserServiceUser user = mock(UserServiceUser.class);
         when(user.getState()).thenReturn(UserServiceUserState.USER_STATE_ACTIVE);

@@ -37,7 +37,7 @@ public class MemberInviteService {
 
     public void inviteMember(UUID orgId, InviteMemberRequest request) {
         String callerSub = getCallerSub();
-        UserAccountEntity callerAccount = userAccountRepository.findByZitadelSub(callerSub)
+        UserAccountEntity callerAccount = userAccountRepository.findByAuthUserId(callerSub)
                 .orElseThrow(() -> new NotMemberOfOrganizationException("Caller account not found"));
 
         if (!callerAccount.getOrganizationId().equals(orgId)) {
@@ -54,7 +54,7 @@ public class MemberInviteService {
         String zitadelUserId = null;
         try {
             zitadelUserId = zitadelManagementClient.addHumanUser(
-                    organization.getZitadelOrgId(),
+                    organization.getAuthCompanyId(),
                     request.getEmail(),
                     request.getFirstName(),
                     request.getLastName()
@@ -84,7 +84,7 @@ public class MemberInviteService {
 
     public void reinviteMember(UUID orgId, String zitadelUserId) {
         String callerSub = getCallerSub();
-        UserAccountEntity callerAccount = userAccountRepository.findByZitadelSub(callerSub)
+        UserAccountEntity callerAccount = userAccountRepository.findByAuthUserId(callerSub)
                 .orElseThrow(() -> new NotMemberOfOrganizationException("Caller account not found"));
 
         if (!callerAccount.getOrganizationId().equals(orgId)) {

@@ -16,6 +16,9 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtClaimsSet;
 
 import java.time.Instant;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -41,21 +44,28 @@ class JitProvisioningServiceTest {
     @Test
     void provisionUser_userAlreadyExists_updatesLastSeenAt() {
         String sub = "existing-user";
-        Jwt jwt = buildJwt(sub, "zitadel-org-1", "Org Name");
+        Jwt jwt = buildJwt(sub, List.of(Map.of("id", "org-1", "name", "Org 1")));
 
         UserAccountEntity existingUser = new UserAccountEntity();
         existingUser.setId(UUID.randomUUID());
-        existingUser.setZitadelSub(sub);
+        existingUser.setAuthUserId(sub);
+        existingUser.setOrganizationId(UUID.randomUUID());
+        existingUser.setUserIdentityId(UUID.randomUUID());
         existingUser.setLastSeenAt(Instant.now().minusSeconds(1000));
 
-        when(userAccountRepository.findByZitadelSub(sub)).thenReturn(Optional.of(existingUser));
+        OrganizationEntity org = new OrganizationEntity();
+        org.setId(existingUser.getOrganizationId());
+
+        when(userAccountRepository.findAllByAuthUserId(sub)).thenReturn(List.of(existingUser));
+        when(userIdentityRepository.findById(existingUser.getUserIdentityId())).thenReturn(Optional.of(new UserIdentityEntity()));
+        when(organizationRepository.findByAuthCompanyId("org-1")).thenReturn(Optional.of(org));
+        when(userAccountRepository.findByAuthUserIdAndOrganizationId(sub, org.getId())).thenReturn(Optional.of(existingUser));
 
         jitProvisioningService.provisionUser(jwt);
 
-        // Verify identity and org were NOT created
+        // Verify identity was NOT created
         verify(userIdentityRepository, never()).save(any());
-        verify(organizationRepository, never()).save(any());
-
+        
         // Verify account was updated with new lastSeenAt
         assertTrue(existingUser.getLastSeenAt().isAfter(Instant.now().minusSeconds(10)));
         verify(userAccountRepository).save(existingUser);
@@ -64,18 +74,20 @@ class JitProvisioningServiceTest {
     @Test
     void provisionUser_newUserOrgExists_createsIdentityAndAccount() {
         String sub = "new-user";
-        String zitadelOrgId = "zitadel-org-1";
+        String authCompanyId = "org-1";
         String orgName = "My Org";
-        Jwt jwt = buildJwt(sub, zitadelOrgId, orgName);
+        Jwt jwt = buildJwt(sub, List.of(Map.of("id", authCompanyId, "name", orgName)));
 
         UUID orgId = UUID.randomUUID();
         OrganizationEntity org = new OrganizationEntity();
         org.setId(orgId);
-        org.setZitadelOrgId(zitadelOrgId);
+        org.setAuthCompanyId(authCompanyId);
         org.setName(orgName);
 
-        when(userAccountRepository.findByZitadelSub(sub)).thenReturn(Optional.empty());
-        when(organizationRepository.findByZitadelOrgId(zitadelOrgId)).thenReturn(Optional.of(org));
+        when(userAccountRepository.findAllByAuthUserId(sub)).thenReturn(Collections.emptyList());
+        when(userIdentityRepository.save(any(UserIdentityEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(organizationRepository.findByAuthCompanyId(authCompanyId)).thenReturn(Optional.of(org));
+        when(userAccountRepository.findByAuthUserIdAndOrganizationId(sub, orgId)).thenReturn(Optional.empty());
 
         jitProvisioningService.provisionUser(jwt);
 
@@ -84,7 +96,7 @@ class JitProvisioningServiceTest {
 
         // Verify account was created with correct org and identity
         verify(userAccountRepository).save(argThat(account ->
-            account.getZitadelSub().equals(sub) &&
+            account.getAuthUserId().equals(sub) &&
             account.getOrganizationId().equals(orgId)
         ));
 
@@ -93,105 +105,46 @@ class JitProvisioningServiceTest {
     }
 
     @Test
-    void provisionUser_newUserOrgNotFound_createsOrgIdentityAndAccount() {
-        String sub = "new-user";
-        String zitadelOrgId = "zitadel-org-new";
-        String orgName = "New Org";
-        Jwt jwt = buildJwt(sub, zitadelOrgId, orgName);
+    void provisionUser_newUserMultipleOrgs_provisionsAll() {
+        String sub = "multi-user";
+        Jwt jwt = buildJwt(sub, List.of(
+            Map.of("id", "org-1", "name", "Org 1"),
+            Map.of("id", "org-2", "name", "Org 2")
+        ));
 
-        UUID newOrgId = UUID.randomUUID();
-        OrganizationEntity createdOrg = new OrganizationEntity();
-        createdOrg.setId(newOrgId);
-        createdOrg.setZitadelOrgId(zitadelOrgId);
-        createdOrg.setName(orgName);
+        OrganizationEntity org1 = new OrganizationEntity();
+        org1.setId(UUID.randomUUID());
+        org1.setAuthCompanyId("org-1");
 
-        when(userAccountRepository.findByZitadelSub(sub)).thenReturn(Optional.empty());
-        when(organizationRepository.findByZitadelOrgId(zitadelOrgId)).thenReturn(Optional.empty());
-        when(organizationRepository.save(any(OrganizationEntity.class))).thenReturn(createdOrg);
+        OrganizationEntity org2 = new OrganizationEntity();
+        org2.setId(UUID.randomUUID());
+        org2.setAuthCompanyId("org-2");
+
+        when(userAccountRepository.findAllByAuthUserId(sub)).thenReturn(Collections.emptyList());
+        when(userIdentityRepository.save(any(UserIdentityEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        
+        when(organizationRepository.findByAuthCompanyId("org-1")).thenReturn(Optional.of(org1));
+        when(organizationRepository.findByAuthCompanyId("org-2")).thenReturn(Optional.of(org2));
+        
+        when(userAccountRepository.findByAuthUserIdAndOrganizationId(sub, org1.getId())).thenReturn(Optional.empty());
+        when(userAccountRepository.findByAuthUserIdAndOrganizationId(sub, org2.getId())).thenReturn(Optional.empty());
 
         jitProvisioningService.provisionUser(jwt);
 
-        // Verify org was created
-        verify(organizationRepository).save(argThat(org ->
-            org.getZitadelOrgId().equals(zitadelOrgId) &&
-            org.getName().equals(orgName)
-        ));
+        // Verify identity was created once
+        verify(userIdentityRepository, times(1)).save(any(UserIdentityEntity.class));
 
-        // Verify identity was created
-        verify(userIdentityRepository).save(any(UserIdentityEntity.class));
-
-        // Verify account was created with new org
-        verify(userAccountRepository).save(argThat(account ->
-            account.getZitadelSub().equals(sub) &&
-            account.getOrganizationId().equals(newOrgId)
-        ));
+        // Verify two accounts were created
+        verify(userAccountRepository, times(2)).save(any(UserAccountEntity.class));
     }
 
-    @Test
-    void provisionUser_orgCreationRaceCondition_retriesAndSucceeds() {
-        String sub = "new-user";
-        String zitadelOrgId = "zitadel-org-race";
-        String orgName = "Race Org";
-        Jwt jwt = buildJwt(sub, zitadelOrgId, orgName);
-
-        UUID existingOrgId = UUID.randomUUID();
-        OrganizationEntity existingOrg = new OrganizationEntity();
-        existingOrg.setId(existingOrgId);
-        existingOrg.setZitadelOrgId(zitadelOrgId);
-        existingOrg.setName(orgName);
-
-        when(userAccountRepository.findByZitadelSub(sub)).thenReturn(Optional.empty());
-        when(organizationRepository.findByZitadelOrgId(zitadelOrgId))
-            .thenReturn(Optional.empty())  // First call: not found
-            .thenReturn(Optional.of(existingOrg)); // Second call (in catch): found
-        when(organizationRepository.save(any(OrganizationEntity.class)))
-            .thenThrow(new DataIntegrityViolationException("Unique constraint violation"));
-
-        jitProvisioningService.provisionUser(jwt);
-
-        // Verify org creation was attempted but failed
-        verify(organizationRepository, times(1)).save(any(OrganizationEntity.class));
-
-        // Verify org was fetched again in the catch block
-        verify(organizationRepository, times(2)).findByZitadelOrgId(zitadelOrgId);
-
-        // Verify identity and account were created with existing org
-        verify(userIdentityRepository).save(any(UserIdentityEntity.class));
-        verify(userAccountRepository).save(argThat(account ->
-            account.getOrganizationId().equals(existingOrgId)
-        ));
-    }
-
-    @Test
-    void provisionUser_orgCreationRaceConditionAndNotFound_throwsRuntimeException() {
-        String sub = "new-user";
-        String zitadelOrgId = "zitadel-org-lost";
-        String orgName = "Lost Org";
-        Jwt jwt = buildJwt(sub, zitadelOrgId, orgName);
-
-        when(userAccountRepository.findByZitadelSub(sub)).thenReturn(Optional.empty());
-        when(organizationRepository.findByZitadelOrgId(zitadelOrgId))
-            .thenReturn(Optional.empty())  // First call: not found
-            .thenReturn(Optional.empty()); // Second call (in catch): still not found
-        when(organizationRepository.save(any(OrganizationEntity.class)))
-            .thenThrow(new DataIntegrityViolationException("Unique constraint violation"));
-
-        assertThrows(RuntimeException.class, () ->
-            jitProvisioningService.provisionUser(jwt)
-        );
-
-        // Verify identity and account were NOT created
-        verify(userIdentityRepository, never()).save(any());
-        verify(userAccountRepository, never()).save(argThat(account -> account.getZitadelSub().equals(sub)));
-    }
-
-    private Jwt buildJwt(String sub, String zitadelOrgId, String orgName) {
+    private Jwt buildJwt(String sub, List<Map<String, Object>> orgs) {
         JwtClaimsSet claims = JwtClaimsSet.builder()
             .subject(sub)
+            .claim("user_id", sub)
             .issuedAt(Instant.now())
             .expiresAt(Instant.now().plusSeconds(3600))
-            .claim("urn:zitadel:iam:user:resourceowner:id", zitadelOrgId)
-            .claim("urn:zitadel:iam:user:resourceowner:name", orgName)
+            .claim("orgs", orgs)
             .build();
         return Jwt.withTokenValue("token")
             .claims(c -> c.putAll(claims.getClaims()))

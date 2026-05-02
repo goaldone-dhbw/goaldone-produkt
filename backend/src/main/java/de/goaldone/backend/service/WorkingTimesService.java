@@ -39,7 +39,7 @@ public class WorkingTimesService {
     @Transactional
     public WorkingTimeResponse createWorkingTime(Jwt jwt, WorkingTimeCreateRequest request) {
         // Resolve current user
-        UserAccountEntity currentAccount = userAccountRepository.findByZitadelSub(jwt.getSubject())
+        UserAccountEntity currentAccount = userAccountRepository.findByAuthUserId(jwt.getSubject())
             .orElseThrow(() -> new WorkingTimeAccessDeniedException("Account not found"));
 
         // Check access to target account
@@ -99,7 +99,7 @@ public class WorkingTimesService {
     @Transactional
     public WorkingTimeResponse updateWorkingTime(Jwt jwt, UUID workingTimeId, WorkingTimeUpdateRequest request) {
         // Resolve current user
-        UserAccountEntity currentAccount = userAccountRepository.findByZitadelSub(jwt.getSubject())
+        UserAccountEntity currentAccount = userAccountRepository.findByAuthUserId(jwt.getSubject())
             .orElseThrow(() -> new WorkingTimeAccessDeniedException("Account not found"));
 
         // Validate days
@@ -151,7 +151,7 @@ public class WorkingTimesService {
     @Transactional
     public void deleteWorkingTime(Jwt jwt, UUID workingTimeId) {
         // Resolve current user
-        UserAccountEntity currentAccount = userAccountRepository.findByZitadelSub(jwt.getSubject())
+        UserAccountEntity currentAccount = userAccountRepository.findByAuthUserId(jwt.getSubject())
             .orElseThrow(() -> new WorkingTimeAccessDeniedException("Account not found"));
 
         WorkingTimeEntity existingTime = workingTimeRepository.findById(workingTimeId)
@@ -168,7 +168,7 @@ public class WorkingTimesService {
     @Transactional(readOnly = true)
     public WorkingTimeListResponse getWorkingTimes(Jwt jwt) {
         // Resolve current user
-        UserAccountEntity currentAccount = userAccountRepository.findByZitadelSub(jwt.getSubject())
+        UserAccountEntity currentAccount = userAccountRepository.findByAuthUserId(jwt.getSubject())
             .orElseThrow(() -> new WorkingTimeAccessDeniedException("Account not found"));
 
         // Fetch all working times for this identity

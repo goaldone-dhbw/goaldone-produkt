@@ -28,6 +28,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -196,58 +197,44 @@ class MemberManagementIntegrationTest {
     // --- Stubs ---
 
     private void stubEmailNotExists() {
-        wireMockServer.stubFor(WireMock.post(urlPathMatching("/v2/users.*"))
-            .willReturn(okJson("{\"result\": []}")));
-        wireMockServer.stubFor(WireMock.post(urlPathMatching("/zitadel\\.user\\.v2\\.Users/.*"))
+        wireMockServer.stubFor(WireMock.post(WireMock.urlMatching(".*ListUsers|.*/v2/users.*"))
             .willReturn(okJson("{\"result\": []}")));
     }
 
     private void stubEmailExists() {
-        wireMockServer.stubFor(WireMock.post(urlPathMatching("/v2/users.*"))
-            .willReturn(okJson("{\"result\": [{\"userId\": \"existing-user\"}]}")));
-        wireMockServer.stubFor(WireMock.post(urlPathMatching("/zitadel\\.user\\.v2\\.Users/.*"))
+        wireMockServer.stubFor(WireMock.post(WireMock.urlMatching(".*ListUsers|.*/v2/users.*"))
             .willReturn(okJson("{\"result\": [{\"userId\": \"existing-user\"}]}")));
     }
 
     private void stubAddHumanUser(String userId) {
-        wireMockServer.stubFor(WireMock.post(urlPathMatching("/v2/users/human"))
-            .willReturn(okJson("{\"userId\": \"" + userId + "\"}")));
-        wireMockServer.stubFor(WireMock.post(urlPathMatching("/zitadel\\.user\\.v2\\.Users/AddHumanUser"))
+        wireMockServer.stubFor(WireMock.post(WireMock.urlMatching(".*AddHumanUser|.*/v2/users/human.*"))
             .willReturn(okJson("{\"userId\": \"" + userId + "\"}")));
     }
 
     private void stubAddUserGrant() {
-        wireMockServer.stubFor(WireMock.post(urlPathMatching("/management/v1/users/.*/grants"))
+        wireMockServer.stubFor(WireMock.post(WireMock.urlPathMatching("/management/v1/users/.*/grants"))
             .willReturn(ok()));
     }
 
     private void stubCreateInviteCode() {
-        wireMockServer.stubFor(WireMock.post(urlPathMatching("/v2/users/.*/invite_code"))
-            .willReturn(ok()));
-        wireMockServer.stubFor(WireMock.post(urlPathMatching("/zitadel\\.user\\.v2\\.Users/CreateInviteCode"))
+        wireMockServer.stubFor(WireMock.post(WireMock.urlMatching(".*CreateInviteCode|.*/v2/users/.*/invite_code"))
             .willReturn(ok()));
     }
 
     private void stubGetUser(String state) {
-        wireMockServer.stubFor(WireMock.get(urlPathMatching("/v2/users/.*"))
-            .willReturn(okJson("{\"user\": {\"state\": \"" + state + "\"}}")));
-        wireMockServer.stubFor(WireMock.post(urlPathMatching("/zitadel\\.user\\.v2\\.Users/GetUser"))
-            .willReturn(okJson("{\"user\": {\"state\": \"" + state + "\"}}")));
+        wireMockServer.stubFor(WireMock.any(WireMock.urlMatching(".*GetUserByID|.*/v2/users/.*"))
+            .willReturn(okJson("{\"user\": {\"state\": \"" + state + "\", \"id\": \"some-user-id\"}}")));
     }
 
     // --- JWT builder ---
 
     private Jwt buildJwt(String sub, String role) {
-        Map<String, Object> rolesClaim = new HashMap<>();
-        rolesClaim.put(role, new HashMap<>());
-
         JwtClaimsSet claims = JwtClaimsSet.builder()
             .subject(sub)
-            .issuedAt(Instant.now())
-            .expiresAt(Instant.now().plusSeconds(3600))
-            .issuer("http://localhost:8099")
+            .claim("user_id", sub)
             .claim("email", sub + "@example.com")
-            .claim("urn:zitadel:iam:org:project:roles", rolesClaim)
+            .claim("authorities", List.of(role))
+            .claim("orgs", List.of(Map.of("id", "org-123", "name", "My Org")))
             .build();
 
         return Jwt.withTokenValue("token")

@@ -39,7 +39,7 @@ public class UserAccountDeletionService {
         UUID identityId = account.getUserIdentityId();
         long count = userAccountRepository.countByUserIdentityId(identityId);
 
-        zitadelManagementClient.deleteUser(account.getZitadelSub());
+        zitadelManagementClient.deleteUser(account.getAuthUserId());
 
         userAccountRepository.delete(account);
 

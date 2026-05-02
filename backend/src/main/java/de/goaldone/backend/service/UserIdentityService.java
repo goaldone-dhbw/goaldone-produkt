@@ -67,7 +67,7 @@ public class UserIdentityService {
      */
     private UserAccountEntity getCurrentAccount(Jwt jwt) {
         return userAccountRepository
-                .findByZitadelSub(jwt.getSubject())
+                .findByAuthUserId(jwt.getSubject())
                 .orElseThrow(() -> new IllegalStateException("Account not found after JIT provisioning"));
     }
 
@@ -90,7 +90,7 @@ public class UserIdentityService {
                 OrganizationEntity org = organizationRepository.findById(account.getOrganizationId())
                     .orElseThrow(() -> new IllegalStateException("Organization not found for account " + account.getId()));
                 List<String> roles = zitadelManagementClient.getUserGrantRoles(
-                        account.getZitadelSub(), goaldoneOrgId, goaldoneProjectId);
+                        account.getAuthUserId(), goaldoneOrgId, goaldoneProjectId);
                 AccountResponse r = new AccountResponse();
                 r.setAccountId(account.getId());
                 r.setOrganizationId(account.getOrganizationId());
@@ -98,7 +98,7 @@ public class UserIdentityService {
                 r.setRoles(roles);
                 r.setHasConflicts(hasConflicts);
 
-                zitadelManagementClient.getUser(account.getZitadelSub()).ifPresent(user -> {
+                zitadelManagementClient.getUser(account.getAuthUserId()).ifPresent(user -> {
                     if (user.getHuman() != null) {
                         var human = user.getHuman();
                         if (human.getEmail() != null) {

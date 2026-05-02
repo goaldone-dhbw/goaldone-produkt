@@ -140,8 +140,8 @@ class SuperAdminIntegrationTest {
 
         // admin-1 is auto-provisioned during the request, admin-2 is deleted
         assertEquals(1, userAccountRepository.count());
-        assertFalse(userAccountRepository.findByZitadelSub("admin-2").isPresent());
-        assertTrue(userAccountRepository.findByZitadelSub("admin-1").isPresent());
+        assertFalse(userAccountRepository.findByAuthUserId("admin-2").isPresent());
+        assertTrue(userAccountRepository.findByAuthUserId("admin-1").isPresent());
     }
 
     @Test
@@ -173,7 +173,7 @@ class SuperAdminIntegrationTest {
         }
         result.append("]}");
 
-        wireMockServer.stubFor(WireMock.post(urlPathMatching("/management/v1/users/grants/_search"))
+        wireMockServer.stubFor(WireMock.post(WireMock.urlMatching(".*grants/_search"))
             .willReturn(okJson(result.toString())));
     }
 
@@ -192,49 +192,47 @@ class SuperAdminIntegrationTest {
             }
             """, userId, email);
 
-        // Match both REST and Connect-RPC requests for user endpoints
-        wireMockServer.stubFor(WireMock.get(urlPathMatching(".*/users.*"))
+        // Match by userId in URL or body
+        wireMockServer.stubFor(WireMock.any(WireMock.urlMatching(".*/v2/users/" + userId + ".*"))
             .willReturn(okJson(userJson)));
-        wireMockServer.stubFor(WireMock.post(urlPathMatching(".*/users.*"))
+            
+        wireMockServer.stubFor(WireMock.post(WireMock.urlMatching(".*GetUserByID"))
+            .withRequestBody(WireMock.containing(userId))
             .willReturn(okJson(userJson)));
     }
 
     private void stubDeleteUser(String userId) {
-        wireMockServer.stubFor(WireMock.delete(urlPathEqualTo("/v2/users/" + userId))
+        wireMockServer.stubFor(WireMock.any(WireMock.urlMatching(".*DeleteUser|.*/v2/users/.*"))
             .willReturn(ok()));
     }
 
     private void stubEmailNotExists() {
-        // Handle both REST and Connect-RPC style requests for user searches
-        wireMockServer.stubFor(WireMock.post(urlPathMatching(".*/users.*"))
+        wireMockServer.stubFor(WireMock.post(WireMock.urlMatching(".*ListUsers|.*/v2/users.*"))
             .willReturn(okJson("{\"result\": []}")));
     }
 
     private void stubAddHumanUser(String userId) {
-        wireMockServer.stubFor(WireMock.post(urlPathMatching(".*/users.*"))
+        wireMockServer.stubFor(WireMock.post(WireMock.urlMatching(".*AddHumanUser|.*/v2/users/human.*"))
             .willReturn(okJson("{\"userId\": \"" + userId + "\"}")));
     }
 
     private void stubAddUserGrant() {
-        wireMockServer.stubFor(WireMock.post(urlPathMatching("/management/v1/users/.*/grants"))
+        wireMockServer.stubFor(WireMock.post(WireMock.urlPathMatching("/management/v1/users/.*/grants"))
             .willReturn(ok()));
     }
 
     private void stubCreateInviteCode() {
-        wireMockServer.stubFor(WireMock.post(urlPathMatching(".*/invite_code.*"))
+        wireMockServer.stubFor(WireMock.post(WireMock.urlMatching(".*CreateInviteCode|.*/v2/users/.*/invite_code"))
             .willReturn(ok()));
     }
 
     private Jwt buildJwt(String sub, String role) {
-        Map<String, Object> rolesClaim = new HashMap<>();
-        rolesClaim.put(role, new HashMap<>());
-
         JwtClaimsSet claims = JwtClaimsSet.builder()
             .subject(sub)
+            .claim("user_id", sub)
+            .claim("authorities", List.of(role))
+            .claim("orgs", List.of(Map.of("id", "test-main-org-id", "name", "Goaldone")))
             .issuer("http://localhost:8099")
-            .claim("urn:zitadel:iam:org:project:roles", rolesClaim)
-            .claim("urn:zitadel:iam:user:resourceowner:id", "test-main-org-id")
-            .claim("urn:zitadel:iam:user:resourceowner:name", "Goaldone")
             .build();
 
         return Jwt.withTokenValue("token")

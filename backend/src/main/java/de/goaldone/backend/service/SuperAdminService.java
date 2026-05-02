@@ -145,7 +145,7 @@ public class SuperAdminService {
         zitadelClient.deleteUser(zitadelId);
 
         // 3. Delete local shadow record if exists
-        Optional<UserAccountEntity> accountOpt = userAccountRepository.findByZitadelSub(zitadelId);
+        Optional<UserAccountEntity> accountOpt = userAccountRepository.findByAuthUserId(zitadelId);
         if (accountOpt.isPresent()) {
             UserAccountEntity account = accountOpt.get();
             UUID identityId = account.getUserIdentityId();

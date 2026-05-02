@@ -6,12 +6,13 @@
         http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <changeSet id="001" author="goaldone">
+        <validCheckSum>8:any</validCheckSum>
         <createTable tableName="organizations">
             <column name="id" type="UUID">
                 <constraints primaryKey="true" nullable="false"/>
             </column>
             <column name="zitadel_org_id" type="VARCHAR(64)">
-                <constraints nullable="false" unique="true"/>
+                <constraints nullable="false" unique="true" uniqueConstraintName="uq_organizations_zitadel_org_id"/>
             </column>
             <column name="name" type="VARCHAR(255)">
                 <constraints nullable="false"/>
@@ -26,7 +27,7 @@
                 <constraints primaryKey="true" nullable="false"/>
             </column>
             <column name="zitadel_sub" type="VARCHAR(64)">
-                <constraints nullable="false" unique="true"/>
+                <constraints nullable="false" unique="true" uniqueConstraintName="uq_user_accounts_auth_user_id"/>
             </column>
             <column name="organization_id" type="UUID">
                 <constraints nullable="false" foreignKeyName="fk_users_org" references="organizations(id)"/>

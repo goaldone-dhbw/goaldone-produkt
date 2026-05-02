@@ -36,14 +36,18 @@ Decimal phases appear between their surrounding integers in numeric order.
 ### Phase 2: Backend JWT Validation
 **Goal**: Backend Spring Security validates auth-service tokens and correctly extracts roles and user identity for every request
 **Depends on**: Phase 1
-**Requirements**: JWT-01, JWT-02, JWT-03, JWT-04, JWT-05, JIT-01, JIT-02, JIT-03, JIT-04, TEST-01, TEST-02
+**Requirements**: JWT-01, JWT-02, JWT-03, JWT-04, JWT-05, JIT-01, JIT-02, JIT-03, JIT-04, DB-01, DB-02, DB-03, DB-05, DB-06, TEST-01, TEST-02
 **Success Criteria** (what must be TRUE):
   1. Backend accepts a valid auth-service JWT and returns 200 on protected endpoints (no silent 403 from empty authorities)
   2. Role-based access control decisions pass for users with correct `authorities` claim values
   3. First login auto-provisions a `UserAccountEntity` from the auth-service `user_id` claim — no 500s, no silent failures
   4. Multi-org membership is handled: users with memberships in multiple organizations are provisioned correctly
   5. All integration tests pass using auth-service claim shapes and explicit `.authorities(...)` helpers
-**Plans**: TBD
+**Plans**: 4 plans
+- [ ] 02-01-PLAN.md — Identifier Renaming (zitadel_sub -> auth_user_id)
+- [ ] 02-02-PLAN.md — JWT Authentication & Claim Mapping (authorities + ROLE_ prefix)
+- [ ] 02-03-PLAN.md — Bulk JIT Provisioning (multi-org 'orgs' claim)
+- [ ] 02-04-PLAN.md — Multi-Org Authorization & Test Helpers
 
 ### Phase 3: Database Schema Migration
 **Goal**: Database schema is free of all Zitadel-specific columns; all queries use auth-service identifiers
@@ -89,7 +93,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Auth-Service Hardening | 1/1 | In progress | - |
-| 2. Backend JWT Validation | 0/? | Not started | - |
+| 2. Backend JWT Validation | 4/4 | Not started | - |
 | 3. Database Schema Migration | 0/? | Not started | - |
 | 4. Frontend Auth Switch | 0/? | Not started | - |
 | 5. Member Management Rewrite & Cutover | 0/? | Not started | - |

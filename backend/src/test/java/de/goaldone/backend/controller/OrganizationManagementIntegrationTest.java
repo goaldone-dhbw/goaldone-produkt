@@ -28,13 +28,14 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.ok;
 import static com.github.tomakehurst.wiremock.client.WireMock.okJson;
-import static com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching;
+import static com.github.tomakehurst.wiremock.client.WireMock.urlMatching;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -134,7 +135,7 @@ class OrganizationManagementIntegrationTest {
 
         // super-admin org (pre-provisioned) + endpoint org
         assertEquals(2, organizationRepository.count());
-        assertTrue(organizationRepository.findByZitadelOrgId("org-123").isPresent());
+        assertTrue(organizationRepository.findByAuthCompanyId("org-123").isPresent());
     }
 
     // TC3: Email already exists
@@ -264,76 +265,56 @@ class OrganizationManagementIntegrationTest {
         assertEquals(2, organizationRepository.count());
         // super-admin user (pre-provisioned) + invited user (JIT on second request)
         assertEquals(2, userAccountRepository.count());
-        Optional<UserAccountEntity> account = userAccountRepository.findByZitadelSub("user-jit-xyz");
+        Optional<UserAccountEntity> account = userAccountRepository.findByAuthUserId("user-jit-xyz");
         assertTrue(account.isPresent());
-        assertEquals("org-jit-123", organizationRepository.findById(account.get().getOrganizationId()).get().getZitadelOrgId());
+        assertEquals("org-jit-123", organizationRepository.findById(account.get().getOrganizationId()).get().getAuthCompanyId());
     }
 
     // --- Stubs ---
 
     private void stubEmailNotExists() {
-        wireMockServer.stubFor(WireMock.post(urlPathMatching("/v2/users.*"))
-            .withHeader(HttpHeaders.AUTHORIZATION, WireMock.containing("Bearer"))
-            .willReturn(okJson("{\"result\": []}")));
-        wireMockServer.stubFor(WireMock.post(urlPathMatching("/zitadel\\.user\\.v2\\.Users/.*"))
+        wireMockServer.stubFor(WireMock.post(WireMock.urlMatching(".*ListUsers|.*/v2/users.*"))
             .willReturn(okJson("{\"result\": []}")));
     }
 
     private void stubEmailExists() {
-        wireMockServer.stubFor(WireMock.post(urlPathMatching("/v2/users.*"))
-            .withHeader(HttpHeaders.AUTHORIZATION, WireMock.containing("Bearer"))
-            .willReturn(okJson("{\"result\": [{\"userId\": \"existing-user\"}]}")));
-        wireMockServer.stubFor(WireMock.post(urlPathMatching("/zitadel\\.user\\.v2\\.Users/.*"))
+        wireMockServer.stubFor(WireMock.post(WireMock.urlMatching(".*ListUsers|.*/v2/users.*"))
             .willReturn(okJson("{\"result\": [{\"userId\": \"existing-user\"}]}")));
     }
 
     private void stubAddOrganization(String orgId) {
-        wireMockServer.stubFor(WireMock.post(urlPathMatching("/v2/organizations"))
-            .withHeader(HttpHeaders.AUTHORIZATION, WireMock.containing("Bearer"))
-            .willReturn(okJson("{\"organizationId\": \"" + orgId + "\"}")));
-        wireMockServer.stubFor(WireMock.post(urlPathMatching("/zitadel\\.organization\\.v2\\.Organizations/AddOrganization"))
+        // organizationExists stub
+        wireMockServer.stubFor(WireMock.post(WireMock.urlMatching(".*ListOrganizations|.*/v2/organizations/_search.*"))
+            .willReturn(okJson("{\"result\": [{\"id\": \"" + orgId + "\"}]}")));
+
+        wireMockServer.stubFor(WireMock.post(WireMock.urlMatching(".*AddOrganization|.*/v2/organizations.*"))
             .willReturn(okJson("{\"organizationId\": \"" + orgId + "\"}")));
     }
 
     private void stubAddHumanUser(String userId) {
-        wireMockServer.stubFor(WireMock.post(urlPathMatching("/v2/users/human"))
-            .withHeader(HttpHeaders.AUTHORIZATION, WireMock.containing("Bearer"))
-            .withHeader("x-zitadel-orgid", WireMock.matching(".*"))
-            .willReturn(okJson("{\"userId\": \"" + userId + "\"}")));
-        wireMockServer.stubFor(WireMock.post(urlPathMatching("/zitadel\\.user\\.v2\\.Users/AddHumanUser"))
+        wireMockServer.stubFor(WireMock.post(WireMock.urlMatching(".*AddHumanUser|.*/v2/users/human.*"))
             .willReturn(okJson("{\"userId\": \"" + userId + "\"}")));
     }
 
     private void stubAddUserGrant() {
-        wireMockServer.stubFor(WireMock.post(urlPathMatching("/management/v1/users/.*/grants"))
-            .withHeader(HttpHeaders.AUTHORIZATION, WireMock.containing("Bearer"))
-            .withHeader("x-zitadel-orgid", WireMock.matching(".*"))
+        wireMockServer.stubFor(WireMock.post(WireMock.urlMatching(".*AddUserGrant|.*/management/v1/users/.*/grants.*"))
             .willReturn(ok()));
     }
 
     private void stubCreateInviteCode() {
-        wireMockServer.stubFor(WireMock.post(urlPathMatching("/v2/users/.*/invite_code"))
-            .withHeader(HttpHeaders.AUTHORIZATION, WireMock.containing("Bearer"))
-            .willReturn(ok()));
-        wireMockServer.stubFor(WireMock.post(urlPathMatching("/zitadel\\.user\\.v2\\.Users/CreateInviteCode"))
+        wireMockServer.stubFor(WireMock.post(WireMock.urlMatching(".*CreateInviteCode|.*/v2/users/.*/invite_code.*"))
             .willReturn(ok()));
     }
 
     // --- JWT builders ---
 
     private Jwt buildJwt(String sub, String role) {
-        Map<String, Object> rolesClaim = new HashMap<>();
-        rolesClaim.put(role, new HashMap<>());
-
         JwtClaimsSet claims = JwtClaimsSet.builder()
             .subject(sub)
-            .issuedAt(Instant.now())
-            .expiresAt(Instant.now().plusSeconds(3600))
-            .issuer("http://localhost:8099")
+            .claim("user_id", sub)
             .claim("email", sub + "@example.com")
-            .claim("urn:zitadel:iam:user:resourceowner:id", "org-admin")
-            .claim("urn:zitadel:iam:user:resourceowner:name", "Admin Org")
-            .claim("urn:zitadel:iam:org:project:roles", rolesClaim)
+            .claim("authorities", List.of(role))
+            .claim("orgs", List.of(Map.of("id", "org-admin", "name", "Admin Org")))
             .build();
 
         return Jwt.withTokenValue("token")
@@ -342,21 +323,15 @@ class OrganizationManagementIntegrationTest {
             .build();
     }
 
-    private Jwt buildJwtForInvitedUser(String sub, String email, String zitadelOrgId) {
-        Map<String, Object> rolesClaim = new HashMap<>();
-        rolesClaim.put("COMPANY_ADMIN", Map.of());
-
+    private Jwt buildJwtForInvitedUser(String sub, String email, String authCompanyId) {
         JwtClaimsSet claims = JwtClaimsSet.builder()
             .subject(sub)
-            .issuedAt(Instant.now())
-            .expiresAt(Instant.now().plusSeconds(3600))
-            .issuer("http://localhost:8099")
+            .claim("user_id", sub)
             .claim("email", email)
             .claim("given_name", "Admin")
             .claim("family_name", "Jit")
-            .claim("urn:zitadel:iam:user:resourceowner:id", zitadelOrgId)
-            .claim("urn:zitadel:iam:user:resourceowner:name", "JIT Test Org")
-            .claim("urn:zitadel:iam:org:project:roles", rolesClaim)
+            .claim("authorities", List.of("COMPANY_ADMIN"))
+            .claim("orgs", List.of(Map.of("id", authCompanyId, "name", "JIT Test Org")))
             .build();
 
         return Jwt.withTokenValue("token")

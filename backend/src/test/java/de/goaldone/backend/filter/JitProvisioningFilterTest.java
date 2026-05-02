@@ -87,6 +87,9 @@ class JitProvisioningFilterTest {
     private Jwt buildJwt(String sub) {
         JwtClaimsSet claims = JwtClaimsSet.builder()
             .subject(sub)
+            .claim("user_id", sub)
+            .claim("authorities", java.util.List.of("USER"))
+            .claim("orgs", java.util.List.of(java.util.Map.of("id", "org-1", "name", "Org 1")))
             .issuedAt(Instant.now())
             .expiresAt(Instant.now().plusSeconds(3600))
             .build();

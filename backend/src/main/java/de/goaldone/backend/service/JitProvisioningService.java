@@ -14,6 +14,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -32,72 +34,98 @@ public class JitProvisioningService {
 
     /**
      * Provisions a user based on the information in the provided JWT.
-     * If the user already exists, it updates their 'last seen' timestamp.
-     * If the organization does not exist, it creates a new one.
+     * Iterates through all organizations in the 'orgs' claim and ensures memberships exist.
      *
      * @param jwt The {@link Jwt} containing the user's information and organization claims.
      */
     @Transactional
     public void provisionUser(Jwt jwt) {
-        String sub = jwt.getSubject();
+        String authUserId = jwt.getClaimAsString("user_id");
+        if (authUserId == null) {
+            authUserId = jwt.getSubject();
+        }
 
-        // Check if user already exists
-        if (userAccountRepository.findByZitadelSub(sub).isPresent()) {
-            // Update last_seen_at
-            UserAccountEntity user = userAccountRepository.findByZitadelSub(sub).get();
-            user.setLastSeenAt(Instant.now());
-            userAccountRepository.save(user);
+        List<Map<String, Object>> orgs = jwt.getClaim("orgs");
+        if (orgs == null || orgs.isEmpty()) {
+            log.warn("No 'orgs' claim found for user {}, skipping provisioning", authUserId);
             return;
         }
 
-        // Extract org claims from JWT
-        String zitadelOrgId = jwt.getClaimAsString("urn:zitadel:iam:user:resourceowner:id");
-        String orgName = jwt.getClaimAsString("urn:zitadel:iam:user:resourceowner:name");
+        // 1. Resolve or create the UserIdentity for this authUserId
+        // Since we now allow multiple UserAccountEntities for one authUserId,
+        // they should all point to the same UserIdentityEntity.
+        UserIdentityEntity identity = resolveOrCreateIdentity(authUserId);
 
+        // 2. Iterate and provision memberships
+        for (Map<String, Object> orgData : orgs) {
+            String authCompanyId = (String) orgData.get("id");
+            String orgName = (String) orgData.get("name");
+
+            if (authCompanyId == null) continue;
+
+            provisionMembership(authUserId, identity, authCompanyId, orgName);
+        }
+    }
+
+    private UserIdentityEntity resolveOrCreateIdentity(String authUserId) {
+        return userAccountRepository.findAllByAuthUserId(authUserId).stream()
+            .findFirst()
+            .map(acc -> userIdentityRepository.findById(acc.getUserIdentityId()).orElseThrow())
+            .orElseGet(() -> {
+                UserIdentityEntity newIdentity = new UserIdentityEntity();
+                newIdentity.setId(UUID.randomUUID());
+                newIdentity.setCreatedAt(Instant.now());
+                return userIdentityRepository.save(newIdentity);
+            });
+    }
+
+    private void provisionMembership(String authUserId, UserIdentityEntity identity, String authCompanyId, String orgName) {
         // Find or create organization
-        OrganizationEntity org = organizationRepository.findByZitadelOrgId(zitadelOrgId)
-            .orElseGet(() -> createOrganization(zitadelOrgId, orgName));
+        OrganizationEntity org = organizationRepository.findByAuthCompanyId(authCompanyId)
+            .orElseGet(() -> createOrganization(authCompanyId, orgName));
 
-        // Create user identity
-        UserIdentityEntity identity = new UserIdentityEntity();
-        identity.setId(UUID.randomUUID());
-        identity.setCreatedAt(Instant.now());
-        userIdentityRepository.save(identity);
-
-        // Create user account
-        UserAccountEntity newUser = new UserAccountEntity();
-        newUser.setId(UUID.randomUUID());
-        newUser.setZitadelSub(sub);
-        newUser.setOrganizationId(org.getId());
-        newUser.setUserIdentityId(identity.getId());
-        newUser.setCreatedAt(Instant.now());
-        newUser.setLastSeenAt(Instant.now());
-
-        userAccountRepository.save(newUser);
-        log.info("Provisioned new user {} in organization {} with identity {}", sub, org.getId(), identity.getId());
+        // Check if membership already exists for this (user, org)
+        userAccountRepository.findByAuthUserIdAndOrganizationId(authUserId, org.getId())
+            .ifPresentOrElse(
+                user -> {
+                    user.setLastSeenAt(Instant.now());
+                    userAccountRepository.save(user);
+                },
+                () -> {
+                    UserAccountEntity newUser = new UserAccountEntity();
+                    newUser.setId(UUID.randomUUID());
+                    newUser.setAuthUserId(authUserId);
+                    newUser.setOrganizationId(org.getId());
+                    newUser.setUserIdentityId(identity.getId());
+                    newUser.setCreatedAt(Instant.now());
+                    newUser.setLastSeenAt(Instant.now());
+                    userAccountRepository.save(newUser);
+                    log.info("Provisioned new membership for user {} in organization {}", authUserId, org.getId());
+                }
+            );
     }
 
     /**
      * Helper method to create a new organization record.
      * Handles potential race conditions by catching unique constraint violations.
      *
-     * @param zitadelOrgId The unique organization ID from Zitadel.
+     * @param authCompanyId The unique organization ID from the Identity Provider.
      * @param orgName      The name of the organization.
      * @return The newly created or already existing {@link OrganizationEntity}.
      * @throws RuntimeException if organization creation fails due to reasons other than race conditions.
      */
-    private OrganizationEntity createOrganization(String zitadelOrgId, String orgName) {
+    private OrganizationEntity createOrganization(String authCompanyId, String orgName) {
         try {
             OrganizationEntity org = new OrganizationEntity();
             org.setId(UUID.randomUUID());
-            org.setZitadelOrgId(zitadelOrgId);
-            org.setName(orgName != null ? orgName : zitadelOrgId);
+            org.setAuthCompanyId(authCompanyId);
+            org.setName(orgName != null ? orgName : authCompanyId);
             org.setCreatedAt(Instant.now());
             return organizationRepository.save(org);
         } catch (DataIntegrityViolationException e) {
             // Race condition: another thread created the org. Fetch it.
-            log.debug("Organization {} already created by another thread, fetching existing", zitadelOrgId);
-            return organizationRepository.findByZitadelOrgId(zitadelOrgId)
+            log.debug("Organization {} already created by another thread, fetching existing", authCompanyId);
+            return organizationRepository.findByAuthCompanyId(authCompanyId)
                 .orElseThrow(() -> new RuntimeException("Organization creation failed", e));
         }
     }

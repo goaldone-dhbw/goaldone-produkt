@@ -61,7 +61,7 @@ class WorkingTimesServiceTest {
         currentAccount.setUserIdentityId(identityId);
         currentAccount.setOrganizationId(UUID.randomUUID());
 
-        lenient().when(userAccountRepository.findByZitadelSub("zitadel-sub")).thenReturn(Optional.of(currentAccount));
+        lenient().when(userAccountRepository.findByAuthUserId("zitadel-sub")).thenReturn(Optional.of(currentAccount));
     }
 
     @Test

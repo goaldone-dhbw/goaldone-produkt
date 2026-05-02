@@ -62,7 +62,7 @@ class CurrentUserResolverTest {
         JwtAuthenticationToken auth = new JwtAuthenticationToken(jwt);
         SecurityContextHolder.getContext().setAuthentication(auth);
 
-        when(userAccountRepository.findByZitadelSub("test-sub")).thenReturn(Optional.empty());
+        when(userAccountRepository.findByAuthUserId("test-sub")).thenReturn(Optional.empty());
 
         assertThrows(IllegalStateException.class, () -> currentUserResolver.resolveCurrentAccount());
     }
@@ -70,7 +70,7 @@ class CurrentUserResolverTest {
     @Test
     void resolveCurrentAccount_explicitJwt_accountNotFound_throwsIllegalStateException() {
         Jwt jwt = buildJwt("test-sub");
-        when(userAccountRepository.findByZitadelSub("test-sub")).thenReturn(Optional.empty());
+        when(userAccountRepository.findByAuthUserId("test-sub")).thenReturn(Optional.empty());
 
         assertThrows(IllegalStateException.class, () -> currentUserResolver.resolveCurrentAccount(jwt));
     }
@@ -85,7 +85,7 @@ class CurrentUserResolverTest {
         account.setId(UUID.randomUUID());
         account.setOrganizationId(UUID.randomUUID());
 
-        when(userAccountRepository.findByZitadelSub("test-sub")).thenReturn(Optional.of(account));
+        when(userAccountRepository.findByAuthUserId("test-sub")).thenReturn(Optional.of(account));
         when(organizationRepository.findById(account.getOrganizationId())).thenReturn(Optional.empty());
 
         assertThrows(IllegalStateException.class, () -> currentUserResolver.resolveCurrentOrganization());
@@ -94,6 +94,9 @@ class CurrentUserResolverTest {
     private Jwt buildJwt(String sub) {
         JwtClaimsSet claims = JwtClaimsSet.builder()
             .subject(sub)
+            .claim("user_id", sub)
+            .claim("authorities", java.util.List.of("USER"))
+            .claim("orgs", java.util.List.of(java.util.Map.of("id", "org-1", "name", "Org 1")))
             .issuedAt(Instant.now())
             .expiresAt(Instant.now().plusSeconds(3600))
             .build();

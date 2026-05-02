@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="010-1" author="gemini-cli">
+        <renameColumn tableName="user_accounts"
+                      oldColumnName="zitadel_sub"
+                      newColumnName="auth_user_id"
+                      columnDataType="VARCHAR(64)"/>
+    </changeSet>
+
+    <changeSet id="010-2" author="gemini-cli">
+        <renameColumn tableName="organizations"
+                      oldColumnName="zitadel_org_id"
+                      newColumnName="auth_company_id"
+                      columnDataType="VARCHAR(64)"/>
+    </changeSet>
+
+</databaseChangeLog>

@@ -43,9 +43,7 @@ public class CurrentUserResolver {
      */
     public UserAccountEntity resolveCurrentAccount() {
         Jwt jwt = extractJwt();
-        return userAccountRepository.findByZitadelSub(jwt.getSubject())
-            .orElseThrow(() -> new IllegalStateException(
-                "Account not found for sub " + jwt.getSubject() + " after JIT provisioning"));
+        return resolveCurrentAccount(jwt);
     }
 
     /**
@@ -66,11 +64,13 @@ public class CurrentUserResolver {
      *
      * @param jwt The JWT to use for resolving the account.
      * @return The {@link UserAccountEntity} associated with the provided JWT.
-     * @throws IllegalStateException if the account cannot be found for the JWT's subject claim.
+     * @throws IllegalStateException if the account cannot be found for the JWT's identifier.
      */
     public UserAccountEntity resolveCurrentAccount(Jwt jwt) {
-        return userAccountRepository.findByZitadelSub(jwt.getSubject())
+        String userId = jwt.getClaimAsString("user_id");
+        final String authUserId = (userId != null) ? userId : jwt.getSubject();
+        return userAccountRepository.findByAuthUserId(authUserId)
             .orElseThrow(() -> new IllegalStateException(
-                "Account not found for sub " + jwt.getSubject() + " after JIT provisioning"));
+                "Account not found for authUserId " + authUserId + " after JIT provisioning"));
     }
 }

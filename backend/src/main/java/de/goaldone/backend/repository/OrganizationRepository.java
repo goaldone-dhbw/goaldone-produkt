@@ -14,12 +14,12 @@ import java.util.UUID;
 @Repository
 public interface OrganizationRepository extends JpaRepository<OrganizationEntity, UUID> {
     /**
-     * Finds an organization by its Zitadel organization ID.
+     * Finds an organization by its authentication company ID.
      *
-     * @param zitadelOrgId The organization ID from Zitadel.
+     * @param authCompanyId The authentication company ID.
      * @return An {@link Optional} containing the organization if found.
      */
-    Optional<OrganizationEntity> findByZitadelOrgId(String zitadelOrgId);
+    Optional<OrganizationEntity> findByAuthCompanyId(String authCompanyId);
 
     /**
      * Checks if an organization with the given name already exists.

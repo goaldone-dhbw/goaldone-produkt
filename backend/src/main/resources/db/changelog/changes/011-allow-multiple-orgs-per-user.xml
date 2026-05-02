@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="011-1" author="gemini-cli">
+        <preConditions onFail="MARK_RAN">
+            <uniqueConstraintExists tableName="user_accounts" constraintName="uq_user_accounts_auth_user_id"/>
+        </preConditions>
+        <comment>Drop the unique constraint on auth_user_id to allow multiple organizations</comment>
+        <dropUniqueConstraint tableName="user_accounts" constraintName="uq_user_accounts_auth_user_id"/>
+    </changeSet>
+
+    <changeSet id="011-2" author="gemini-cli">
+        <addUniqueConstraint tableName="user_accounts" 
+                             columnNames="auth_user_id, organization_id" 
+                             constraintName="uq_user_accounts_auth_user_org"/>
+    </changeSet>
+
+</databaseChangeLog>

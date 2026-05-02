@@ -48,7 +48,7 @@ public class MemberManagementService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Organization not found"));
 
         AuthorizationServiceListAuthorizationsResponse grantsResponse = zitadelManagementClient.listAllGrants(
-                mainOrgId, goaldoneProjectId, organization.getZitadelOrgId()
+                mainOrgId, goaldoneProjectId, organization.getAuthCompanyId()
         );
 
         List<String> userIds = new ArrayList<>();
@@ -101,7 +101,7 @@ public class MemberManagementService {
             }
 
             Optional<UserAccountEntity> localAccount = localAccounts.stream()
-                    .filter(acc -> acc.getZitadelSub().equals(zitadelUserId)
+                    .filter(acc -> acc.getAuthUserId().equals(zitadelUserId)
                             && acc.getOrganizationId().equals(orgId))
                     .findFirst();
 
@@ -161,7 +161,7 @@ public class MemberManagementService {
             // Actually, we need to count admins ONLY in this organization.
             
             // Re-fetch all grants for this org to be sure
-            AuthorizationServiceListAuthorizationsResponse allGrants = zitadelManagementClient.listAllGrants(mainOrgId, goaldoneProjectId, organization.getZitadelOrgId());
+            AuthorizationServiceListAuthorizationsResponse allGrants = zitadelManagementClient.listAllGrants(mainOrgId, goaldoneProjectId, organization.getAuthCompanyId());
             long orgAdminCount = 0;
             if (allGrants.getAuthorizations() != null) {
                 for (var auth : allGrants.getAuthorizations()) {
@@ -205,7 +205,7 @@ public class MemberManagementService {
 
         if (roles.contains(MemberRole.COMPANY_ADMIN.getValue())) {
             // Check if last admin
-            AuthorizationServiceListAuthorizationsResponse allGrants = zitadelManagementClient.listAllGrants(mainOrgId, goaldoneProjectId, organization.getZitadelOrgId());
+            AuthorizationServiceListAuthorizationsResponse allGrants = zitadelManagementClient.listAllGrants(mainOrgId, goaldoneProjectId, organization.getAuthCompanyId());
             long orgAdminCount = 0;
             if (allGrants.getAuthorizations() != null) {
                 for (var auth : allGrants.getAuthorizations()) {
@@ -224,7 +224,7 @@ public class MemberManagementService {
             }
         }
 
-        Optional<UserAccountEntity> accountOpt = userAccountRepository.findByZitadelSub(zitadelUserId)
+        Optional<UserAccountEntity> accountOpt = userAccountRepository.findByAuthUserId(zitadelUserId)
                 .filter(acc -> acc.getOrganizationId().equals(orgId));
 
         if (accountOpt.isPresent()) {
@@ -236,7 +236,7 @@ public class MemberManagementService {
 
     private void validateCallerBelongsToOrg(UUID orgId) {
         String callerSub = getCallerSub();
-        UserAccountEntity callerAccount = userAccountRepository.findByZitadelSub(callerSub)
+        UserAccountEntity callerAccount = userAccountRepository.findByAuthUserId(callerSub)
                 .orElseThrow(() -> new NotMemberOfOrganizationException("Caller account not found"));
 
         if (!callerAccount.getOrganizationId().equals(orgId)) {

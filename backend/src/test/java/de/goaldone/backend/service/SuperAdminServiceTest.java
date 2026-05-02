@@ -104,7 +104,7 @@ class SuperAdminServiceTest {
         UserAccountEntity account = new UserAccountEntity();
         account.setId(UUID.randomUUID());
         account.setUserIdentityId(UUID.randomUUID());
-        when(userAccountRepository.findByZitadelSub("admin-1")).thenReturn(Optional.of(account));
+        when(userAccountRepository.findByAuthUserId("admin-1")).thenReturn(Optional.of(account));
         when(userAccountRepository.countByUserIdentityId(account.getUserIdentityId())).thenReturn(0L);
 
         // Act

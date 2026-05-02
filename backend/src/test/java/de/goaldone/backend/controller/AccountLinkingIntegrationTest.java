@@ -24,6 +24,7 @@ import org.springframework.web.context.WebApplicationContext;
 
 import java.time.Instant;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -82,12 +83,12 @@ class AccountLinkingIntegrationTest {
     }
 
     private UserAccountEntity provisionAccount(String sub, String email, String givenName, String familyName,
-                                                String zitadelOrgId, String orgName) throws Exception {
+                                                String authCompanyId, String orgName) throws Exception {
         mockMvc.perform(get("/users/accounts")
             .with(jwt()
-                .jwt(buildJwt(sub, email, givenName, familyName, zitadelOrgId, orgName))))
+                .jwt(buildJwt(sub, email, givenName, familyName, authCompanyId, orgName))))
             .andExpect(status().isOk());
-        return userAccountRepository.findByZitadelSub(sub).orElseThrow();
+        return userAccountRepository.findByAuthUserId(sub).orElseThrow();
     }
 
     // TC01: Request link returns 201 with token
@@ -385,7 +386,7 @@ class AccountLinkingIntegrationTest {
         provisionAccount("sub-new", "new@example.com", "User", "New", "org-new", "Org New");
 
         assertEquals(1, userIdentityRepository.count());
-        UserAccountEntity account = userAccountRepository.findByZitadelSub("sub-new").orElseThrow();
+        UserAccountEntity account = userAccountRepository.findByAuthUserId("sub-new").orElseThrow();
         assertTrue(userIdentityRepository.existsById(account.getUserIdentityId()));
     }
 
@@ -423,21 +424,15 @@ class AccountLinkingIntegrationTest {
     }
 
     private Jwt buildJwt(String sub, String email, String givenName, String familyName,
-                         String zitadelOrgId, String orgName) {
-        Map<String, Object> rolesClaim = new HashMap<>();
-        rolesClaim.put("admin", Map.of());
-
+                         String authCompanyId, String orgName) {
         JwtClaimsSet claims = JwtClaimsSet.builder()
             .subject(sub)
-            .issuedAt(Instant.now())
-            .expiresAt(Instant.now().plusSeconds(3600))
-            .issuer("http://localhost:8080")
+            .claim("user_id", sub)
             .claim("email", email)
             .claim("given_name", givenName)
             .claim("family_name", familyName)
-            .claim("urn:zitadel:iam:user:resourceowner:id", zitadelOrgId)
-            .claim("urn:zitadel:iam:user:resourceowner:name", orgName)
-            .claim("urn:zitadel:iam:org:project:roles", rolesClaim)
+            .claim("authorities", List.of("ADMIN"))
+            .claim("orgs", List.of(Map.of("id", authCompanyId, "name", orgName)))
             .build();
 
         return Jwt.withTokenValue("token")

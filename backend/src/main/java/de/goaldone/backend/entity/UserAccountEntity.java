@@ -24,9 +24,9 @@ public class UserAccountEntity {
     @Id
     private UUID id;
 
-    /** The unique subject identifier (SUB) assigned to this user by Zitadel (IAM). */
-    @Column(name = "zitadel_sub", nullable = false, unique = true, length = 64)
-    private String zitadelSub;
+    /** The unique subject identifier (SUB) assigned to this user by the Identity Provider (IAM). */
+    @Column(name = "auth_user_id", nullable = false, unique = true, length = 64)
+    private String authUserId;
 
     /** The ID of the {@link OrganizationEntity} this account belongs to. */
     @Column(name = "organization_id", nullable = false)

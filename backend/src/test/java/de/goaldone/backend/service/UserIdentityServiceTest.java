@@ -71,7 +71,7 @@ class UserIdentityServiceTest {
     void buildAccountListResponse_accountNotFound_throwsIllegalStateException() {
         Jwt jwt = buildJwt("missing-sub");
 
-        when(userAccountRepository.findByZitadelSub("missing-sub"))
+        when(userAccountRepository.findByAuthUserId("missing-sub"))
             .thenReturn(Optional.empty());
 
         assertThrows(IllegalStateException.class, () ->
@@ -89,11 +89,11 @@ class UserIdentityServiceTest {
 
         UserAccountEntity account = new UserAccountEntity();
         account.setId(accountId);
-        account.setZitadelSub(sub);
+        account.setAuthUserId(sub);
         account.setUserIdentityId(identityId);
         account.setOrganizationId(orgId);
 
-        when(userAccountRepository.findByZitadelSub(sub))
+        when(userAccountRepository.findByAuthUserId(sub))
             .thenReturn(Optional.of(account));
         when(userAccountRepository.findAllByUserIdentityId(identityId))
             .thenReturn(List.of(account));
@@ -116,7 +116,7 @@ class UserIdentityServiceTest {
 
         UserAccountEntity account = new UserAccountEntity();
         account.setId(accountId);
-        account.setZitadelSub(sub);
+        account.setAuthUserId(sub);
         account.setUserIdentityId(identityId);
         account.setOrganizationId(orgId);
 
@@ -124,7 +124,7 @@ class UserIdentityServiceTest {
         org.setId(orgId);
         org.setName(orgName);
 
-        when(userAccountRepository.findByZitadelSub(sub))
+        when(userAccountRepository.findByAuthUserId(sub))
             .thenReturn(Optional.of(account));
         when(userAccountRepository.findAllByUserIdentityId(identityId))
             .thenReturn(List.of(account));
@@ -164,13 +164,13 @@ class UserIdentityServiceTest {
 
         UserAccountEntity account1 = new UserAccountEntity();
         account1.setId(accountId1);
-        account1.setZitadelSub(sub);
+        account1.setAuthUserId(sub);
         account1.setUserIdentityId(identityId);
         account1.setOrganizationId(orgId1);
 
         UserAccountEntity account2 = new UserAccountEntity();
         account2.setId(accountId2);
-        account2.setZitadelSub("other-sub");
+        account2.setAuthUserId("other-sub");
         account2.setUserIdentityId(identityId);
         account2.setOrganizationId(orgId2);
 
@@ -182,7 +182,7 @@ class UserIdentityServiceTest {
         org2.setId(orgId2);
         org2.setName(orgName2);
 
-        when(userAccountRepository.findByZitadelSub(sub))
+        when(userAccountRepository.findByAuthUserId(sub))
             .thenReturn(Optional.of(account1));
         when(userAccountRepository.findAllByUserIdentityId(identityId))
             .thenReturn(List.of(account1, account2));
@@ -219,6 +219,9 @@ class UserIdentityServiceTest {
     private Jwt buildJwt(String sub) {
         JwtClaimsSet claims = JwtClaimsSet.builder()
             .subject(sub)
+            .claim("user_id", sub)
+            .claim("authorities", java.util.List.of("USER"))
+            .claim("orgs", java.util.List.of(java.util.Map.of("id", "org-1", "name", "Org 1")))
             .issuedAt(Instant.now())
             .expiresAt(Instant.now().plusSeconds(3600))
             .build();

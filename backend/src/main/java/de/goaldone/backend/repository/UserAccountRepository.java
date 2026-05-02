@@ -18,12 +18,29 @@ import java.util.UUID;
 @Repository
 public interface UserAccountRepository extends JpaRepository<UserAccountEntity, UUID> {
     /**
-     * Finds a user account by its Zitadel sub (subject) ID.
+     * Finds a user account by its authentication user ID.
      *
-     * @param zitadelSub The subject ID from Zitadel.
+     * @param authUserId The authentication user ID.
      * @return An {@link Optional} containing the user account if found.
      */
-    Optional<UserAccountEntity> findByZitadelSub(String zitadelSub);
+    Optional<UserAccountEntity> findByAuthUserId(String authUserId);
+
+    /**
+     * Finds all user accounts by its authentication user ID.
+     *
+     * @param authUserId The authentication user ID.
+     * @return A list of {@link UserAccountEntity} objects.
+     */
+    List<UserAccountEntity> findAllByAuthUserId(String authUserId);
+
+    /**
+     * Finds a user account by its authentication user ID and organization ID.
+     *
+     * @param authUserId     The authentication user ID.
+     * @param organizationId The organization ID.
+     * @return An {@link Optional} containing the user account if found.
+     */
+    Optional<UserAccountEntity> findByAuthUserIdAndOrganizationId(String authUserId, UUID organizationId);
 
     /**
      * Counts the number of user accounts associated with a specific user identity.

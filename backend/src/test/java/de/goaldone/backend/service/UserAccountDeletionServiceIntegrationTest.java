@@ -89,7 +89,7 @@ class UserAccountDeletionServiceIntegrationTest {
         Jwt jwt = buildJwt("test-user-1", "test1@example.com", "Test", "User 1", "org-id-1", "Test Org 1");
         mockMvc.perform(get("/users/accounts").with(jwt().jwt(jwt)));
 
-        UserAccountEntity account = userAccountRepository.findByZitadelSub("test-user-1").orElseThrow();
+        UserAccountEntity account = userAccountRepository.findByAuthUserId("test-user-1").orElseThrow();
         UUID identityId = account.getUserIdentityId();
 
         // Verify identity exists
@@ -114,8 +114,8 @@ class UserAccountDeletionServiceIntegrationTest {
         mockMvc.perform(get("/users/accounts").with(jwt().jwt(jwt1)));
         mockMvc.perform(get("/users/accounts").with(jwt().jwt(jwt2)));
 
-        UserAccountEntity account1 = userAccountRepository.findByZitadelSub("test-user-1").orElseThrow();
-        UserAccountEntity account2 = userAccountRepository.findByZitadelSub("test-user-2").orElseThrow();
+        UserAccountEntity account1 = userAccountRepository.findByAuthUserId("test-user-1").orElseThrow();
+        UserAccountEntity account2 = userAccountRepository.findByAuthUserId("test-user-2").orElseThrow();
         UUID identityId = account1.getUserIdentityId();
 
         // Link them via the service
@@ -153,21 +153,18 @@ class UserAccountDeletionServiceIntegrationTest {
     }
 
     private Jwt buildJwt(String sub, String email, String givenName, String familyName,
-                         String zitadelOrgId, String orgName) {
-        Map<String, Object> rolesClaim = new HashMap<>();
-        rolesClaim.put("admin", Map.of());
-
+                         String authCompanyId, String orgName) {
         JwtClaimsSet claims = JwtClaimsSet.builder()
             .subject(sub)
+            .claim("user_id", sub)
+            .claim("authorities", java.util.List.of("USER"))
+            .claim("orgs", java.util.List.of(java.util.Map.of("id", authCompanyId, "name", orgName)))
             .issuedAt(Instant.now())
             .expiresAt(Instant.now().plusSeconds(3600))
             .issuer("http://localhost:8080")
             .claim("email", email)
             .claim("given_name", givenName)
             .claim("family_name", familyName)
-            .claim("urn:zitadel:iam:user:resourceowner:id", zitadelOrgId)
-            .claim("urn:zitadel:iam:user:resourceowner:name", orgName)
-            .claim("urn:zitadel:iam:org:project:roles", rolesClaim)
             .build();
 
         return Jwt.withTokenValue("token")

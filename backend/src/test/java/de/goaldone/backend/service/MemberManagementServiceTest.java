@@ -81,10 +81,10 @@ class MemberManagementServiceTest {
         // Arrange
         UserAccountEntity callerAccount = new UserAccountEntity();
         callerAccount.setOrganizationId(orgId);
-        when(userAccountRepository.findByZitadelSub(callerSub)).thenReturn(Optional.of(callerAccount));
+        when(userAccountRepository.findByAuthUserId(callerSub)).thenReturn(Optional.of(callerAccount));
 
         OrganizationEntity org = new OrganizationEntity();
-        org.setZitadelOrgId("zitadel-org-id");
+        org.setAuthCompanyId("zitadel-org-id");
         when(organizationRepository.findById(orgId)).thenReturn(Optional.of(org));
 
         AuthorizationServiceListAuthorizationsResponse grantsResponse = buildAuthorizationsResponse(
@@ -99,7 +99,7 @@ class MemberManagementServiceTest {
 
         UserAccountEntity acc1 = new UserAccountEntity();
         acc1.setId(UUID.randomUUID());
-        acc1.setZitadelSub("user-1");
+        acc1.setAuthUserId("user-1");
         acc1.setOrganizationId(orgId);
         when(userAccountRepository.findAll()).thenReturn(List.of(acc1));
 
@@ -125,7 +125,7 @@ class MemberManagementServiceTest {
         // Arrange
         UserAccountEntity callerAccount = new UserAccountEntity();
         callerAccount.setOrganizationId(orgId);
-        when(userAccountRepository.findByZitadelSub(callerSub)).thenReturn(Optional.of(callerAccount));
+        when(userAccountRepository.findByAuthUserId(callerSub)).thenReturn(Optional.of(callerAccount));
 
         when(organizationRepository.findById(orgId)).thenReturn(Optional.of(new OrganizationEntity()));
 
@@ -148,10 +148,10 @@ class MemberManagementServiceTest {
         // Arrange
         UserAccountEntity callerAccount = new UserAccountEntity();
         callerAccount.setOrganizationId(orgId);
-        when(userAccountRepository.findByZitadelSub(callerSub)).thenReturn(Optional.of(callerAccount));
+        when(userAccountRepository.findByAuthUserId(callerSub)).thenReturn(Optional.of(callerAccount));
 
         OrganizationEntity org = new OrganizationEntity();
-        org.setZitadelOrgId("user-org");
+        org.setAuthCompanyId("user-org");
         when(organizationRepository.findById(orgId)).thenReturn(Optional.of(org));
 
         UserGrantDto grant = new UserGrantDto("grant-1", List.of("COMPANY_ADMIN"));
@@ -180,7 +180,7 @@ class MemberManagementServiceTest {
         // Arrange
         UserAccountEntity callerAccount = new UserAccountEntity();
         callerAccount.setOrganizationId(orgId);
-        when(userAccountRepository.findByZitadelSub(callerSub)).thenReturn(Optional.of(callerAccount));
+        when(userAccountRepository.findByAuthUserId(callerSub)).thenReturn(Optional.of(callerAccount));
 
         when(organizationRepository.findById(orgId)).thenReturn(Optional.of(new OrganizationEntity()));
 
@@ -192,7 +192,7 @@ class MemberManagementServiceTest {
         UUID targetAccId = UUID.randomUUID();
         targetAcc.setId(targetAccId);
         targetAcc.setOrganizationId(orgId);
-        when(userAccountRepository.findByZitadelSub("target-user")).thenReturn(Optional.of(targetAcc));
+        when(userAccountRepository.findByAuthUserId("target-user")).thenReturn(Optional.of(targetAcc));
 
         // Act
         memberManagementService.removeMember(orgId, "target-user");
@@ -207,7 +207,7 @@ class MemberManagementServiceTest {
         // Arrange
         UserAccountEntity callerAccount = new UserAccountEntity();
         callerAccount.setOrganizationId(orgId);
-        when(userAccountRepository.findByZitadelSub(callerSub)).thenReturn(Optional.of(callerAccount));
+        when(userAccountRepository.findByAuthUserId(callerSub)).thenReturn(Optional.of(callerAccount));
 
         when(organizationRepository.findById(orgId)).thenReturn(Optional.of(new OrganizationEntity()));
 
@@ -215,7 +215,7 @@ class MemberManagementServiceTest {
         when(zitadelManagementClient.searchUserGrants(anyString(), anyString(), eq("target-user")))
                 .thenReturn(Optional.of(grant));
 
-        when(userAccountRepository.findByZitadelSub("target-user")).thenReturn(Optional.empty());
+        when(userAccountRepository.findByAuthUserId("target-user")).thenReturn(Optional.empty());
 
         // Act
         memberManagementService.removeMember(orgId, "target-user");
@@ -230,7 +230,7 @@ class MemberManagementServiceTest {
         // Arrange
         UserAccountEntity callerAccount = new UserAccountEntity();
         callerAccount.setOrganizationId(orgId);
-        when(userAccountRepository.findByZitadelSub(callerSub)).thenReturn(Optional.of(callerAccount));
+        when(userAccountRepository.findByAuthUserId(callerSub)).thenReturn(Optional.of(callerAccount));
 
         // Act & Assert
         ResponseStatusException ex = assertThrows(ResponseStatusException.class,
@@ -244,10 +244,10 @@ class MemberManagementServiceTest {
         // Arrange
         UserAccountEntity callerAccount = new UserAccountEntity();
         callerAccount.setOrganizationId(orgId);
-        when(userAccountRepository.findByZitadelSub(callerSub)).thenReturn(Optional.of(callerAccount));
+        when(userAccountRepository.findByAuthUserId(callerSub)).thenReturn(Optional.of(callerAccount));
 
         OrganizationEntity org = new OrganizationEntity();
-        org.setZitadelOrgId("user-org");
+        org.setAuthCompanyId("user-org");
         when(organizationRepository.findById(orgId)).thenReturn(Optional.of(org));
 
         UserGrantDto grant = new UserGrantDto("grant-1", List.of("COMPANY_ADMIN"));
@@ -276,10 +276,10 @@ class MemberManagementServiceTest {
         // Arrange
         UserAccountEntity callerAccount = new UserAccountEntity();
         callerAccount.setOrganizationId(orgId);
-        when(userAccountRepository.findByZitadelSub(callerSub)).thenReturn(Optional.of(callerAccount));
+        when(userAccountRepository.findByAuthUserId(callerSub)).thenReturn(Optional.of(callerAccount));
 
         OrganizationEntity org = new OrganizationEntity();
-        org.setZitadelOrgId("user-org");
+        org.setAuthCompanyId("user-org");
         when(organizationRepository.findById(orgId)).thenReturn(Optional.of(org));
 
         UserGrantDto grant = new UserGrantDto("grant-1", List.of("COMPANY_ADMIN"));
@@ -308,10 +308,10 @@ class MemberManagementServiceTest {
         // Arrange
         UserAccountEntity callerAccount = new UserAccountEntity();
         callerAccount.setOrganizationId(orgId);
-        when(userAccountRepository.findByZitadelSub(callerSub)).thenReturn(Optional.of(callerAccount));
+        when(userAccountRepository.findByAuthUserId(callerSub)).thenReturn(Optional.of(callerAccount));
 
         OrganizationEntity org = new OrganizationEntity();
-        org.setZitadelOrgId("user-org");
+        org.setAuthCompanyId("user-org");
         when(organizationRepository.findById(orgId)).thenReturn(Optional.of(org));
 
         UserGrantDto grant = new UserGrantDto("grant-1", List.of("COMPANY_ADMIN"));
@@ -339,7 +339,7 @@ class MemberManagementServiceTest {
         UUID differentOrgId = UUID.randomUUID();
         UserAccountEntity callerAccount = new UserAccountEntity();
         callerAccount.setOrganizationId(differentOrgId);
-        when(userAccountRepository.findByZitadelSub(callerSub)).thenReturn(Optional.of(callerAccount));
+        when(userAccountRepository.findByAuthUserId(callerSub)).thenReturn(Optional.of(callerAccount));
 
         // Act & Assert
         assertThrows(NotMemberOfOrganizationException.class,
@@ -351,7 +351,7 @@ class MemberManagementServiceTest {
         // Arrange
         UserAccountEntity callerAccount = new UserAccountEntity();
         callerAccount.setOrganizationId(orgId);
-        when(userAccountRepository.findByZitadelSub(callerSub)).thenReturn(Optional.of(callerAccount));
+        when(userAccountRepository.findByAuthUserId(callerSub)).thenReturn(Optional.of(callerAccount));
 
         when(organizationRepository.findById(orgId)).thenReturn(Optional.of(new OrganizationEntity()));
 
@@ -374,7 +374,7 @@ class MemberManagementServiceTest {
         // Arrange
         UserAccountEntity callerAccount = new UserAccountEntity();
         callerAccount.setOrganizationId(orgId);
-        when(userAccountRepository.findByZitadelSub(callerSub)).thenReturn(Optional.of(callerAccount));
+        when(userAccountRepository.findByAuthUserId(callerSub)).thenReturn(Optional.of(callerAccount));
 
         when(organizationRepository.findById(orgId)).thenReturn(Optional.of(new OrganizationEntity()));
 

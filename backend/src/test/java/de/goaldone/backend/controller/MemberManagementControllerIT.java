@@ -27,6 +27,7 @@ import org.springframework.web.context.WebApplicationContext;
 
 import java.time.Instant;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -69,7 +70,7 @@ class MemberManagementControllerIT {
     private MockMvc mockMvc;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private UUID orgId;
-    private String zitadelOrgId = "zitadel-org-1";
+    private String authCompanyId = "zitadel-org-1";
     private UserIdentityEntity callerIdentity;
 
     @BeforeEach
@@ -89,7 +90,7 @@ class MemberManagementControllerIT {
         organizationRepository.deleteAll();
 
         orgId = UUID.randomUUID();
-        OrganizationEntity org = new OrganizationEntity(orgId, zitadelOrgId, "Test Org", Instant.now());
+        OrganizationEntity org = new OrganizationEntity(orgId, authCompanyId, "Test Org", Instant.now());
         organizationRepository.save(org);
 
         callerIdentity = new UserIdentityEntity(UUID.randomUUID(), Instant.now());
@@ -286,7 +287,7 @@ class MemberManagementControllerIT {
                 .with(adminJwt("caller-sub")))
                 .andExpect(status().isNoContent());
 
-        assertFalse(userAccountRepository.findByZitadelSub("user-1").isPresent());
+        assertFalse(userAccountRepository.findByAuthUserId("user-1").isPresent());
     }
 
     // =========================================================
@@ -501,14 +502,11 @@ class MemberManagementControllerIT {
     }
 
     private Jwt buildJwt(String sub, MemberRole role) {
-        Map<String, Object> rolesClaim = new HashMap<>();
-        rolesClaim.put(role.getValue(), Map.of());
-
         JwtClaimsSet claims = JwtClaimsSet.builder()
             .subject(sub)
-            .issuedAt(Instant.now())
-            .expiresAt(Instant.now().plusSeconds(3600))
-            .claim("urn:zitadel:iam:org:project:roles", rolesClaim)
+            .claim("user_id", sub)
+            .claim("authorities", List.of(role.getValue().toUpperCase()))
+            .claim("orgs", List.of(Map.of("id", authCompanyId, "name", "Test Org")))
             .build();
 
         return Jwt.withTokenValue("token")

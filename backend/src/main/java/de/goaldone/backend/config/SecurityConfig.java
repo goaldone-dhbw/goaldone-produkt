@@ -1,6 +1,8 @@
 package de.goaldone.backend.config;
 
+import de.goaldone.backend.entity.OrganizationEntity;
 import de.goaldone.backend.filter.JitProvisioningFilter;
+import de.goaldone.backend.repository.OrganizationRepository;
 import de.goaldone.backend.service.JitProvisioningService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -11,15 +13,20 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.stereotype.Component;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
@@ -45,6 +52,63 @@ public class SecurityConfig {
     @Bean
     public JitProvisioningFilter jitProvisioningFilter(JitProvisioningService jitProvisioningService) {
         return new JitProvisioningFilter(jitProvisioningService);
+    }
+
+    /**
+     * Component providing centralized authorization logic for organization-level access.
+     */
+    @Component("authz")
+    public class AuthorizationLogic {
+        private final OrganizationRepository organizationRepository;
+
+        public AuthorizationLogic(OrganizationRepository organizationRepository) {
+            this.organizationRepository = organizationRepository;
+        }
+
+        /**
+         * Checks if the currently authenticated user is a member of the specified organization.
+         * Super-admins (ROLE_ADMIN) bypass this check.
+         *
+         * @param orgId the ID of the organization to check
+         * @return true if the user has access, false otherwise
+         */
+        public boolean isMember(UUID orgId) {
+            if (orgId == null) {
+                return false;
+            }
+
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            if (authentication == null || !(authentication.getPrincipal() instanceof Jwt jwt)) {
+                return false;
+            }
+
+            // Role-based bypass for global admins
+            if (authentication.getAuthorities().stream()
+                    .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"))) {
+                return true;
+            }
+
+            // Resolve the organization's authCompanyId from the database
+            String authCompanyId = organizationRepository.findById(orgId)
+                    .map(OrganizationEntity::getAuthCompanyId)
+                    .orElse(null);
+
+            if (authCompanyId == null) {
+                return false;
+            }
+
+            // Check organization membership in JWT claims
+            List<Map<String, Object>> orgs = jwt.getClaim("orgs");
+            if (orgs == null) {
+                return false;
+            }
+
+            return orgs.stream()
+                    .anyMatch(org -> {
+                        Object id = org.get("id");
+                        return id != null && id.toString().equals(authCompanyId);
+                    });
+        }
     }
 
     /**
@@ -77,9 +141,9 @@ public class SecurityConfig {
     }
 
     /**
-     * Configures a {@link JwtAuthenticationConverter} to extract roles from Zitadel-specific claims.
+     * Configures a {@link JwtAuthenticationConverter} to extract roles from the 'authorities' claim.
      * <p>
-     * It maps keys from the {@code urn:zitadel:iam:org:project:roles} claim to Spring Security roles
+     * It maps the list of strings from the {@code authorities} claim to Spring Security roles
      * with a {@code ROLE_} prefix.
      * </p>
      *
@@ -89,13 +153,11 @@ public class SecurityConfig {
     public JwtAuthenticationConverter jwtAuthenticationConverter() {
         JwtAuthenticationConverter jwtConverter = new JwtAuthenticationConverter();
         jwtConverter.setJwtGrantedAuthoritiesConverter(jwt -> {
-            // Extract roles from nested Zitadel role claim map
-            // Claim: "urn:zitadel:iam:org:project:roles": {"roleName": {"orgId": "domain"}}
-            Map<String, Object> rolesClaim = jwt.getClaimAsMap("urn:zitadel:iam:org:project:roles");
-            if (rolesClaim == null) {
+            List<String> authorities = jwt.getClaimAsStringList("authorities");
+            if (authorities == null) {
                 return List.of();
             }
-            return rolesClaim.keySet().stream()
+            return authorities.stream()
                     .map(role -> new SimpleGrantedAuthority("ROLE_" + role))
                     .collect(Collectors.toList());
         });

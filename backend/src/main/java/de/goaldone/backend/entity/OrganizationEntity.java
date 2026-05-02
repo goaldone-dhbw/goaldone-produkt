@@ -23,9 +23,9 @@ public class OrganizationEntity {
     @Id
     private UUID id;
 
-    /** The unique identifier assigned to this organization by Zitadel (IAM). */
-    @Column(name = "zitadel_org_id", nullable = false, unique = true, length = 64)
-    private String zitadelOrgId;
+    /** The unique identifier assigned to this organization by the Identity Provider (IAM). */
+    @Column(name = "auth_company_id", nullable = false, unique = true, length = 64)
+    private String authCompanyId;
 
     /** The display name of the organization. */
     @Column(nullable = false, length = 255)
