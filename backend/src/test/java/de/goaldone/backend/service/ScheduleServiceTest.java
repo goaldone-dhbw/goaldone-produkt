@@ -72,7 +72,7 @@ public class ScheduleServiceTest {
         ScheduleResponse response = scheduleService.generateSingleAccountSchedule(jwt, accountId, request, 5000);
 
         assertEquals(1, response.getWarnings().size());
-        ScheduleWarning warning = response.getWarnings().get(0);
+        ScheduleWarning warning = response.getWarnings().getFirst();
 
         assertEquals(ScheduleWarning.TypeEnum.OTHER, warning.getType());
         assertTrue(warning.getMessage().contains("From date cannot be in the past"));
@@ -89,7 +89,7 @@ public class ScheduleServiceTest {
         ScheduleResponse response = scheduleService.generateSingleAccountSchedule(jwt, accountId, request, 5000);
 
         assertEquals(1, response.getWarnings().size());
-        ScheduleWarning warning = response.getWarnings().get(0);
+        ScheduleWarning warning = response.getWarnings().getFirst();
 
         assertEquals(ScheduleWarning.TypeEnum.OTHER, warning.getType());
         assertTrue(warning.getMessage().contains("Account not found"));
@@ -107,7 +107,7 @@ public class ScheduleServiceTest {
         ScheduleResponse response = scheduleService.generateSingleAccountSchedule(jwt, accountId, request, 5000);
 
         assertEquals(1, response.getWarnings().size());
-        ScheduleWarning warning = response.getWarnings().get(0);
+        ScheduleWarning warning = response.getWarnings().getFirst();
 
         assertEquals(ScheduleWarning.TypeEnum.OTHER, warning.getType());
         assertTrue(warning.getMessage().contains("does not have access"));
@@ -126,9 +126,9 @@ public class ScheduleServiceTest {
                 scheduleService.generateMultiAccountSchedule(jwt, List.of(), request, 5000);
 
         assertEquals(1, responses.size());
-        assertEquals(1, responses.get(0).getWarnings().size());
+        assertEquals(1, responses.getFirst().getWarnings().size());
 
-        ScheduleWarning warning = responses.get(0).getWarnings().get(0);
+        ScheduleWarning warning = responses.getFirst().getWarnings().getFirst();
         assertEquals(ScheduleWarning.TypeEnum.OTHER, warning.getType());
         assertTrue(warning.getMessage().contains("No accounts linked to user"));
     }
@@ -155,7 +155,7 @@ public class ScheduleServiceTest {
 
         // One response should have a warning about the invalid account
         long warnings = responses.stream()
-                .filter(r -> r.getWarnings() != null && !r.getWarnings().isEmpty() && r.getWarnings().get(0).getMessage().contains("Account not found"))
+                .filter(r -> r.getWarnings() != null && !r.getWarnings().isEmpty() && r.getWarnings().getFirst().getMessage().contains("Account not found"))
                 .count();
 
         assertEquals(1, warnings);
@@ -183,7 +183,7 @@ public class ScheduleServiceTest {
         assertEquals(2, responses.size());
 
         long warnings = responses.stream()
-                .filter(r -> r.getWarnings() != null && !r.getWarnings().isEmpty() && r.getWarnings().get(0).getMessage().contains("does not have access"))
+                .filter(r -> r.getWarnings() != null && !r.getWarnings().isEmpty() && r.getWarnings().getFirst().getMessage().contains("does not have access"))
                 .count();
 
         assertEquals(1, warnings);
@@ -218,7 +218,7 @@ public class ScheduleServiceTest {
         assertNotNull(response);
         assertEquals(1, response.getWarnings().size());
 
-        ScheduleWarning warning = response.getWarnings().get(0);
+        ScheduleWarning warning = response.getWarnings().getFirst();
         assertEquals(ScheduleWarning.TypeEnum.OTHER, warning.getType());
         assertTrue(warning.getMessage().contains("From date cannot be in the past"));
     }
@@ -236,7 +236,7 @@ public class ScheduleServiceTest {
         assertNotNull(response);
         assertEquals(1, response.getWarnings().size());
 
-        ScheduleWarning warning = response.getWarnings().get(0);
+        ScheduleWarning warning = response.getWarnings().getFirst();
         assertTrue(warning.getMessage().contains("Account not found"));
     }
 
@@ -254,7 +254,7 @@ public class ScheduleServiceTest {
         assertNotNull(response);
         assertEquals(1, response.getWarnings().size());
 
-        ScheduleWarning warning = response.getWarnings().get(0);
+        ScheduleWarning warning = response.getWarnings().getFirst();
         assertTrue(warning.getMessage().contains("does not have access to account"));
     }
 }
