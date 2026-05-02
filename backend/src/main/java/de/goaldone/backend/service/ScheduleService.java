@@ -2,6 +2,7 @@ package de.goaldone.backend.service;
 
 import de.goaldone.backend.entity.UserAccountEntity;
 import de.goaldone.backend.entity.WorkingTimeEntity;
+import de.goaldone.backend.exception.ScheduleGenerationException;
 import de.goaldone.backend.model.*;
 import de.goaldone.backend.repository.UserAccountRepository;
 import de.goaldone.backend.scheduler.Chunker;
@@ -54,14 +55,15 @@ public class ScheduleService {
 
         // Generate schedules in parallel
         try (ExecutorService executor = Executors.newFixedThreadPool(accountIds.size())) {
-            // Create async tasks for each account
+
+            // Create schedule for each account simultaneously
             List<CompletableFuture<ScheduleResponse>> futures = accountIds.stream()
                 .map(accountId ->
                     CompletableFuture.supplyAsync(
                         () -> generateSchedule(jwt, accountId, request), executor
                     )
                     // If task takes too long -> complete with error response
-                    .completeOnTimeout(createErrorResponse("Schedule generation timed out"), timeoutMilliseconds, TimeUnit.MILLISECONDS)
+                    .completeOnTimeout(createErrorResponse("Schedule generation timed out"), timeoutMilliseconds, TimeUnit.MILLISECONDS) //TODO: adjust timeout
 
                     // Handle exceptions per task (prevents whole pipeline from failing)
                     .exceptionally(ex -> {
@@ -84,26 +86,10 @@ public class ScheduleService {
                     .filter(Objects::nonNull)       // remove timed-out or failed tasks
                     .toList();
         } catch (Exception e) {
-            throw new RuntimeException("Failed to create executor for account scheduling", e);
+            log.error("Failed to initialize account scheduling", e);
+            throw new ScheduleGenerationException("Failed to initialize account scheduling", e);
         }
     }
-
-    /**
-     *
-     * @param accountId Specific account
-     * @return Available timeslots between appointments
-     */
-    private List<TimeSlot> getAvailableTimeSlots(UUID accountId) {
-        List<Appointment> allAppointments = appointmentService.listAppointments(accountId).getAppointments();
-
-
-        //TODO: calculate free time slots based on appointments and working hours
-
-
-        List<TimeSlot> availableSlots = null;
-        return availableSlots;
-    }
-
 
     /**
      * Generates schedule for a single account with exception handling
@@ -111,18 +97,32 @@ public class ScheduleService {
      * @param jwt                     JWT token containing user information
      * @param accountId               Specific account
      * @param generateScheduleRequest Request parameters
+     * @param timeoutMilliseconds     Maximum time to wait for schedule generation before giving up (in milliseconds)
      * @return ScheduleResponse with schedule or error warnings
      */
     public ScheduleResponse generateSingleAccountSchedule(
             Jwt jwt,
             UUID accountId,
-            GenerateScheduleRequest generateScheduleRequest) {
+            GenerateScheduleRequest generateScheduleRequest,
+            long timeoutMilliseconds) {
 
-        try {
-            return generateSchedule(jwt, accountId, generateScheduleRequest);
-        } catch (Exception ex) {
-            log.error("Error generating schedule for account {}: {}", accountId, ex.getMessage(), ex);
-            return createErrorResponse("Schedule generation failed: " + ex.getMessage());
+        try (ExecutorService executor = Executors.newFixedThreadPool(1)) {
+
+            // Generate scheduling
+            return CompletableFuture.supplyAsync(
+                    () -> generateSchedule(jwt, accountId, generateScheduleRequest), executor
+                )
+                // If task takes too long -> complete with error response
+                .completeOnTimeout(createErrorResponse("Schedule generation timed out"), timeoutMilliseconds, TimeUnit.MILLISECONDS)
+                // Handle exceptions
+                .exceptionally(ex -> {
+                    log.error("Error generating schedule for account {}: {}", accountId, ex.getMessage(), ex);
+                    return createErrorResponse("Schedule generation failed: " + ex.getMessage());
+                })
+                .join();
+        } catch (Exception e) {
+            log.error("Failed to initialize account scheduling", e);
+            throw new ScheduleGenerationException("Failed to initialize account scheduling", e);
         }
     }
 
@@ -138,10 +138,8 @@ public class ScheduleService {
      */
     public ScheduleResponse generateSchedule(Jwt jwt, UUID accountId, GenerateScheduleRequest generateScheduleRequest) {
 
-        // Validate request
         validateRequest(jwt, accountId, generateScheduleRequest);
 
-        // Get data
         List<TaskResponse> allTasks = taskService.getTasksForAccountId(jwt, accountId);
 
         // Load working times for this account
@@ -149,7 +147,6 @@ public class ScheduleService {
                 .map(UserAccountEntity::getWorkingTimes)
                 .orElse(List.of());
 
-        // Chunk tasks
         List<TaskChunk> chunks = chunker.chunkTasks(allTasks, workingTimes);
 
         // Get available timeslots
@@ -183,6 +180,20 @@ public class ScheduleService {
                 errorMessage
         )));
         return response;
+    }
+
+    /**
+     *
+     * @param accountId Specific account
+     * @return Available timeslots between appointments
+     */
+    private List<TimeSlot> getAvailableTimeSlots(UUID accountId) {
+        List<Appointment> allAppointments = appointmentService.listAppointments(accountId).getAppointments();
+
+        //TODO: calculate free time slots based on appointments and working hours
+
+        List<TimeSlot> availableSlots = null;
+        return availableSlots;
     }
 
     private void validateRequest(Jwt jwt, UUID accountId, GenerateScheduleRequest generateScheduleRequest) {

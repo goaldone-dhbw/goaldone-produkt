@@ -27,6 +27,8 @@ public class ScheduleController implements SchedulesApi {
     private final UserIdentityService userIdentityService;
     private final CurrentUserResolver currentUserResolver;
 
+    private final long timeoutMilliseconds = 10000;
+
     private List<UserAccountEntity> getAccountsLinkedToIdentity(Jwt jwt) {
         return userIdentityService.
                 findAccountsForIdentity(userIdentityService.findIdentityFromAccount(jwt));
@@ -50,7 +52,6 @@ public class ScheduleController implements SchedulesApi {
                 .toList();
 
         // Generate schedule for each account
-        long timeoutMilliseconds = 10000;
         List<ScheduleResponse> scheduleResponses = scheduleService.generateMultiAccountSchedule(
                 jwt, accountIds, generateScheduleRequest, timeoutMilliseconds
         );
@@ -78,9 +79,9 @@ public class ScheduleController implements SchedulesApi {
         // Extract token
         Jwt jwt = currentUserResolver.extractJwt();
 
-        // Generate schedule for account
+        // Generate schedule for account with timeout
         ScheduleResponse scheduleResponse = scheduleService.generateSingleAccountSchedule(
-                jwt, accountId, generateScheduleRequest
+                jwt, accountId, generateScheduleRequest, timeoutMilliseconds
         );
 
         return ResponseEntity.status(201).body(scheduleResponse);
