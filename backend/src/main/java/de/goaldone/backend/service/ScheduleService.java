@@ -50,7 +50,7 @@ public class ScheduleService {
 
         // No accounts linked to identity
         if (accountIds.isEmpty()) {
-            return List.of();
+            return List.of(createErrorResponse("No accounts linked to user"));
         }
 
         // Generate schedules in parallel
@@ -72,13 +72,6 @@ public class ScheduleService {
                     })
                 )
                 .toList();
-
-            /*
-             * At this point:
-             * - All tasks are running in parallel
-             * - Each task has its own timeout
-             * - No global blocking is required
-             */
 
             // Collect results
             return futures.stream()
@@ -136,7 +129,7 @@ public class ScheduleService {
      * - the scheduleScore,
      * - constraint warnings
      */
-    public ScheduleResponse generateSchedule(Jwt jwt, UUID accountId, GenerateScheduleRequest generateScheduleRequest) {
+    private ScheduleResponse generateSchedule(Jwt jwt, UUID accountId, GenerateScheduleRequest generateScheduleRequest) {
 
         validateRequest(jwt, accountId, generateScheduleRequest);
 
@@ -176,7 +169,7 @@ public class ScheduleService {
     private ScheduleResponse createErrorResponse(String errorMessage) {
         ScheduleResponse response = new ScheduleResponse();
         response.setWarnings(List.of(new ScheduleWarning(
-                ScheduleWarning.TypeEnum.UNKNOWN,
+                ScheduleWarning.TypeEnum.OTHER,
                 errorMessage
         )));
         return response;
@@ -200,7 +193,7 @@ public class ScheduleService {
         // Check if account exists
         Optional<UserAccountEntity> accountOpt = userAccountRepository.findById(accountId);
         if (accountOpt.isEmpty()) {
-            throw new IllegalArgumentException("Account with ID " + accountId + " does not exist");
+            throw new IllegalArgumentException("Account not found: " + accountId);
         }
 
         // Check if user has access to this account
