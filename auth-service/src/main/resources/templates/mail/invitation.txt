@@ -1,0 +1,32 @@
+Einladung zur Organisation
+
+Guten Tag,
+
+Du wurdest eingeladen, der Organisation [[$organizationName]] beizutreten.
+
+DETAILS:
+--------
+Organisation: [[$organizationName]]
+Rolle: [[$roleName]]
+Einladung gültig bis: [[$expirationDate]]
+
+AKTION ERFORDERLICH:
+-------------------
+Akzeptiere die Einladung hier:
+[[$invitationUrl]]
+
+Falls der Link nicht funktioniert, kopiere diese URL in deinen Browser:
+[[$invitationUrl]]
+
+WICHTIG:
+--------
+- Diese Einladung ist nur für dich bestimmt
+- Falls du diese nicht angefordert hast, ignoriere diese E-Mail
+- Der Link ist gültig bis: [[$expirationDate]]
+
+FRAGEN?
+------
+Kontaktiere uns: support@goaldone.de
+
+---
+Goaldone 2026

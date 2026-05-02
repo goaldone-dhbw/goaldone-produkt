@@ -1,0 +1,28 @@
+Konto-Verknüpfung bestätigt
+
+Guten Tag,
+
+Deine E-Mail-Adresse wurde erfolgreich mit deinem Konto verknüpft.
+
+VERKNÜPFUNG DETAILS:
+-------------------
+Konto: [[$userName]]
+Neue E-Mail-Adresse: [[$invitedEmail]]
+Organisation: [[$organizationName]]
+Rolle: [[$roleName]]
+
+ANMELDEN:
+--------
+Du kannst dich jetzt mit deiner E-Mail-Adresse anmelden:
+https://app.goaldone.de/login
+
+SICHERHEIT:
+----------
+Falls du diese Verknüpfung nicht autorisiert hast, kontaktiere sofort den Support.
+
+KONTAKT:
+-------
+Fragen? support@goaldone.de
+
+---
+Goaldone 2026

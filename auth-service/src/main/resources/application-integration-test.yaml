@@ -1,0 +1,53 @@
+spring:
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.data.redis.DataRedisAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.redis.LettuceConnectionConfiguration
+      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+  datasource:
+    # Connection details injected by IntegrationTestBase.DynamicPropertyRegistry
+    # Do NOT hardcode values here; they are provided at runtime by TestContainers
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 1
+      connection-timeout: 10000
+      idle-timeout: 300000
+      max-lifetime: 600000
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate  # Don't auto-create; use Liquibase migrations
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        show_sql: false
+        jdbc.batch_size: 10
+
+  liquibase:
+    enabled: true
+    change-log: classpath:db/changelog/db.changelog-master.xml
+    drop-first: false
+
+  session:
+    store-type: jdbc
+    jdbc:
+      initialize-schema: always
+      table-name: SPRING_SESSION
+
+server:
+  port: 0  # Use random port to avoid conflicts
+
+logging:
+  level:
+    root: WARN
+    de.goaldone: DEBUG
+    org.springframework.security: WARN
+    org.springframework.session: DEBUG
+    org.springframework.boot.test: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+  pattern:
+    console: "%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"

@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="05-invitation-linking-status" author="johannes">
+        <comment>Add invitation linking status tracking columns</comment>
+
+        <!-- Add linking_attempted column (NOT NULL with default false) -->
+        <addColumn tableName="invitations">
+            <column name="linking_attempted" type="BOOLEAN" defaultValue="false">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+
+        <!-- Add linked_user_id column (nullable UUID) -->
+        <addColumn tableName="invitations">
+            <column name="linked_user_id" type="UUID"/>
+        </addColumn>
+
+        <!-- Add linking_timestamp column (nullable TIMESTAMP) -->
+        <addColumn tableName="invitations">
+            <column name="linking_timestamp" type="TIMESTAMP"/>
+        </addColumn>
+
+        <!-- Add acceptance_reason column (nullable VARCHAR(255)) -->
+        <addColumn tableName="invitations">
+            <column name="acceptance_reason" type="VARCHAR(255)"/>
+        </addColumn>
+
+        <!-- Rollback statements for all added columns -->
+        <rollback>
+            <dropColumn tableName="invitations" columnName="linking_attempted"/>
+            <dropColumn tableName="invitations" columnName="linked_user_id"/>
+            <dropColumn tableName="invitations" columnName="linking_timestamp"/>
+            <dropColumn tableName="invitations" columnName="acceptance_reason"/>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

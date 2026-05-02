@@ -3,3 +3,5 @@ procs:
     shell: "cd backend && ./mvnw spring-boot:run -Dspring-boot.run.profiles=local"
   frontend:
     shell: "cd frontend && npm run start"
+  auth-service:
+    shell: "cd auth-service && ./mvnw spring-boot:run -Dspring-boot.run.profiles=local"

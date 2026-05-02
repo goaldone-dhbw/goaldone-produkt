@@ -1,0 +1,41 @@
+spring:
+  application:
+    name: auth-service
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.xml
+    enabled: true
+  session:
+    store-type: jdbc
+
+app:
+  super-admin:
+    org-name: "System Admin"
+    org-slug: "system-admin"
+    email: ${SUPER_ADMIN_EMAIL:admin@goaldone.de}
+    password: ${SUPER_ADMIN_PASSWORD:admin}
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    operationsSorter: method
+    tagsSorter: alpha
+    defaultModelsExpandDepth: 1
+    defaultModelExpandDepth: 1
+  api-docs:
+    path: /v3/api-docs
+  show-actuator: false
+  paths-to-match: /api/v1/**
+
+server:
+  port: 9000
