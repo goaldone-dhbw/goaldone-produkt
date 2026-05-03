@@ -180,6 +180,10 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] 07-01-PLAN.md — API Regeneration & Verification (regenerate TypeScript client, audit shapes, document breaking changes)
 - [x] 07-02-PLAN.md — OIDC Static Analysis & Verification (env.js config, JWT claims, interceptor, multi-org provisioning, 3 bugs fixed)
 
+**Wave 2:**
+- [x] 07-03-PLAN.md — Update Frontend Test Fixtures (auth-service JWT format, xOrgID params, OrgContextService mocks, 81/91 passing)
+- [x] 07-04-PLAN.md — Member Management UI & Multi-Org Components (member CRUD, PrimeNG v19 Select, 91/91 passing, 0 build errors)
+
 ## Progress
 
 **Execution Order:**
@@ -195,4 +199,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 03.1 → 4 → 5 → 6 → 6.
 | 5. Member Management Rewrite & Cutover | 5/5 | Ready to execute | - |
 | 6. Backend Error Fix & Test Restoration | 0/2 | Ready to plan | - |
 | 06.1 CI/CD Pipeline Update | 4/4 | Ready to execute | - |
-| 7. Frontend Integration | 2/TBD | In progress | - |
+| 7. Frontend Integration | 4/TBD | In progress | - |

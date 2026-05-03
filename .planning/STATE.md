@@ -2,17 +2,17 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_plan: 07-03 (next)
+current_plan: 07-05 (next)
 status: in-progress
-stopped_at: Plan 07-02 complete — OIDC Static Analysis & Bug Fixes
+stopped_at: Plan 07-04 complete — Member Management UI & Multi-Org Components
 last_updated: "2026-05-04T00:00:00.000+02:00"
-last_activity: 2026-05-04 -- Phase 07 Plan 07-02 complete (OIDC Verification & Config Bug Fixes)
+last_activity: 2026-05-04 -- Phase 07 Plan 07-04 complete (Member Management UI, 91/91 tests, 0 build errors)
 progress:
   total_phases: 9
   completed_phases: 4
   total_plans: 22
-  completed_plans: 20
-  percent: 79
+  completed_plans: 22
+  percent: 82
 ---
 
 # Project State
@@ -22,16 +22,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-02)
 
 **Core value:** Users authenticate through custom auth-service with simplified multi-org identity model — Zitadel fully replaced
-**Current focus:** Phase 07 — Plan 07-02 COMPLETE ✅ — OIDC Verification & Config Bug Fixes done; plan 07-03 next
+**Current focus:** Phase 07 — Plan 07-04 COMPLETE ✅ — Member Management UI & 91/91 tests; plan 07-05 next
 
 ## Current Position
 
 Phase: 7 (fix-the-frontend-to-work-with-my-new-backend-implementation-that-fully-utilizes-the-auth-service) — IN PROGRESS
-Status: Plan 07-02 complete, plan 07-03 pending
-Last activity: 2026-05-04 -- Plan 07-02 complete (OIDC Verification & Config Bug Fixes)
-Current Plan: 07-03 (next)
+Status: Plan 07-04 complete, plan 07-05 pending
+Last activity: 2026-05-04 -- Plan 07-04 complete (Member Management UI, 91/91 tests, 0 build errors)
+Current Plan: 07-05 (next)
 
-Progress: [▓▓▓▓▓▓▓▓░░] 79% (6/7 phases done, 1 pending)
+Progress: [▓▓▓▓▓▓▓▓░░] 82% (6/7 phases done, 1 pending)
 
 ## Performance Metrics
 
@@ -83,6 +83,10 @@ Recent decisions affecting current work:
 - Phase 07-02: env.js.template fixed — now uses OIDC_CLIENT_ID/OIDC_ISSUER_URI matching docker-compose
 - Phase 07-02: ClientSeedingRunner default aligned to goaldone-frontend (matches frontend defaults)
 - Phase 07-02: docker-compose auth-service containers now forward FRONTEND_CLIENT_ID
+- Phase 07-04: TenantService replaced getUserMemberships() with getOrganizations() (deprecated method removed)
+- Phase 07-04: OrgSettingsPage role filter corrected to COMPANY_ADMIN (was ROLE_ADMIN — wrong JWT format)
+- Phase 07-04: PrimeNG v19 migration — Dropdown renamed to Select (primeng/dropdown → primeng/select)
+- Phase 07-04: Member management UI complete — listMembers/inviteMember/changeMemberRole/removeMember wired
 
 ### Roadmap Evolution
 
@@ -101,5 +105,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-05-04T00:00:00.000Z
-Stopped at: Plan 07-02 complete — OIDC Static Analysis & Config Bug Fixes
+Stopped at: Plan 07-04 complete — Member Management UI & Multi-Org Components (91/91 tests, 0 build errors)
 Resume file: None
