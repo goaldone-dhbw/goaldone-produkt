@@ -9,6 +9,7 @@ import de.goaldone.backend.model.UserOrganizationsResponse;
 import de.goaldone.backend.repository.OrganizationRepository;
 import de.goaldone.backend.repository.MembershipRepository;
 import de.goaldone.backend.repository.WorkingTimeRepository;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
@@ -150,6 +151,7 @@ public class UserService {
      * @param jwt The current JWT representing the logged-in user.
      * @return A {@link UserOrganizationsResponse} containing all of the user's org memberships.
      */
+    @Transactional
     public UserOrganizationsResponse buildOrganizationsResponse(Jwt jwt) {
         String userIdClaim = jwt.getClaimAsString("user_id");
         if (userIdClaim == null) {

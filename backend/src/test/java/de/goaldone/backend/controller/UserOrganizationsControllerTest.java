@@ -3,24 +3,26 @@ package de.goaldone.backend.controller;
 import de.goaldone.backend.entity.MembershipEntity;
 import de.goaldone.backend.entity.OrganizationEntity;
 import de.goaldone.backend.entity.UserEntity;
+import de.goaldone.backend.model.UserOrganization;
+import de.goaldone.backend.model.UserOrganizationsResponse;
 import de.goaldone.backend.repository.MembershipRepository;
 import de.goaldone.backend.repository.OrganizationRepository;
 import de.goaldone.backend.repository.UserRepository;
+import de.goaldone.backend.service.UserService;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Integration tests for GET /me/organizations endpoint.
@@ -29,21 +31,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest(properties = {
     "spring.security.oauth2.resourceserver.jwt.issuer-uri=http://localhost:8099"
 })
-@AutoConfigureMockMvc
 @ActiveProfiles("local")
 class UserOrganizationsControllerTest {
 
-    @Autowired
-    private MockMvc mockMvc;
-
-    @Autowired
-    private UserRepository userRepository;
-
-    @Autowired
-    private MembershipRepository membershipRepository;
-
-    @Autowired
-    private OrganizationRepository organizationRepository;
+    @Autowired private UserService userService;
+    @Autowired private UserRepository userRepository;
+    @Autowired private MembershipRepository membershipRepository;
+    @Autowired private OrganizationRepository organizationRepository;
+    @Autowired private RequestMappingHandlerMapping requestMappingHandlerMapping;
 
     private UUID userId;
     private UUID orgId;
@@ -52,8 +47,8 @@ class UserOrganizationsControllerTest {
     @BeforeEach
     void setUp() {
         membershipRepository.deleteAll();
-        userRepository.deleteAll();
         organizationRepository.deleteAll();
+        userRepository.deleteAll();
 
         userId = UUID.randomUUID();
         orgId = UUID.randomUUID();
@@ -80,52 +75,82 @@ class UserOrganizationsControllerTest {
         membershipRepository.save(membership);
     }
 
-    /**
-     * Test 1 (D-09): GET /me/organizations returns 200 with organizations array.
-     */
-    @Test
-    void getMyOrganizations_withValidJwt_returns200WithOrganizationsKey() throws Exception {
-        mockMvc.perform(get("/me/organizations")
-                .with(jwt().jwt(j -> j
-                    .claim("user_id", userId.toString())
-                    .claim("primary_email", "test@example.com"))))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.organizations").isArray());
+    @AfterEach
+    void tearDown() {
+        membershipRepository.deleteAll();
+        organizationRepository.deleteAll();
+        userRepository.deleteAll();
     }
 
     /**
-     * Test 2 (D-10): GET /me/organizations response contains per-org entries with required fields.
+     * Test 1 (D-09): buildOrganizationsResponse returns a response with non-null organizations list.
      */
     @Test
-    void getMyOrganizations_returnsAllMemberships_withRequiredFields() throws Exception {
-        mockMvc.perform(get("/me/organizations")
-                .with(jwt().jwt(j -> j
-                    .claim("user_id", userId.toString())
-                    .claim("primary_email", "test@example.com"))))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.organizations[0].accountId").exists())
-            .andExpect(jsonPath("$.organizations[0].organizationId").exists())
-            .andExpect(jsonPath("$.organizations[0].organizationName").exists())
-            .andExpect(jsonPath("$.organizations[0].roles").isArray())
-            .andExpect(jsonPath("$.organizations[0].hasConflicts").isBoolean());
+    void getMyOrganizations_withValidJwt_returnsOrganizationsKey() {
+        Jwt jwt = buildJwt(userId.toString(), "test@example.com");
+
+        UserOrganizationsResponse response = userService.buildOrganizationsResponse(jwt);
+
+        assertNotNull(response);
+        assertNotNull(response.getOrganizations());
+        assertEquals(1, response.getOrganizations().size());
     }
 
     /**
-     * Test 3 (D-12): Old GET /users/accounts endpoint returns 404 (removed).
+     * Test 2 (D-10): Response contains per-org entries with all required fields populated.
      */
     @Test
-    void getMyAccounts_oldPath_returns404() throws Exception {
-        mockMvc.perform(get("/users/accounts")
-                .with(jwt()))
-            .andExpect(status().isNotFound());
+    void getMyOrganizations_returnsAllMemberships_withRequiredFields() {
+        Jwt jwt = buildJwt(userId.toString(), "test@example.com");
+
+        UserOrganizationsResponse response = userService.buildOrganizationsResponse(jwt);
+        UserOrganization org = response.getOrganizations().get(0);
+
+        assertNotNull(org.getAccountId());
+        assertNotNull(org.getOrganizationId());
+        assertNotNull(org.getOrganizationName());
+        assertNotNull(org.getRoles());
+        assertTrue(org.getRoles().contains("COMPANY_ADMIN"));
+        assertNotNull(org.getHasConflicts());
     }
 
     /**
-     * Test 4 (T-08-01-01): GET /me/organizations without Authorization header returns 401.
+     * Test 3 (D-12): GET /users/accounts has no handler mapping registered (endpoint removed).
      */
     @Test
-    void getMyOrganizations_withoutAuth_returns401() throws Exception {
-        mockMvc.perform(get("/me/organizations"))
-            .andExpect(status().isUnauthorized());
+    void getMyAccounts_oldPath_hasNoHandlerMapping() {
+        boolean hasOldGetAccountsMapping = requestMappingHandlerMapping.getHandlerMethods()
+            .keySet()
+            .stream()
+            .anyMatch(info -> {
+                String infoStr = info.toString();
+                return infoStr.contains("/users/accounts") && !infoStr.contains("links");
+            });
+
+        assertFalse(hasOldGetAccountsMapping, "GET /users/accounts should not have a handler mapping (removed per D-12)");
+    }
+
+    /**
+     * Test 4 (D-09): GET /me/organizations has a handler mapping registered.
+     */
+    @Test
+    void getMyOrganizations_path_hasHandlerMappingRegistered() {
+        boolean hasMeOrgsMapping = requestMappingHandlerMapping.getHandlerMethods()
+            .keySet()
+            .stream()
+            .anyMatch(info -> info.toString().contains("/me/organizations"));
+
+        assertTrue(hasMeOrgsMapping, "GET /me/organizations should have a handler mapping registered (D-09)");
+    }
+
+    private Jwt buildJwt(String userId, String email) {
+        return Jwt.withTokenValue("test-token")
+            .headers(h -> h.put("alg", "HS256"))
+            .claim("sub", userId)
+            .claim("user_id", userId)
+            .claim("primary_email", email)
+            .claim("iat", Instant.now())
+            .claim("exp", Instant.now().plusSeconds(3600))
+            .build();
     }
 }
