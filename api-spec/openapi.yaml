@@ -117,23 +117,23 @@ paths:
         '403':
           description: Forbidden
 
-  /users/accounts:
+  /me/organizations:
     get:
       tags:
         - user-accounts
-      summary: Get all accounts for current user identity
-      operationId: getMyAccounts
+      summary: Get all organizations for current user
+      operationId: getMyOrganizations
       security:
         - bearerAuth: []
-      parameters:
-        - $ref: '#/components/parameters/OrgIdHeader'
       responses:
         '200':
           description: OK
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AccountListResponse'
+                $ref: '#/components/schemas/UserOrganizationsResponse'
+        '401':
+          description: Unauthorized
   # ============================================================
   # APPOINTMENTS
   # ============================================================
@@ -1263,7 +1263,7 @@ components:
           type: string
           format: uuid
 
-    AccountResponse:
+    UserOrganization:
       type: object
       required:
         - accountId
@@ -1293,18 +1293,17 @@ components:
             type: string
         hasConflicts:
           type: boolean
-          description: True if there are overlapping working time slots for this user identity
+          description: True if there are overlapping working time slots for this user
 
-    AccountListResponse:
+    UserOrganizationsResponse:
       type: object
       required:
-        - accounts
+        - organizations
       properties:
-
-        accounts:
+        organizations:
           type: array
           items:
-            $ref: '#/components/schemas/AccountResponse'
+            $ref: '#/components/schemas/UserOrganization'
 
     DayOfWeek:
       type: string
