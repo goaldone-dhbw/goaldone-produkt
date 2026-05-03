@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 2 context gathered
-last_updated: "2026-05-02T19:43:28.401Z"
-last_activity: 2026-05-02 — Phase 1 completed successfully.
+stopped_at: Phase 3.1 execution completed
+last_updated: "2026-05-03T10:45:00.000Z"
+last_activity: 2026-05-03 -- Phase 3.1 execution completed (3/3 plans)
 progress:
-  total_phases: 5
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 20
+  total_phases: 6
+  completed_phases: 3
+  total_plans: 11
+  completed_plans: 11
+  percent: 36
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-02)
 
 **Core value:** Users authenticate through custom auth-service with simplified multi-org identity model — Zitadel fully replaced
-**Current focus:** Phase 1 — Auth-Service Hardening
+**Current focus:** Phase 3.1 — refine-organization-context-and-header-requirements
 
 ## Current Position
 
-Phase: 2 of 5 (Auth-Service Management API Consolidation)
-Plan: 0 of 1 in current phase
-Status: Ready to execute
-Last activity: 2026-05-02 — Phase 1 completed successfully.
+Phase: 3.1 (refine-organization-context-and-header-requirements) — COMPLETED
+Plan: 3 of 3
+Status: Phase 3.1 Complete - All plans executed successfully
+Last activity: 2026-05-03 -- Phase 3.1 execution completed (3/3 plans)
 
-Progress: [▓░░░░░░░░░] 20%
+Progress: [▓▓▓░░░░░░░] 36%
 
 ## Performance Metrics
 
@@ -66,6 +66,10 @@ Recent decisions affecting current work:
 - Phase 1: Multi-org token context strategy: Option B (`orgs` claim array) implemented.
 - Phase 1: Database compatibility: Use `BYTEA` for binary data in H2/Postgres.
 
+### Roadmap Evolution
+
+- Phase 03.1 inserted after Phase 03: Refine Organization Context and Header Requirements (URGENT)
+
 ### Pending Todos
 
 - Execute Phase 2: Auth-Service Management API Consolidation.
@@ -77,6 +81,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-05-02T19:43:28.399Z
-Stopped at: Phase 2 context gathered
-Resume file: .planning/phases/02-backend-jwt-validation/02-CONTEXT.md
+Last session: 2026-05-02T20:48:18.455Z
+Stopped at: Phase 3 context gathered
+Resume file: .planning/phases/03-database-schema-migration/03-CONTEXT.md

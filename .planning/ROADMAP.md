@@ -15,6 +15,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 1: Auth-Service Hardening** - Stabilize token contract: persistent RSA key, JDBC client registry, correct scopes/grants
 - [ ] **Phase 2: Backend JWT Validation** - Rewire Spring Security resource server and JIT provisioner to auth-service claim shapes
 - [ ] **Phase 3: Database Schema Migration** - Remove Zitadel columns via Liquibase; introduce auth_user_id and auth_company_id
+- [ ] **Phase 03.1: Refine Organization Context and Header Requirements** (INSERTED)
 - [ ] **Phase 4: Frontend Auth Switch** - Point Angular OIDC client at auth-service; update role and org extraction
 - [ ] **Phase 5: Member Management Rewrite & Cutover** - Replace all Zitadel SDK calls with auth-service management API; final cleanup
 
@@ -64,6 +65,16 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] 03-02-PLAN.md — Entity and Repository Refactoring
 - [ ] 03-03-PLAN.md — Context Resolution & Provisioning Update
 
+### Phase 03.1: Refine Organization Context and Header Requirements (INSERTED)
+
+**Goal:** Unify organization context delivery via X-Org-ID header; remove legacy path parameters; implement header-JWT correlation for per-org RBAC; provide frontend infrastructure for multi-org selection
+**Requirements**: AUTHZ-01, AUTHZ-02, AUTHZ-03, DB-04, FE-06
+**Depends on:** Phase 3
+**Plans:** 3 plans
+- [ ] 03.1-01-PLAN.md — Backend API & Security Infrastructure (OpenAPI, TenantContext, Custom Expressions)
+- [ ] 03.1-02-PLAN.md — Backend Controllers/Services Refactoring & Integration Tests
+- [ ] 03.1-03-PLAN.md — Database Schema Migration & Frontend Multi-Org Infrastructure
+
 ### Phase 4: Frontend Auth Switch
 **Goal**: Angular frontend authenticates against auth-service end-to-end and correctly reads roles and org context from auth-service tokens
 **Depends on**: Phase 2
@@ -73,7 +84,11 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. Authenticated user stays logged in across tab refreshes (refresh token issued and consumed)
   3. `AuthService.getUserRoles()` returns roles from the `authorities` claim (not Zitadel URN keys)
   4. Role-gated UI elements render correctly for authenticated users with the appropriate role
-**Plans**: TBD
+**Plans**: 4 plans
+- [ ] 04-01-PLAN.md — OIDC Configuration & Token Lifecycle (issuer swap, env.js, silent refresh removal)
+- [ ] 04-02-PLAN.md — Role & Org Extraction (authorities claim mapping, OrgContextService)
+- [ ] 04-03-PLAN.md — Token Refresh & X-Org-ID Header Injection (authInterceptor enhancement)
+- [ ] 04-04-PLAN.md — Multi-Org UI Components & End-to-End Testing (dialogs, settings, main page)
 **UI hint**: yes
 
 ### Phase 5: Member Management Rewrite & Cutover
@@ -99,5 +114,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 1. Auth-Service Hardening | 1/1 | In progress | - |
 | 2. Backend JWT Validation | 4/4 | Not started | - |
 | 3. Database Schema Migration | 4/4 | Not started | - |
-| 4. Frontend Auth Switch | 0/? | Not started | - |
+| 03.1 Refine Organization Context and Header Requirements | 3/3 | Completed | 2026-05-03 |
+| 4. Frontend Auth Switch | 4/4 | Not started | - |
 | 5. Member Management Rewrite & Cutover | 0/? | Not started | - |
