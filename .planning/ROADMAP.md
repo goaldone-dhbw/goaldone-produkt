@@ -209,10 +209,15 @@ Phases execute in numeric order: 1 → 2 → 3 → 03.1 → 4 → 5 → 6 → 6.
 
 ### Phase 8: Auth-Service Login UI & Password Reset + Accounts Endpoint Roles
 
-**Goal:** [To be planned]
-**Requirements**: TBD
+**Goal:** Modernize the auth-service login page with GoalDone branding + password toggle, deliver complete self-service password reset flow with 1-hour tokens, and rename `/users/accounts` → `/me/organizations` with full multi-org response structure.
+**Requirements**: D-01, D-02, D-03, D-04, D-05, D-06, D-07, D-08, D-09, D-10, D-11, D-12
 **Depends on:** Phase 7
-**Plans:** 0 plans
+**Plans:** 4 plans
 
-Plans:
-- [ ] TBD (run /gsd:plan-phase 8 to break down)
+**Wave 1** *(no dependencies — all three run in parallel)*
+- [ ] 08-01-PLAN.md — Backend: OpenAPI + /me/organizations endpoint (D-09, D-10, D-11, D-12)
+- [ ] 08-03-PLAN.md — Auth-Service: Password Reset fixes (D-04, D-05, D-06, D-07, D-08)
+- [ ] 08-04-PLAN.md — Auth-Service: Login Page Redesign (D-01, D-02, D-03)
+
+**Wave 2** *(depends on 08-01 — needs updated openapi.yaml)*
+- [ ] 08-02-PLAN.md — Frontend: API regeneration + consumer updates (D-09, D-11)
