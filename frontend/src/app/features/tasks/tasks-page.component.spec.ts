@@ -4,6 +4,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { BASE_PATH } from '../../api';
 import { OrgContextService } from '../../core/services/org-context.service';
 import { TasksPageComponent } from './tasks-page.component';
+import { MessageService } from 'primeng/api';
 
 describe('TasksPageComponent', () => {
   let fixture: ComponentFixture<TasksPageComponent>;
@@ -30,6 +31,7 @@ describe('TasksPageComponent', () => {
         provideHttpClientTesting(),
         { provide: BASE_PATH, useValue: API_BASE },
         { provide: OrgContextService, useValue: orgContextServiceMock },
+        MessageService,
       ],
     }).compileComponents();
 

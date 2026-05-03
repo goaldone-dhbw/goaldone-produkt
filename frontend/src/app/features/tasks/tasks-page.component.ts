@@ -22,6 +22,7 @@ import { TasksService } from '../../api';
 import { UserAccountsService } from '../../api';
 import { BasePopupComponent } from '../../shared/base-popup/base-popup.component';
 import { OrgContextService } from '../../core/services/org-context.service';
+import { ErrorNotificationService } from '../../core/services/error-notification.service';
 
 type AccountOption = {
   id: string;
@@ -74,6 +75,7 @@ export class TasksPageComponent {
   private readonly tasksService = inject(TasksService);
   private readonly userAccountsService = inject(UserAccountsService);
   private readonly orgContextService = inject(OrgContextService);
+  private readonly errorNotificationService = inject(ErrorNotificationService);
 
   readonly tasks = signal<TaskItem[]>([]);
   readonly accounts = signal<AccountOption[]>([]);
@@ -191,6 +193,7 @@ export class TasksPageComponent {
 
       this.tasks.set(allTasks);
     } catch (error) {
+      console.error('[TasksPage] Failed to load tasks:', error);
       this.tasks.set([]);
       this.listErrorMessage.set(
         this.getReadableErrorMessage(
@@ -198,6 +201,11 @@ export class TasksPageComponent {
           'Aufgaben konnten nicht geladen werden. Das Backend ist möglicherweise noch nicht verfügbar.',
         ),
       );
+      if (error instanceof HttpErrorResponse && error.status === 0) {
+        this.errorNotificationService.showError(
+          'Keine Verbindung zum Server. Bitte Verbindung prüfen und Seite neu laden.'
+        );
+      }
     } finally {
       this.isLoading.set(false);
     }
@@ -280,9 +288,10 @@ export class TasksPageComponent {
       this.isTaskPopupOpen.set(false);
       await this.loadTasks();
     } catch (error) {
-      this.formErrorMessage.set(
-        this.getReadableErrorMessage(error, 'Die Aufgabe konnte nicht gespeichert werden.'),
-      );
+      console.error('[TasksPage] Failed to save task:', error);
+      const message = this.getReadableErrorMessage(error, 'Die Aufgabe konnte nicht gespeichert werden.');
+      this.formErrorMessage.set(message);
+      this.errorNotificationService.showError(message);
     } finally {
       this.isSaving.set(false);
     }
@@ -309,6 +318,7 @@ export class TasksPageComponent {
       this.successMessage.set('Der Status wurde gespeichert.');
       await this.loadTasks();
     } catch (error) {
+      console.error('[TasksPage] Failed to change task status for task', task.id, error);
       this.listErrorMessage.set(
         this.getReadableErrorMessage(error, 'Der Status konnte nicht gespeichert werden.'),
       );
@@ -344,6 +354,7 @@ export class TasksPageComponent {
       this.deletingTask.set(null);
       await this.loadTasks();
     } catch (error) {
+      console.error('[TasksPage] Failed to delete task', task.id, error);
       this.listErrorMessage.set(
         this.getReadableErrorMessage(error, 'Die Aufgabe konnte nicht gelöscht werden.'),
       );

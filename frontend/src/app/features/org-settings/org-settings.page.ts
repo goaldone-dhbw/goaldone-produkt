@@ -7,6 +7,7 @@ import { Button } from 'primeng/button';
 import { TableModule } from 'primeng/table';
 import { AuthService } from '../../core/auth/auth.service';
 import { OrgContextService } from '../../core/services/org-context.service';
+import { ErrorNotificationService } from '../../core/services/error-notification.service';
 import { MemberManagementService } from '../../api/api/memberManagement.service';
 import { MemberResponse } from '../../api/model/memberResponse';
 import { MemberRole } from '../../api/model/memberRole';
@@ -40,6 +41,7 @@ export class OrgSettingsPage implements OnInit, OnDestroy {
   private readonly authService = inject(AuthService);
   private readonly orgContextService = inject(OrgContextService);
   private readonly memberManagementService = inject(MemberManagementService);
+  private readonly errorNotificationService = inject(ErrorNotificationService);
 
   readonly userOrgs = signal<OrgOption[]>([]);
   readonly adminOrgs = signal<OrgOption[]>([]);
@@ -125,9 +127,11 @@ export class OrgSettingsPage implements OnInit, OnDestroy {
         this.members.set(response.members ?? []);
         this.membersLoading.set(false);
       },
-      error: () => {
+      error: (err) => {
+        console.error('[OrgSettingsPage] Failed to load members for org', orgId, err);
         this.membersError.set('Fehler beim Laden der Mitglieder');
         this.membersLoading.set(false);
+        this.errorNotificationService.showError('Mitgliederliste konnte nicht geladen werden. Bitte Seite neu laden.');
       },
     });
   }
@@ -189,6 +193,7 @@ export class OrgSettingsPage implements OnInit, OnDestroy {
           this.loadSettingsForOrg(orgId);
         },
         error: (err) => {
+          console.error('[OrgSettingsPage] Failed to invite member for org', orgId, err);
           if (err.status === 409) {
             this.inviteError.set('Benutzer ist bereits Mitglied dieser Organisation');
           } else if (err.status === 403) {
@@ -231,6 +236,7 @@ export class OrgSettingsPage implements OnInit, OnDestroy {
           this.loadSettingsForOrg(orgId);
         },
         error: (err) => {
+          console.error('[OrgSettingsPage] Failed to change role for member', member.userId, 'in org', orgId, err);
           if (err.status === 409) {
             this.roleChangeError.set('Letzter Administrator kann nicht degradiert werden');
           } else if (err.status === 403) {
@@ -270,6 +276,7 @@ export class OrgSettingsPage implements OnInit, OnDestroy {
         this.loadSettingsForOrg(orgId);
       },
       error: (err) => {
+        console.error('[OrgSettingsPage] Failed to remove member', member.userId, 'from org', orgId, err);
         if (err.status === 409) {
           this.removeError.set('Letzter Administrator kann nicht entfernt werden');
         } else if (err.status === 403) {
