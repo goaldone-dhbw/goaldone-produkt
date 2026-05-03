@@ -21,6 +21,7 @@ import {
 import { TasksService } from '../../api';
 import { UserAccountsService } from '../../api';
 import { BasePopupComponent } from '../../shared/base-popup/base-popup.component';
+import { OrgContextService } from '../../core/services/org-context.service';
 
 type AccountOption = {
   id: string;
@@ -72,6 +73,7 @@ export class TasksPageComponent {
   private readonly fb = inject(FormBuilder);
   private readonly tasksService = inject(TasksService);
   private readonly userAccountsService = inject(UserAccountsService);
+  private readonly orgContextService = inject(OrgContextService);
 
   readonly tasks = signal<TaskItem[]>([]);
   readonly accounts = signal<AccountOption[]>([]);
@@ -145,6 +147,14 @@ export class TasksPageComponent {
     void this.initializePage();
   }
 
+  /** Returns the active org ID based on context priority (dialog > settings > default). */
+  private getActiveOrgId(): string {
+    return this.orgContextService.getDialogOrg()
+      || this.orgContextService.getSettingsOrg()
+      || this.orgContextService.getDefaultOrg()?.id
+      || '';
+  }
+
   private async initializePage(): Promise<void> {
     await this.loadAccounts();
     await this.loadTasks();
@@ -152,7 +162,7 @@ export class TasksPageComponent {
 
   async loadAccounts(): Promise<void> {
     try {
-      const response = await firstValueFrom(this.userAccountsService.getMyAccounts());
+      const response = await firstValueFrom(this.userAccountsService.getMyAccounts(this.getActiveOrgId()));
       const normalized = this.normalizeAccountResponse(response.accounts);
       this.accounts.set(normalized);
 
@@ -259,11 +269,11 @@ export class TasksPageComponent {
       if (this.editingTaskId()) {
         const taskId = this.editingTaskId() as string;
         const payload = this.buildUpdatePayload(value);
-        await firstValueFrom(this.tasksService.updateTask(taskId, payload));
+        await firstValueFrom(this.tasksService.updateTask(this.getActiveOrgId(), taskId, payload));
         this.successMessage.set('Die Aufgabe wurde erfolgreich aktualisiert.');
       } else {
         const payload = this.buildCreatePayload(value);
-        await firstValueFrom(this.tasksService.createTask(payload));
+        await firstValueFrom(this.tasksService.createTask(this.getActiveOrgId(), payload));
         this.successMessage.set('Die Aufgabe wurde erfolgreich erstellt.');
       }
 
@@ -295,7 +305,7 @@ export class TasksPageComponent {
     };
 
     try {
-      await firstValueFrom(this.tasksService.updateTask(task.id, payload));
+      await firstValueFrom(this.tasksService.updateTask(this.getActiveOrgId(), task.id, payload));
       this.successMessage.set('Der Status wurde gespeichert.');
       await this.loadTasks();
     } catch (error) {
@@ -328,7 +338,7 @@ export class TasksPageComponent {
     this.successMessage.set('');
 
     try {
-      await firstValueFrom(this.tasksService.deleteTask(task.id));
+      await firstValueFrom(this.tasksService.deleteTask(this.getActiveOrgId(), task.id));
       this.successMessage.set('Die Aufgabe wurde erfolgreich gelöscht.');
       this.isDeletePopupOpen.set(false);
       this.deletingTask.set(null);
