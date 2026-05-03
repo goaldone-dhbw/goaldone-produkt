@@ -1,19 +1,21 @@
 #!/usr/bin/env bash
-# Deploy script for blue-green backend rollouts and frontend deployments
-# Usage: deploy.sh <stage> <backend_version> <frontend_version>
-# Example: deploy.sh dev 0.0.2 0.0.2
+# Deploy script for blue-green backend rollouts, frontend deployments, and auth-service orchestration
+# Usage: deploy.sh <stage> <backend_version> <frontend_version> <auth-service_version>
+# Example: deploy.sh dev 0.0.2 0.0.2 0.0.2
 
 set -euo pipefail
 
 STAGE=$1
 BE_VER=$2
 FE_VER=$3
+AUTH_SVC_VER=$4
 DIR=$HOME/docker/$STAGE
 ENV_FILE=$DIR/.env
 
 echo "Starting deployment for stage: $STAGE"
 echo "Backend version: $BE_VER"
 echo "Frontend version: $FE_VER"
+echo "Auth-Service version: $AUTH_SVC_VER"
 
 # Pull new images
 echo "Pulling backend image: ghcr.io/goaldone-dhbw/goaldone-backend:$BE_VER"
@@ -21,6 +23,67 @@ docker pull ghcr.io/goaldone-dhbw/goaldone-backend:$BE_VER
 
 echo "Pulling frontend image: ghcr.io/goaldone-dhbw/goaldone-frontend:$FE_VER"
 docker pull ghcr.io/goaldone-dhbw/goaldone-frontend:$FE_VER
+
+echo "Pulling auth-service image: ghcr.io/goaldone-dhbw/goaldone-auth-service:$AUTH_SVC_VER"
+docker pull ghcr.io/goaldone-dhbw/goaldone-auth-service:$AUTH_SVC_VER
+
+# ============================================================================
+# Postgres-Auth: Ensure auth-service database is running
+# ============================================================================
+echo "Ensuring postgres-auth is running..."
+docker compose -f "$DIR/docker-compose.yaml" up -d --no-deps "postgres-auth-$STAGE"
+
+echo "Waiting for postgres-auth health check..."
+max_attempts=12
+attempt=0
+while [ $attempt -lt $max_attempts ]; do
+  STATUS=$(docker inspect --format='{{.State.Health.Status}}' \
+    "$(docker compose -f "$DIR/docker-compose.yaml" ps -q "postgres-auth-$STAGE")" 2>/dev/null || echo "starting")
+  echo "  Attempt $((attempt + 1))/$max_attempts - Status: $STATUS"
+  [ "$STATUS" = "healthy" ] && break
+  attempt=$((attempt + 1))
+  sleep 5
+done
+
+if [ $attempt -eq $max_attempts ]; then
+  echo "❌ Postgres-Auth health check failed after $max_attempts attempts"
+  exit 1
+fi
+echo "✓ Postgres-Auth is healthy"
+
+# ============================================================================
+# Auth-Service: Pull image, start, and validate JWKS endpoint
+# ============================================================================
+echo "Updating auth-service to version $AUTH_SVC_VER..."
+sed -i "s/^AUTH_SERVICE_VERSION=.*/AUTH_SERVICE_VERSION=$AUTH_SVC_VER/" "$ENV_FILE"
+docker compose -f "$DIR/docker-compose.yaml" up -d --no-deps "auth-service-$STAGE"
+
+echo "Waiting for auth-service health check..."
+max_attempts=24
+attempt=0
+while [ $attempt -lt $max_attempts ]; do
+  STATUS=$(docker inspect --format='{{.State.Health.Status}}' \
+    "$(docker compose -f "$DIR/docker-compose.yaml" ps -q "auth-service-$STAGE")" 2>/dev/null || echo "starting")
+  echo "  Attempt $((attempt + 1))/$max_attempts - Status: $STATUS"
+  [ "$STATUS" = "healthy" ] && break
+  attempt=$((attempt + 1))
+  sleep 5
+done
+
+if [ $attempt -eq $max_attempts ]; then
+  echo "❌ Auth-Service health check failed after $max_attempts attempts"
+  exit 1
+fi
+echo "✓ Auth-Service is healthy"
+
+# Validate JWKS endpoint is reachable (D-07: JWKS Endpoint Health Check)
+echo "Validating JWKS endpoint..."
+if curl -sf "http://auth-service-${STAGE}:9000/oauth2/jwks" > /dev/null; then
+  echo "✓ JWKS endpoint is reachable"
+else
+  echo "❌ JWKS endpoint validation failed"
+  exit 1
+fi
 
 # ============================================================================
 # Postgres: Ensure database is running (idempotent, won't restart if healthy)
@@ -48,6 +111,8 @@ echo "✓ Postgres is healthy"
 
 # ============================================================================
 # Backend: Rolling restart (single service, stateless)
+# Backend depends on auth-service being healthy (enforced via docker-compose depends_on).
+# Auth-service startup above ensures JWKS endpoint is reachable.
 # ============================================================================
 echo "Updating backend to version $BE_VER..."
 sed -i "s/^BACKEND_VERSION=.*/BACKEND_VERSION=$BE_VER/" "$ENV_FILE"
@@ -135,6 +200,7 @@ echo "✓ Deployment complete!"
 echo "==========================================="
 echo "Backend version: $BE_VER"
 echo "Frontend version: $FE_VER"
+echo "Auth-Service version: $AUTH_SVC_VER"
 echo "Active frontend slot: $INACTIVE"
 echo "Stage: $STAGE"
 echo "==========================================="
