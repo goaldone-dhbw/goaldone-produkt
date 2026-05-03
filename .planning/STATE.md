@@ -2,11 +2,11 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_plan: None — Phase 08 created
-status: planning
-stopped_at: Phase 08 created — Frontend Reload Loop (ready to plan)
-last_updated: "2026-05-04T00:00:00.000+02:00"
-last_activity: 2026-05-04 -- Phase 08 created (Fix Frontend Reload Loop After Successful Login)
+current_plan: Phase 08, Plan 03 complete — Password Reset Bug Fixes
+status: in_progress
+stopped_at: Phase 08-03 complete — Password Reset flow fully fixed (D-04 through D-08)
+last_updated: "2026-05-04T00:22:00.000+02:00"
+last_activity: 2026-05-04 -- Phase 08-03 complete — 5 password reset bugs fixed (per-type token expiry, checkToken, /reset-success, email template, German→English)
 progress:
   total_phases: 10
   completed_phases: 5
@@ -105,7 +105,11 @@ Recent decisions affecting current work:
 - Phase 07-05: authInterceptor exports mapErrorToUserMessage — 403/409/410/5xx/network mapped to messages
 - Phase 07-05: 401 Unauthorized → authService.logout() + router.navigateByUrl('/') in interceptor
 - Phase 07-05: ErrorNotificationService created (root-level, wraps PrimeNG MessageService)
-- Phase 07-05: Global p-toast added to app root; MessageService in global providers
+- Phase 08-03: PASSWORD_RESET tokens expire in 1h via getExpiryHoursForType(); INVITATION keeps 24h (D-05)
+- Phase 08-03: POST /reset-password redirects to /reset-success; GET /reset-success returns success page (D-07)
+- Phase 08-03: Reset email subject 'Reset Your GoalDone Password', #63729c branding, expirationDate set (D-08)
+- Phase 08-03: CSRF field removed from reset-password.html (CSRF globally disabled, NPE fix)
+- Phase 08-03: checkToken() (non-consuming) used in GET /reset-password; validateToken() in POST only
 
 ### Roadmap Evolution
 
