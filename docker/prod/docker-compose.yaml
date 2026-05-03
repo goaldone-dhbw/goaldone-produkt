@@ -25,23 +25,63 @@ services:
       timeout: 5s
       retries: 5
 
+  # PostgreSQL database for auth-service (separate from backend per D-02)
+  postgres-auth-prod:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${AUTH_SERVICE_DB_NAME:-auth_service}
+      POSTGRES_USER: ${AUTH_SERVICE_DB_USER:-auth_service}
+      POSTGRES_PASSWORD: ${AUTH_SERVICE_DB_PASSWORD}
+    volumes:
+      - postgres-auth-prod-data:/var/lib/postgresql/data
+    networks:
+      - app-prod
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${AUTH_SERVICE_DB_USER:-auth_service}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Auth-service (not exposed publicly — accessed by backend for JWKS)
+  auth-service-prod:
+    image: ghcr.io/goaldone-dhbw/goaldone-auth-service:${AUTH_SERVICE_VERSION}
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-auth-prod:5432/${AUTH_SERVICE_DB_NAME:-auth_service}
+      SPRING_DATASOURCE_USERNAME: ${AUTH_SERVICE_DB_USER:-auth_service}
+      SPRING_DATASOURCE_PASSWORD: ${AUTH_SERVICE_DB_PASSWORD}
+      AUTH_SERVICE_RSA_PRIVATE_KEY: ${AUTH_SERVICE_RSA_PRIVATE_KEY}
+      AUTH_SERVICE_JWT_ISSUER_URI: ${AUTH_SERVICE_JWT_ISSUER_URI}
+    networks:
+      - app-prod
+    depends_on:
+      postgres-auth-prod:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9000/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
   # Spring Boot backend (not exposed publicly)
   backend-prod:
     image: ghcr.io/goaldone-dhbw/goaldone-backend:${BACKEND_VERSION}
     restart: unless-stopped
     environment:
       SPRING_PROFILES_ACTIVE: prod
-      ZITADEL_ISSUER_URI: https://sso.goaldone.de
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-prod:5432/goaldone
       SPRING_DATASOURCE_USERNAME: goaldone
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
-      ZITADEL_GOALDONE_PROJECT_ID: ${ZITADEL_GOALDONE_PROJECT_ID}
-      ZITADEL_GOALDONE_ORG_ID: ${ZITADEL_GOALDONE_ORG_ID}
-      ZITADEL_SERVICE_ACCOUNT_TOKEN: ${ZITADEL_SERVICE_ACCOUNT_TOKEN}
+      AUTH_SERVICE_JWT_ISSUER_URI: ${AUTH_SERVICE_JWT_ISSUER_URI}
     networks:
       - app-prod
     depends_on:
       postgres-prod:
+        condition: service_healthy
+      auth-service-prod:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8080/api/v1/actuator/health || exit 1"]
@@ -55,8 +95,8 @@ services:
     image: ghcr.io/goaldone-dhbw/goaldone-frontend:${FRONTEND_VERSION}
     restart: unless-stopped
     environment:
-      ZITADEL_CLIENT_ID: ${ZITADEL_CLIENT_ID}
-      ZITADEL_ISSUER_URI: https://sso.goaldone.de
+      OIDC_ISSUER_URI: ${AUTH_SERVICE_JWT_ISSUER_URI}
+      OIDC_CLIENT_ID: ${FRONTEND_CLIENT_ID}
       API_BASE_PATH: /api/v1
       BACKEND_HOST: backend-prod
     networks:
@@ -88,8 +128,8 @@ services:
     image: ghcr.io/goaldone-dhbw/goaldone-frontend:${FRONTEND_VERSION}
     restart: unless-stopped
     environment:
-      ZITADEL_CLIENT_ID: ${ZITADEL_CLIENT_ID}
-      ZITADEL_ISSUER_URI: https://sso.goaldone.de
+      OIDC_ISSUER_URI: ${AUTH_SERVICE_JWT_ISSUER_URI}
+      OIDC_CLIENT_ID: ${FRONTEND_CLIENT_ID}
       API_BASE_PATH: /api/v1
       BACKEND_HOST: backend-prod
     networks:
@@ -118,3 +158,4 @@ services:
 
 volumes:
   postgres-prod-data:
+  postgres-auth-prod-data:
