@@ -31,7 +31,7 @@ public class ScheduleService {
     private final TasksService taskService;
     private final AppointmentService appointmentService;
     private final UserAccountRepository userAccountRepository;
-
+    private final UserIdentityService userIdentityService;
 
     /**
      * Generates schedules for multiple accounts asynchronously
@@ -99,20 +99,8 @@ public class ScheduleService {
             GenerateScheduleRequest generateScheduleRequest,
             long timeoutMilliseconds) {
 
-        try (ExecutorService executor = Executors.newFixedThreadPool(1)) {
-
-            // Generate scheduling
-            return CompletableFuture.supplyAsync(
-                    () -> generateSchedule(jwt, accountId, generateScheduleRequest), executor
-                )
-                // If task takes too long -> complete with error response
-                .completeOnTimeout(createErrorResponse("Schedule generation timed out"), timeoutMilliseconds, TimeUnit.MILLISECONDS)
-                // Handle exceptions
-                .exceptionally(ex -> {
-                    log.error("Error generating schedule for account {}: {}", accountId, ex.getMessage(), ex);
-                    return createErrorResponse("Schedule generation failed: " + ex.getMessage());
-                })
-                .join();
+        try  {
+            return generateSchedule(jwt, accountId, generateScheduleRequest);
         } catch (Exception e) {
             log.error("Failed to initialize account scheduling", e);
             throw new ScheduleGenerationException("Failed to initialize account scheduling", e);
@@ -190,17 +178,16 @@ public class ScheduleService {
     }
 
     private void validateRequest(Jwt jwt, UUID accountId, GenerateScheduleRequest generateScheduleRequest) {
+
         // Check if account exists
         Optional<UserAccountEntity> accountOpt = userAccountRepository.findById(accountId);
         if (accountOpt.isEmpty()) {
             throw new IllegalArgumentException("Account not found: " + accountId);
         }
 
-        // Check if user has access to this account
-        String userId = jwt.getSubject();
-        UserAccountEntity account = accountOpt.get();
-        if (!account.getZitadelSub().equals(userId)) {
-            throw new SecurityException("User " + userId + " does not have access to account " + accountId);
+        // Checks permissions
+        if (!userIdentityService.hasUserAccessToAccount(jwt, accountId)) {
+            throw new SecurityException("User " + jwt.getSubject() + " does not have access to account " + accountId);
         }
 
         // Validate fromDate (e.g. cannot be in the past)
