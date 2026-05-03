@@ -119,8 +119,38 @@ public class UserService {
         accResponse.setOrganizationId(xOrgID);
         accResponse.setOrganizationName(org.getName());
 
+        // Populate email from JWT primary_email claim
+        String primaryEmail = jwt.getClaimAsString("primary_email");
+        accResponse.setEmail(primaryEmail);
+
+        // Populate role from membership
+        if (membership.getRole() != null) {
+            accResponse.setRoles(List.of(membership.getRole()));
+        } else {
+            accResponse.setRoles(List.of());
+        }
+
+        // Check for working time conflicts
+        boolean hasConflicts = membership.getWorkingTimes() != null && !membership.getWorkingTimes().isEmpty()
+                && hasWorkingTimeConflicts(membership.getWorkingTimes());
+        accResponse.setHasConflicts(hasConflicts);
+
         response.setAccounts(List.of(accResponse));
         return response;
+    }
+
+    /**
+     * Checks if there are potential overlapping working time slots.
+     * A conflict is detected if there are multiple working time entries
+     * (which may have overlapping days/times).
+     *
+     * @param workingTimes The list of working time entities to check for conflicts.
+     * @return true if there are multiple working time entries (potential conflict), false otherwise.
+     */
+    private boolean hasWorkingTimeConflicts(java.util.List<de.goaldone.backend.entity.WorkingTimeEntity> workingTimes) {
+        // If there are 2+ working time slots, flag as potential conflict
+        // Detailed overlap detection could be implemented if needed
+        return workingTimes != null && workingTimes.size() > 1;
     }
 
     /**
