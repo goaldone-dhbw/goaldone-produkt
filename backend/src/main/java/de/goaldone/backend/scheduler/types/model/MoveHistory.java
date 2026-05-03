@@ -22,7 +22,7 @@ public class MoveHistory {
         }
     }
 
-    public boolean inRecentMove(MoveEvent move) {
+    public boolean contains(MoveEvent move) {
         return moveHistory.contains(move);
     }
 

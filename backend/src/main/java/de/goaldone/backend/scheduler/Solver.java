@@ -1,27 +1,23 @@
 package de.goaldone.backend.scheduler;
 
-import de.goaldone.backend.model.ScheduleWarning;
-import de.goaldone.backend.scheduler.types.model.Schedule;
-import de.goaldone.backend.scheduler.types.model.SchedulingContext;
-import de.goaldone.backend.scheduler.types.model.SchedulingResult;
-import de.goaldone.backend.scheduler.types.model.SolverState;
+import de.goaldone.backend.scheduler.types.model.*;
 import de.goaldone.backend.scheduler.types.moves.MoveSelector;
-
-import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 public class Solver {
 
-    private final ConstraintHandler constraintHandler;
     private final CPMAlgorithm cpmAlgorithm;
     private final TabuAlgorithm tabuAlgorithm;
+    private final LateAcceptance lateAcceptance;
     private final MoveSelector moveSelector;
+    private final MoveHistory moveHistory;
 
     public Solver() {
-        this.constraintHandler = new ConstraintHandler();
+        ConstraintHandler constraintHandler = new ConstraintHandler();
         this.cpmAlgorithm = new CPMAlgorithm();
-        this.tabuAlgorithm = new TabuAlgorithm();
+        this.tabuAlgorithm = new TabuAlgorithm(constraintHandler);
+        this.lateAcceptance = new LateAcceptance(constraintHandler);
         this.moveSelector = new MoveSelector();
+        this.moveHistory = new MoveHistory();
     }
 
     /**
@@ -31,41 +27,26 @@ public class Solver {
      */
     public SchedulingResult createSchedule(SchedulingContext context, long timeout) {
 
-        // Calculate initial schedule using CPM
-        SolverState initialSchedule = this.cpmAlgorithm.generateInitialSchedule(context);
-
-        SolverState currentSchedule = initialSchedule;
-
-
         long endTime = System.currentTimeMillis() + timeout - 500; // Subtract a small buffer to ensure we return before the timeout expires
 
+        SolverState currentBest = this.cpmAlgorithm.generateInitialSchedule(context);
+
         while (System.currentTimeMillis() < endTime) {
-            SolverState newState = moveSelector.selectAndApply(currentSchedule);
+            SolverState newState = moveSelector.selectAndApply(currentBest);
 
-            currentSchedule = checkMove(currentSchedule, newState);
+            MoveEvent latestMove = moveSelector.getLastMoveEvent();
+            boolean moveAccepted = tabuAlgorithm.validateMove(currentBest, newState, moveHistory, latestMove);
 
+            boolean lateAcceptance = this.lateAcceptance.validateMove(0,0); //TODO
+
+            if (moveAccepted || lateAcceptance) {
+                currentBest = newState;
+                moveHistory.addMoveEvent(latestMove);
+            }
         }
 
-        // Example data
-        Schedule schedule = new Schedule();
-        // TODO: Generate variants: Call metaheuristic (MoveStrategies + Late Acceptance + Tabu Search) to improve
-
+        // TODO: Convert currentBest to SchedulingResult and return it
         return null;
 
-    }
-
-    private SolverState checkMove(SolverState currentState, SolverState newState) {
-
-
-
-
-        int newScore = constraintHandler.calculateScore(currentState);
-        int currentScore = constraintHandler.calculateScore(newState);
-
-        if (newScore > currentScore) {
-            return newState;
-        } else {
-            return currentState;
-        }
     }
 }
