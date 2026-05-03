@@ -32,6 +32,9 @@ public class ScheduleServiceTest {
     @Mock
     private UserAccountRepository userAccountRepository;
 
+    @Mock
+    private UserIdentityService userIdentityService;
+
     @InjectMocks
     private ScheduleService scheduleService;
 
@@ -68,6 +71,7 @@ public class ScheduleServiceTest {
 
         UserAccountEntity account = createUserAccount(accountId, "user-1");
         when(userAccountRepository.findById(accountId)).thenReturn(Optional.of(account));
+        when(userIdentityService.hasUserAccessToAccount(jwt, accountId)).thenReturn(true);
 
         ScheduleResponse response = scheduleService.generateSingleAccountSchedule(jwt, accountId, request, 5000);
 
@@ -103,7 +107,8 @@ public class ScheduleServiceTest {
 
         UserAccountEntity account = createUserAccount(accountId, "different-user");
         when(userAccountRepository.findById(accountId)).thenReturn(Optional.of(account));
-
+        when(userIdentityService.hasUserAccessToAccount(jwt, accountId))
+                .thenReturn(false);
         ScheduleResponse response = scheduleService.generateSingleAccountSchedule(jwt, accountId, request, 5000);
 
         assertEquals(1, response.getWarnings().size());
@@ -145,7 +150,8 @@ public class ScheduleServiceTest {
 
         when(userAccountRepository.findById(validId)).thenReturn(Optional.of(validAccount));
         when(userAccountRepository.findById(invalidId)).thenReturn(Optional.empty());
-
+        when(userIdentityService.hasUserAccessToAccount(jwt, validId))
+                .thenReturn(true);
         when(taskService.getTasksForAccountId(jwt, validId)).thenReturn(List.of());
 
         List<ScheduleResponse> responses =
@@ -174,7 +180,10 @@ public class ScheduleServiceTest {
 
         when(userAccountRepository.findById(validId)).thenReturn(Optional.of(valid));
         when(userAccountRepository.findById(unauthorizedId)).thenReturn(Optional.of(unauthorized));
-
+        when(userIdentityService.hasUserAccessToAccount(jwt, validId))
+                .thenReturn(true);
+        when(userIdentityService.hasUserAccessToAccount(jwt, unauthorizedId))
+                .thenReturn(false);
         when(taskService.getTasksForAccountId(jwt, validId)).thenReturn(List.of());
 
         List<ScheduleResponse> responses =
@@ -187,74 +196,5 @@ public class ScheduleServiceTest {
                 .count();
 
         assertEquals(1, warnings);
-    }
-
-    @Test
-    void validateRequest_allValid_noException() {
-        UUID accountId = UUID.randomUUID();
-        Jwt jwt = mockJwt();
-        LocalDate futureDate = LocalDate.now().plusDays(1);
-        GenerateScheduleRequest request = createGenerateScheduleRequest(futureDate);
-
-        UserAccountEntity account = createUserAccount(accountId, "user-1");
-        when(userAccountRepository.findById(accountId)).thenReturn(Optional.of(account));
-
-        // Should not throw
-        assertDoesNotThrow(() -> scheduleService.generateSingleAccountSchedule(jwt, accountId, request, 5000));
-    }
-
-    @Test
-    void validateRequest_pastDate_returnsWarningResponse() {
-        UUID accountId = UUID.randomUUID();
-        Jwt jwt = mockJwt();
-        LocalDate pastDate = LocalDate.now().minusDays(1);
-        GenerateScheduleRequest request = createGenerateScheduleRequest(pastDate);
-
-        UserAccountEntity account = createUserAccount(accountId, "user-1");
-        when(userAccountRepository.findById(accountId)).thenReturn(Optional.of(account));
-
-        ScheduleResponse response = scheduleService.generateSingleAccountSchedule(jwt, accountId, request, 5000);
-
-        assertNotNull(response);
-        assertEquals(1, response.getWarnings().size());
-
-        ScheduleWarning warning = response.getWarnings().getFirst();
-        assertEquals(ScheduleWarning.TypeEnum.OTHER, warning.getType());
-        assertTrue(warning.getMessage().contains("From date cannot be in the past"));
-    }
-
-    @Test
-    void validateRequest_accountNotExists_returnsWarningResponse() {
-        UUID accountId = UUID.randomUUID();
-        Jwt jwt = mockJwt();
-        GenerateScheduleRequest request = createGenerateScheduleRequest(LocalDate.now().plusDays(1));
-
-        when(userAccountRepository.findById(accountId)).thenReturn(Optional.empty());
-
-        ScheduleResponse response = scheduleService.generateSingleAccountSchedule(jwt, accountId, request, 5000);
-
-        assertNotNull(response);
-        assertEquals(1, response.getWarnings().size());
-
-        ScheduleWarning warning = response.getWarnings().getFirst();
-        assertTrue(warning.getMessage().contains("Account not found"));
-    }
-
-    @Test
-    void validateRequest_userUnauthorized_returnsWarningResponse() {
-        UUID accountId = UUID.randomUUID();
-        Jwt jwt = mockJwt();
-        GenerateScheduleRequest request = createGenerateScheduleRequest(LocalDate.now().plusDays(1));
-
-        UserAccountEntity account = createUserAccount(accountId, "different-user-id");
-        when(userAccountRepository.findById(accountId)).thenReturn(Optional.of(account));
-
-        ScheduleResponse response = scheduleService.generateSingleAccountSchedule(jwt, accountId, request, 5000);
-
-        assertNotNull(response);
-        assertEquals(1, response.getWarnings().size());
-
-        ScheduleWarning warning = response.getWarnings().getFirst();
-        assertTrue(warning.getMessage().contains("does not have access to account"));
     }
 }

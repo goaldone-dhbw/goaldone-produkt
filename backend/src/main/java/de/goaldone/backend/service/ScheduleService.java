@@ -10,6 +10,7 @@ import de.goaldone.backend.scheduler.Solver;
 import de.goaldone.backend.scheduler.types.model.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 
@@ -31,7 +32,7 @@ public class ScheduleService {
     private final TasksService taskService;
     private final AppointmentService appointmentService;
     private final UserAccountRepository userAccountRepository;
-    private final UserIdentityService userIdentityService;
+    private final @Lazy UserIdentityService userIdentityService;
 
     /**
      * Generates schedules for multiple accounts asynchronously
@@ -102,8 +103,7 @@ public class ScheduleService {
         try  {
             return generateSchedule(jwt, accountId, generateScheduleRequest);
         } catch (Exception e) {
-            log.error("Failed to initialize account scheduling", e);
-            throw new ScheduleGenerationException("Failed to initialize account scheduling", e);
+            return createErrorResponse("Schedule generation failed: " + e.getMessage());
         }
     }
 
