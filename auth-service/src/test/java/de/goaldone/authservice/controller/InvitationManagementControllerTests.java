@@ -16,6 +16,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
@@ -85,7 +86,7 @@ public class InvitationManagementControllerTests {
                 .build();
 
         mockMvc.perform(post("/api/v1/invitations")
-                        .with(jwt())
+                        .with(jwt().authorities(new SimpleGrantedAuthority("SCOPE_mgmt:admin")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
@@ -111,7 +112,7 @@ public class InvitationManagementControllerTests {
                 .build();
 
         mockMvc.perform(post("/api/v1/invitations")
-                        .with(jwt())
+                        .with(jwt().authorities(new SimpleGrantedAuthority("SCOPE_mgmt:admin")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
@@ -121,7 +122,7 @@ public class InvitationManagementControllerTests {
     @Test
     void getInvitationByToken_whenNotFound_shouldReturn404() throws Exception {
         mockMvc.perform(get("/api/v1/invitations/{token}", UUID.randomUUID())
-                        .with(jwt()))
+                        .with(jwt().authorities(new SimpleGrantedAuthority("SCOPE_mgmt:admin"))))
                 .andExpect(status().isNotFound());
     }
 }

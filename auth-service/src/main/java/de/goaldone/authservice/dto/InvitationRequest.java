@@ -1,5 +1,6 @@
 package de.goaldone.authservice.dto;
 
+import de.goaldone.authservice.domain.Role;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -27,4 +28,7 @@ public class InvitationRequest {
     @NotNull(message = "Inviter ID is required")
     @Schema(description = "UUID of the user sending the invitation", example = "550e8400-e29b-41d4-a716-446655440000")
     private UUID inviterId;
+
+    @Schema(description = "Role to assign upon acceptance", example = "USER")
+    private Role role;
 }

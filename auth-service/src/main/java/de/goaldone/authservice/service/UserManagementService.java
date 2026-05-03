@@ -1,5 +1,6 @@
 package de.goaldone.authservice.service;
 
+import de.goaldone.authservice.domain.Membership;
 import de.goaldone.authservice.domain.Role;
 import de.goaldone.authservice.domain.User;
 import de.goaldone.authservice.domain.UserEmail;
@@ -10,9 +11,11 @@ import de.goaldone.authservice.repository.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -169,5 +172,36 @@ public class UserManagementService {
 
         log.debug("User {} is {} the last SUPER_ADMIN in the system", userId, isLastSuperAdmin ? "" : "NOT");
         return isLastSuperAdmin;
+    }
+
+    @Transactional
+    public void deleteMembership(UUID userId, UUID companyId) {
+        Membership membership = membershipRepository.findByUserIdAndCompanyId(userId, companyId)
+                .orElseThrow(() -> new EntityNotFoundException("Membership not found for user " + userId + " in company " + companyId));
+
+        if (membership.getRole() == Role.COMPANY_ADMIN) {
+            long adminCount = membershipRepository.countActiveAdminsByCompanyAndRole(companyId, Role.COMPANY_ADMIN);
+            if (adminCount <= 1) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "LAST_ADMIN_CANNOT_BE_REMOVED");
+            }
+        }
+
+        membershipRepository.deleteByUserIdAndCompanyId(userId, companyId);
+    }
+
+    @Transactional
+    public void updateMembershipRole(UUID userId, UUID companyId, Role newRole) {
+        Membership membership = membershipRepository.findByUserIdAndCompanyId(userId, companyId)
+                .orElseThrow(() -> new EntityNotFoundException("Membership not found for user " + userId + " in company " + companyId));
+
+        if (membership.getRole() == Role.COMPANY_ADMIN && newRole != Role.COMPANY_ADMIN) {
+            long adminCount = membershipRepository.countActiveAdminsByCompanyAndRole(companyId, Role.COMPANY_ADMIN);
+            if (adminCount <= 1) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "LAST_ADMIN_CANNOT_BE_DEMOTED");
+            }
+        }
+
+        membership.setRole(newRole);
+        membershipRepository.save(membership);
     }
 }

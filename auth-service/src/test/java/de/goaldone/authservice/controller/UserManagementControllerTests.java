@@ -12,7 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
-import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
@@ -74,7 +74,7 @@ public class UserManagementControllerTests {
                 .build();
 
         mockMvc.perform(post("/api/v1/users")
-                        .with(jwt())
+                        .with(jwt().authorities(new SimpleGrantedAuthority("SCOPE_mgmt:admin")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andDo(org.springframework.test.web.servlet.result.MockMvcResultHandlers.print())
@@ -87,7 +87,7 @@ public class UserManagementControllerTests {
     @Test
     void getUserById_shouldReturnUser() throws Exception {
         mockMvc.perform(get("/api/v1/users/{id}", testUser.getId())
-                        .with(jwt()))
+                        .with(jwt().authorities(new SimpleGrantedAuthority("SCOPE_mgmt:admin"))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(testUser.getId().toString()))
                 .andExpect(jsonPath("$.emails[0].email").value("test@example.com"));
@@ -96,7 +96,7 @@ public class UserManagementControllerTests {
     @Test
     void getUserById_whenNotFound_shouldReturn404() throws Exception {
         mockMvc.perform(get("/api/v1/users/{id}", UUID.randomUUID())
-                        .with(jwt()))
+                        .with(jwt().authorities(new SimpleGrantedAuthority("SCOPE_mgmt:admin"))))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.title").value("Entity Not Found"));
     }
@@ -105,7 +105,7 @@ public class UserManagementControllerTests {
     void getUserByEmail_shouldReturnUser() throws Exception {
         mockMvc.perform(get("/api/v1/users/search")
                         .param("email", "test@example.com")
-                        .with(jwt()))
+                        .with(jwt().authorities(new SimpleGrantedAuthority("SCOPE_mgmt:admin"))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(testUser.getId().toString()));
     }
@@ -122,7 +122,7 @@ public class UserManagementControllerTests {
                 .build();
 
         mockMvc.perform(put("/api/v1/users/{id}", testUser.getId())
-                        .with(jwt())
+                        .with(jwt().authorities(new SimpleGrantedAuthority("SCOPE_mgmt:admin")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andDo(org.springframework.test.web.servlet.result.MockMvcResultHandlers.print())
@@ -134,7 +134,7 @@ public class UserManagementControllerTests {
     @Test
     void deleteUser_shouldReturnNoContent() throws Exception {
         mockMvc.perform(delete("/api/v1/users/{id}", testUser.getId())
-                        .with(jwt()))
+                        .with(jwt().authorities(new SimpleGrantedAuthority("SCOPE_mgmt:admin"))))
                 .andExpect(status().isNoContent());
 
         assertThat(userRepository.existsById(testUser.getId())).isFalse();
