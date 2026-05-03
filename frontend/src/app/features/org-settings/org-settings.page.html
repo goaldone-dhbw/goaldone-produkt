@@ -1,1 +1,83 @@
-<h1>OrgSettings works!</h1>
+<div class="min-h-screen bg-slate-50">
+  <div class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+    <div class="mb-8">
+      <h1 class="text-3xl font-bold tracking-tight text-slate-900">Organisationseinstellungen</h1>
+      <p class="mt-2 text-sm text-slate-600">
+        Verwalte die Einstellungen und Mitglieder deiner Organisationen.
+      </p>
+    </div>
+
+    <!-- Org selector (show only if admin in 2+ orgs) -->
+    @if (showOrgDropdown()) {
+      <div class="mb-8 max-w-sm">
+        <div class="space-y-2">
+          <label for="org-select" class="block text-sm font-medium text-slate-800">
+            Organisation
+          </label>
+          <p-dropdown
+            id="org-select"
+            [options]="adminOrgs()"
+            [(ngModel)]="selectedOrg"
+            optionLabel="slug"
+            optionValue="id"
+            (onChange)="onOrgSelected($event)"
+            placeholder="Select organization"
+          />
+        </div>
+      </div>
+    }
+
+    <!-- Organization settings content -->
+    @if (selectedOrg()) {
+      <div class="rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div class="border-b border-slate-200 px-6 py-4">
+          <h2 class="text-lg font-semibold text-slate-900">
+            Einstellungen für {{ getOrgName(selectedOrg()) }}
+          </h2>
+        </div>
+
+        <div class="px-6 py-8">
+          <div class="space-y-6">
+            <!-- Member Management Section -->
+            <div>
+              <h3 class="text-base font-semibold text-slate-900 mb-4">
+                Mitgliederverwaltung
+              </h3>
+              <p class="text-sm text-slate-600 mb-4">
+                Verwalte die Mitglieder dieser Organisation und ihre Rollen.
+              </p>
+
+              <!-- Member list would be loaded here -->
+              <div class="rounded-lg border border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm text-slate-600">
+                Mitgliederliste wird geladen...
+              </div>
+            </div>
+
+            <!-- Additional settings can go here -->
+            <div class="border-t border-slate-200 pt-6">
+              <h3 class="text-base font-semibold text-slate-900 mb-4">
+                Organisationsdetails
+              </h3>
+              <div class="space-y-4">
+                <div class="flex justify-between items-center py-2">
+                  <span class="text-sm text-slate-600">Slug:</span>
+                  <span class="text-sm font-medium text-slate-900">{{ getOrgName(selectedOrg()) }}</span>
+                </div>
+                <div class="flex justify-between items-center py-2">
+                  <span class="text-sm text-slate-600">ID:</span>
+                  <span class="text-sm font-medium text-slate-900">{{ selectedOrg() }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    } @else {
+      <div class="rounded-2xl border border-slate-200 bg-slate-50 px-6 py-8 text-center">
+        <p class="text-sm text-slate-600">
+          Du bist kein Administrator in irgendeiner Organisation.
+        </p>
+      </div>
+    }
+  </div>
+</div>
