@@ -1,5 +1,6 @@
 package de.goaldone.backend.scheduler.types.moves;
 
+import de.goaldone.backend.scheduler.types.model.MoveEvent;
 import de.goaldone.backend.scheduler.types.model.ScheduledChunk;
 import de.goaldone.backend.scheduler.types.model.SolverState;
 import de.goaldone.backend.scheduler.types.model.TimeSlot;
@@ -42,7 +43,7 @@ public class ChangeMove extends Move {
         ScheduledChunk target = unpinned.get(random.nextInt(unpinned.size()));
 
         // Update affected chunks
-        affectedChunks = List.of(target.chunk().chunkId());
+        moveEvent = new MoveEvent(MoveType.CHANGE, List.of(target.chunk().chunkId()));
 
         TimeSlot newSlot = current.freeSlots().get(random.nextInt(current.freeSlots().size()));
 
@@ -58,11 +59,6 @@ public class ChangeMove extends Move {
         next.freeSlots().remove(newSlot);
 
         return next;
-    }
-
-    @Override
-    public MoveType getMoveType() {
-        return MoveType.CHANGE;
     }
 
 

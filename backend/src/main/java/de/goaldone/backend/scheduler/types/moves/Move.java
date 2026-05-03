@@ -1,7 +1,9 @@
 package de.goaldone.backend.scheduler.types.moves;
 
-import de.goaldone.backend.scheduler.types.model.ScheduledChunk;
+import de.goaldone.backend.scheduler.types.model.MoveEvent;
 import de.goaldone.backend.scheduler.types.model.SolverState;
+import lombok.Getter;
+
 import java.util.List;
 import java.util.UUID;
 
@@ -10,9 +12,14 @@ import java.util.UUID;
  * Ein Move beschreibt eine mögliche Veränderung des aktuellen Plans,
  * beispielsweise das Verschieben oder Tauschen von geplanten Chunks.</p>
  */
+@Getter
 public abstract class Move {
 
-    protected List<UUID> affectedChunks;
+    /**
+     * -- GETTER --
+     * The last move made by any move strategy
+     */
+    protected MoveEvent moveEvent;
 
     /**
      * Wendet den Move auf den aktuellen SolverState an.
@@ -21,15 +28,4 @@ public abstract class Move {
      */
     public abstract SolverState apply(SolverState current);
 
-
-    public abstract MoveType getMoveType();
-
-
-    /**
-     * Gibt die IDs der Chunks zurück, die durch den Move betroffen sind.
-     * @return Liste der betroffenen Chunk-IDs
-     */
-    public List<UUID> getAffectedChunkIds() {
-        return affectedChunks;
-    }
 }

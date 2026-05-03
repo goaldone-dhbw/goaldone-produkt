@@ -1,5 +1,6 @@
 package de.goaldone.backend.scheduler.types.moves;
 
+import de.goaldone.backend.scheduler.types.model.MoveEvent;
 import de.goaldone.backend.scheduler.types.model.ScheduledChunk;
 import de.goaldone.backend.scheduler.types.model.SolverState;
 import de.goaldone.backend.scheduler.types.model.TimeSlot;
@@ -50,7 +51,9 @@ public class SwapMove extends Move {
         TimeSlot slotA = a.slot();
         TimeSlot slotB = b.slot();
 
-        affectedChunks = List.of(a.chunk().chunkId(), b.chunk().chunkId());
+        // Update move event
+        List<UUID> affectedChunks = List.of(a.chunk().chunkId(), b.chunk().chunkId());
+        moveEvent = new MoveEvent(MoveType.SWAP, affectedChunks);
 
         if (!isValidSwap(a, b)) {
             return null;
@@ -67,12 +70,6 @@ public class SwapMove extends Move {
         next.scheduledChunks().add(new ScheduledChunk(b.chunk(), slotA));
         return next;
     }
-
-    @Override
-    public MoveType getMoveType() {
-        return MoveType.SWAP;
-    }
-
 
     private boolean isValidSwap(ScheduledChunk a, ScheduledChunk b) {
         return b.slot().durationMinutes() >= a.chunk().durationMinutes()

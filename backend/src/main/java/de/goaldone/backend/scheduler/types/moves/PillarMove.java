@@ -1,5 +1,6 @@
 package de.goaldone.backend.scheduler.types.moves;
 
+import de.goaldone.backend.scheduler.types.model.MoveEvent;
 import de.goaldone.backend.scheduler.types.model.ScheduledChunk;
 import de.goaldone.backend.scheduler.types.model.SolverState;
 import de.goaldone.backend.scheduler.types.model.TimeSlot;
@@ -59,10 +60,11 @@ public class PillarMove extends Move {
                 .toList();
 
 
-        // Update affected chunks
-        affectedChunks = taskChunks.stream()
+        // Update move event
+        List<UUID> affectedChunks = taskChunks.stream()
                 .map(sc -> sc.chunk().chunkId())
                 .toList();
+        moveEvent = new MoveEvent(MoveType.PILLAR, affectedChunks);
 
 
         int shift = 0;
@@ -128,11 +130,6 @@ public class PillarMove extends Move {
         }
 
         return next;
-    }
-
-    @Override
-    public MoveType getMoveType() {
-        return MoveType.PILLAR;
     }
 
 
