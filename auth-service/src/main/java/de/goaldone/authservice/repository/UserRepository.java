@@ -12,10 +12,10 @@ import java.util.UUID;
 @Repository
 public interface UserRepository extends JpaRepository<User, UUID> {
 
-    @Query("SELECT u FROM User u JOIN u.emails e WHERE e.email = :email")
+    @Query("SELECT u FROM User u JOIN u.emails e LEFT JOIN FETCH u.memberships m LEFT JOIN FETCH m.company WHERE e.email = :email")
     Optional<User> findByEmail(@Param("email") String email);
 
-    @Query("SELECT u FROM User u JOIN u.emails e WHERE e.email = :email AND e.isPrimary = true")
+    @Query("SELECT u FROM User u JOIN u.emails e LEFT JOIN FETCH u.memberships m LEFT JOIN FETCH m.company WHERE e.email = :email AND e.isPrimary = true")
     Optional<User> findByPrimaryEmail(@Param("email") String email);
 
     /**
