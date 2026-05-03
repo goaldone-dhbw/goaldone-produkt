@@ -37,14 +37,23 @@
     </changeSet>
 
     <changeSet id="012-4" author="gemini-cli">
+        <comment>Rename user_account_id to account_id in working_times</comment>
+        <renameColumn tableName="working_times" oldColumnName="user_account_id" newColumnName="account_id" columnDataType="UUID"/>
+        <dropIndex tableName="working_times" indexName="idx_working_times_account"/>
+        <createIndex tableName="working_times" indexName="idx_working_times_account">
+            <column name="account_id"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="012-5" author="gemini-cli">
         <comment>Update foreign keys and indexes to reflect new naming</comment>
-        
+
         <!-- memberships FKs -->
         <dropForeignKeyConstraint baseTableName="memberships" constraintName="fk_user_accounts_identity"/>
-        <addForeignKeyConstraint baseTableName="memberships" 
-                                 baseColumnNames="user_id" 
-                                 referencedTableName="users" 
-                                 referencedColumnNames="id" 
+        <addForeignKeyConstraint baseTableName="memberships"
+                                 baseColumnNames="user_id"
+                                 referencedTableName="users"
+                                 referencedColumnNames="id"
                                  constraintName="fk_memberships_user"/>
 
         <dropForeignKeyConstraint baseTableName="memberships" constraintName="fk_users_org"/>
@@ -69,7 +78,7 @@
                                  referencedColumnNames="id"
                                  constraintName="fk_working_times_membership"/>
 
-        <dropForeignKeyConstraint baseTableName="appointments" constraintName="fk_appointments_account"/>
+        <dropForeignKeyConstraint baseTableName="appointments" constraintName="fk_appointments_account_id"/>
         <addForeignKeyConstraint baseTableName="appointments"
                                  baseColumnNames="account_id"
                                  referencedTableName="memberships"

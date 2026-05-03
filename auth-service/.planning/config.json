@@ -1,0 +1,19 @@
+{
+  "workflow": {
+    "_auto_chain_active": false
+  },
+  "stack": {
+    "language": "Java",
+    "framework": "Spring Boot",
+    "version": "3.3.x"
+  },
+  "conventions": {
+    "testing": "JUnit 5, AssertJ",
+    "documentation": "Markdown",
+    "naming": "CamelCase for Java, kebab-case for API paths"
+  },
+  "preferences": {
+    "auto_mode": true,
+    "quality_gates": true
+  }
+}

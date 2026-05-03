@@ -18,6 +18,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 03.1: Refine Organization Context and Header Requirements** (INSERTED)
 - [ ] **Phase 4: Frontend Auth Switch** - Point Angular OIDC client at auth-service; update role and org extraction
 - [ ] **Phase 5: Member Management Rewrite & Cutover** - Replace all Zitadel SDK calls with auth-service management API; final cleanup
+- [ ] **Phase 6: Backend Error Fix & Test Restoration** - Fix all errors that hinder the backend from starting; restore 100+ tests removed by previous phases
 
 ## Phase Details
 
@@ -104,6 +105,18 @@ Decimal phases appear between their surrounding integers in numeric order.
   6. Backend compiles and all tests pass with Zitadel SDK (`io.github.zitadel:client`) removed from `pom.xml`
 **Plans**: TBD
 
+### Phase 6: Backend Error Fix & Test Restoration
+**Goal**: Fix all errors that hinder the backend from starting; restore the test suite from 38 to 100+ tests that were removed in previous phases
+**Depends on**: Phase 5
+**Requirements**: TBD
+**Success Criteria** (what must be TRUE):
+  1. Backend starts cleanly without errors: `./mvnw spring-boot:run -Dspring-boot.run.profiles=local` succeeds
+  2. All compilation errors are resolved
+  3. Test suite restored: 100+ tests (previously had 100+, currently 38)
+  4. All tests pass: `./mvnw test` returns 0 exit code
+  5. No regressions in frontend or infrastructure
+**Plans**: TBD
+
 ## Progress
 
 **Execution Order:**
@@ -117,3 +130,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 03.1 Refine Organization Context and Header Requirements | 3/3 | Completed | 2026-05-03 |
 | 4. Frontend Auth Switch | 4/4 | Not started | - |
 | 5. Member Management Rewrite & Cutover | 0/? | Not started | - |
+| 6. Backend Error Fix & Test Restoration | 0/? | Not started | - |

@@ -1,7 +1,6 @@
 .env
 GEMINI.md
 CLAUDE.md
-.planning/
 .claude/
 mprocs.log
 .idea/workspace.xml
