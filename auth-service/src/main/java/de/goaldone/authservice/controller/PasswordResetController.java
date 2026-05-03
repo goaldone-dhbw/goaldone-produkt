@@ -49,13 +49,13 @@ public class PasswordResetController {
         }
 
         // Enumeration protection: always show same message
-        model.addAttribute("message", "If an account exists for " + email + ", you will receive a password reset link shortly.");
+        model.addAttribute("message", "If an account with that email exists, you'll receive a reset link shortly. Check your inbox and spam folder.");
         return "auth/forgot-password";
     }
 
     @GetMapping("/reset-password")
     public String resetPasswordForm(@RequestParam String token, Model model) {
-        Optional<String> emailOpt = tokenService.validateToken(token, TokenType.PASSWORD_RESET);
+        Optional<String> emailOpt = tokenService.checkToken(token, TokenType.PASSWORD_RESET);
         if (emailOpt.isEmpty()) {
             return "redirect:/forgot-password?error=invalid_token";
         }
@@ -88,7 +88,12 @@ public class PasswordResetController {
 
         invalidateUserSessions(email);
 
-        return "redirect:/login?reset_success";
+        return "redirect:/reset-success";
+    }
+
+    @GetMapping("/reset-success")
+    public String resetSuccess() {
+        return "auth/reset-success";
     }
 
     private void invalidateUserSessions(String email) {

@@ -26,7 +26,14 @@ public class VerificationTokenService {
     private final SecureRandom secureRandom = new SecureRandom();
 
     @Value("${app.token.expiry-hours:24}")
-    private int expiryHours;
+    private int defaultExpiryHours;
+
+    @Value("${app.token.password-reset-expiry-hours:1}")
+    private int passwordResetExpiryHours;
+
+    private int getExpiryHoursForType(TokenType type) {
+        return type == TokenType.PASSWORD_RESET ? passwordResetExpiryHours : defaultExpiryHours;
+    }
 
     /**
      * Creates a new verification token for the given email and type.
@@ -48,7 +55,7 @@ public class VerificationTokenService {
                 .token(tokenValue)
                 .type(type)
                 .email(email)
-                .expiryDate(LocalDateTime.now().plusHours(expiryHours))
+                .expiryDate(LocalDateTime.now().plusHours(getExpiryHoursForType(type)))
                 .build();
 
         return tokenRepository.save(token);

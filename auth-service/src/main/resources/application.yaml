@@ -26,6 +26,9 @@ app:
     org-slug: "system-admin"
     email: ${SUPER_ADMIN_EMAIL:admin@goaldone.de}
     password: ${SUPER_ADMIN_PASSWORD:admin}
+  token:
+    expiry-hours: 24
+    password-reset-expiry-hours: 1
 
 springdoc:
   swagger-ui:

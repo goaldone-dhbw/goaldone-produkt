@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout}">
+<head>
+    <title>Password Reset Successful – GoalDone</title>
+</head>
+<body>
+<div layout:fragment="content">
+    <h2>Password Reset Successful</h2>
+    <p class="text-muted" style="margin-bottom: var(--space-6);">Your password has been successfully updated.</p>
+
+    <div class="alert alert-info">
+        <p style="margin: 0;">You can now sign in with your new password.</p>
+    </div>
+
+    <div style="margin-top: var(--space-6);">
+        <a th:href="@{/login}" class="btn btn-primary" style="display: block; text-align: center;">
+            Return to Login
+        </a>
+    </div>
+</div>
+</body>
+</html>

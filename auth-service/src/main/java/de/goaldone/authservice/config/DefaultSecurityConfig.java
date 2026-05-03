@@ -55,7 +55,7 @@ public class DefaultSecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests((authorize) -> authorize
                         .requestMatchers(
-                                "/forgot-password", "/reset-password", "/invitation/**", "/invitations/**",
+                                "/forgot-password", "/reset-password", "/reset-success", "/invitation/**", "/invitations/**",
                                 "/css/**", "/error",
                                 "/.well-known/**",              // OIDC Discovery endpoint
                                 "/actuator/health",              // Health check for orchestration
