@@ -9,7 +9,7 @@ describe('TenantService', () => {
 
   beforeEach(() => {
     const authServiceMock = {
-      getUserMemberships: vi.fn()
+      getOrganizations: vi.fn().mockReturnValue([])
     };
 
     TestBed.configureTestingModule({
@@ -33,11 +33,13 @@ describe('TenantService', () => {
 
   describe('Single Membership Auto-Selection', () => {
     it('should auto-select the only membership', () => {
-      authService.getUserMemberships.mockReturnValue([
-        { id: 'org-1', name: 'Org One', slug: 'org-one', role: 'ADMIN' }
+      sessionStorage.removeItem('activeOrgId');
+
+      authService.getOrganizations.mockReturnValue([
+        { id: 'org-1', slug: 'org-one', role: 'COMPANY_ADMIN' }
       ]);
 
-      const newService = new TenantService();
+      const newService = TestBed.runInInjectionContext(() => new TenantService());
       expect(newService.getActiveOrgId()).toBe('org-1');
     });
   });
@@ -46,24 +48,24 @@ describe('TenantService', () => {
     it('should restore from sessionStorage if available', () => {
       sessionStorage.setItem('activeOrgId', 'org-2');
 
-      authService.getUserMemberships.mockReturnValue([
-        { id: 'org-1', name: 'Org One', slug: 'org-one', role: 'ADMIN' },
-        { id: 'org-2', name: 'Org Two', slug: 'org-two', role: 'MEMBER' }
+      authService.getOrganizations.mockReturnValue([
+        { id: 'org-1', slug: 'org-one', role: 'COMPANY_ADMIN' },
+        { id: 'org-2', slug: 'org-two', role: 'USER' }
       ]);
 
-      const newService = new TenantService();
+      const newService = TestBed.runInInjectionContext(() => new TenantService());
       expect(newService.getActiveOrgId()).toBe('org-2');
     });
 
     it('should use first membership if nothing in storage', () => {
       sessionStorage.removeItem('activeOrgId');
 
-      authService.getUserMemberships.mockReturnValue([
-        { id: 'org-1', name: 'Org One', slug: 'org-one', role: 'ADMIN' },
-        { id: 'org-2', name: 'Org Two', slug: 'org-two', role: 'MEMBER' }
+      authService.getOrganizations.mockReturnValue([
+        { id: 'org-1', slug: 'org-one', role: 'COMPANY_ADMIN' },
+        { id: 'org-2', slug: 'org-two', role: 'USER' }
       ]);
 
-      const newService = new TenantService();
+      const newService = TestBed.runInInjectionContext(() => new TenantService());
       expect(newService.getActiveOrgId()).toBe('org-1');
     });
   });
@@ -79,28 +81,28 @@ describe('TenantService', () => {
 
   describe('hasMultipleOrgs', () => {
     it('should return true when user has multiple memberships', () => {
-      authService.getUserMemberships.mockReturnValue([
-        { id: 'org-1', name: 'Org One', slug: 'org-one', role: 'ADMIN' },
-        { id: 'org-2', name: 'Org Two', slug: 'org-two', role: 'MEMBER' }
+      authService.getOrganizations.mockReturnValue([
+        { id: 'org-1', slug: 'org-one', role: 'COMPANY_ADMIN' },
+        { id: 'org-2', slug: 'org-two', role: 'USER' }
       ]);
 
-      const newService = new TenantService();
+      const newService = TestBed.runInInjectionContext(() => new TenantService());
       expect(newService.hasMultipleOrgs()).toBe(true);
     });
 
     it('should return false when user has single membership', () => {
-      authService.getUserMemberships.mockReturnValue([
-        { id: 'org-1', name: 'Org One', slug: 'org-one', role: 'ADMIN' }
+      authService.getOrganizations.mockReturnValue([
+        { id: 'org-1', slug: 'org-one', role: 'COMPANY_ADMIN' }
       ]);
 
-      const newService = new TenantService();
+      const newService = TestBed.runInInjectionContext(() => new TenantService());
       expect(newService.hasMultipleOrgs()).toBe(false);
     });
 
     it('should return false when user has no memberships', () => {
-      authService.getUserMemberships.mockReturnValue([]);
+      authService.getOrganizations.mockReturnValue([]);
 
-      const newService = new TenantService();
+      const newService = TestBed.runInInjectionContext(() => new TenantService());
       expect(newService.hasMultipleOrgs()).toBe(false);
     });
   });

@@ -1,12 +1,10 @@
 import { TestBed } from '@angular/core/testing';
-import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
-import { HttpClient, HTTP_INTERCEPTORS, HttpContextToken } from '@angular/common/http';
+import { provideHttpClient, withInterceptors } from '@angular/common/http';
+import { provideHttpClientTesting, HttpTestingController } from '@angular/common/http/testing';
+import { HttpClient } from '@angular/common/http';
 import { tenantInterceptor } from './tenant.interceptor';
 import { TenantService } from '../services/tenant.service';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-
-// Define the context token for testing
-const OVERRIDE_ORG_ID = new HttpContextToken<string>(() => '');
 
 describe('tenantInterceptor', () => {
   let httpClient: HttpClient;
@@ -19,14 +17,10 @@ describe('tenantInterceptor', () => {
     };
 
     TestBed.configureTestingModule({
-      imports: [HttpClientTestingModule],
       providers: [
+        provideHttpClient(withInterceptors([tenantInterceptor])),
+        provideHttpClientTesting(),
         { provide: TenantService, useValue: tenantServiceMock },
-        {
-          provide: HTTP_INTERCEPTORS,
-          useValue: tenantInterceptor,
-          multi: true
-        }
       ]
     });
 
