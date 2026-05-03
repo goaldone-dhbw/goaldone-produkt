@@ -1,10 +1,10 @@
 package de.goaldone.backend.controller;
 
 import de.goaldone.backend.api.UserAccountsApi;
-import de.goaldone.backend.model.AccountListResponse;
 import de.goaldone.backend.model.LinkConfirmRequest;
 import de.goaldone.backend.model.LinkConfirmResponse;
 import de.goaldone.backend.model.LinkTokenResponse;
+import de.goaldone.backend.model.UserOrganizationsResponse;
 import de.goaldone.backend.service.AccountLinkingService;
 import de.goaldone.backend.service.CurrentUserResolver;
 import de.goaldone.backend.service.UserService;
@@ -17,7 +17,7 @@ import java.util.UUID;
 
 /**
  * REST controller for managing user accounts and account linking.
- * Provides endpoints for retrieving accounts, requesting and confirming account links, and unlinking accounts.
+ * Provides endpoints for retrieving organizations, requesting and confirming account links, and unlinking accounts.
  */
 @RestController
 @RequiredArgsConstructor
@@ -28,15 +28,16 @@ public class UserAccountsController implements UserAccountsApi {
     private final AccountLinkingService accountLinkingService;
 
     /**
-     * Retrieves a list of all accounts associated with the currently authenticated user identity.
+     * Retrieves all organization memberships for the currently authenticated user.
+     * Returns ALL organizations (not scoped to a single X-Org-ID).
+     * Implements D-09/D-10: replaces the old getMyAccounts endpoint.
      *
-     * @param xOrgID the organization ID context for the request (optional for users with no org membership)
-     * @return a {@link ResponseEntity} containing an {@link AccountListResponse}
+     * @return a {@link ResponseEntity} containing a {@link UserOrganizationsResponse}
      */
     @Override
-    public ResponseEntity<AccountListResponse> getMyAccounts(@RequestHeader(value = "X-Org-ID", required = false) UUID xOrgID) {
+    public ResponseEntity<UserOrganizationsResponse> getMyOrganizations() {
         var jwt = currentUserResolver.extractJwt();
-        AccountListResponse response = userService.buildAccountListResponse(jwt, xOrgID);
+        UserOrganizationsResponse response = userService.buildOrganizationsResponse(jwt);
         return ResponseEntity.ok(response);
     }
 

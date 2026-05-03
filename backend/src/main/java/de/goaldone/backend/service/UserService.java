@@ -4,6 +4,8 @@ import de.goaldone.backend.entity.OrganizationEntity;
 import de.goaldone.backend.entity.MembershipEntity;
 import de.goaldone.backend.model.AccountListResponse;
 import de.goaldone.backend.model.AccountResponse;
+import de.goaldone.backend.model.UserOrganization;
+import de.goaldone.backend.model.UserOrganizationsResponse;
 import de.goaldone.backend.repository.OrganizationRepository;
 import de.goaldone.backend.repository.MembershipRepository;
 import de.goaldone.backend.repository.WorkingTimeRepository;
@@ -11,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 
@@ -136,6 +139,53 @@ public class UserService {
         accResponse.setHasConflicts(hasConflicts);
 
         response.setAccounts(List.of(accResponse));
+        return response;
+    }
+
+    /**
+     * Builds the organizations response for the authenticated user.
+     * Returns ALL organization memberships for this user (not filtered by X-Org-ID).
+     * Per D-09/D-10: replaces buildAccountListResponse which was org-context scoped.
+     *
+     * @param jwt The current JWT representing the logged-in user.
+     * @return A {@link UserOrganizationsResponse} containing all of the user's org memberships.
+     */
+    public UserOrganizationsResponse buildOrganizationsResponse(Jwt jwt) {
+        String userIdClaim = jwt.getClaimAsString("user_id");
+        if (userIdClaim == null) {
+            throw new IllegalStateException("Missing 'user_id' claim in JWT");
+        }
+        UUID userId = UUID.fromString(userIdClaim);
+
+        List<MembershipEntity> memberships = membershipRepository.findAllByUserId(userId);
+
+        String primaryEmail = jwt.getClaimAsString("primary_email");
+
+        List<UserOrganization> organizations = memberships.stream()
+            .map(m -> {
+                OrganizationEntity org = organizationRepository.findById(m.getOrganizationId()).orElseThrow();
+                UserOrganization uo = new UserOrganization();
+                uo.setAccountId(m.getId());
+                uo.setOrganizationId(m.getOrganizationId());
+                uo.setOrganizationName(org.getName());
+                uo.setEmail(primaryEmail);
+                uo.setFirstName(null);   // Not stored per-org; nullable per D-10 schema
+                uo.setLastName(null);    // Not stored per-org; nullable per D-10 schema
+                if (m.getRole() != null) {
+                    uo.setRoles(List.of(m.getRole()));
+                } else {
+                    uo.setRoles(List.of());
+                }
+                boolean hasConflicts = m.getWorkingTimes() != null && !m.getWorkingTimes().isEmpty()
+                    && m.getWorkingTimes().size() > 1;
+                uo.setHasConflicts(hasConflicts);
+                return uo;
+            })
+            .sorted(Comparator.comparing(UserOrganization::getOrganizationName))
+            .toList();
+
+        UserOrganizationsResponse response = new UserOrganizationsResponse();
+        response.setOrganizations(organizations);
         return response;
     }
 
