@@ -1,0 +1,116 @@
+<p-dialog
+  [visible]="isOpen"
+  (visibleChange)="$event ? null : onClose()"
+  [header]="isEditMode ? 'Arbeitszeit bearbeiten' : 'Neue Arbeitszeit'"
+  [modal]="true"
+  [draggable]="false"
+  [resizable]="false"
+  [style]="{ width: '90vw', maxWidth: '500px' }"
+  class="custom-dialog"
+>
+  <div class="flex flex-col gap-4 py-4">
+    <!-- Org selector (show only on create, if multi-org) -->
+    @if (!isEditMode && showOrgDropdown()) {
+      <div class="flex flex-col gap-2">
+        <label for="org-select" class="text-sm font-semibold text-slate-700">
+          Organization
+        </label>
+        <select
+          id="org-select"
+          (change)="onOrgSelected($event.target.value)"
+          class="w-full appearance-none rounded-lg border border-slate-300 bg-white px-3 py-2 pr-10 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+        >
+          <option value="">Select organization</option>
+          @for (org of userOrgs(); track org.id) {
+            <option [value]="org.id">{{ org.slug }}</option>
+          }
+        </select>
+        <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-500">
+          <i class="pi pi-chevron-down text-xs"></i>
+        </div>
+      </div>
+    }
+
+    <!-- Account selection (not editable) -->
+    @if (!isEditMode) {
+      <div class="flex flex-col gap-2">
+        <label class="text-sm font-semibold text-slate-700">Organisation</label>
+
+        @if (accounts.length > 1) {
+          <div class="relative">
+            <select
+              [(ngModel)]="selectedAccountId"
+              class="w-full appearance-none rounded-lg border border-slate-300 bg-white px-3 py-2 pr-10 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+            >
+              @for (account of accounts; track account.accountId) {
+                <option [value]="account.accountId.toString()">
+                  {{ account.organizationName }}
+                </option>
+              }
+            </select>
+            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-500">
+              <i class="pi pi-chevron-down text-xs"></i>
+            </div>
+          </div>
+        } @else {
+          <div class="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
+            {{ accounts[0]?.organizationName || 'Keine Organisation' }}
+          </div>
+        }
+      </div>
+    }
+
+    <!-- Day selection -->
+    <div class="flex flex-col gap-2">
+      <label class="text-sm font-semibold text-slate-700">Wochentage</label>
+      <p-select-button
+        [(ngModel)]="selectedDays"
+        [options]="dayOptions"
+        optionLabel="label"
+        optionValue="value"
+        [multiple]="true"
+        class="custom-selectbutton"
+      >
+      </p-select-button>
+    </div>
+
+    <!-- Time selection -->
+    <div class="grid grid-cols-2 gap-4">
+      <div class="flex flex-col gap-2">
+        <label for="startTime" class="text-sm font-semibold text-slate-700">Startzeit</label>
+        <input
+          id="startTime"
+          type="time"
+          [(ngModel)]="startTimeString"
+          class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+        />
+      </div>
+
+      <div class="flex flex-col gap-2">
+        <label for="endTime" class="text-sm font-semibold text-slate-700">Endzeit</label>
+        <input
+          id="endTime"
+          type="time"
+          [(ngModel)]="endTimeString"
+          class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+        />
+      </div>
+    </div>
+  </div>
+
+  <ng-template pTemplate="footer">
+    <div class="flex justify-end gap-2 border-t border-slate-100 pt-4">
+      <p-button
+        label="Abbrechen"
+        (onClick)="onClose()"
+        [text]="true"
+        severity="secondary"
+      />
+      <p-button
+        label="Speichern"
+        (onClick)="onSave()"
+        icon="pi pi-check"
+      />
+    </div>
+  </ng-template>
+</p-dialog>
