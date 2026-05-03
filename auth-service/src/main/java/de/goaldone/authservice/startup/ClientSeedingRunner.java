@@ -21,7 +21,7 @@ public class ClientSeedingRunner implements ApplicationRunner {
 
     private final RegisteredClientRepository registeredClientRepository;
 
-    @Value("${FRONTEND_CLIENT_ID:goaldone-web}")
+    @Value("${FRONTEND_CLIENT_ID:goaldone-frontend}")
     private String frontendClientId;
 
     @Value("${FRONTEND_CLIENT_SECRET:}")
