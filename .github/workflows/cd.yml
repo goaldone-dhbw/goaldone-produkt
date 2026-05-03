@@ -108,11 +108,14 @@ jobs:
           # Update frontend/package.json (replace version field)
           sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"${NEW_VER}\"/" frontend/package.json
 
+          # Update auth-service/pom.xml (same pattern as backend)
+          sed -i "s/<version>[0-9]*\.[0-9]*\.[0-9]*-SNAPSHOT<\/version>/<version>${NEW_VER}-SNAPSHOT<\/version>/" auth-service/pom.xml
+
       - name: Commit and push version updates
         env:
           GIT_SSH_COMMAND: "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no"
         run: |
-          git add backend/pom.xml frontend/package.json
+          git add backend/pom.xml frontend/package.json auth-service/pom.xml
           git commit -m "chore: bump versions to ${{ steps.version.outputs.version }} [skip ci]"
           git push origin master
           
@@ -156,6 +159,19 @@ jobs:
             ghcr.io/goaldone-dhbw/goaldone-frontend:${{ steps.version.outputs.version }}
             ghcr.io/goaldone-dhbw/goaldone-frontend:latest
 
+      # ======================================================================
+      # Build and push auth-service image
+      # ======================================================================
+      - name: Build and push auth-service image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./auth-service/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/goaldone-dhbw/goaldone-auth-service:${{ steps.version.outputs.version }}
+            ghcr.io/goaldone-dhbw/goaldone-auth-service:latest
+
   deploy-dev:
     name: Deploy to Dev
     needs: build-and-push
@@ -193,7 +209,7 @@ jobs:
           username: goaldone
           key: ${{ secrets.VPS_SSH_KEY }}
           port: 6767
-          envs: VERSION,GHCR_TOKEN,DEV_POSTGRES_PASSWORD,DEV_ZITADEL_CLIENT_ID
+          envs: VERSION,GHCR_TOKEN,DEV_POSTGRES_PASSWORD,DEV_AUTH_SERVICE_RSA_PRIVATE_KEY,DEV_AUTH_SERVICE_DB_PASSWORD,DEV_AUTH_SERVICE_ISSUER_URI
           script: |
             set -e
             mkdir -p ~/docker/dev
@@ -212,17 +228,27 @@ jobs:
               sed -i 's/^POSTGRES_PASSWORD=.*/POSTGRES_PASSWORD='"$DEV_POSTGRES_PASSWORD"'/' ~/docker/dev/.env
             fi
 
-            if [ -n "$DEV_ZITADEL_CLIENT_ID" ]; then
-              sed -i 's/^ZITADEL_CLIENT_ID=.*/ZITADEL_CLIENT_ID='"$DEV_ZITADEL_CLIENT_ID"'/' ~/docker/dev/.env
+            if [ -n "$DEV_AUTH_SERVICE_RSA_PRIVATE_KEY" ]; then
+              sed -i 's/^AUTH_SERVICE_RSA_PRIVATE_KEY=.*/AUTH_SERVICE_RSA_PRIVATE_KEY='"$DEV_AUTH_SERVICE_RSA_PRIVATE_KEY"'/' ~/docker/dev/.env
+            fi
+
+            if [ -n "$DEV_AUTH_SERVICE_DB_PASSWORD" ]; then
+              sed -i 's/^AUTH_SERVICE_DB_PASSWORD=.*/AUTH_SERVICE_DB_PASSWORD='"$DEV_AUTH_SERVICE_DB_PASSWORD"'/' ~/docker/dev/.env
+            fi
+
+            if [ -n "$DEV_AUTH_SERVICE_ISSUER_URI" ]; then
+              sed -i 's/^AUTH_SERVICE_JWT_ISSUER_URI=.*/AUTH_SERVICE_JWT_ISSUER_URI='"$DEV_AUTH_SERVICE_ISSUER_URI"'/' ~/docker/dev/.env
             fi
 
             # Run deployment (versions passed as arguments)
-            ~/docker/scripts/deploy.sh dev $VERSION $VERSION
+            ~/docker/scripts/deploy.sh dev $VERSION $VERSION $VERSION
         env:
           VERSION: ${{ needs.build-and-push.outputs.version }}
           GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
           DEV_POSTGRES_PASSWORD: ${{ secrets.DEV_POSTGRES_PASSWORD }}
-          DEV_ZITADEL_CLIENT_ID: ${{ secrets.DEV_ZITADEL_CLIENT_ID }}
+          DEV_AUTH_SERVICE_RSA_PRIVATE_KEY: ${{ secrets.DEV_AUTH_SERVICE_RSA_PRIVATE_KEY }}
+          DEV_AUTH_SERVICE_DB_PASSWORD: ${{ secrets.DEV_AUTH_SERVICE_DB_PASSWORD }}
+          DEV_AUTH_SERVICE_ISSUER_URI: ${{ secrets.DEV_AUTH_SERVICE_ISSUER_URI }}
 
   deploy-prod:
     name: Deploy to Prod
@@ -261,7 +287,7 @@ jobs:
           username: goaldone
           key: ${{ secrets.VPS_SSH_KEY }}
           port: 6767
-          envs: VERSION,GHCR_TOKEN,PROD_POSTGRES_PASSWORD,PROD_ZITADEL_CLIENT_ID
+          envs: VERSION,GHCR_TOKEN,PROD_POSTGRES_PASSWORD,PROD_AUTH_SERVICE_RSA_PRIVATE_KEY,PROD_AUTH_SERVICE_DB_PASSWORD,PROD_AUTH_SERVICE_ISSUER_URI
           script: |
             set -e
             mkdir -p ~/docker/prod
@@ -280,14 +306,24 @@ jobs:
               sed -i 's/^POSTGRES_PASSWORD=.*/POSTGRES_PASSWORD='"$PROD_POSTGRES_PASSWORD"'/' ~/docker/prod/.env
             fi
 
-            if [ -n "$PROD_ZITADEL_CLIENT_ID" ]; then
-              sed -i 's/^ZITADEL_CLIENT_ID=.*/ZITADEL_CLIENT_ID='"$PROD_ZITADEL_CLIENT_ID"'/' ~/docker/prod/.env
+            if [ -n "$PROD_AUTH_SERVICE_RSA_PRIVATE_KEY" ]; then
+              sed -i 's/^AUTH_SERVICE_RSA_PRIVATE_KEY=.*/AUTH_SERVICE_RSA_PRIVATE_KEY='"$PROD_AUTH_SERVICE_RSA_PRIVATE_KEY"'/' ~/docker/prod/.env
+            fi
+
+            if [ -n "$PROD_AUTH_SERVICE_DB_PASSWORD" ]; then
+              sed -i 's/^AUTH_SERVICE_DB_PASSWORD=.*/AUTH_SERVICE_DB_PASSWORD='"$PROD_AUTH_SERVICE_DB_PASSWORD"'/' ~/docker/prod/.env
+            fi
+
+            if [ -n "$PROD_AUTH_SERVICE_ISSUER_URI" ]; then
+              sed -i 's/^AUTH_SERVICE_JWT_ISSUER_URI=.*/AUTH_SERVICE_JWT_ISSUER_URI='"$PROD_AUTH_SERVICE_ISSUER_URI"'/' ~/docker/prod/.env
             fi
 
             # Run deployment (versions passed as arguments)
-            ~/docker/scripts/deploy.sh prod $VERSION $VERSION
+            ~/docker/scripts/deploy.sh prod $VERSION $VERSION $VERSION
         env:
           VERSION: ${{ needs.build-and-push.outputs.version }}
           GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
           PROD_POSTGRES_PASSWORD: ${{ secrets.PROD_POSTGRES_PASSWORD }}
-          PROD_ZITADEL_CLIENT_ID: ${{ secrets.PROD_ZITADEL_CLIENT_ID }}
+          PROD_AUTH_SERVICE_RSA_PRIVATE_KEY: ${{ secrets.PROD_AUTH_SERVICE_RSA_PRIVATE_KEY }}
+          PROD_AUTH_SERVICE_DB_PASSWORD: ${{ secrets.PROD_AUTH_SERVICE_DB_PASSWORD }}
+          PROD_AUTH_SERVICE_ISSUER_URI: ${{ secrets.PROD_AUTH_SERVICE_ISSUER_URI }}
