@@ -4,22 +4,14 @@ import de.goaldone.backend.entity.OrganizationEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
-import java.util.Optional;
 import java.util.UUID;
 
 /**
  * Repository interface for {@link OrganizationEntity}.
- * Manages organization data, including integration with Zitadel.
+ * After PK unification, organization.id equals the auth-service company UUID.
  */
 @Repository
 public interface OrganizationRepository extends JpaRepository<OrganizationEntity, UUID> {
-    /**
-     * Finds an organization by its authentication company ID.
-     *
-     * @param authCompanyId The authentication company ID.
-     * @return An {@link Optional} containing the organization if found.
-     */
-    Optional<OrganizationEntity> findByAuthCompanyId(String authCompanyId);
 
     /**
      * Checks if an organization with the given name already exists.

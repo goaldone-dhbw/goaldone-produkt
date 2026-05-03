@@ -104,10 +104,16 @@ Decimal phases appear between their surrounding integers in numeric order.
   5. Users can access only the organizations they are members of; per-org role checks enforce data isolation
   6. Backend compiles and all tests pass with Zitadel SDK (`io.github.zitadel:client`) removed from `pom.xml`
 **Plans**: 5 plans
+
+**Wave 1** *(no dependencies — parallel)*
 - [ ] 05-01-PLAN.md — Auth-service management API completion (scope guard, bulk members, membership TODOs, InvitationRequest role)
 - [ ] 05-02-PLAN.md — OpenAPI spec update + Backend M2M client infrastructure (AuthServiceClientConfig, AuthServiceManagementClient)
+
+**Wave 2** *(blocked on Wave 1 completion)*
 - [ ] 05-03-PLAN.md — Core service rewrites (MemberInviteService, MemberManagementService, MembershipDeletionService)
 - [ ] 05-04-PLAN.md — Remaining service rewrites (OrganizationManagementService, SuperAdminService, UserService) + StartupValidator
+
+**Wave 3** *(blocked on Wave 2 completion)*
 - [ ] 05-05-PLAN.md — Liquibase PK unification + Entity updates + Zitadel SDK removal + Integration tests
 
 ### Phase 6: Backend Error Fix & Test Restoration
@@ -134,5 +140,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 3. Database Schema Migration | 4/4 | Not started | - |
 | 03.1 Refine Organization Context and Header Requirements | 3/3 | Completed | 2026-05-03 |
 | 4. Frontend Auth Switch | 4/4 | Not started | - |
-| 5. Member Management Rewrite & Cutover | 0/? | Not started | - |
+| 5. Member Management Rewrite & Cutover | 5/5 | Ready to execute | - |
 | 6. Backend Error Fix & Test Restoration | 0/? | Not started | - |

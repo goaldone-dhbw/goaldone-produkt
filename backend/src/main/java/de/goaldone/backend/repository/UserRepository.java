@@ -8,16 +8,9 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Repository interface for {@link UserEntity}.
+ * Repository interface for {@link UserRepository}.
  * Manages core user identities which can be linked to multiple user accounts.
  */
 @Repository
 public interface UserRepository extends JpaRepository<UserEntity, UUID> {
-    /**
-     * Finds a user by their global authentication ID.
-     *
-     * @param authUserId The authentication user ID.
-     * @return An Optional containing the user if found.
-     */
-    Optional<UserEntity> findByAuthUserId(String authUserId);
 }

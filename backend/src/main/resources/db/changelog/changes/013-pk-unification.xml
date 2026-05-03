@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="013-1" author="phase5">
+        <preConditions onFail="MARK_RAN">
+            <columnExists tableName="organizations" columnName="auth_company_id"/>
+        </preConditions>
+        <comment>Unify OrganizationEntity PK with auth-service UUID; drop auth_company_id mapping column</comment>
+        <!-- Update FK references in memberships to point to the new org UUID (= auth_company_id value) -->
+        <sql>
+            UPDATE memberships SET organization_id = (
+                SELECT CAST(auth_company_id AS UUID) FROM organizations WHERE organizations.id = memberships.organization_id
+            ) WHERE organization_id IN (SELECT id FROM organizations WHERE auth_company_id IS NOT NULL)
+        </sql>
+        <!-- Update org PK to auth-service UUID -->
+        <sql>UPDATE organizations SET id = CAST(auth_company_id AS UUID) WHERE auth_company_id IS NOT NULL</sql>
+        <!-- Drop the now-redundant mapping column -->
+        <dropColumn tableName="organizations" columnName="auth_company_id"/>
+    </changeSet>
+
+    <changeSet id="013-2" author="phase5">
+        <preConditions onFail="MARK_RAN">
+            <columnExists tableName="users" columnName="auth_user_id"/>
+        </preConditions>
+        <comment>Unify UserEntity PK with auth-service UUID; drop auth_user_id mapping column</comment>
+        <!-- Update FK references in memberships to point to the new user UUID (= auth_user_id value) -->
+        <sql>
+            UPDATE memberships SET user_id = (
+                SELECT CAST(auth_user_id AS UUID) FROM users WHERE users.id = memberships.user_id
+            ) WHERE user_id IN (SELECT id FROM users WHERE auth_user_id IS NOT NULL)
+        </sql>
+        <!-- Update user PK to auth-service UUID -->
+        <sql>UPDATE users SET id = CAST(auth_user_id AS UUID) WHERE auth_user_id IS NOT NULL</sql>
+        <!-- Drop the now-redundant mapping column -->
+        <dropColumn tableName="users" columnName="auth_user_id"/>
+    </changeSet>
+
+</databaseChangeLog>

@@ -89,7 +89,7 @@ public class MemberManagementService {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Auth service error");
         }
 
-        membershipRepository.findByUserAuthUserIdAndOrganizationId(userId.toString(), xOrgID)
+        membershipRepository.findByUserIdAndOrganizationId(userId, xOrgID)
                 .ifPresent(membershipRepository::delete);
     }
 

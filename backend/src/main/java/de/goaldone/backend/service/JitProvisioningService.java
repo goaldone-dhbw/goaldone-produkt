@@ -20,8 +20,9 @@ import java.util.UUID;
 
 /**
  * Service for Just-In-Time (JIT) provisioning of users and organizations.
- * When a user logs in for the first time with a JWT from Zitadel, this service
- * ensures that the corresponding local records (UserAccount, UserIdentity, and Organization) are created.
+ * After PK unification, user.id == auth-service user UUID and organization.id == auth-service company UUID.
+ * When a user logs in for the first time with a JWT, this service ensures that
+ * the corresponding local records (UserEntity and Organization) are created.
  */
 @Service
 @RequiredArgsConstructor
@@ -40,9 +41,17 @@ public class JitProvisioningService {
      */
     @Transactional
     public void provisionUser(Jwt jwt) {
-        String authUserId = jwt.getClaimAsString("user_id");
-        if (authUserId == null) {
-            authUserId = jwt.getSubject();
+        String authUserIdStr = jwt.getClaimAsString("user_id");
+        if (authUserIdStr == null) {
+            authUserIdStr = jwt.getSubject();
+        }
+
+        UUID authUserId;
+        try {
+            authUserId = UUID.fromString(authUserIdStr);
+        } catch (IllegalArgumentException e) {
+            log.error("Cannot parse auth user UUID from JWT claim '{}', skipping provisioning", authUserIdStr);
+            return;
         }
 
         List<Map<String, Object>> orgs = jwt.getClaim("orgs");
@@ -51,40 +60,45 @@ public class JitProvisioningService {
             return;
         }
 
-        // 1. Resolve or create the User for this authUserId
-        // Since we now allow multiple MembershipEntity for one authUserId,
-        // they should all point to the same UserEntity.
+        // 1. Resolve or create the User record using the auth-service UUID as PK
         UserEntity user = resolveOrCreateUser(authUserId);
 
         // 2. Iterate and provision memberships
         for (Map<String, Object> orgData : orgs) {
-            String authCompanyId = (String) orgData.get("id");
+            String authCompanyIdStr = (String) orgData.get("id");
             String orgName = (String) orgData.get("name");
 
-            if (authCompanyId == null) continue;
+            if (authCompanyIdStr == null) continue;
+
+            UUID authCompanyId;
+            try {
+                authCompanyId = UUID.fromString(authCompanyIdStr);
+            } catch (IllegalArgumentException e) {
+                log.warn("Cannot parse org UUID '{}' from JWT claim, skipping", authCompanyIdStr);
+                continue;
+            }
 
             provisionMembership(authUserId, user, authCompanyId, orgName);
         }
     }
 
-    private UserEntity resolveOrCreateUser(String authUserId) {
-        return userRepository.findByAuthUserId(authUserId)
+    private UserEntity resolveOrCreateUser(UUID authUserId) {
+        return userRepository.findById(authUserId)
             .orElseGet(() -> {
                 UserEntity newUser = new UserEntity();
-                newUser.setId(UUID.randomUUID());
-                newUser.setAuthUserId(authUserId);
+                newUser.setId(authUserId);
                 newUser.setCreatedAt(Instant.now());
                 return userRepository.save(newUser);
             });
     }
 
-    private void provisionMembership(String authUserId, UserEntity user, String authCompanyId, String orgName) {
-        // Find or create organization
-        OrganizationEntity org = organizationRepository.findByAuthCompanyId(authCompanyId)
+    private void provisionMembership(UUID authUserId, UserEntity user, UUID authCompanyId, String orgName) {
+        // Find or create organization using the auth-service UUID as PK
+        OrganizationEntity org = organizationRepository.findById(authCompanyId)
             .orElseGet(() -> createOrganization(authCompanyId, orgName));
 
         // Check if membership already exists for this (user, org)
-        membershipRepository.findByUserAuthUserIdAndOrganizationId(authUserId, org.getId())
+        membershipRepository.findByUserIdAndOrganizationId(authUserId, org.getId())
             .ifPresentOrElse(
                 membership -> {
                     membership.setLastSeenAt(Instant.now());
@@ -105,25 +119,24 @@ public class JitProvisioningService {
 
     /**
      * Helper method to create a new organization record.
+     * After PK unification, the organization's local UUID IS the auth-service company UUID.
      * Handles potential race conditions by catching unique constraint violations.
      *
-     * @param authCompanyId The unique organization ID from the Identity Provider.
-     * @param orgName      The name of the organization.
+     * @param authCompanyId The auth-service UUID used as the organization PK.
+     * @param orgName       The name of the organization.
      * @return The newly created or already existing {@link OrganizationEntity}.
-     * @throws RuntimeException if organization creation fails due to reasons other than race conditions.
      */
-    private OrganizationEntity createOrganization(String authCompanyId, String orgName) {
+    private OrganizationEntity createOrganization(UUID authCompanyId, String orgName) {
         try {
             OrganizationEntity org = new OrganizationEntity();
-            org.setId(UUID.randomUUID());
-            org.setAuthCompanyId(authCompanyId);
-            org.setName(orgName != null ? orgName : authCompanyId);
+            org.setId(authCompanyId);
+            org.setName(orgName != null ? orgName : authCompanyId.toString());
             org.setCreatedAt(Instant.now());
             return organizationRepository.save(org);
         } catch (DataIntegrityViolationException e) {
             // Race condition: another thread created the org. Fetch it.
             log.debug("Organization {} already created by another thread, fetching existing", authCompanyId);
-            return organizationRepository.findByAuthCompanyId(authCompanyId)
+            return organizationRepository.findById(authCompanyId)
                 .orElseThrow(() -> new RuntimeException("Organization creation failed", e));
         }
     }

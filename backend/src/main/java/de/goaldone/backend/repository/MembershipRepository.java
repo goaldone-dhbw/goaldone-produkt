@@ -17,30 +17,34 @@ import java.util.UUID;
  */
 @Repository
 public interface MembershipRepository extends JpaRepository<MembershipEntity, UUID> {
-    /**
-     * Finds a membership by the authentication user ID of the associated user.
-     *
-     * @param authUserId The authentication user ID.
-     * @return An {@link Optional} containing the membership if found.
-     */
-    Optional<MembershipEntity> findByUserAuthUserId(String authUserId);
 
     /**
-     * Finds all memberships by the authentication user ID of the associated user.
+     * Finds the first membership by the associated user's UUID.
+     * After PK unification, userId == auth-service user UUID.
      *
-     * @param authUserId The authentication user ID.
+     * @param userId The user's UUID.
+     * @return An {@link Optional} containing the first matching membership if found.
+     */
+    Optional<MembershipEntity> findFirstByUserId(UUID userId);
+
+    /**
+     * Finds all memberships by the associated user's UUID.
+     * After PK unification, userId == auth-service user UUID.
+     *
+     * @param userId The user's UUID.
      * @return A list of {@link MembershipEntity} objects.
      */
-    List<MembershipEntity> findAllByUserAuthUserId(String authUserId);
+    List<MembershipEntity> findAllByUserId(UUID userId);
 
     /**
-     * Finds a membership by the authentication user ID of the associated user and organization ID.
+     * Finds a membership by the user's UUID and organization ID.
+     * After PK unification, userId == auth-service user UUID.
      *
-     * @param authUserId     The authentication user ID.
+     * @param userId         The user's UUID.
      * @param organizationId The organization ID.
      * @return An {@link Optional} containing the membership if found.
      */
-    Optional<MembershipEntity> findByUserAuthUserIdAndOrganizationId(String authUserId, UUID organizationId);
+    Optional<MembershipEntity> findByUserIdAndOrganizationId(UUID userId, UUID organizationId);
 
     /**
      * Counts the number of memberships associated with a specific user.
@@ -49,14 +53,6 @@ public interface MembershipRepository extends JpaRepository<MembershipEntity, UU
      * @return The count of memberships.
      */
     long countByUserId(UUID userId);
-
-    /**
-     * Finds all memberships associated with a specific user.
-     *
-     * @param userId The UUID of the user.
-     * @return A list of {@link MembershipEntity} objects.
-     */
-    List<MembershipEntity> findAllByUserId(UUID userId);
 
     /**
      * Finds all memberships by their IDs.

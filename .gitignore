@@ -5,3 +5,11 @@ CLAUDE.md
 mprocs.log
 .idea/workspace.xml
 .DS_STORE
+
+
+.github/workflows/
+.github/skills/
+.github/get-shit-done/
+.github/agents/
+copilot-instructions.md
+gsd-file-manifest.json

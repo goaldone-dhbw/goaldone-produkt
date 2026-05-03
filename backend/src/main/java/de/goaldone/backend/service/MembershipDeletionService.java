@@ -40,13 +40,12 @@ public class MembershipDeletionService {
 
         if (membership.getUser() != null) {
             UUID userId = membership.getUser().getId();
-            String authUserId = membership.getUser().getAuthUserId();
             long count = membershipRepository.countByUserId(userId);
 
             try {
-                authServiceManagementClient.deleteMembership(UUID.fromString(authUserId), membership.getOrganizationId());
+                authServiceManagementClient.deleteMembership(userId, membership.getOrganizationId());
             } catch (AuthServiceManagementException e) {
-                log.warn("Auth-service deleteMembership failed for user {}: {}", authUserId, e.getMessage());
+                log.warn("Auth-service deleteMembership failed for user {}: {}", userId, e.getMessage());
             }
 
             membershipRepository.delete(membership);

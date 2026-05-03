@@ -69,11 +69,11 @@ public class CurrentUserResolver {
         }
 
         Jwt jwt = extractJwt();
-        String authUserId = extractAuthUserId(jwt);
+        UUID userId = UUID.fromString(extractAuthUserId(jwt));
 
-        return membershipRepository.findByUserAuthUserIdAndOrganizationId(authUserId, orgId)
+        return membershipRepository.findByUserIdAndOrganizationId(userId, orgId)
             .orElseThrow(() -> new IllegalStateException(
-                "Membership not found for authUserId " + authUserId + " and organizationId " + orgId));
+                "Membership not found for userId " + userId + " and organizationId " + orgId));
     }
 
     /**
@@ -108,9 +108,9 @@ public class CurrentUserResolver {
      */
     public List<MembershipEntity> resolveAllMemberships() {
         Jwt jwt = extractJwt();
-        String authUserId = extractAuthUserId(jwt);
+        UUID userId = UUID.fromString(extractAuthUserId(jwt));
 
-        return membershipRepository.findAllByUserAuthUserId(authUserId);
+        return membershipRepository.findAllByUserId(userId);
     }
 
     /**
@@ -121,11 +121,11 @@ public class CurrentUserResolver {
      */
     public UserEntity resolveCurrentUser() {
         Jwt jwt = extractJwt();
-        String authUserId = extractAuthUserId(jwt);
+        UUID userId = UUID.fromString(extractAuthUserId(jwt));
 
-        return userRepository.findByAuthUserId(authUserId)
+        return userRepository.findById(userId)
             .orElseThrow(() -> new IllegalStateException(
-                "User not found for authUserId " + authUserId));
+                "User not found for userId " + userId));
     }
 
     /**

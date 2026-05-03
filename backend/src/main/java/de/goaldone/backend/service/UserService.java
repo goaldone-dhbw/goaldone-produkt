@@ -58,9 +58,9 @@ public class UserService {
      * @throws IllegalStateException if the membership cannot be found.
      */
     public MembershipEntity resolveMembership(Jwt jwt, UUID xOrgID) {
-        String authUserId = jwt.getSubject();
+        UUID userId = UUID.fromString(jwt.getSubject());
         return membershipRepository
-                .findByUserAuthUserIdAndOrganizationId(authUserId, xOrgID)
+                .findByUserIdAndOrganizationId(userId, xOrgID)
                 .orElseThrow(() -> new IllegalStateException("Membership not found for organization " + xOrgID));
     }
 
@@ -122,8 +122,9 @@ public class UserService {
      * @throws IllegalStateException if the membership cannot be found.
      */
     private MembershipEntity getCurrentMembership(Jwt jwt) {
+        UUID userId = UUID.fromString(jwt.getSubject());
         return membershipRepository
-                .findByUserAuthUserId(jwt.getSubject())
+                .findFirstByUserId(userId)
                 .orElseThrow(() -> new IllegalStateException("Membership not found after JIT provisioning"));
     }
 }

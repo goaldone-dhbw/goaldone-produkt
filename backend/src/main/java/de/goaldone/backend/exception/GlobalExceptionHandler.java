@@ -74,16 +74,6 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * Handles ZitadelApiException and returns HTTP 502 (Bad Gateway).
-     */
-    @ExceptionHandler(ZitadelApiException.class)
-    public ProblemDetail handleZitadelApi(ZitadelApiException ex) {
-        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_GATEWAY, ex.getMessage());
-        pd.setType(URI.create("https://goaldone.de/errors/upstream-error"));
-        return pd;
-    }
-
-    /**
      * Handles WorkingTimeValidationException and returns HTTP 400 (Bad Request).
      */
     @ExceptionHandler(WorkingTimeValidationException.class)

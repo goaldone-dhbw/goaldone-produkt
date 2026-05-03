@@ -10,7 +10,7 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: ${ZITADEL_ISSUER_URI:https://sso.dev.goaldone.de}
+          issuer-uri: ${OIDC_ISSUER_URI:https://sso.dev.goaldone.de}
       client:
         registration:
           auth-service-mgmt:
@@ -24,12 +24,6 @@ spring:
 
 auth-service:
   base-url: ${AUTH_SERVICE_URL:http://localhost:9000}
-
-zitadel:
-  service-account-token: ${ZITADEL_SERVICE_ACCOUNT_TOKEN:}
-  goaldone:
-    project-id: ${ZITADEL_GOALDONE_PROJECT_ID:}
-    org-id: ${ZITADEL_GOALDONE_ORG_ID:}
 
 server:
   forward-headers-strategy: framework

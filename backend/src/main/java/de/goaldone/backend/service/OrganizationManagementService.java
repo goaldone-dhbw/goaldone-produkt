@@ -51,7 +51,6 @@ public class OrganizationManagementService {
         try {
             organizationRepository.save(new OrganizationEntity(
                     localOrgId,
-                    localOrgId.toString(),
                     req.getName(),
                     Instant.now()
             ));
@@ -64,7 +63,6 @@ public class OrganizationManagementService {
 
             return new OrganizationResponse()
                     .id(localOrgId)
-                    .zitadelOrganizationId(localOrgId.toString())
                     .name(req.getName())
                     .adminEmail(adminEmail)
                     .createdAt(OffsetDateTime.now(ZoneId.systemDefault()));

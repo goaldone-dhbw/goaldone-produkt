@@ -10,8 +10,8 @@ import java.util.UUID;
 
 /**
  * Entity representing a global user.
- * This entity is mapped to the "users" database table and contains identity information
- * that is consistent across different organizations.
+ * After PK unification, the user's local UUID equals the auth-service user UUID.
+ * This entity is mapped to the "users" database table.
  */
 @Entity
 @Table(name = "users")
@@ -20,16 +20,10 @@ import java.util.UUID;
 @AllArgsConstructor
 public class UserEntity {
     /**
-     * The unique identifier for the user.
+     * The unique identifier for the user (equals the auth-service user UUID).
      */
     @Id
     private UUID id;
-
-    /**
-     * The unique subject identifier (SUB) assigned to this user by the Identity Provider (IAM).
-     */
-    @Column(name = "auth_user_id", nullable = false, unique = true, length = 64)
-    private String authUserId;
 
     /**
      * The timestamp when this user record was created.

@@ -1,8 +1,6 @@
 package de.goaldone.backend.config;
 
-import de.goaldone.backend.entity.OrganizationEntity;
 import de.goaldone.backend.filter.JitProvisioningFilter;
-import de.goaldone.backend.repository.OrganizationRepository;
 import de.goaldone.backend.security.TenantContextFilter;
 import de.goaldone.backend.service.JitProvisioningService;
 import org.springframework.beans.factory.annotation.Value;
@@ -60,14 +58,11 @@ public class SecurityConfig {
      */
     @Component("authz")
     public class AuthorizationLogic {
-        private final OrganizationRepository organizationRepository;
-
-        public AuthorizationLogic(OrganizationRepository organizationRepository) {
-            this.organizationRepository = organizationRepository;
-        }
 
         /**
          * Checks if the currently authenticated user is a member of the specified organization.
+         * After PK unification, organization.id == auth-service company UUID, so we can compare directly
+         * with the JWT 'orgs' claim without a DB lookup.
          * Super-admins (ROLE_ADMIN) bypass this check.
          *
          * @param orgId the ID of the organization to check
@@ -89,16 +84,7 @@ public class SecurityConfig {
                 return true;
             }
 
-            // Resolve the organization's authCompanyId from the database
-            String authCompanyId = organizationRepository.findById(orgId)
-                    .map(OrganizationEntity::getAuthCompanyId)
-                    .orElse(null);
-
-            if (authCompanyId == null) {
-                return false;
-            }
-
-            // Check organization membership in JWT claims
+            // After PK unification, org.id == auth-service UUID; compare directly with JWT claim
             List<Map<String, Object>> orgs = jwt.getClaim("orgs");
             if (orgs == null) {
                 return false;
@@ -107,7 +93,7 @@ public class SecurityConfig {
             return orgs.stream()
                     .anyMatch(org -> {
                         Object id = org.get("id");
-                        return id != null && id.toString().equals(authCompanyId);
+                        return id != null && id.toString().equals(orgId.toString());
                     });
         }
     }

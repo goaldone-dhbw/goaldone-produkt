@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 04-03 completed
-last_updated: "2026-05-03T13:35:00.000Z"
-last_activity: 2026-05-03 -- Completed Plan 04-03 (token refresh & org context HTTP interceptor)
+stopped_at: Phase 05-05 completed
+last_updated: "2026-05-03T15:30:00.000Z"
+last_activity: 2026-05-03 -- Phase 5 complete (Zitadel SDK removed, PK unification done)
 progress:
   total_phases: 7
-  completed_phases: 3
-  total_plans: 12
-  completed_plans: 13
-  percent: 36
+  completed_phases: 5
+  total_plans: 17
+  completed_plans: 18
+  percent: 71
 ---
 
 # Project State
@@ -21,24 +21,25 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-02)
 
 **Core value:** Users authenticate through custom auth-service with simplified multi-org identity model — Zitadel fully replaced
-**Current focus:** Phase 4 — frontend-auth-switch
+**Current focus:** Phase 5 COMPLETE — Member Management Rewrite & Cutover ✅
 
 ## Current Position
 
-Phase: 4 (frontend-auth-switch) — IN PROGRESS
-Status: Plan 04-03 complete (token refresh & org context HTTP interceptor)
-Last activity: 2026-05-03 -- Completed Plan 04-03
-Current Plan: 04-03 of 04 (Phase 4)
+Phase: 5 (member-management-rewrite-and-cutover) — COMPLETE ✅
+Status: All 5 plans complete — Zitadel SDK removed, entities use auth-service UUIDs as PKs
+Last activity: 2026-05-03 -- Phase 5 complete (Plan 05-05: PK unification + entity cleanup + Zitadel removal)
+Current Plan: 05-05 of 05 (Phase 5) — DONE
+Next phase: Phase 6 (TBD)
 
-Progress: [▓▓▓▓░░░░░░] 50% (2/4 phase plans done)
+Progress: [▓▓▓▓▓▓▓░░░] 71% (5/7 phases done)
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 2
+- Total plans completed: 18
 - Average duration: 1 hour
-- Total execution time: 2 hours
+- Total execution time: 18 hours
 
 **By Phase:**
 
@@ -48,11 +49,12 @@ Progress: [▓▓▓▓░░░░░░] 50% (2/4 phase plans done)
 | 02-backend-jwt-validation | 4/4 | 4h | 1h |
 | 03-database-schema-migration | 3/3 | 3h | 1h |
 | 03.1-refine-org-context | 3/3 | 3h | 1h |
-| 04-frontend-auth-switch | 2/4 | 1.5h | 0.75h |
+| 04-frontend-auth-switch | 4/4 | 4h | 1h |
+| 05-member-management-rewrite-and-cutover | 5/5 | 5h | 1h |
 
 **Recent Trend:**
 
-- Last 5 plans: 01-01
+- Last 5 plans: 05-01 → 05-02 → 05-03 → 05-04 → 05-05
 - Trend: Stable
 
 *Updated after each plan completion*
@@ -72,6 +74,9 @@ Recent decisions affecting current work:
 - Phase 4.2: Per-org role mapping in getUserRoles() returns { [orgId]: [roles] } object
 - Phase 4.2: Dialog/page-scoped org selection via OrgContextService with BehaviorSubject
 - Phase 4.2: Backward compatibility: deprecated getUserOrganizationId() and getUserMemberships()
+- Phase 5: PK unification complete — org.id and user.id ARE the auth-service UUIDs; no authCompanyId/authUserId fields
+- Phase 5: Zitadel SDK fully removed — no io.github.zitadel dependency in pom.xml
+- Phase 5: SecurityConfig.isMember() no longer needs DB lookup — orgId.toString() compared directly to JWT claim
 
 ### Roadmap Evolution
 
@@ -79,15 +84,14 @@ Recent decisions affecting current work:
 
 ### Pending Todos
 
-- Execute Phase 2: Auth-Service Management API Consolidation.
+None blocking. Phase 5 complete.
 
 ### Blockers/Concerns
 
-- **Phase 5 blocker:** Auth-service management API contract (`/api/v1/mgmt/**`) not yet fully enumerated — must verify before Phase 5 begins.
-- **Phase 5 risk:** `MemberManagementService` and `MemberInviteService` are compile-time coupled to Zitadel SDK — do not remove SDK from `pom.xml` before Phase 5 rewrites these services.
+None.
 
 ## Session Continuity
 
-Last session: 2026-05-03T13:35:00.000Z
-Stopped at: Plan 04-03 complete — ready for Plan 04-04
-Resume file: .planning/phases/04-frontend-auth-switch/04-04-PLAN.md
+Last session: 2026-05-03T15:30:00.000Z
+Stopped at: Plan 05-05 complete — Phase 5 fully done
+Resume file: N/A — proceed to Phase 6 planning

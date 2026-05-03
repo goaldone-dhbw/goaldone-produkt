@@ -148,8 +148,6 @@ public class AccountLinkingService {
         // Create a new user identity for the target account
         UserEntity newIdentity = new UserEntity();
         newIdentity.setId(UUID.randomUUID());
-        // Note: we might need a dummy or placeholder authUserId here if the model requires it
-        newIdentity.setAuthUserId("unlinked-" + UUID.randomUUID());
         newIdentity.setCreatedAt(Instant.now());
         userRepository.save(newIdentity);
 

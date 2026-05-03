@@ -10,7 +10,7 @@ import java.util.UUID;
 
 /**
  * Entity representing an organization within the GoalDone system.
- * Organizations are mapped to organizations in the external IAM (Zitadel).
+ * After PK unification, the organization's local UUID equals the auth-service company UUID.
  * This entity is mapped to the "organizations" database table.
  */
 @Entity
@@ -19,13 +19,9 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 public class OrganizationEntity {
-    /** The unique internal identifier for the organization. */
+    /** The unique internal identifier for the organization (equals the auth-service company UUID). */
     @Id
     private UUID id;
-
-    /** The unique identifier assigned to this organization by the Identity Provider (IAM). */
-    @Column(name = "auth_company_id", nullable = false, unique = true, length = 64)
-    private String authCompanyId;
 
     /** The display name of the organization. */
     @Column(nullable = false, length = 255)

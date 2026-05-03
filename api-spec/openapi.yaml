@@ -1452,7 +1452,6 @@ components:
       type: object
       required:
         - id
-        - zitadelOrganizationId
         - name
         - adminEmail
         - createdAt
@@ -1460,8 +1459,6 @@ components:
         id:
           type: string
           format: uuid
-        zitadelOrganizationId:
-          type: string
         name:
           type: string
         adminEmail:

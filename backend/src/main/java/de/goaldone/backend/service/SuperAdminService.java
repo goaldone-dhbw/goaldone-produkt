@@ -75,7 +75,7 @@ public class SuperAdminService {
             log.warn("Auth-service deleteMembership failed for super-admin {}: {}", authUserId, e.getMessage());
         }
 
-        Optional<MembershipEntity> membershipOpt = membershipRepository.findByUserAuthUserId(authUserId);
+        Optional<MembershipEntity> membershipOpt = membershipRepository.findFirstByUserId(UUID.fromString(authUserId));
         if (membershipOpt.isPresent()) {
             MembershipEntity membership = membershipOpt.get();
             UUID userId = membership.getUser().getId();
