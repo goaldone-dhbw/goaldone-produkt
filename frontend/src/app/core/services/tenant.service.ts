@@ -20,7 +20,7 @@ export class TenantService {
    * Computed signal indicating whether the user has multiple organizations.
    */
   readonly hasMultipleOrgs: Signal<boolean> = computed(() => {
-    const memberships = this.authService.getUserMemberships();
+    const memberships = this.authService.getOrganizations();
     return memberships && memberships.length > 1;
   });
 
@@ -34,7 +34,7 @@ export class TenantService {
    * If multiple memberships exist, restore from sessionStorage or use first one.
    */
   private initializeActiveOrg(): void {
-    const memberships = this.authService.getUserMemberships();
+    const memberships = this.authService.getOrganizations();
 
     if (!memberships || memberships.length === 0) {
       // User has no memberships
