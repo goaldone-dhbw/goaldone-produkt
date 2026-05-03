@@ -55,7 +55,7 @@ public class ScheduleService {
             List<CompletableFuture<ScheduleResponse>> futures = accountIds.stream()
                     .map(accountId ->
                             CompletableFuture.supplyAsync(
-                                            () -> generateSchedule(jwt, accountId, request), executor
+                                            () -> generateSchedule(jwt, accountId, request, timeoutMilliseconds), executor
                                     )
                                     // If task takes too long -> complete with null instead of blocking
                                     .completeOnTimeout(null, timeoutMilliseconds, TimeUnit.MILLISECONDS)
@@ -114,7 +114,7 @@ public class ScheduleService {
      * - the scheduleScore,
      * - constraint warnings
      */
-    public ScheduleResponse generateSchedule(Jwt jwt, UUID accountId, GenerateScheduleRequest generateScheduleRequest) {
+    public ScheduleResponse generateSchedule(Jwt jwt, UUID accountId, GenerateScheduleRequest generateScheduleRequest, long time) {
 
         // Get data
         List<TaskResponse> allTasks = taskService.getTasksForAccountId(jwt, accountId);
@@ -139,7 +139,7 @@ public class ScheduleService {
         );
 
         // Forward to schedule generator
-        SchedulingResult bestResult = solver.createSchedule(schedulingContext);
+        SchedulingResult bestResult = solver.createSchedule(schedulingContext, time);
 
 
         // TODO: Map result to ScheduleResponse and return
