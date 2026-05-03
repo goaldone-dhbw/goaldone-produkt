@@ -59,20 +59,19 @@ public class ScheduleService {
 
             // Create schedule for each account simultaneously
             List<CompletableFuture<ScheduleResponse>> futures = accountIds.stream()
-                .map(accountId ->
-                    CompletableFuture.supplyAsync(
-                        () -> generateSchedule(jwt, accountId, request), executor
-                    )
-                    // If task takes too long -> complete with error response
-                    .completeOnTimeout(createErrorResponse("Schedule generation timed out"), timeoutMilliseconds, TimeUnit.MILLISECONDS) //TODO: adjust timeout
+                    .map(accountId ->
+                            CompletableFuture.supplyAsync(
+                                            () -> generateSchedule(jwt, accountId, request, timeoutMilliseconds), executor
+                                    )
+                                    // If task takes too long -> complete with null instead of blocking
+                                    .completeOnTimeout(createErrorResponse("Schedule generation timed out"), timeoutMilliseconds, TimeUnit.MILLISECONDS) //TODO: adjust timeout
 
-                    // Handle exceptions per task (prevents whole pipeline from failing)
-                    .exceptionally(ex -> {
-                        log.error("Error generating schedule: {}", ex.getMessage(), ex);
-                        return createErrorResponse("Schedule generation failed: " + ex.getMessage());
-                    })
-                )
-                .toList();
+                                    // Handle exceptions per task (prevents whole pipeline from failing)
+                                    .exceptionally(ex -> {
+                                      log.error("Error generating schedule: {}", ex.getMessage(), ex);
+                                      return createErrorResponse("Schedule generation failed: " + ex.getMessage());
+                                    })
+                    ).toList();
 
             // Collect results
             return futures.stream()
@@ -101,7 +100,7 @@ public class ScheduleService {
             long timeoutMilliseconds) {
 
         try  {
-            return generateSchedule(jwt, accountId, generateScheduleRequest);
+            return generateSchedule(jwt, accountId, generateScheduleRequest, timeoutMilliseconds);
         } catch (Exception e) {
             return createErrorResponse("Schedule generation failed: " + e.getMessage());
         }
@@ -117,7 +116,7 @@ public class ScheduleService {
      * - the scheduleScore,
      * - constraint warnings
      */
-    private ScheduleResponse generateSchedule(Jwt jwt, UUID accountId, GenerateScheduleRequest generateScheduleRequest) {
+    public ScheduleResponse generateSchedule(Jwt jwt, UUID accountId, GenerateScheduleRequest generateScheduleRequest, long timeoutMs) {
 
         validateRequest(jwt, accountId, generateScheduleRequest);
 
@@ -142,7 +141,7 @@ public class ScheduleService {
         );
 
         // Forward to schedule generator
-        SchedulingResult bestResult = solver.createSchedule(schedulingContext);
+        SchedulingResult bestResult = solver.createSchedule(schedulingContext, timeoutMs);
 
         // TODO: Map result to ScheduleResponse and return
         return null;

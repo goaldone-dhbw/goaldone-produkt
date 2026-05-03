@@ -10,8 +10,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.UUID;
-
 /**
  * REST controller for managing organization-related operations.
  * This controller handles the creation, listing, and deletion of organizations.
@@ -52,7 +50,7 @@ public class OrganizationManagementController implements OrgManagementApi {
      * Deletes an organization and all its members in a cascading operation.
      * Access is restricted to users with the 'SUPER_ADMIN' role.
      *
-     * @param orgId the UUID of the organization to delete
+     * @param zitadelOrgId the UUID of the organization to delete
      * @return a {@link ResponseEntity} with HTTP status 204 (No Content)
      */
     @Override
