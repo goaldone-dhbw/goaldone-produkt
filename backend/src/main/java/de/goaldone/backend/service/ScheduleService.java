@@ -1,6 +1,9 @@
 package de.goaldone.backend.service;
 
+import de.goaldone.backend.entity.UserAccountEntity;
+import de.goaldone.backend.entity.WorkingTimeEntity;
 import de.goaldone.backend.model.*;
+import de.goaldone.backend.repository.UserAccountRepository;
 import de.goaldone.backend.scheduler.Chunker;
 import de.goaldone.backend.scheduler.Solver;
 import de.goaldone.backend.scheduler.types.model.*;
@@ -25,6 +28,7 @@ public class ScheduleService {
 
     private final TasksService taskService;
     private final AppointmentService appointmentService;
+    private final UserAccountRepository userAccountRepository;
 
 
     /**
@@ -115,8 +119,13 @@ public class ScheduleService {
         // Get data
         List<TaskResponse> allTasks = taskService.getTasksForAccountId(jwt, accountId);
 
+        // Load working times for this account
+        List<WorkingTimeEntity> workingTimes = userAccountRepository.findById(accountId)
+                .map(UserAccountEntity::getWorkingTimes)
+                .orElse(List.of());
+
         // Chunk tasks
-        List<TaskChunk> chunks = chunker.chunkTasks(allTasks);
+        List<TaskChunk> chunks = chunker.chunkTasks(allTasks, workingTimes);
 
         // Get available timeslots
         List<TimeSlot> availableSlots = getAvailableTimeSlots(accountId);
