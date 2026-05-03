@@ -115,6 +115,16 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * Handles ScheduleGenerationException and returns HTTP 500 (Internal Server Error).
+     */
+    @ExceptionHandler(ScheduleGenerationException.class)
+    public ProblemDetail handleScheduleGeneration(ScheduleGenerationException ex) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.INTERNAL_SERVER_ERROR, ex.getMessage());
+        pd.setType(URI.create("https://goaldone.de/errors/schedule-generation-failed"));
+        return pd;
+    }
+
+    /**
      * Handles Spring's ResponseStatusException and returns the corresponding status and title.
      */
     @ExceptionHandler(org.springframework.web.server.ResponseStatusException.class)
