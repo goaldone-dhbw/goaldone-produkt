@@ -6,6 +6,7 @@ import {
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { provideRouter } from '@angular/router';
 import { provideOAuthClient } from 'angular-oauth2-oidc';
+import { MessageService } from 'primeng/api';
 
 import { routes } from './app.routes';
 import { authInterceptor } from './core/auth/auth.interceptor';
@@ -18,6 +19,8 @@ import { GoaldoneTheme } from './GoaldoneTheme';
 export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
+    // PrimeNG MessageService for global toast notifications (used by ErrorNotificationService)
+    MessageService,
     provideRouter(routes),
     provideHttpClient(withInterceptors([authInterceptor, tenantInterceptor])),
     providePrimeNG({

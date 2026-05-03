@@ -4,6 +4,7 @@ import { OAuthService } from 'angular-oauth2-oidc';
 import { EMPTY } from 'rxjs';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
+import { MessageService } from 'primeng/api';
 
 const oauthServiceMock = {
   events: EMPTY,
@@ -26,6 +27,7 @@ describe('App', () => {
         { provide: OAuthService, useValue: oauthServiceMock },
         provideHttpClient(),
         provideHttpClientTesting(),
+        MessageService,
       ],
     }).compileComponents();
   });
