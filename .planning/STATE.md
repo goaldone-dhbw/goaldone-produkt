@@ -2,17 +2,17 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_plan: None — Phase planning pending
+current_plan: None — Phase 06.1 complete
 status: planning
-stopped_at: Phase 06.1 context gathered
-last_updated: "2026-05-03T14:32:03.337Z"
-last_activity: 2026-05-03 -- Phase 7 added (Frontend auth-service integration)
+stopped_at: Phase 06.1 complete
+last_updated: "2026-05-03T16:41:34.104+02:00"
+last_activity: 2026-05-03 -- Phase 06.1 complete (CI/CD Pipeline Update)
 progress:
   total_phases: 9
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 22
-  completed_plans: 16
-  percent: 71
+  completed_plans: 20
+  percent: 79
 ---
 
 # Project State
@@ -22,17 +22,17 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-02)
 
 **Core value:** Users authenticate through custom auth-service with simplified multi-org identity model — Zitadel fully replaced
-**Current focus:** Phase 5 COMPLETE — Member Management Rewrite & Cutover ✅
+**Current focus:** Phase 06.1 COMPLETE — CI/CD Pipeline Update ✅
 
 ## Current Position
 
 Phase: 7 (fix-the-frontend-to-work-with-my-new-backend-implementation-that-fully-utilizes-the-auth-service) — PLANNING
 Status: Phase just created, awaiting planning
-Last activity: 2026-05-03 -- Phase 7 added (Frontend auth-service integration)
+Last activity: 2026-05-03 -- Phase 06.1 complete (CI/CD Pipeline Update)
 Current Plan: None — Phase planning pending
 Next action: `/gsd:plan-phase 7`
 
-Progress: [▓▓▓▓▓▓▓░░░] 71% (5/7 phases done, 2 pending)
+Progress: [▓▓▓▓▓▓▓▓░░] 79% (6/7 phases done, 1 pending)
 
 ## Performance Metrics
 
@@ -52,10 +52,11 @@ Progress: [▓▓▓▓▓▓▓░░░] 71% (5/7 phases done, 2 pending)
 | 03.1-refine-org-context | 3/3 | 3h | 1h |
 | 04-frontend-auth-switch | 4/4 | 4h | 1h |
 | 05-member-management-rewrite-and-cutover | 5/5 | 5h | 1h |
+| 06.1-ci-cd-pipeline-update | 4/4 | 4h | 1h |
 
 **Recent Trend:**
 
-- Last 5 plans: 05-01 → 05-02 → 05-03 → 05-04 → 05-05
+- Last 5 plans: 06.1-01 → 06.1-02 → 06.1-03 → 06.1-04
 - Trend: Stable
 
 *Updated after each plan completion*

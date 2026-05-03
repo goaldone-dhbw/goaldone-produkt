@@ -19,7 +19,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 4: Frontend Auth Switch** - Point Angular OIDC client at auth-service; update role and org extraction
 - [ ] **Phase 5: Member Management Rewrite & Cutover** - Replace all Zitadel SDK calls with auth-service management API; final cleanup
 - [ ] **Phase 6: Backend Error Fix & Test Restoration** - Fix all errors that hinder the backend from starting; restore 100+ tests removed by previous phases
-- [ ] **Phase 06.1: CI/CD Pipeline Update** - Auth-service Docker deployment, postgres independence, GitHub Actions build (INSERTED)
+- [x] **Phase 06.1: CI/CD Pipeline Update** - Auth-service Docker deployment, postgres independence, GitHub Actions build (INSERTED)
 - [ ] **Phase 7: Frontend Integration** - Fix frontend to work with new backend implementation
 
 ## Phase Details
