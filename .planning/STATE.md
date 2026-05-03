@@ -2,17 +2,17 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_plan: 07-05 (next)
+current_plan: 07-06 (next)
 status: in-progress
-stopped_at: Plan 07-04 complete — Member Management UI & Multi-Org Components
+stopped_at: Plan 07-05 complete — Error Handling & User-Friendly Messaging (100/100 tests, 0 build errors)
 last_updated: "2026-05-04T00:00:00.000+02:00"
-last_activity: 2026-05-04 -- Phase 07 Plan 07-04 complete (Member Management UI, 91/91 tests, 0 build errors)
+last_activity: 2026-05-04 -- Phase 07 Plan 07-05 complete (Error Handling, 100/100 tests, 0 build errors)
 progress:
   total_phases: 9
   completed_phases: 4
   total_plans: 22
-  completed_plans: 22
-  percent: 82
+  completed_plans: 23
+  percent: 84
 ---
 
 # Project State
@@ -22,16 +22,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-02)
 
 **Core value:** Users authenticate through custom auth-service with simplified multi-org identity model — Zitadel fully replaced
-**Current focus:** Phase 07 — Plan 07-04 COMPLETE ✅ — Member Management UI & 91/91 tests; plan 07-05 next
+**Current focus:** Phase 07 — Plan 07-05 COMPLETE ✅ — Error Handling & Messaging (100/100 tests); plan 07-06 next
 
 ## Current Position
 
 Phase: 7 (fix-the-frontend-to-work-with-my-new-backend-implementation-that-fully-utilizes-the-auth-service) — IN PROGRESS
-Status: Plan 07-04 complete, plan 07-05 pending
-Last activity: 2026-05-04 -- Plan 07-04 complete (Member Management UI, 91/91 tests, 0 build errors)
-Current Plan: 07-05 (next)
+Status: Plan 07-05 complete, plan 07-06 pending
+Last activity: 2026-05-04 -- Plan 07-05 complete (Error Handling, 100/100 tests, 0 build errors)
+Current Plan: 07-06 (next)
 
-Progress: [▓▓▓▓▓▓▓▓░░] 82% (6/7 phases done, 1 pending)
+Progress: [▓▓▓▓▓▓▓▓▓░] 84% (6/7 phases done, 1 pending)
 
 ## Performance Metrics
 
@@ -87,6 +87,10 @@ Recent decisions affecting current work:
 - Phase 07-04: OrgSettingsPage role filter corrected to COMPANY_ADMIN (was ROLE_ADMIN — wrong JWT format)
 - Phase 07-04: PrimeNG v19 migration — Dropdown renamed to Select (primeng/dropdown → primeng/select)
 - Phase 07-04: Member management UI complete — listMembers/inviteMember/changeMemberRole/removeMember wired
+- Phase 07-05: authInterceptor exports mapErrorToUserMessage — 403/409/410/5xx/network mapped to messages
+- Phase 07-05: 401 Unauthorized → authService.logout() + router.navigateByUrl('/') in interceptor
+- Phase 07-05: ErrorNotificationService created (root-level, wraps PrimeNG MessageService)
+- Phase 07-05: Global p-toast added to app root; MessageService in global providers
 
 ### Roadmap Evolution
 
@@ -105,5 +109,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-05-04T00:00:00.000Z
-Stopped at: Plan 07-04 complete — Member Management UI & Multi-Org Components (91/91 tests, 0 build errors)
+Stopped at: Plan 07-05 complete — Error Handling & User-Friendly Messaging (100/100 tests, 0 build errors)
 Resume file: None
