@@ -103,7 +103,12 @@ Decimal phases appear between their surrounding integers in numeric order.
   4. Non-admin users receive 403 on all member management endpoints
   5. Users can access only the organizations they are members of; per-org role checks enforce data isolation
   6. Backend compiles and all tests pass with Zitadel SDK (`io.github.zitadel:client`) removed from `pom.xml`
-**Plans**: TBD
+**Plans**: 5 plans
+- [ ] 05-01-PLAN.md — Auth-service management API completion (scope guard, bulk members, membership TODOs, InvitationRequest role)
+- [ ] 05-02-PLAN.md — OpenAPI spec update + Backend M2M client infrastructure (AuthServiceClientConfig, AuthServiceManagementClient)
+- [ ] 05-03-PLAN.md — Core service rewrites (MemberInviteService, MemberManagementService, MembershipDeletionService)
+- [ ] 05-04-PLAN.md — Remaining service rewrites (OrganizationManagementService, SuperAdminService, UserService) + StartupValidator
+- [ ] 05-05-PLAN.md — Liquibase PK unification + Entity updates + Zitadel SDK removal + Integration tests
 
 ### Phase 6: Backend Error Fix & Test Restoration
 **Goal**: Fix all errors that hinder the backend from starting; restore the test suite from 38 to 100+ tests that were removed in previous phases
