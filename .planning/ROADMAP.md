@@ -170,11 +170,14 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 ### Phase 7: Fix the frontend to work with my new backend implementation that fully utilizes the auth-service
 
-**Goal:** [To be planned]
+**Goal:** Fix the frontend to work with new auth-service-based backend — OIDC flow, member management UI, multi-org UI, test restoration, error handling
 
 **Depends on:** Phase 6.1
 
-**Plans:** TBD (run `/gsd:plan-phase 7` to break down)
+**Plans:** TBD — being executed
+
+**Wave 1:**
+- [x] 07-01-PLAN.md — API Regeneration & Verification (regenerate TypeScript client, audit shapes, document breaking changes)
 
 ## Progress
 
@@ -191,4 +194,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 03.1 → 4 → 5 → 6 → 6.
 | 5. Member Management Rewrite & Cutover | 5/5 | Ready to execute | - |
 | 6. Backend Error Fix & Test Restoration | 0/2 | Ready to plan | - |
 | 06.1 CI/CD Pipeline Update | 4/4 | Ready to execute | - |
-| 7. Frontend Integration | TBD | Ready to plan | - |
+| 7. Frontend Integration | 1/TBD | In progress | - |

@@ -2,11 +2,11 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_plan: None — Phase 06.1 complete
-status: planning
-stopped_at: Phase 06.1 complete
-last_updated: "2026-05-03T16:41:34.104+02:00"
-last_activity: 2026-05-03 -- Phase 06.1 complete (CI/CD Pipeline Update)
+current_plan: 07-02 (next)
+status: in-progress
+stopped_at: Plan 07-01 complete — API Regeneration & Verification
+last_updated: "2026-05-04T00:00:00.000+02:00"
+last_activity: 2026-05-04 -- Phase 07 Plan 07-01 complete (API Regeneration & Verification)
 progress:
   total_phases: 9
   completed_phases: 4
@@ -22,15 +22,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-02)
 
 **Core value:** Users authenticate through custom auth-service with simplified multi-org identity model — Zitadel fully replaced
-**Current focus:** Phase 06.1 COMPLETE — CI/CD Pipeline Update ✅
+**Current focus:** Phase 07 — Plan 07-01 COMPLETE ✅ — API Regeneration & Verification done; plan 07-02 next
 
 ## Current Position
 
-Phase: 7 (fix-the-frontend-to-work-with-my-new-backend-implementation-that-fully-utilizes-the-auth-service) — PLANNING
-Status: Phase just created, awaiting planning
-Last activity: 2026-05-03 -- Phase 06.1 complete (CI/CD Pipeline Update)
-Current Plan: None — Phase planning pending
-Next action: `/gsd:plan-phase 7`
+Phase: 7 (fix-the-frontend-to-work-with-my-new-backend-implementation-that-fully-utilizes-the-auth-service) — IN PROGRESS
+Status: Plan 07-01 complete, plan 07-02 pending
+Last activity: 2026-05-04 -- Plan 07-01 complete (API Regeneration & Verification)
+Current Plan: 07-02 (next)
 
 Progress: [▓▓▓▓▓▓▓▓░░] 79% (6/7 phases done, 1 pending)
 
@@ -78,7 +77,8 @@ Recent decisions affecting current work:
 - Phase 4.2: Backward compatibility: deprecated getUserOrganizationId() and getUserMemberships()
 - Phase 5: PK unification complete — org.id and user.id ARE the auth-service UUIDs; no authCompanyId/authUserId fields
 - Phase 5: Zitadel SDK fully removed — no io.github.zitadel dependency in pom.xml
-- Phase 5: SecurityConfig.isMember() no longer needs DB lookup — orgId.toString() compared directly to JWT claim
+- API client was already in sync with openapi.yaml — no file content changes after 07-01 regeneration
+  - MemberResponse confirmed: userId (UUID), accountId (nullable), status (INVITED|ACTIVE), createdAt
 
 ### Roadmap Evolution
 
