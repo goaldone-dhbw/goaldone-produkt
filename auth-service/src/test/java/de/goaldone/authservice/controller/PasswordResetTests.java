@@ -99,7 +99,7 @@ class PasswordResetTests {
     @Test
     void testResetPasswordForm() throws Exception {
         String token = "valid-token";
-        when(tokenService.validateToken(token, TokenType.PASSWORD_RESET)).thenReturn(Optional.of("user@example.com"));
+        when(tokenService.checkToken(token, TokenType.PASSWORD_RESET)).thenReturn(Optional.of("user@example.com"));
 
         mockMvc.perform(get("/reset-password").param("token", token))
                 .andExpect(status().isOk())
@@ -110,7 +110,7 @@ class PasswordResetTests {
     @Test
     void testResetPasswordInvalidToken() throws Exception {
         String token = "invalid-token";
-        when(tokenService.validateToken(token, TokenType.PASSWORD_RESET)).thenReturn(Optional.empty());
+        when(tokenService.checkToken(token, TokenType.PASSWORD_RESET)).thenReturn(Optional.empty());
 
         mockMvc.perform(get("/reset-password").param("token", token))
                 .andExpect(status().is3xxRedirection())
@@ -139,11 +139,39 @@ class PasswordResetTests {
                         .param("confirmPassword", newPassword)
                         .with(csrf()))
                 .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/login?reset_success"));
+                .andExpect(redirectedUrl("/reset-success"));
 
         verify(user).setPassword(any());
         verify(userRepository).save(user);
         verify(session1).expireNow();
         verify(session2).expireNow();
+    }
+
+    @Test
+    void testResetPassword_success_redirectsToResetSuccess() throws Exception {
+        String tokenValue = "valid-token-123";
+        String email = "user@example.com";
+        User mockUser = mock(User.class);
+
+        when(tokenService.checkToken(eq(tokenValue), eq(TokenType.PASSWORD_RESET)))
+            .thenReturn(Optional.of(email));
+        when(tokenService.verifyToken(eq(tokenValue), eq(TokenType.PASSWORD_RESET)))
+            .thenReturn(Optional.of(email));
+        when(userRepository.findByEmail(email)).thenReturn(Optional.of(mockUser));
+        when(sessionRegistry.getAllPrincipals()).thenReturn(Collections.emptyList());
+
+        mockMvc.perform(post("/reset-password")
+                .param("token", tokenValue)
+                .param("password", "ValidPassword123!")
+                .param("confirmPassword", "ValidPassword123!"))
+            .andExpect(status().is3xxRedirection())
+            .andExpect(redirectedUrl("/reset-success"));
+    }
+
+    @Test
+    void testResetSuccessPage_returns200() throws Exception {
+        mockMvc.perform(get("/reset-success"))
+            .andExpect(status().isOk())
+            .andExpect(view().name("auth/reset-success"));
     }
 }

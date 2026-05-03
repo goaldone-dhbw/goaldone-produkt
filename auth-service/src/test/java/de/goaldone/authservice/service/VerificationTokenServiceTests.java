@@ -86,6 +86,22 @@ class VerificationTokenServiceTests {
     }
 
     @Test
+    void createToken_passwordReset_shouldExpireInOneHour() {
+        VerificationToken token = tokenService.createToken(testEmail, TokenType.PASSWORD_RESET);
+
+        LocalDateTime expected = LocalDateTime.now().plusHours(1);
+        assertThat(token.getExpiryDate()).isBetween(expected.minusMinutes(5), expected.plusMinutes(5));
+    }
+
+    @Test
+    void createToken_invitation_shouldStillExpireIn24Hours() {
+        VerificationToken token = tokenService.createToken(testEmail, TokenType.INVITATION);
+
+        LocalDateTime expected = LocalDateTime.now().plusHours(24);
+        assertThat(token.getExpiryDate()).isBetween(expected.minusMinutes(5), expected.plusMinutes(5));
+    }
+
+    @Test
     void purgeExpiredTokens_shouldRemoveExpiredTokens() {
         VerificationToken validToken = tokenService.createToken("valid@example.com", TokenType.INVITATION);
         VerificationToken expiredToken = tokenService.createToken("expired@example.com", TokenType.INVITATION);
