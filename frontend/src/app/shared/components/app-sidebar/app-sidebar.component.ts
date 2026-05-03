@@ -6,6 +6,7 @@ import { AccountStore } from '../../../core/accounts/account.store';
 import { UserAccountsService } from '../../../api';
 import { Button } from 'primeng/button';
 import { AuthService } from '../../../core/auth/auth.service';
+import { OrgContextService } from '../../../core/services/org-context.service';
 
 @Component({
   selector: 'app-sidebar',
@@ -18,9 +19,10 @@ export class AppSidebarComponent {
   private accountStore = inject(AccountStore);
   private userAccountsService = inject(UserAccountsService);
   private authService = inject(AuthService);
+  private orgContextService = inject(OrgContextService);
 
   constructor() {
-    this.userAccountsService.getMyAccounts().subscribe({
+    this.userAccountsService.getMyAccounts(this.orgContextService.getDefaultOrg()?.id || '').subscribe({
       next: (response) => {
         console.log('Accounts loaded:', response.accounts);
         this.accountStore.setAccounts(response.accounts);
