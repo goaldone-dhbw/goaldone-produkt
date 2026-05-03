@@ -58,6 +58,13 @@ public class PillarMove extends Move {
                 .sorted(Comparator.comparingInt(sc -> sc.chunk().chunkIndex()))
                 .toList();
 
+
+        // Update affected chunks
+        affectedChunks = taskChunks.stream()
+                .map(sc -> sc.chunk().chunkId())
+                .toList();
+
+
         int shift = 0;
         while (shift == 0) {
             shift = random.nextInt(2 * maxShift + 1) - maxShift;
@@ -123,26 +130,11 @@ public class PillarMove extends Move {
         return next;
     }
 
-    /**
-     * Gibt die betroffenen Chunk-IDs für diesen Move zurück.
-     *
-     * @return leere Liste, da die betroffenen Chunks erst bei konkreter Auswahl bekannt sind
-     */
     @Override
-    public List<UUID> affectedChunkIds() {
-        return List.of();
+    public MoveType getMoveType() {
+        return MoveType.PILLAR;
     }
 
-    /**
-     * Gibt die IDs der verschobenen Chunks zurück.
-     * @param movedChunks verschobene Chunks
-     * @return Liste der IDs der verschobenen Chunks
-     */
-    public List<UUID> affectedChunkIds(List<ScheduledChunk> movedChunks) {
-        return movedChunks.stream()
-                .map(sc -> sc.chunk().chunkId())
-                .toList();
-    }
 
     private List<TimeSlot> buildAllSlots(SolverState state) {
         List<TimeSlot> all = new ArrayList<>(state.freeSlots());

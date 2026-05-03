@@ -40,6 +40,10 @@ public class ChangeMove extends Move {
         }
 
         ScheduledChunk target = unpinned.get(random.nextInt(unpinned.size()));
+
+        // Update affected chunks
+        affectedChunks = List.of(target.chunk().chunkId());
+
         TimeSlot newSlot = current.freeSlots().get(random.nextInt(current.freeSlots().size()));
 
         if (newSlot.durationMinutes() < target.chunk().durationMinutes()) {
@@ -56,21 +60,10 @@ public class ChangeMove extends Move {
         return next;
     }
 
-    /**
-     * Gibt die betroffenen Chunk-IDs für diesen Move zurück.
-     * @return leere Liste, da die betroffenen Chunks erst bei konkreter Auswahl bekannt sind
-     */
     @Override
-    public List<UUID> affectedChunkIds() {
-        return List.of();
+    public MoveType getMoveType() {
+        return MoveType.CHANGE;
     }
 
-    /**
-     * Gibt die ID des verschobenen Chunks zurück.
-     * @param moved verschobener Chunk
-     * @return Liste mit der ID des verschobenen Chunks
-     */
-    public List<UUID> affectedChunkIds(ScheduledChunk moved) {
-        return List.of(moved.chunk().chunkId());
-    }
+
 }

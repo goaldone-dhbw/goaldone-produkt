@@ -50,6 +50,8 @@ public class SwapMove extends Move {
         TimeSlot slotA = a.slot();
         TimeSlot slotB = b.slot();
 
+        affectedChunks = List.of(a.chunk().chunkId(), b.chunk().chunkId());
+
         if (!isValidSwap(a, b)) {
             return null;
         }
@@ -66,24 +68,11 @@ public class SwapMove extends Move {
         return next;
     }
 
-    /**
-     * Gibt die betroffenen Chunk-IDs für diesen Move zurück.
-     * @return leere Liste, da die betroffenen Chunks erst bei konkreter Auswahl bekannt sind
-     */
     @Override
-    public List<UUID> affectedChunkIds() {
-        return List.of();
+    public MoveType getMoveType() {
+        return MoveType.SWAP;
     }
 
-    /**
-     * Gibt die IDs der beiden getauschten Chunks zurück.
-     * @param a erster getauschter Chunk
-     * @param b zweiter getauschter Chunk
-     * @return Liste mit den IDs der beiden getauschten Chunks
-     */
-    public List<UUID> affectedChunkIds(ScheduledChunk a, ScheduledChunk b) {
-        return List.of(a.chunk().chunkId(), b.chunk().chunkId());
-    }
 
     private boolean isValidSwap(ScheduledChunk a, ScheduledChunk b) {
         return b.slot().durationMinutes() >= a.chunk().durationMinutes()
