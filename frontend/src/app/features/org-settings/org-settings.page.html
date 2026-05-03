@@ -20,7 +20,7 @@
             [(ngModel)]="selectedOrg"
             optionLabel="slug"
             optionValue="id"
-            (onChange)="onOrgSelected($event)"
+            (onChange)="onOrgSelected($event.value)"
             placeholder="Select organization"
           />
         </div>
@@ -38,22 +38,240 @@
 
         <div class="px-6 py-8">
           <div class="space-y-6">
+
             <!-- Member Management Section -->
             <div>
-              <h3 class="text-base font-semibold text-slate-900 mb-4">
-                Mitgliederverwaltung
-              </h3>
-              <p class="text-sm text-slate-600 mb-4">
-                Verwalte die Mitglieder dieser Organisation und ihre Rollen.
-              </p>
-
-              <!-- Member list would be loaded here -->
-              <div class="rounded-lg border border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm text-slate-600">
-                Mitgliederliste wird geladen...
+              <div class="flex items-center justify-between mb-4">
+                <h3 class="text-base font-semibold text-slate-900">Mitgliederverwaltung</h3>
+                @if (!showInviteForm()) {
+                  <p-button
+                    label="Mitglied einladen"
+                    icon="pi pi-user-plus"
+                    size="small"
+                    (onClick)="openInviteForm()"
+                  />
+                }
               </div>
+
+              <!-- Invite Member Form -->
+              @if (showInviteForm()) {
+                <div class="mb-6 rounded-lg border border-blue-200 bg-blue-50 p-4">
+                  <h4 class="text-sm font-semibold text-slate-900 mb-3">Neues Mitglied einladen</h4>
+                  <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div>
+                      <label class="block text-xs font-medium text-slate-700 mb-1">Vorname</label>
+                      <input
+                        type="text"
+                        [(ngModel)]="inviteFirstName"
+                        placeholder="Vorname"
+                        class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label class="block text-xs font-medium text-slate-700 mb-1">Nachname</label>
+                      <input
+                        type="text"
+                        [(ngModel)]="inviteLastName"
+                        placeholder="Nachname"
+                        class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label class="block text-xs font-medium text-slate-700 mb-1">E-Mail *</label>
+                      <input
+                        type="email"
+                        [(ngModel)]="inviteEmail"
+                        placeholder="email@beispiel.de"
+                        class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label class="block text-xs font-medium text-slate-700 mb-1">Rolle</label>
+                      <select
+                        [(ngModel)]="inviteRole"
+                        class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        @for (opt of roleOptions; track opt.value) {
+                          <option [value]="opt.value">{{ opt.label }}</option>
+                        }
+                      </select>
+                    </div>
+                  </div>
+
+                  @if (inviteError()) {
+                    <p class="mt-2 text-sm text-red-600">{{ inviteError() }}</p>
+                  }
+
+                  <div class="mt-3 flex gap-2">
+                    <p-button
+                      label="Einladung senden"
+                      icon="pi pi-send"
+                      size="small"
+                      [loading]="inviteLoading()"
+                      [disabled]="!inviteEmail"
+                      (onClick)="submitInvite()"
+                    />
+                    <p-button
+                      label="Abbrechen"
+                      size="small"
+                      severity="secondary"
+                      (onClick)="cancelInvite()"
+                    />
+                  </div>
+                </div>
+              }
+
+              <!-- Members Loading / Error -->
+              @if (membersLoading()) {
+                <div class="rounded-lg border border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm text-slate-600">
+                  <i class="pi pi-spin pi-spinner mr-2"></i>Mitgliederliste wird geladen...
+                </div>
+              } @else if (membersError()) {
+                <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-4 text-sm text-red-700">
+                  {{ membersError() }}
+                </div>
+              } @else if (members().length === 0) {
+                <div class="rounded-lg border border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm text-slate-600">
+                  Keine Mitglieder gefunden.
+                </div>
+              } @else {
+                <!-- Member Table -->
+                <div class="overflow-x-auto rounded-lg border border-slate-200">
+                  <table class="w-full text-sm">
+                    <thead class="bg-slate-50 text-xs uppercase text-slate-500">
+                      <tr>
+                        <th class="px-4 py-3 text-left">Name / E-Mail</th>
+                        <th class="px-4 py-3 text-left">Rolle</th>
+                        <th class="px-4 py-3 text-left">Status</th>
+                        <th class="px-4 py-3 text-right">Aktionen</th>
+                      </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-200">
+                      @for (member of members(); track member.userId) {
+                        <tr class="bg-white hover:bg-slate-50">
+                          <td class="px-4 py-3">
+                            <div class="font-medium text-slate-900">{{ getMemberDisplayName(member) }}</div>
+                            <div class="text-xs text-slate-500">{{ member.email }}</div>
+                          </td>
+                          <td class="px-4 py-3">
+                            <span class="inline-flex items-center rounded-full px-2 py-1 text-xs font-medium"
+                              [class.bg-purple-100]="member.role === 'COMPANY_ADMIN'"
+                              [class.text-purple-700]="member.role === 'COMPANY_ADMIN'"
+                              [class.bg-slate-100]="member.role !== 'COMPANY_ADMIN'"
+                              [class.text-slate-700]="member.role !== 'COMPANY_ADMIN'">
+                              {{ getRoleLabel(member.role) }}
+                            </span>
+                          </td>
+                          <td class="px-4 py-3">
+                            <span class="inline-flex items-center rounded-full px-2 py-1 text-xs font-medium"
+                              [class.bg-green-100]="member.status === 'ACTIVE'"
+                              [class.text-green-700]="member.status === 'ACTIVE'"
+                              [class.bg-yellow-100]="member.status === 'INVITED'"
+                              [class.text-yellow-700]="member.status === 'INVITED'">
+                              {{ getStatusLabel(member.status) }}
+                            </span>
+                          </td>
+                          <td class="px-4 py-3 text-right">
+                            <div class="flex justify-end gap-2">
+                              <p-button
+                                icon="pi pi-pencil"
+                                size="small"
+                                severity="secondary"
+                                [text]="true"
+                                pTooltip="Rolle ändern"
+                                (onClick)="openRoleChange(member)"
+                              />
+                              <p-button
+                                icon="pi pi-trash"
+                                size="small"
+                                severity="danger"
+                                [text]="true"
+                                pTooltip="Entfernen"
+                                (onClick)="openRemoveConfirm(member)"
+                              />
+                            </div>
+                          </td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+              }
             </div>
 
-            <!-- Additional settings can go here -->
+            <!-- Role Change Dialog (inline) -->
+            @if (roleChangeTarget()) {
+              <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+                <div class="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+                  <h3 class="text-base font-semibold text-slate-900 mb-4">Rolle ändern</h3>
+                  <p class="text-sm text-slate-600 mb-3">
+                    Rolle für <strong>{{ getMemberDisplayName(roleChangeTarget()!) }}</strong> ändern:
+                  </p>
+                  <select
+                    [(ngModel)]="selectedNewRole"
+                    class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
+                  >
+                    @for (opt of roleOptions; track opt.value) {
+                      <option [value]="opt.value">{{ opt.label }}</option>
+                    }
+                  </select>
+
+                  @if (roleChangeError()) {
+                    <p class="mb-3 text-sm text-red-600">{{ roleChangeError() }}</p>
+                  }
+
+                  <div class="flex justify-end gap-2">
+                    <p-button
+                      label="Abbrechen"
+                      severity="secondary"
+                      size="small"
+                      (onClick)="cancelRoleChange()"
+                    />
+                    <p-button
+                      label="Speichern"
+                      size="small"
+                      [loading]="roleChangeLoading()"
+                      (onClick)="submitRoleChange()"
+                    />
+                  </div>
+                </div>
+              </div>
+            }
+
+            <!-- Remove Confirmation Dialog (inline) -->
+            @if (removeTarget()) {
+              <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+                <div class="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+                  <h3 class="text-base font-semibold text-slate-900 mb-4">Mitglied entfernen</h3>
+                  <p class="text-sm text-slate-600 mb-4">
+                    Möchtest du <strong>{{ getMemberDisplayName(removeTarget()!) }}</strong> wirklich aus der Organisation entfernen?
+                    Diese Aktion kann nicht rückgängig gemacht werden.
+                  </p>
+
+                  @if (removeError()) {
+                    <p class="mb-3 text-sm text-red-600">{{ removeError() }}</p>
+                  }
+
+                  <div class="flex justify-end gap-2">
+                    <p-button
+                      label="Abbrechen"
+                      severity="secondary"
+                      size="small"
+                      (onClick)="cancelRemove()"
+                    />
+                    <p-button
+                      label="Entfernen"
+                      severity="danger"
+                      size="small"
+                      [loading]="removeLoading()"
+                      (onClick)="confirmRemove()"
+                    />
+                  </div>
+                </div>
+              </div>
+            }
+
+            <!-- Additional settings -->
             <div class="border-t border-slate-200 pt-6">
               <h3 class="text-base font-semibold text-slate-900 mb-4">
                 Organisationsdetails
@@ -69,6 +287,7 @@
                 </div>
               </div>
             </div>
+
           </div>
         </div>
       </div>
