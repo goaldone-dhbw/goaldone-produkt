@@ -12,10 +12,10 @@ export class AuthService {
 
   initialize(): Promise<boolean> {
     // Read from window.__env at runtime (injected via env.js before app boot)
-    // Fallback to defaults if not set (for development)
+    // Fallback to defaults if not set (for local development)
     const windowEnv = (window as any).__env || {};
-    const issuerUri = windowEnv['issuerUri'] || 'https://sso.dev.goaldone.de';
-    const clientId = windowEnv['clientId'] || 'YOUR_ZITADEL_CLIENT_ID';
+    const issuerUri = windowEnv['issuerUri'] || 'http://localhost:9000';
+    const clientId = windowEnv['clientId'] || 'goaldone-frontend';
     const isProd =
       window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
 
@@ -25,7 +25,7 @@ export class AuthService {
       responseType: 'code',
       redirectUri: window.location.origin + '/callback',
       postLogoutRedirectUri: window.location.origin,
-      scope: 'openid profile email offline_access urn:zitadel:iam:user:resourceowner',
+      scope: 'openid profile email offline_access',
       useSilentRefresh: false,
       showDebugInformation: !isProd,
     });
@@ -39,7 +39,7 @@ export class AuthService {
         this.oauthService.initLoginFlow();
       });
 
-    this.oauthService.setupAutomaticSilentRefresh();
+    // Note: useSilentRefresh is false — token refresh is handled per-request in authInterceptor (D-03)
 
     return this.oauthService.loadDiscoveryDocumentAndTryLogin();
   }
@@ -86,47 +86,34 @@ export class AuthService {
     return this.decodeJwtToken(accessToken);
   }
 
-  getUserRoles(): string[] {
+  /**
+   * Returns roles extracted from the 'authorities' claim, mapped by organization ID.
+   * @returns Object where keys are org IDs and values are role arrays (e.g., { "org-uuid-1": ["ROLE_ADMIN"] })
+   */
+  getUserRoles(): { [orgId: string]: string[] } {
     const decodedToken = this.getDecodedAccessToken();
     if (!decodedToken) {
-      return [];
+      return {};
     }
 
-    // Search for roles in common claims
-    // 1. Generic 'roles'
-    // 2. Generic Zitadel project roles 'urn:zitadel:iam:org:project:roles'
-    // 3. Project-specific Zitadel roles 'urn:zitadel:iam:org:project:{projectId}:roles'
-    const rolesKey = Object.keys(decodedToken).find(key =>
-      key === 'roles' ||
-      key === 'urn:zitadel:iam:org:project:roles' ||
-      (key.startsWith('urn:zitadel:iam:org:project:') && key.endsWith(':roles'))
-    );
+    const orgs = Array.isArray(decodedToken['orgs']) ? decodedToken['orgs'] : [];
 
-    const rolesObj = rolesKey ? decodedToken[rolesKey] : {};
+    // Build a map: each org ID maps to the role from the orgs claim
+    const rolesByOrg: { [orgId: string]: string[] } = {};
+    for (const org of orgs) {
+      if (org.id && org.role) {
+        rolesByOrg[org.id] = [org.role];
+      }
+    }
 
-    return typeof rolesObj === 'object' && !Array.isArray(rolesObj)
-      ? Object.keys(rolesObj)
-      : Array.isArray(rolesObj)
-        ? rolesObj
-        : [];
-  }
-
-  getUserOrganizationId(): string | null {
-    const decodedToken = this.getDecodedAccessToken();
-    return (
-      decodedToken?.['org_id'] ||
-      decodedToken?.['organisation_id'] ||
-      decodedToken?.['urn:zitadel:iam:user:resourceowner:id'] ||
-      null
-    );
+    return rolesByOrg;
   }
 
   /**
-   * Extract the list of user memberships from the JWT 'orgs' claim.
-   * Returns an array of organization objects with id, name, slug, and role.
-   * @returns Array of organization membership objects, or null if claim not found.
+   * Returns the user's organization memberships from the 'orgs' claim.
+   * @returns Array of org objects with id, slug, and role
    */
-  getUserMemberships(): any[] {
+  getOrganizations(): Array<{ id: string; slug: string; role: string }> {
     const decodedToken = this.getDecodedAccessToken();
     if (!decodedToken) {
       return [];
@@ -138,5 +125,29 @@ export class AuthService {
     }
 
     return orgs;
+  }
+
+  /**
+   * Returns the first organization (default active org after login).
+   * @returns First org object or null if user has no orgs
+   */
+  getActiveOrganization(): { id: string; slug: string; role: string } | null {
+    const orgs = this.getOrganizations();
+    return orgs.length > 0 ? orgs[0] : null;
+  }
+
+  /**
+   * @deprecated Use getOrganizations() instead. Returns first org ID for backward compatibility.
+   */
+  getUserOrganizationId(): string | null {
+    const activeOrg = this.getActiveOrganization();
+    return activeOrg ? activeOrg.id : null;
+  }
+
+  /**
+   * @deprecated Use getOrganizations() instead. Returns the same data for backward compatibility.
+   */
+  getUserMemberships(): any[] {
+    return this.getOrganizations();
   }
 }

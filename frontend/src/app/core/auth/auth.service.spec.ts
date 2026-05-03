@@ -16,7 +16,6 @@ describe('AuthService', () => {
     const oauthServiceMock = {
       configure: vi.fn(),
       loadDiscoveryDocumentAndTryLogin: vi.fn(() => Promise.resolve(true)),
-      setupAutomaticSilentRefresh: vi.fn(),
       hasValidAccessToken: vi.fn(() => true),
       getAccessToken: vi.fn(() => 'test-token'),
       initLoginFlow: vi.fn(),
@@ -50,18 +49,13 @@ describe('AuthService', () => {
 
       expect(oauthService.configure).toHaveBeenCalledWith(
         expect.objectContaining({
-          scope: 'openid profile email offline_access urn:zitadel:iam:user:resourceowner',
+          scope: 'openid profile email offline_access',
           responseType: 'code',
           useSilentRefresh: false,
         }),
       );
     });
 
-    it('should setup automatic silent refresh', async () => {
-      await service.initialize();
-
-      expect(oauthService.setupAutomaticSilentRefresh).toHaveBeenCalled();
-    });
 
     it('should handle token_refresh_error event', async () => {
       await service.initialize();
@@ -144,44 +138,94 @@ describe('AuthService', () => {
     });
 
     describe('getUserRoles', () => {
-      it('should return an empty array if no roles are present', () => {
+      it('should return an empty object if no orgs are present', () => {
         const token = createMockJwt({ sub: '123' });
         vi.mocked(oauthService.getAccessToken).mockReturnValue(token);
-        expect(service.getUserRoles()).toEqual([]);
+        expect(service.getUserRoles()).toEqual({});
       });
 
-      it('should extract roles from "roles" claim', () => {
-        const token = createMockJwt({ roles: ['admin', 'user'] });
+      it('should return per-org role mapping from orgs claim', () => {
+        const orgs = [
+          { id: 'org-uuid-1', slug: 'acme', role: 'ROLE_ADMIN' },
+          { id: 'org-uuid-2', slug: 'widgets', role: 'ROLE_MEMBER' },
+        ];
+        const token = createMockJwt({ orgs });
         vi.mocked(oauthService.getAccessToken).mockReturnValue(token);
-        expect(service.getUserRoles()).toEqual(['admin', 'user']);
-      });
-
-      it('should extract roles from Zitadel-specific claim', () => {
-        const token = createMockJwt({
-          'urn:zitadel:iam:org:project:roles': ['editor'],
+        expect(service.getUserRoles()).toEqual({
+          'org-uuid-1': ['ROLE_ADMIN'],
+          'org-uuid-2': ['ROLE_MEMBER'],
         });
+      });
+
+      it('should return empty object if orgs claim is not an array', () => {
+        const token = createMockJwt({ orgs: 'not-an-array' });
         vi.mocked(oauthService.getAccessToken).mockReturnValue(token);
-        expect(service.getUserRoles()).toEqual(['editor']);
+        expect(service.getUserRoles()).toEqual({});
+      });
+    });
+
+    describe('getOrganizations', () => {
+      it('should return empty array if no orgs are present', () => {
+        const token = createMockJwt({ sub: '123' });
+        vi.mocked(oauthService.getAccessToken).mockReturnValue(token);
+        expect(service.getOrganizations()).toEqual([]);
+      });
+
+      it('should return empty array if no token is available', () => {
+        vi.mocked(oauthService.getAccessToken).mockReturnValue('');
+        expect(service.getOrganizations()).toEqual([]);
+      });
+
+      it('should extract orgs from "orgs" claim', () => {
+        const orgs = [
+          { id: 'org-1', slug: 'org-one', role: 'ROLE_ADMIN' },
+          { id: 'org-2', slug: 'org-two', role: 'ROLE_MEMBER' },
+        ];
+        const token = createMockJwt({ orgs });
+        vi.mocked(oauthService.getAccessToken).mockReturnValue(token);
+        expect(service.getOrganizations()).toEqual(orgs);
+      });
+
+      it('should return empty array if orgs claim is not an array', () => {
+        const token = createMockJwt({ orgs: 'not-an-array' });
+        vi.mocked(oauthService.getAccessToken).mockReturnValue(token);
+        expect(service.getOrganizations()).toEqual([]);
+      });
+    });
+
+    describe('getActiveOrganization', () => {
+      it('should return null if no orgs are present', () => {
+        const token = createMockJwt({ sub: '123' });
+        vi.mocked(oauthService.getAccessToken).mockReturnValue(token);
+        expect(service.getActiveOrganization()).toBeNull();
+      });
+
+      it('should return first org if orgs are present', () => {
+        const orgs = [
+          { id: 'org-1', slug: 'org-one', role: 'ROLE_ADMIN' },
+          { id: 'org-2', slug: 'org-two', role: 'ROLE_MEMBER' },
+        ];
+        const token = createMockJwt({ orgs });
+        vi.mocked(oauthService.getAccessToken).mockReturnValue(token);
+        expect(service.getActiveOrganization()).toEqual(orgs[0]);
       });
     });
 
     describe('getUserOrganizationId', () => {
-      it('should return null if no org ID is present', () => {
+      it('should return null if no orgs are present', () => {
         const token = createMockJwt({ sub: '123' });
         vi.mocked(oauthService.getAccessToken).mockReturnValue(token);
         expect(service.getUserOrganizationId()).toBeNull();
       });
 
-      it('should extract org ID from "org_id" claim', () => {
-        const token = createMockJwt({ org_id: 'org123' });
+      it('should return first org ID from orgs claim (backward compatibility)', () => {
+        const orgs = [
+          { id: 'org-uuid-1', slug: 'acme', role: 'ROLE_ADMIN' },
+          { id: 'org-uuid-2', slug: 'widgets', role: 'ROLE_MEMBER' },
+        ];
+        const token = createMockJwt({ orgs });
         vi.mocked(oauthService.getAccessToken).mockReturnValue(token);
-        expect(service.getUserOrganizationId()).toBe('org123');
-      });
-
-      it('should extract org ID from "organisation_id" claim', () => {
-        const token = createMockJwt({ organisation_id: 'org456' });
-        vi.mocked(oauthService.getAccessToken).mockReturnValue(token);
-        expect(service.getUserOrganizationId()).toBe('org456');
+        expect(service.getUserOrganizationId()).toBe('org-uuid-1');
       });
     });
 
