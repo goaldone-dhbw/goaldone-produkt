@@ -8,8 +8,8 @@ describe('OrgContextService', () => {
   let authService: AuthService;
 
   const mockOrgs = [
-    { id: 'org-1', slug: 'acme', role: 'ROLE_ADMIN' },
-    { id: 'org-2', slug: 'widgets', role: 'ROLE_MEMBER' },
+    { id: 'org-1', slug: 'acme', role: 'COMPANY_ADMIN' },
+    { id: 'org-2', slug: 'widgets', role: 'USER' },
   ];
 
   beforeEach(() => {
@@ -46,7 +46,8 @@ describe('OrgContextService', () => {
       expect(service.getDialogOrg()).toBeNull();
     });
 
-    it('should emit dialog org changes via observable', (done) => {
+    it('should emit dialog org changes via observable', () => {
+      // BehaviorSubject emits synchronously — no done callback needed
       const values: (string | null)[] = [];
       service.dialogOrgContext$.subscribe((value) => {
         values.push(value);
@@ -56,12 +57,9 @@ describe('OrgContextService', () => {
       service.setDialogOrg('org-2');
       service.clearDialogOrg();
 
-      setTimeout(() => {
-        expect(values).toContain(null);
-        expect(values).toContain('org-1');
-        expect(values).toContain('org-2');
-        done();
-      }, 0);
+      expect(values).toContain(null);
+      expect(values).toContain('org-1');
+      expect(values).toContain('org-2');
     });
   });
 
@@ -81,7 +79,8 @@ describe('OrgContextService', () => {
       expect(service.getSettingsOrg()).toBeNull();
     });
 
-    it('should emit settings org changes via observable', (done) => {
+    it('should emit settings org changes via observable', () => {
+      // BehaviorSubject emits synchronously — no done callback needed
       const values: (string | null)[] = [];
       service.settingsOrgContext$.subscribe((value) => {
         values.push(value);
@@ -91,12 +90,9 @@ describe('OrgContextService', () => {
       service.setSettingsOrg('org-2');
       service.clearSettingsOrg();
 
-      setTimeout(() => {
-        expect(values).toContain(null);
-        expect(values).toContain('org-1');
-        expect(values).toContain('org-2');
-        done();
-      }, 0);
+      expect(values).toContain(null);
+      expect(values).toContain('org-1');
+      expect(values).toContain('org-2');
     });
   });
 
