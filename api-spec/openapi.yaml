@@ -670,6 +670,7 @@ paths:
           description: Auth Service User ID
           schema:
             type: string
+            format: uuid
       responses:
         '204':
           description: Einladung erneut versendet
@@ -736,6 +737,7 @@ paths:
           description: Auth Service User ID
           schema:
             type: string
+            format: uuid
       requestBody:
         required: true
         content:
@@ -778,6 +780,7 @@ paths:
           description: Auth Service User ID
           schema:
             type: string
+            format: uuid
       responses:
         '204':
           description: User removed
@@ -1556,7 +1559,7 @@ components:
     MemberResponse:
       type: object
       required:
-        - zitadelUserId
+        - userId
         - email
         - role
         - status
@@ -1569,9 +1572,10 @@ components:
           description: |
             Lokale Account-ID aus user_accounts.
             null wenn der Nutzer die Einladung noch nicht angenommen hat.
-        zitadelUserId:
+        userId:
           type: string
-          description: Zitadel-User-ID
+          format: uuid
+          description: User UUID from auth-service
         email:
           type: string
           format: email
