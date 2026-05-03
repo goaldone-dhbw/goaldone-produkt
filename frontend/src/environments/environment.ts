@@ -4,10 +4,18 @@ declare global {
   }
 }
 
+// Guard against window not being defined (in Node.js/test environments)
+const getWindowEnv = () => {
+  if (typeof window !== 'undefined') {
+    return window.__env;
+  }
+  return undefined;
+};
+
 export const environment = {
   production: false,
-  issuerUri: window.__env?.['issuerUri'] ?? 'https://sso.goaldone.de',
-  clientId: window.__env?.['clientId'] ?? 'YOUR_ZITADEL_CLIENT_ID',
+  issuerUri: getWindowEnv()?.['issuerUri'] ?? 'https://sso.goaldone.de',
+  clientId: getWindowEnv()?.['clientId'] ?? 'YOUR_ZITADEL_CLIENT_ID',
   apiBasePath: 'http://localhost:8080',
   logLevel: 'DEBUG',
 };
