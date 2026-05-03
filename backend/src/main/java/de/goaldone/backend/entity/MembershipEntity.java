@@ -28,10 +28,26 @@ public class MembershipEntity {
     @Column(name = "organization_id", nullable = false)
     private UUID organizationId;
 
-    /** The {@link UserEntity} this membership is associated with. */
+    /** The {@link UserEntity} this membership is associated with. Null for INVITED memberships. */
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
+    @JoinColumn(name = "user_id")
     private UserEntity user;
+
+    /** Invitation UUID from auth-service (populated for INVITED memberships). */
+    @Column(name = "invitation_id")
+    private UUID invitationId;
+
+    /** Membership status: ACTIVE or INVITED. */
+    @Column(name = "status")
+    private String status;
+
+    /** Role assigned to this member. */
+    @Column(name = "role")
+    private String role;
+
+    /** Email address for INVITED memberships (before a UserEntity exists). */
+    @Column(name = "email")
+    private String email;
 
     /** The timestamp when this membership record was created. */
     @Column(name = "created_at", nullable = false)

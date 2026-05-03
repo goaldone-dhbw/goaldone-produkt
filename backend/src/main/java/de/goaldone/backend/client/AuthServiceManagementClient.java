@@ -28,15 +28,16 @@ public class AuthServiceManagementClient {
     }
 
     /**
-     * Creates a new invitation in the auth-service.
+     * Creates a new invitation in the auth-service and returns the invitation UUID.
      */
-    public void createInvitation(UUID companyId, String email, UUID inviterId, MemberRole role) {
+    public UUID createInvitation(UUID companyId, String email, UUID inviterId, MemberRole role) {
         try {
-            authServiceRestClient.post()
+            InvitationCreatedResponse response = authServiceRestClient.post()
                     .uri("/api/v1/invitations")
                     .body(new InvitationRequestBody(email, companyId, inviterId, role != null ? role.getValue() : null))
                     .retrieve()
-                    .toBodilessEntity();
+                    .body(InvitationCreatedResponse.class);
+            return response != null ? response.id() : null;
         } catch (RestClientResponseException e) {
             log.error("Auth-service invitation failed: status={} body={}", e.getStatusCode(), e.getResponseBodyAsString());
             throw new AuthServiceManagementException("Failed to create invitation: " + e.getMessage(), e.getStatusCode().value());
@@ -130,4 +131,6 @@ public class AuthServiceManagementClient {
     }
 
     private record InvitationRequestBody(String email, UUID companyId, UUID inviterId, String role) {}
+
+    private record InvitationCreatedResponse(UUID id, String email, UUID companyId) {}
 }

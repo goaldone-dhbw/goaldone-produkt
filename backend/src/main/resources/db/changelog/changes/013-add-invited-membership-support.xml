@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="013-1" author="gsd">
+        <addColumn tableName="memberships">
+            <column name="invitation_id" type="UUID"/>
+            <column name="status" type="VARCHAR(20)"/>
+            <column name="role" type="VARCHAR(50)"/>
+            <column name="email" type="VARCHAR(255)"/>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="013-2" author="gsd">
+        <dropNotNullConstraint tableName="memberships" columnName="user_id" columnDataType="UUID"/>
+    </changeSet>
+
+</databaseChangeLog>

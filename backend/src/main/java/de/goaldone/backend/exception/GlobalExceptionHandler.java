@@ -64,6 +64,16 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * Handles AuthServiceManagementException and returns HTTP 502 (Bad Gateway).
+     */
+    @ExceptionHandler(de.goaldone.backend.client.AuthServiceManagementException.class)
+    public ProblemDetail handleAuthServiceManagement(de.goaldone.backend.client.AuthServiceManagementException ex) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_GATEWAY, ex.getMessage());
+        pd.setType(URI.create("https://goaldone.de/errors/upstream-error"));
+        return pd;
+    }
+
+    /**
      * Handles ZitadelApiException and returns HTTP 502 (Bad Gateway).
      */
     @ExceptionHandler(ZitadelApiException.class)

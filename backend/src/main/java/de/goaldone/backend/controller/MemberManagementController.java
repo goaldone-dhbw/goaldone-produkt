@@ -34,7 +34,7 @@ public class MemberManagementController implements MemberManagementApi {
 
     @Override
     @PreAuthorize("hasRole('COMPANY_ADMIN') and @authz.isMember(#xOrgID)")
-    public ResponseEntity<Void> reinviteMember(UUID xOrgID, String userId) {
+    public ResponseEntity<Void> reinviteMember(UUID xOrgID, UUID userId) {
         memberInviteService.reinviteMember(xOrgID, userId);
         return ResponseEntity.noContent().build();
     }
@@ -47,14 +47,14 @@ public class MemberManagementController implements MemberManagementApi {
 
     @Override
     @PreAuthorize("hasRole('COMPANY_ADMIN') and @authz.isMember(#xOrgID)")
-    public ResponseEntity<Void> changeMemberRole(UUID xOrgID, String userId, ChangeRoleRequest changeRoleRequest) {
+    public ResponseEntity<Void> changeMemberRole(UUID xOrgID, UUID userId, ChangeRoleRequest changeRoleRequest) {
         memberManagementService.changeMemberRole(xOrgID, userId, changeRoleRequest);
         return ResponseEntity.ok().build();
     }
 
     @Override
     @PreAuthorize("hasRole('COMPANY_ADMIN') and @authz.isMember(#xOrgID)")
-    public ResponseEntity<Void> removeMember(UUID xOrgID, String userId) {
+    public ResponseEntity<Void> removeMember(UUID xOrgID, UUID userId) {
         memberManagementService.removeMember(xOrgID, userId);
         return ResponseEntity.noContent().build();
     }
