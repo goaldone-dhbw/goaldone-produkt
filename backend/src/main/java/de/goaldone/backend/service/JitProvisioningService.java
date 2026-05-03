@@ -72,6 +72,9 @@ public class JitProvisioningService {
         for (Map<String, Object> orgData : orgs) {
             String authCompanyIdStr = (String) orgData.get("id");
             String orgName = (String) orgData.get("name");
+            if (orgName == null || orgName.isEmpty()) {
+                orgName = (String) orgData.get("slug");
+            }
 
             if (authCompanyIdStr == null) {
                 log.warn("[JIT] Org data missing 'id' field, skipping. Data: {}", orgData);

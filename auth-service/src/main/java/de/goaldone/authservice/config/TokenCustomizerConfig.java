@@ -41,6 +41,7 @@ public class TokenCustomizerConfig {
                             java.util.Map<String, Object> org = new java.util.HashMap<>();
                             org.put("id", membershipInfo.getCompanyId().toString());
                             org.put("slug", membershipInfo.getCompanySlug());
+                            org.put("name", membershipInfo.getCompanyName());
                             org.put("role", membershipInfo.getRole());
                             return org;
                         })

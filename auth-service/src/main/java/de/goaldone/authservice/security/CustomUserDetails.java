@@ -49,7 +49,7 @@ public class CustomUserDetails implements UserDetails, Serializable {
                 .orElse(null);
         this.superAdmin = user.isSuperAdmin();
         this.memberships = user.getMemberships().stream()
-                .map(m -> new MembershipInfo(m.getCompany().getId(), m.getCompany().getSlug(), m.getRole().name()))
+                .map(m -> new MembershipInfo(m.getCompany().getId(), m.getCompany().getSlug(), m.getCompany().getName(), m.getRole().name()))
                 .toList();
     }
 
@@ -121,6 +121,7 @@ public class CustomUserDetails implements UserDetails, Serializable {
 
         private UUID companyId;
         private String companySlug;
+        private String companyName;
         private String role;
     }
 }
