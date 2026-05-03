@@ -178,6 +178,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 **Wave 1:**
 - [x] 07-01-PLAN.md — API Regeneration & Verification (regenerate TypeScript client, audit shapes, document breaking changes)
+- [x] 07-02-PLAN.md — OIDC Static Analysis & Verification (env.js config, JWT claims, interceptor, multi-org provisioning, 3 bugs fixed)
 
 ## Progress
 
@@ -194,4 +195,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 03.1 → 4 → 5 → 6 → 6.
 | 5. Member Management Rewrite & Cutover | 5/5 | Ready to execute | - |
 | 6. Backend Error Fix & Test Restoration | 0/2 | Ready to plan | - |
 | 06.1 CI/CD Pipeline Update | 4/4 | Ready to execute | - |
-| 7. Frontend Integration | 1/TBD | In progress | - |
+| 7. Frontend Integration | 2/TBD | In progress | - |

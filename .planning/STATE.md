@@ -2,11 +2,11 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_plan: 07-02 (next)
+current_plan: 07-03 (next)
 status: in-progress
-stopped_at: Plan 07-01 complete — API Regeneration & Verification
+stopped_at: Plan 07-02 complete — OIDC Static Analysis & Bug Fixes
 last_updated: "2026-05-04T00:00:00.000+02:00"
-last_activity: 2026-05-04 -- Phase 07 Plan 07-01 complete (API Regeneration & Verification)
+last_activity: 2026-05-04 -- Phase 07 Plan 07-02 complete (OIDC Verification & Config Bug Fixes)
 progress:
   total_phases: 9
   completed_phases: 4
@@ -22,14 +22,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-02)
 
 **Core value:** Users authenticate through custom auth-service with simplified multi-org identity model — Zitadel fully replaced
-**Current focus:** Phase 07 — Plan 07-01 COMPLETE ✅ — API Regeneration & Verification done; plan 07-02 next
+**Current focus:** Phase 07 — Plan 07-02 COMPLETE ✅ — OIDC Verification & Config Bug Fixes done; plan 07-03 next
 
 ## Current Position
 
 Phase: 7 (fix-the-frontend-to-work-with-my-new-backend-implementation-that-fully-utilizes-the-auth-service) — IN PROGRESS
-Status: Plan 07-01 complete, plan 07-02 pending
-Last activity: 2026-05-04 -- Plan 07-01 complete (API Regeneration & Verification)
-Current Plan: 07-02 (next)
+Status: Plan 07-02 complete, plan 07-03 pending
+Last activity: 2026-05-04 -- Plan 07-02 complete (OIDC Verification & Config Bug Fixes)
+Current Plan: 07-03 (next)
 
 Progress: [▓▓▓▓▓▓▓▓░░] 79% (6/7 phases done, 1 pending)
 
@@ -79,6 +79,10 @@ Recent decisions affecting current work:
 - Phase 5: Zitadel SDK fully removed — no io.github.zitadel dependency in pom.xml
 - API client was already in sync with openapi.yaml — no file content changes after 07-01 regeneration
   - MemberResponse confirmed: userId (UUID), accountId (nullable), status (INVITED|ACTIVE), createdAt
+- Phase 07-02: orgs[].role values from JWT are USER/COMPANY_ADMIN/SUPER_ADMIN (Role enum names)
+- Phase 07-02: env.js.template fixed — now uses OIDC_CLIENT_ID/OIDC_ISSUER_URI matching docker-compose
+- Phase 07-02: ClientSeedingRunner default aligned to goaldone-frontend (matches frontend defaults)
+- Phase 07-02: docker-compose auth-service containers now forward FRONTEND_CLIENT_ID
 
 ### Roadmap Evolution
 
@@ -96,6 +100,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-05-03T14:32:03.334Z
-Stopped at: Phase 06.1 context gathered
-Resume file: .planning/phases/06.1-ci-cd-pipeline-update-auth-service-deployment-postgres-independence-and-github-actions-build/06.1-CONTEXT.md
+Last session: 2026-05-04T00:00:00.000Z
+Stopped at: Plan 07-02 complete — OIDC Static Analysis & Config Bug Fixes
+Resume file: None
