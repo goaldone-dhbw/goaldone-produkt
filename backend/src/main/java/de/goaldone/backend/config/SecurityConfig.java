@@ -3,6 +3,7 @@ package de.goaldone.backend.config;
 import de.goaldone.backend.entity.OrganizationEntity;
 import de.goaldone.backend.filter.JitProvisioningFilter;
 import de.goaldone.backend.repository.OrganizationRepository;
+import de.goaldone.backend.security.TenantContextFilter;
 import de.goaldone.backend.service.JitProvisioningService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -115,16 +116,17 @@ public class SecurityConfig {
      * Configures the {@link SecurityFilterChain} for the application.
      * <p>
      * Defines access rules, stateless session management, JWT-based authentication,
-     * and registers the JIT provisioning filter.
+     * and registers the JIT provisioning and tenant context filters.
      * </p>
      *
      * @param http the HttpSecurity object to configure
      * @param jitProvisioningFilter the custom filter for user provisioning
+     * @param tenantContextFilter the custom filter for tenant context extraction and validation
      * @return the built SecurityFilterChain
      * @throws Exception if an error occurs during configuration
      */
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http, JitProvisioningFilter jitProvisioningFilter) throws Exception {
+    public SecurityFilterChain filterChain(HttpSecurity http, JitProvisioningFilter jitProvisioningFilter, TenantContextFilter tenantContextFilter) throws Exception {
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(AbstractHttpConfigurer::disable)
@@ -136,7 +138,8 @@ public class SecurityConfig {
                 .oauth2ResourceServer(oauth2 -> oauth2
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter()))
                 )
-                .addFilterAfter(jitProvisioningFilter, BearerTokenAuthenticationFilter.class);
+                .addFilterAfter(jitProvisioningFilter, BearerTokenAuthenticationFilter.class)
+                .addFilterAfter(tenantContextFilter, JitProvisioningFilter.class);
         return http.build();
     }
 

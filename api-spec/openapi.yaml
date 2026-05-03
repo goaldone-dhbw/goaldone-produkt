@@ -55,6 +55,8 @@ paths:
       operationId: requestAccountLink
       security:
         - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrgIdHeader'
       responses:
         '201':
           description: Link token created
@@ -71,6 +73,8 @@ paths:
       operationId: confirmAccountLink
       security:
         - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrgIdHeader'
       requestBody:
         required: true
         content:
@@ -98,6 +102,7 @@ paths:
       security:
         - bearerAuth: []
       parameters:
+        - $ref: '#/components/parameters/OrgIdHeader'
         - name: accountId
           in: path
           required: true
@@ -120,6 +125,8 @@ paths:
       operationId: getMyAccounts
       security:
         - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrgIdHeader'
       responses:
         '200':
           description: OK
@@ -138,6 +145,7 @@ paths:
       security:
         - bearerAuth: [ ]
       parameters:
+        - $ref: '#/components/parameters/OrgIdHeader'
         - $ref: '#/components/parameters/AccountIdPath'
       responses:
         '200':
@@ -160,6 +168,7 @@ paths:
       security:
         - bearerAuth: [ ]
       parameters:
+        - $ref: '#/components/parameters/OrgIdHeader'
         - $ref: '#/components/parameters/AccountIdPath'
       requestBody:
         required: true
@@ -189,6 +198,7 @@ paths:
       security:
         - bearerAuth: [ ]
       parameters:
+        - $ref: '#/components/parameters/OrgIdHeader'
         - $ref: '#/components/parameters/AccountIdPath'
         - name: appointmentId
           in: path
@@ -217,6 +227,7 @@ paths:
       security:
         - bearerAuth: [ ]
       parameters:
+        - $ref: '#/components/parameters/OrgIdHeader'
         - $ref: '#/components/parameters/AccountIdPath'
         - name: appointmentId
           in: path
@@ -256,6 +267,7 @@ paths:
       security:
         - bearerAuth: [ ]
       parameters:
+        - $ref: '#/components/parameters/OrgIdHeader'
         - $ref: '#/components/parameters/AccountIdPath'
         - $ref: '#/components/parameters/FromQuery'
         - $ref: '#/components/parameters/ToQuery'
@@ -284,6 +296,7 @@ paths:
       security:
         - bearerAuth: [ ]
       parameters:
+        - $ref: '#/components/parameters/OrgIdHeader'
         - $ref: '#/components/parameters/AccountIdPath'
       requestBody:
         required: true
@@ -326,6 +339,7 @@ paths:
       security:
         - bearerAuth: [ ]
       parameters:
+        - $ref: '#/components/parameters/OrgIdHeaderOptional'
         - $ref: '#/components/parameters/FromQuery'
         - $ref: '#/components/parameters/ToQuery'
       responses:
@@ -348,6 +362,8 @@ paths:
       operationId: generateAllAccountsSchedule
       security:
         - bearerAuth: [ ]
+      parameters:
+        - $ref: '#/components/parameters/OrgIdHeader'
       requestBody:
         required: true
         content:
@@ -378,6 +394,8 @@ paths:
       operationId: getWorkingTimes
       security:
         - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrgIdHeaderOptional'
       responses:
         '200':
           description: OK
@@ -395,6 +413,8 @@ paths:
       operationId: createWorkingTime
       security:
         - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrgIdHeader'
       requestBody:
         required: true
         content:
@@ -426,6 +446,7 @@ paths:
       security:
         - bearerAuth: [ ]
       parameters:
+        - $ref: '#/components/parameters/OrgIdHeader'
         - name: id
           in: path
           required: true
@@ -464,6 +485,7 @@ paths:
       security:
         - bearerAuth: [ ]
       parameters:
+        - $ref: '#/components/parameters/OrgIdHeader'
         - name: id
           in: path
           required: true
@@ -590,21 +612,22 @@ paths:
   # ============================================================
   # MEMBER MANAGEMENT – Invite
   # ============================================================
-  /organizations/{orgId}/members/invite:
+  /organization/members/invite:
     post:
       tags:
         - member-management
       summary: Neuen Nutzer in die Organisation einladen
       description: |
-        Legt einen neuen Zitadel-User in der Org an, vergibt die gewünschte
+        Legt einen neuen Nutzer in der Org an, vergibt die gewünschte
         Projektrolle und löst den Versand einer gebrandeten Einladungs-E-Mail aus.
         Ein lokaler Shadow-Record wird nicht angelegt – das geschieht über
         JIT-Provisioning beim ersten Login des eingeladenen Nutzers.
+        Organization ID wird über X-Org-ID Header übergeben.
       operationId: inviteMember
       security:
         - bearerAuth: []
       parameters:
-        - $ref: '#/components/parameters/OrgIdPath'
+        - $ref: '#/components/parameters/OrgIdHeader'
       requestBody:
         required: true
         content:
@@ -623,9 +646,9 @@ paths:
         '409':
           description: Conflict (EMAIL_ALREADY_IN_USE)
         '502':
-          description: Upstream Error (Zitadel)
+          description: Upstream Error
 
-  /organizations/{orgId}/members/{zitadelUserId}/reinvite:
+  /organization/members/{userId}/reinvite:
     post:
       tags:
         - member-management
@@ -635,12 +658,18 @@ paths:
         Nutzer und versendet erneut eine gebrandete Einladungs-E-Mail.
         Der vorherige Einladungslink wird dabei invalidiert.
         Nur für Nutzer mit Status INVITED aufrufbar.
+        Organization ID wird über X-Org-ID Header übergeben.
       operationId: reinviteMember
       security:
         - bearerAuth: []
       parameters:
-        - $ref: '#/components/parameters/OrgIdPath'
-        - $ref: '#/components/parameters/ZitadelUserIdPath'
+        - $ref: '#/components/parameters/OrgIdHeader'
+        - name: userId
+          in: path
+          required: true
+          description: Auth Service User ID
+          schema:
+            type: string
       responses:
         '204':
           description: Einladung erneut versendet
@@ -651,14 +680,14 @@ paths:
         '409':
           description: Conflict (USER_ALREADY_ACTIVE)
         '404':
-          description: Nutzer nicht gefunden
+          description: User not found
         '502':
-          description: Upstream Error (Zitadel)
+          description: Upstream Error
 
   # ============================================================
   # MEMBER MANAGEMENT – List, Role, Remove
   # ============================================================
-  /organizations/{orgId}/members:
+  /organization/members:
     get:
       tags:
         - member-management
@@ -667,11 +696,12 @@ paths:
         Listet alle Mitglieder der Organisation auf, inklusive eingeladener
         aber noch nicht aktiver Nutzer. Status INVITED bedeutet, die Einladung
         wurde noch nicht angenommen (kein JIT-Record vorhanden).
+        Organization ID wird über X-Org-ID Header übergeben.
       operationId: listMembers
       security:
         - bearerAuth: []
       parameters:
-        - $ref: '#/components/parameters/OrgIdPath'
+        - $ref: '#/components/parameters/OrgIdHeader'
       responses:
         '200':
           description: OK
@@ -684,23 +714,28 @@ paths:
         '403':
           description: Forbidden – nicht COMPANY_ADMIN oder nicht Mitglied dieser Org
 
-  /organizations/{orgId}/members/{zitadelUserId}/role:
+  /organization/members/{userId}/role:
     put:
       tags:
         - member-management
       summary: Rolle eines Mitglieds ändern
       description: |
-        Ändert die Projektrolle eines Mitglieds auf dem Goaldone-Projekt
-        über Zitadels ManagementService.UpdateUserGrant. Die Änderung wird
-        nicht lokal in der DB gespeichert – die neue Rolle ist ab dem
-        nächsten Token-Refresh des betroffenen Nutzers wirksam.
+        Ändert die Projektrolle eines Mitglieds auf dem Goaldone-Projekt.
+        Die Änderung wird nicht lokal in der DB gespeichert – die neue Rolle
+        ist ab dem nächsten Token-Refresh des betroffenen Nutzers wirksam.
         Degradierung des letzten COMPANY_ADMIN wird verhindert.
+        Organization ID wird über X-Org-ID Header übergeben.
       operationId: changeMemberRole
       security:
         - bearerAuth: []
       parameters:
-        - $ref: '#/components/parameters/OrgIdPath'
-        - $ref: '#/components/parameters/ZitadelUserIdPath'
+        - $ref: '#/components/parameters/OrgIdHeader'
+        - name: userId
+          in: path
+          required: true
+          description: Auth Service User ID
+          schema:
+            type: string
       requestBody:
         required: true
         content:
@@ -719,35 +754,41 @@ paths:
         '409':
           description: Conflict (LAST_ADMIN_CANNOT_BE_DEMOTED)
         '502':
-          description: Upstream Error (Zitadel)
+          description: Upstream Error
 
-  /organizations/{orgId}/members/{zitadelUserId}:
+  /organization/members/{userId}:
     delete:
       tags:
         - member-management
       summary: Mitglied aus der Organisation entfernen
       description: |
-        Entfernt den Nutzer aus Zitadel und löscht den lokalen Account
+        Entfernt den Nutzer aus der Org und löscht den lokalen Account
         inklusive aller verknüpften Daten (Tasks, Appointments, Working-Times).
-        Bei eingeladenen, noch nicht aktiven Nutzern wird nur der Zitadel-User
+        Bei eingeladenen, noch nicht aktiven Nutzern wird nur der User
         gelöscht. Selbst-Entfernung ist nicht erlaubt.
+        Organization ID wird über X-Org-ID Header übergeben.
       operationId: removeMember
       security:
         - bearerAuth: []
       parameters:
-        - $ref: '#/components/parameters/OrgIdPath'
-        - $ref: '#/components/parameters/ZitadelUserIdPath'
+        - $ref: '#/components/parameters/OrgIdHeader'
+        - name: userId
+          in: path
+          required: true
+          description: Auth Service User ID
+          schema:
+            type: string
       responses:
         '204':
-          description: Nutzer entfernt
+          description: User removed
         '401':
           description: Unauthorized
         '403':
-          description: Forbidden (CANNOT_REMOVE_SELF / nicht Mitglied der Org)
+          description: Forbidden (CANNOT_REMOVE_SELF / not member of Org)
         '409':
           description: Conflict (LAST_ADMIN_CANNOT_BE_REMOVED)
         '502':
-          description: Upstream Error (Zitadel)
+          description: Upstream Error
 
   /tasks/all:
     get:
@@ -755,6 +796,8 @@ paths:
         - tasks
       summary: Get all tasks for all accounts
       operationId: getTasksForAllAccounts
+      parameters:
+        - $ref: '#/components/parameters/OrgIdHeaderOptional'
       responses:
         '200':
           description: OK
@@ -771,6 +814,7 @@ paths:
       summary: Get all tasks for a specific account
       operationId: getTasksByAccount
       parameters:
+        - $ref: '#/components/parameters/OrgIdHeader'
         - name: accountId
           in: path
           required: true
@@ -792,6 +836,8 @@ paths:
         - tasks
       summary: Create a new task
       operationId: createTask
+      parameters:
+        - $ref: '#/components/parameters/OrgIdHeader'
       requestBody:
         required: true
         content:
@@ -817,6 +863,7 @@ paths:
       security:
         - bearerAuth: []
       parameters:
+        - $ref: '#/components/parameters/OrgIdHeader'
         - name: taskId
           in: path
           required: true
@@ -848,6 +895,7 @@ paths:
       security:
         - bearerAuth: []
       parameters:
+        - $ref: '#/components/parameters/OrgIdHeader'
         - name: taskId
           in: path
           required: true
@@ -871,6 +919,24 @@ components:
   # REUSABLE PARAMETERS
   # ============================================================
   parameters:
+    OrgIdHeader:
+      name: X-Org-ID
+      in: header
+      required: true
+      description: Organization ID context for the request
+      schema:
+        type: string
+        format: uuid
+
+    OrgIdHeaderOptional:
+      name: X-Org-ID
+      in: header
+      required: false
+      description: Organization ID context for the request (optional for listing endpoints)
+      schema:
+        type: string
+        format: uuid
+
     AccountIdPath:
       name: accountId
       in: path
