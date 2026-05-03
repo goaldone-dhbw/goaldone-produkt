@@ -5,11 +5,11 @@ import com.zitadel.model.UserServiceUser;
 import de.goaldone.backend.client.UserGrantDto;
 import de.goaldone.backend.client.ZitadelManagementClient;
 import de.goaldone.backend.entity.OrganizationEntity;
-import de.goaldone.backend.entity.UserAccountEntity;
+import de.goaldone.backend.entity.MembershipEntity;
 import de.goaldone.backend.exception.NotMemberOfOrganizationException;
 import de.goaldone.backend.model.*;
 import de.goaldone.backend.repository.OrganizationRepository;
-import de.goaldone.backend.repository.UserAccountRepository;
+import de.goaldone.backend.repository.MembershipRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -31,9 +31,10 @@ import java.util.stream.Collectors;
 public class MemberManagementService {
 
     private final ZitadelManagementClient zitadelManagementClient;
-    private final UserAccountRepository userAccountRepository;
+    private final MembershipRepository membershipRepository;
     private final OrganizationRepository organizationRepository;
-    private final UserAccountDeletionService userAccountDeletionService;
+    private final MembershipDeletionService membershipDeletionService;
+    private final UserService userService;
 
     @Value("${zitadel.goaldone.project-id}")
     private String goaldoneProjectId;
@@ -41,10 +42,17 @@ public class MemberManagementService {
     @Value("${zitadel.goaldone.org-id}")
     private String mainOrgId;
 
-    public MemberListResponse listMembers(UUID orgId) {
-        validateCallerBelongsToOrg(orgId);
+    /**
+     * Lists all members of a specific organization.
+     * Roles are fetched dynamically from the identity provider.
+     *
+     * @param xOrgID The organization ID context.
+     * @return A {@link MemberListResponse} containing the list of members.
+     */
+    public MemberListResponse listMembers(UUID xOrgID) {
+        userService.validateMembership(xOrgID);
 
-        OrganizationEntity organization = organizationRepository.findById(orgId)
+        OrganizationEntity organization = organizationRepository.findById(xOrgID)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Organization not found"));
 
         AuthorizationServiceListAuthorizationsResponse grantsResponse = zitadelManagementClient.listAllGrants(
@@ -70,7 +78,7 @@ public class MemberManagementService {
         }
 
         List<UserServiceUser> zitadelUsers = zitadelManagementClient.listUsersByIds(userIds);
-        List<UserAccountEntity> localAccounts = userAccountRepository.findAll();
+        List<MembershipEntity> localMemberships = membershipRepository.findAllByOrganizationId(xOrgID);
 
         List<MemberResponse> members = zitadelUsers.stream().map(user -> {
             String zitadelUserId  = user.getUserId();
@@ -79,15 +87,14 @@ public class MemberManagementService {
             String lastName       = user.getHuman() != null && user.getHuman().getProfile() != null ? user.getHuman().getProfile().getFamilyName() : "";
             String state          = user.getState() != null ? user.getState().toString() : "";
 
-            log.info("User info: zitadelUserId {}, email {}, firstName {}, lastName {}, state {}", zitadelUserId, email, firstName, lastName, state);
+            log.debug("Mapping user: {} ({})", email, zitadelUserId);
 
-            OffsetDateTime createdAt = null;
+            OffsetDateTime createdAt;
             if (user.getDetails() != null && user.getDetails().getCreationDate() != null) {
                 Object creationDate = user.getDetails().getCreationDate();
                 if (creationDate instanceof OffsetDateTime) {
                     createdAt = (OffsetDateTime) creationDate;
                 } else {
-                    // Fallback: try to parse as string if it's not already an OffsetDateTime
                     try {
                         Instant createdAtInstant = Instant.parse(creationDate.toString());
                         createdAt = createdAtInstant.atOffset(ZoneOffset.UTC);
@@ -100,9 +107,8 @@ public class MemberManagementService {
                 createdAt = Instant.now().atOffset(ZoneOffset.UTC);
             }
 
-            Optional<UserAccountEntity> localAccount = localAccounts.stream()
-                    .filter(acc -> acc.getAuthUserId().equals(zitadelUserId)
-                            && acc.getOrganizationId().equals(orgId))
+            Optional<MembershipEntity> localMembership = localMemberships.stream()
+                    .filter(m -> m.getUser().getAuthUserId().equals(zitadelUserId))
                     .findFirst();
 
             MemberResponse member = new MemberResponse();
@@ -111,9 +117,9 @@ public class MemberManagementService {
             member.setFirstName(firstName);
             member.setLastName(lastName);
             member.setCreatedAt(createdAt);
-            member.setAccountId(localAccount.map(UserAccountEntity::getId).orElse(null));
+            member.setAccountId(localMembership.map(MembershipEntity::getId).orElse(null));
 
-            if (localAccount.isPresent() && "USER_STATE_ACTIVE".equals(state)) {
+            if (localMembership.isPresent() && "USER_STATE_ACTIVE".equals(state)) {
                 member.setStatus(MemberStatus.ACTIVE);
             } else {
                 member.setStatus(MemberStatus.INVITED);
@@ -134,11 +140,18 @@ public class MemberManagementService {
         return response;
     }
 
-    public void changeMemberRole(UUID orgId, String zitadelUserId, ChangeRoleRequest request) {
-        validateCallerBelongsToOrg(orgId);
+    /**
+     * Changes the role of a member within an organization.
+     *
+     * @param xOrgID         The organization ID context.
+     * @param zitadelUserId The identity provider ID of the member.
+     * @param request       The change role request.
+     */
+    public void changeMemberRole(UUID xOrgID, String zitadelUserId, ChangeRoleRequest request) {
+        userService.validateMembership(xOrgID);
         MemberRole newRole = request.getRole();
 
-        OrganizationEntity organization = organizationRepository.findById(orgId)
+        OrganizationEntity organization = organizationRepository.findById(xOrgID)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Organization not found"));
 
         Optional<UserGrantDto> grantOpt = zitadelManagementClient.searchUserGrants(mainOrgId, goaldoneProjectId, zitadelUserId);
@@ -156,11 +169,6 @@ public class MemberManagementService {
 
         // Last admin check
         if (newRole == MemberRole.USER && currentRoles.contains(MemberRole.COMPANY_ADMIN.getValue())) {
-            int adminCount = zitadelManagementClient.countGrantsByRole(mainOrgId, goaldoneProjectId, MemberRole.COMPANY_ADMIN.getValue());
-            // Filter further by user organization if possible, but countGrantsByRole in root org with specific role already does part of it.
-            // Actually, we need to count admins ONLY in this organization.
-            
-            // Re-fetch all grants for this org to be sure
             AuthorizationServiceListAuthorizationsResponse allGrants = zitadelManagementClient.listAllGrants(mainOrgId, goaldoneProjectId, organization.getAuthCompanyId());
             long orgAdminCount = 0;
             if (allGrants.getAuthorizations() != null) {
@@ -184,15 +192,21 @@ public class MemberManagementService {
         zitadelManagementClient.updateUserGrant(grantId, mainOrgId, List.of(newRole.getValue()));
     }
 
-    public void removeMember(UUID orgId, String zitadelUserId) {
-        validateCallerBelongsToOrg(orgId);
+    /**
+     * Removes a member from an organization.
+     *
+     * @param xOrgID         The organization ID context.
+     * @param zitadelUserId The identity provider ID of the member.
+     */
+    public void removeMember(UUID xOrgID, String zitadelUserId) {
+        userService.validateMembership(xOrgID);
 
         String callerSub = getCallerSub();
         if (callerSub.equals(zitadelUserId)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "CANNOT_REMOVE_SELF");
         }
 
-        OrganizationEntity organization = organizationRepository.findById(orgId)
+        OrganizationEntity organization = organizationRepository.findById(xOrgID)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Organization not found"));
 
         Optional<UserGrantDto> grantOpt = zitadelManagementClient.searchUserGrants(mainOrgId, goaldoneProjectId, zitadelUserId);
@@ -204,7 +218,6 @@ public class MemberManagementService {
         List<String> roles = new ArrayList<>(grant.roleKeys());
 
         if (roles.contains(MemberRole.COMPANY_ADMIN.getValue())) {
-            // Check if last admin
             AuthorizationServiceListAuthorizationsResponse allGrants = zitadelManagementClient.listAllGrants(mainOrgId, goaldoneProjectId, organization.getAuthCompanyId());
             long orgAdminCount = 0;
             if (allGrants.getAuthorizations() != null) {
@@ -224,23 +237,12 @@ public class MemberManagementService {
             }
         }
 
-        Optional<UserAccountEntity> accountOpt = userAccountRepository.findByAuthUserId(zitadelUserId)
-                .filter(acc -> acc.getOrganizationId().equals(orgId));
+        Optional<MembershipEntity> membershipOpt = membershipRepository.findByUserAuthUserIdAndOrganizationId(zitadelUserId, xOrgID);
 
-        if (accountOpt.isPresent()) {
-            userAccountDeletionService.deleteUserAccount(accountOpt.get().getId());
+        if (membershipOpt.isPresent()) {
+            membershipDeletionService.deleteMembership(membershipOpt.get().getId());
         } else {
             zitadelManagementClient.deleteUser(zitadelUserId);
-        }
-    }
-
-    private void validateCallerBelongsToOrg(UUID orgId) {
-        String callerSub = getCallerSub();
-        UserAccountEntity callerAccount = userAccountRepository.findByAuthUserId(callerSub)
-                .orElseThrow(() -> new NotMemberOfOrganizationException("Caller account not found"));
-
-        if (!callerAccount.getOrganizationId().equals(orgId)) {
-            throw new NotMemberOfOrganizationException("Caller does not belong to organization: " + orgId);
         }
     }
 

@@ -1,11 +1,11 @@
 package de.goaldone.backend.service;
 
 import de.goaldone.backend.entity.OrganizationEntity;
-import de.goaldone.backend.entity.UserAccountEntity;
-import de.goaldone.backend.entity.UserIdentityEntity;
+import de.goaldone.backend.entity.MembershipEntity;
+import de.goaldone.backend.entity.UserEntity;
 import de.goaldone.backend.repository.OrganizationRepository;
-import de.goaldone.backend.repository.UserAccountRepository;
-import de.goaldone.backend.repository.UserIdentityRepository;
+import de.goaldone.backend.repository.MembershipRepository;
+import de.goaldone.backend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -28,8 +28,8 @@ import java.util.UUID;
 @Slf4j
 public class JitProvisioningService {
 
-    private final UserAccountRepository userAccountRepository;
-    private final UserIdentityRepository userIdentityRepository;
+    private final MembershipRepository membershipRepository;
+    private final UserRepository userRepository;
     private final OrganizationRepository organizationRepository;
 
     /**
@@ -51,10 +51,10 @@ public class JitProvisioningService {
             return;
         }
 
-        // 1. Resolve or create the UserIdentity for this authUserId
-        // Since we now allow multiple UserAccountEntities for one authUserId,
-        // they should all point to the same UserIdentityEntity.
-        UserIdentityEntity identity = resolveOrCreateIdentity(authUserId);
+        // 1. Resolve or create the User for this authUserId
+        // Since we now allow multiple MembershipEntity for one authUserId,
+        // they should all point to the same UserEntity.
+        UserEntity user = resolveOrCreateUser(authUserId);
 
         // 2. Iterate and provision memberships
         for (Map<String, Object> orgData : orgs) {
@@ -63,43 +63,41 @@ public class JitProvisioningService {
 
             if (authCompanyId == null) continue;
 
-            provisionMembership(authUserId, identity, authCompanyId, orgName);
+            provisionMembership(authUserId, user, authCompanyId, orgName);
         }
     }
 
-    private UserIdentityEntity resolveOrCreateIdentity(String authUserId) {
-        return userAccountRepository.findAllByAuthUserId(authUserId).stream()
-            .findFirst()
-            .map(acc -> userIdentityRepository.findById(acc.getUserIdentityId()).orElseThrow())
+    private UserEntity resolveOrCreateUser(String authUserId) {
+        return userRepository.findByAuthUserId(authUserId)
             .orElseGet(() -> {
-                UserIdentityEntity newIdentity = new UserIdentityEntity();
-                newIdentity.setId(UUID.randomUUID());
-                newIdentity.setCreatedAt(Instant.now());
-                return userIdentityRepository.save(newIdentity);
+                UserEntity newUser = new UserEntity();
+                newUser.setId(UUID.randomUUID());
+                newUser.setAuthUserId(authUserId);
+                newUser.setCreatedAt(Instant.now());
+                return userRepository.save(newUser);
             });
     }
 
-    private void provisionMembership(String authUserId, UserIdentityEntity identity, String authCompanyId, String orgName) {
+    private void provisionMembership(String authUserId, UserEntity user, String authCompanyId, String orgName) {
         // Find or create organization
         OrganizationEntity org = organizationRepository.findByAuthCompanyId(authCompanyId)
             .orElseGet(() -> createOrganization(authCompanyId, orgName));
 
         // Check if membership already exists for this (user, org)
-        userAccountRepository.findByAuthUserIdAndOrganizationId(authUserId, org.getId())
+        membershipRepository.findByUserAuthUserIdAndOrganizationId(authUserId, org.getId())
             .ifPresentOrElse(
-                user -> {
-                    user.setLastSeenAt(Instant.now());
-                    userAccountRepository.save(user);
+                membership -> {
+                    membership.setLastSeenAt(Instant.now());
+                    membershipRepository.save(membership);
                 },
                 () -> {
-                    UserAccountEntity newUser = new UserAccountEntity();
-                    newUser.setId(UUID.randomUUID());
-                    newUser.setAuthUserId(authUserId);
-                    newUser.setOrganizationId(org.getId());
-                    newUser.setUserIdentityId(identity.getId());
-                    newUser.setCreatedAt(Instant.now());
-                    newUser.setLastSeenAt(Instant.now());
-                    userAccountRepository.save(newUser);
+                    MembershipEntity newMembership = new MembershipEntity();
+                    newMembership.setId(UUID.randomUUID());
+                    newMembership.setOrganizationId(org.getId());
+                    newMembership.setUser(user);
+                    newMembership.setCreatedAt(Instant.now());
+                    newMembership.setLastSeenAt(Instant.now());
+                    membershipRepository.save(newMembership);
                     log.info("Provisioned new membership for user {} in organization {}", authUserId, org.getId());
                 }
             );

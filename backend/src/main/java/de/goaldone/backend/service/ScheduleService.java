@@ -20,26 +20,28 @@ import java.util.concurrent.*;
 @RequiredArgsConstructor
 public class ScheduleService {
 
-    Solver solver = new Solver();
-    Chunker chunker = new Chunker();
+    private final Solver solver = new Solver();
+    private final Chunker chunker = new Chunker();
 
     private final TasksService taskService;
     private final AppointmentService appointmentService;
 
 
     /**
-     * Generates schedules for multiple accounts asynchronously
+     * Generates schedules for multiple accounts asynchronously within an organization.
      *
-     * @param accountIds          List of accounts
-     * @param request             Request parameters (e.g. fromDate)
-     * @param timeoutMilliseconds Maximum time to wait for each account's schedule
-     *                            generation before giving up (in milliseconds)
-     * @return A schedule for each account summed up in a lCist
+     * @param jwt                 The user's JWT.
+     * @param accountIds          List of account IDs.
+     * @param request             The schedule generation request.
+     * @param xOrgID              The organization ID context.
+     * @param timeoutMilliseconds Maximum wait time per account.
+     * @return A list of generated schedules.
      */
     public List<ScheduleResponse> generateMultiAccountSchedule(
             Jwt jwt,
             List<UUID> accountIds,
             GenerateScheduleRequest request,
+            UUID xOrgID,
             long timeoutMilliseconds) {
 
         if (accountIds.isEmpty()) {
@@ -47,36 +49,22 @@ public class ScheduleService {
         }
 
         try (ExecutorService executor = Executors.newFixedThreadPool(accountIds.size())) {
-            // Create async tasks for each account
             List<CompletableFuture<ScheduleResponse>> futures = accountIds.stream()
                     .map(accountId ->
                             CompletableFuture.supplyAsync(
-                                            () -> generateSchedule(jwt, accountId, request), executor
+                                            () -> generateSchedule(jwt, accountId, request, xOrgID), executor
                                     )
-                                    // If task takes too long -> complete with null instead of blocking
                                     .completeOnTimeout(null, timeoutMilliseconds, TimeUnit.MILLISECONDS)
-
-                                    // Handle exceptions per task (prevents whole pipeline from failing)
                                     .exceptionally(ex -> {
-                                        // log error if needed
-                                        System.err.println("Error processing account " + accountId + ": " + ex.getMessage());
+                                        log.error("Error processing account {}: {}", accountId, ex.getMessage());
                                         return null;
                                     })
                     )
                     .toList();
 
-            /*
-             * At this point:
-             * - All tasks are running in parallel
-             * - Each task has its own timeout
-             * - No global blocking is required
-             */
-
-            // Collect results (JOIN is safe here because each future is guaranteed to complete)
-
             return futures.stream()
-                    .map(CompletableFuture::join)   // non-blocking due to completeOnTimeout
-                    .filter(Objects::nonNull)       // remove timed-out or failed tasks
+                    .map(CompletableFuture::join)
+                    .filter(Objects::nonNull)
                     .toList();
         } catch (Exception e) {
             throw new RuntimeException("Failed to create executor for account scheduling", e);
@@ -84,42 +72,40 @@ public class ScheduleService {
     }
 
     /**
+     * Retrieves available time slots for a specific account.
      *
-     * @param accountId Specific account
-     * @return Available timeslots between appointments
+     * @param accountId The account ID.
+     * @param xOrgID    The organization ID context.
+     * @return A list of available time slots.
      */
-    private List<TimeSlot> getAvailableTimeSlots(UUID accountId) {
-        List<Appointment> allAppointments = appointmentService.listAppointments(accountId).getAppointments();
-
+    private List<TimeSlot> getAvailableTimeSlots(UUID accountId, UUID xOrgID) {
+        // TODO: Pass xOrgID to appointmentService when implemented
+        List<Appointment> allAppointments = appointmentService.listAppointments(xOrgID, accountId).getAppointments();
 
         //TODO: calculate free time slots based on appointments and working hours
-
-
-        List<TimeSlot> availableSlots = null;
-        return availableSlots;
+        return null;
     }
 
 
     /**
-     * Orders the generation of a scheduling for a single account
+     * Generates a schedule for a single account within an organization.
      *
-     * @param accountId               Specific account
-     * @param generateScheduleRequest Request
-     * @return Response containing
-     * - the generated schedule,
-     * - the scheduleScore,
-     * - constraint warnings
+     * @param jwt                     The user's JWT.
+     * @param accountId               The account ID.
+     * @param generateScheduleRequest The schedule generation request.
+     * @param xOrgID                  The organization ID context.
+     * @return The generated schedule response.
      */
-    public ScheduleResponse generateSchedule(Jwt jwt, UUID accountId, GenerateScheduleRequest generateScheduleRequest) {
+    public ScheduleResponse generateSchedule(Jwt jwt, UUID accountId, GenerateScheduleRequest generateScheduleRequest, UUID xOrgID) {
 
         // Get data
-        List<TaskResponse> allTasks = taskService.getTasksForAccountId(jwt, accountId);
+        List<TaskResponse> allTasks = taskService.getTasksForAccountId(jwt, accountId, xOrgID);
 
         // Chunk tasks
         List<TaskChunk> chunks = chunker.chunkTasks(allTasks);
 
         // Get available timeslots
-        List<TimeSlot> availableSlots = getAvailableTimeSlots(accountId);
+        List<TimeSlot> availableSlots = getAvailableTimeSlots(accountId, xOrgID);
 
         // Get schedule start date
         LocalDate fromDate = generateScheduleRequest.getFrom();

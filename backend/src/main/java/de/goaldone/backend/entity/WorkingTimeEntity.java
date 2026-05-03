@@ -37,10 +37,10 @@ public class WorkingTimeEntity {
     @Id
     private UUID id;
 
-    /** The {@link UserAccountEntity} this working time belongs to. */
+    /** The {@link MembershipEntity} this working time belongs to. */
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_account_id", nullable = false)
-    private UserAccountEntity userAccount;
+    @JoinColumn(name = "account_id", nullable = false)
+    private MembershipEntity membership;
 
     /** The ID of the organization this working time is associated with. */
     @Column(name = "organization_id", nullable = false)

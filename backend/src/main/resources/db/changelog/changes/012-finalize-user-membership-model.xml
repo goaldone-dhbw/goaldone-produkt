@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="012-1" author="gemini-cli">
+        <comment>Rename user_identities to users and user_accounts to memberships</comment>
+        <renameTable oldTableName="user_identities" newTableName="users"/>
+        <renameTable oldTableName="user_accounts" newTableName="memberships"/>
+    </changeSet>
+
+    <changeSet id="012-2" author="gemini-cli">
+        <comment>Rename user_identity_id to user_id in memberships</comment>
+        <renameColumn tableName="memberships" oldColumnName="user_identity_id" newColumnName="user_id" columnDataType="UUID"/>
+    </changeSet>
+
+    <changeSet id="012-3" author="gemini-cli">
+        <comment>Normalize auth_user_id: move from memberships to users</comment>
+        
+        <addColumn tableName="users">
+            <column name="auth_user_id" type="VARCHAR(255)"/>
+        </addColumn>
+
+        <update tableName="users">
+            <column name="auth_user_id" valueComputed="(SELECT auth_user_id FROM memberships WHERE memberships.user_id = users.id LIMIT 1)"/>
+        </update>
+
+        <addUniqueConstraint tableName="users" columnNames="auth_user_id" constraintName="uq_users_auth_user_id"/>
+
+        <dropUniqueConstraint tableName="memberships" constraintName="uq_user_accounts_auth_user_org"/>
+        
+        <addUniqueConstraint tableName="memberships" columnNames="user_id, organization_id" constraintName="uq_memberships_user_org"/>
+
+        <dropColumn tableName="memberships" columnName="auth_user_id"/>
+    </changeSet>
+
+    <changeSet id="012-4" author="gemini-cli">
+        <comment>Update foreign keys and indexes to reflect new naming</comment>
+        
+        <!-- memberships FKs -->
+        <dropForeignKeyConstraint baseTableName="memberships" constraintName="fk_user_accounts_identity"/>
+        <addForeignKeyConstraint baseTableName="memberships" 
+                                 baseColumnNames="user_id" 
+                                 referencedTableName="users" 
+                                 referencedColumnNames="id" 
+                                 constraintName="fk_memberships_user"/>
+
+        <dropForeignKeyConstraint baseTableName="memberships" constraintName="fk_users_org"/>
+        <addForeignKeyConstraint baseTableName="memberships" 
+                                 baseColumnNames="organization_id" 
+                                 referencedTableName="organizations" 
+                                 referencedColumnNames="id" 
+                                 constraintName="fk_memberships_org"/>
+
+        <!-- Other tables referring to user_accounts (now memberships) -->
+        <dropForeignKeyConstraint baseTableName="tasks" constraintName="fk_tasks_account"/>
+        <addForeignKeyConstraint baseTableName="tasks"
+                                 baseColumnNames="account_id"
+                                 referencedTableName="memberships"
+                                 referencedColumnNames="id"
+                                 constraintName="fk_tasks_membership"/>
+
+        <dropForeignKeyConstraint baseTableName="working_times" constraintName="fk_working_times_account"/>
+        <addForeignKeyConstraint baseTableName="working_times"
+                                 baseColumnNames="account_id"
+                                 referencedTableName="memberships"
+                                 referencedColumnNames="id"
+                                 constraintName="fk_working_times_membership"/>
+
+        <dropForeignKeyConstraint baseTableName="appointments" constraintName="fk_appointments_account"/>
+        <addForeignKeyConstraint baseTableName="appointments"
+                                 baseColumnNames="account_id"
+                                 referencedTableName="memberships"
+                                 referencedColumnNames="id"
+                                 constraintName="fk_appointments_membership"/>
+
+        <dropForeignKeyConstraint baseTableName="link_tokens" constraintName="fk_link_tokens_initiator"/>
+        <addForeignKeyConstraint baseTableName="link_tokens"
+                                 baseColumnNames="initiator_account_id"
+                                 referencedTableName="memberships"
+                                 referencedColumnNames="id"
+                                 constraintName="fk_link_tokens_initiator_membership"
+                                 onDelete="CASCADE"/>
+
+        <!-- Indexes -->
+        <dropIndex tableName="memberships" indexName="idx_user_accounts_identity"/>
+        <createIndex tableName="memberships" indexName="idx_memberships_user">
+            <column name="user_id"/>
+        </createIndex>
+
+        <dropIndex tableName="memberships" indexName="idx_user_accounts_org"/>
+        <createIndex tableName="memberships" indexName="idx_memberships_org">
+            <column name="organization_id"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>

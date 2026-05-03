@@ -16,5 +16,6 @@
     <include file="changes/009-create-appointments-table.xml" relativeToChangelogFile="true"/>
     <include file="changes/010-rename-zitadel-identifiers.xml" relativeToChangelogFile="true"/>
     <include file="changes/011-allow-multiple-orgs-per-user.xml" relativeToChangelogFile="true"/>
+    <include file="changes/012-finalize-user-membership-model.xml" relativeToChangelogFile="true"/>
 
 </databaseChangeLog>

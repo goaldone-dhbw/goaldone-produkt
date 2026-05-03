@@ -1,6 +1,6 @@
 package de.goaldone.backend.service;
 
-import de.goaldone.backend.entity.UserAccountEntity;
+import de.goaldone.backend.entity.MembershipEntity;
 import de.goaldone.backend.entity.WorkingTimeEntity;
 import de.goaldone.backend.exception.WorkingTimeAccessDeniedException;
 import de.goaldone.backend.exception.WorkingTimeOverlapException;
@@ -10,7 +10,7 @@ import de.goaldone.backend.model.WorkingTimeCreateRequest;
 import de.goaldone.backend.model.WorkingTimeListResponse;
 import de.goaldone.backend.model.WorkingTimeResponse;
 import de.goaldone.backend.model.WorkingTimeUpdateRequest;
-import de.goaldone.backend.repository.UserAccountRepository;
+import de.goaldone.backend.repository.MembershipRepository;
 import de.goaldone.backend.repository.WorkingTimeRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -28,35 +28,44 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
+/**
+ * Service for managing working times.
+ * Handles creation, update, deletion, and retrieval of working time slots within an organization.
+ */
 @Service
 @RequiredArgsConstructor
 public class WorkingTimesService {
 
-    private final UserAccountRepository userAccountRepository;
+    private final MembershipRepository membershipRepository;
     private final WorkingTimeRepository workingTimeRepository;
-    private final UserIdentityService userIdentityService;
+    private final UserService userService;
 
+    /**
+     * Creates a new working time slot.
+     *
+     * @param jwt     The current JWT representing the logged-in user.
+     * @param request The request object containing working time details.
+     * @param xOrgID  The UUID of the organization.
+     * @return The created {@link WorkingTimeResponse}.
+     */
     @Transactional
-    public WorkingTimeResponse createWorkingTime(Jwt jwt, WorkingTimeCreateRequest request) {
-        // Resolve current user
-        UserAccountEntity currentAccount = userAccountRepository.findByAuthUserId(jwt.getSubject())
-            .orElseThrow(() -> new WorkingTimeAccessDeniedException("Account not found"));
+    public WorkingTimeResponse createWorkingTime(Jwt jwt, WorkingTimeCreateRequest request, UUID xOrgID) {
+        // Resolve current membership
+        MembershipEntity currentMembership = userService.resolveMembership(jwt, xOrgID);
 
-        // Check access to target account
-        if (!userIdentityService.hasUserAccessToAccount(jwt, request.getAccountId())) {
-            throw new WorkingTimeAccessDeniedException("Der angemeldete Nutzer hat keinen Zugriff auf diesen Account.");
+        // Check access to target membership
+        if (!userService.hasUserAccessToMembership(jwt, xOrgID, request.getAccountId())) {
+            throw new WorkingTimeAccessDeniedException("The logged-in user does not have access to this account.");
         }
 
-        // Load target account
-        UserAccountEntity targetAccount = userAccountRepository.findById(request.getAccountId())
-            .orElseThrow(() -> new WorkingTimeAccessDeniedException(
-                "Die angegebene Unternehmenszugehoerigkeit gehoert nicht zum angemeldeten Nutzer."
-            ));
+        // Load target membership
+        MembershipEntity targetMembership = membershipRepository.findById(request.getAccountId())
+                .orElseThrow(() -> new WorkingTimeAccessDeniedException("The specified membership was not found."));
 
         // Validate days
         List<DayOfWeek> days = request.getDays();
         if (days == null || days.isEmpty()) {
-            throw new WorkingTimeValidationException("Mindestens ein Wochentag muss ausgewählt sein.");
+            throw new WorkingTimeValidationException("At least one day of the week must be selected.");
         }
 
         // Parse times
@@ -66,27 +75,25 @@ public class WorkingTimesService {
             startTime = LocalTime.parse(request.getStartTime());
             endTime = LocalTime.parse(request.getEndTime());
         } catch (Exception e) {
-            throw new WorkingTimeValidationException("Ungültiges Zeitformat. Erwartet: HH:mm");
+            throw new WorkingTimeValidationException("Invalid time format. Expected: HH:mm");
         }
 
         // Validate end time > start time
         if (!endTime.isAfter(startTime)) {
-            throw new WorkingTimeValidationException("Endzeit muss nach der Startzeit liegen.");
+            throw new WorkingTimeValidationException("End time must be after start time.");
         }
 
-        // Check for overlaps within the identity
-        boolean overlaps = workingTimeRepository.existsOverlappingSlot(currentAccount.getUserIdentityId(), startTime, endTime, days);
+        // Check for overlaps within the user's working times
+        boolean overlaps = workingTimeRepository.existsOverlappingSlot(currentMembership.getUser().getId(), startTime, endTime, days);
 
         if (overlaps) {
-            throw new WorkingTimeOverlapException(
-                "Die Arbeitszeit überschneidet sich mit einer bestehenden Arbeitszeit des Nutzers."
-            );
+            throw new WorkingTimeOverlapException("The working time overlaps with an existing working time of the user.");
         }
 
         WorkingTimeEntity entity = new WorkingTimeEntity();
         entity.setId(UUID.randomUUID());
-        entity.setUserAccount(targetAccount);
-        entity.setOrganizationId(targetAccount.getOrganizationId());
+        entity.setMembership(targetMembership);
+        entity.setOrganizationId(xOrgID);
         entity.setDays(new HashSet<>(days));
         entity.setStartTime(startTime);
         entity.setEndTime(endTime);
@@ -96,16 +103,24 @@ public class WorkingTimesService {
         return mapToResponse(saved, false);
     }
 
+    /**
+     * Updates an existing working time slot.
+     *
+     * @param jwt           The current JWT representing the logged-in user.
+     * @param workingTimeId The UUID of the working time slot to update.
+     * @param request       The request object containing updated details.
+     * @param xOrgID        The UUID of the organization.
+     * @return The updated {@link WorkingTimeResponse}.
+     */
     @Transactional
-    public WorkingTimeResponse updateWorkingTime(Jwt jwt, UUID workingTimeId, WorkingTimeUpdateRequest request) {
-        // Resolve current user
-        UserAccountEntity currentAccount = userAccountRepository.findByAuthUserId(jwt.getSubject())
-            .orElseThrow(() -> new WorkingTimeAccessDeniedException("Account not found"));
+    public WorkingTimeResponse updateWorkingTime(Jwt jwt, UUID workingTimeId, WorkingTimeUpdateRequest request, UUID xOrgID) {
+        // Resolve current membership
+        MembershipEntity currentMembership = userService.resolveMembership(jwt, xOrgID);
 
         // Validate days
         List<DayOfWeek> days = request.getDays();
         if (days == null || days.isEmpty()) {
-            throw new WorkingTimeValidationException("Mindestens ein Wochentag muss ausgewählt sein.");
+            throw new WorkingTimeValidationException("At least one day of the week must be selected.");
         }
 
         // Parse times
@@ -115,29 +130,29 @@ public class WorkingTimesService {
             startTime = LocalTime.parse(request.getStartTime());
             endTime = LocalTime.parse(request.getEndTime());
         } catch (Exception e) {
-            throw new WorkingTimeValidationException("Ungültiges Zeitformat. Erwartet: HH:mm");
+            throw new WorkingTimeValidationException("Invalid time format. Expected: HH:mm");
         }
 
         // Validate end time > start time
         if (!endTime.isAfter(startTime)) {
-            throw new WorkingTimeValidationException("Endzeit muss nach der Startzeit liegen.");
+            throw new WorkingTimeValidationException("End time must be after start time.");
         }
 
         WorkingTimeEntity existingTime = workingTimeRepository.findById(workingTimeId)
-            .orElseThrow(() -> new WorkingTimeAccessDeniedException("Arbeitszeit nicht gefunden."));
+                .orElseThrow(() -> new WorkingTimeAccessDeniedException("Working time not found."));
 
-        // Check access: working time must belong to current user's identity
-        if (!existingTime.getUserAccount().getUserIdentityId().equals(currentAccount.getUserIdentityId())) {
-            throw new WorkingTimeAccessDeniedException("Kein Zugriff auf diese Arbeitszeit.");
+        // Check access: working time must belong to current user and organization
+        if (!existingTime.getMembership().getUser().getId().equals(currentMembership.getUser().getId())
+                || !existingTime.getOrganizationId().equals(xOrgID)) {
+            throw new WorkingTimeAccessDeniedException("No access to this working time.");
         }
 
         // Check for overlaps (excluding self)
-        boolean overlaps = workingTimeRepository.existsOverlappingSlotExcluding(currentAccount.getUserIdentityId(), existingTime.getId(), startTime, endTime, days);
+        boolean overlaps = workingTimeRepository.existsOverlappingSlotExcluding(
+                currentMembership.getUser().getId(), existingTime.getId(), startTime, endTime, days);
 
         if (overlaps) {
-            throw new WorkingTimeOverlapException(
-                "Die geänderte Arbeitszeit überschneidet sich mit einer anderen bestehenden Arbeitszeit."
-            );
+            throw new WorkingTimeOverlapException("The updated working time overlaps with another existing working time.");
         }
 
         existingTime.setDays(new HashSet<>(days));
@@ -148,40 +163,53 @@ public class WorkingTimesService {
         return mapToResponse(updated, false);
     }
 
+    /**
+     * Deletes a specific working time slot.
+     *
+     * @param jwt           The current JWT representing the logged-in user.
+     * @param workingTimeId The UUID of the working time slot to delete.
+     * @param xOrgID        The UUID of the organization.
+     */
     @Transactional
-    public void deleteWorkingTime(Jwt jwt, UUID workingTimeId) {
-        // Resolve current user
-        UserAccountEntity currentAccount = userAccountRepository.findByAuthUserId(jwt.getSubject())
-            .orElseThrow(() -> new WorkingTimeAccessDeniedException("Account not found"));
+    public void deleteWorkingTime(Jwt jwt, UUID workingTimeId, UUID xOrgID) {
+        // Resolve current membership
+        MembershipEntity currentMembership = userService.resolveMembership(jwt, xOrgID);
 
         WorkingTimeEntity existingTime = workingTimeRepository.findById(workingTimeId)
-            .orElseThrow(() -> new WorkingTimeAccessDeniedException("Arbeitszeit nicht gefunden."));
+                .orElseThrow(() -> new WorkingTimeAccessDeniedException("Working time not found."));
 
-        // Check access: working time must belong to current user's identity
-        if (!existingTime.getUserAccount().getUserIdentityId().equals(currentAccount.getUserIdentityId())) {
-            throw new WorkingTimeAccessDeniedException("Kein Zugriff auf diese Arbeitszeit.");
+        // Check access: working time must belong to current user and organization
+        if (!existingTime.getMembership().getUser().getId().equals(currentMembership.getUser().getId())
+                || !existingTime.getOrganizationId().equals(xOrgID)) {
+            throw new WorkingTimeAccessDeniedException("No access to this working time.");
         }
 
         workingTimeRepository.delete(existingTime);
     }
 
+    /**
+     * Retrieves all working time slots for the current user within an organization.
+     *
+     * @param jwt    The current JWT representing the logged-in user.
+     * @param xOrgID The UUID of the organization.
+     * @return A {@link WorkingTimeListResponse} containing the list of working times.
+     */
     @Transactional(readOnly = true)
-    public WorkingTimeListResponse getWorkingTimes(Jwt jwt) {
-        // Resolve current user
-        UserAccountEntity currentAccount = userAccountRepository.findByAuthUserId(jwt.getSubject())
-            .orElseThrow(() -> new WorkingTimeAccessDeniedException("Account not found"));
+    public WorkingTimeListResponse getWorkingTimes(Jwt jwt, UUID xOrgID) {
+        // Resolve current membership
+        MembershipEntity currentMembership = userService.resolveMembership(jwt, xOrgID);
 
-        // Fetch all working times for this identity
-        List<WorkingTimeEntity> allWorkingTimes =
-            workingTimeRepository.findAllByUserAccountUserIdentityId(currentAccount.getUserIdentityId());
+        // Fetch all working times for this user across all organizations to check for global overlaps
+        List<WorkingTimeEntity> allWorkingTimes = workingTimeRepository.findAllByMembershipUserId(currentMembership.getUser().getId());
 
         // Compute which working times are conflicting
         Set<UUID> conflictingIds = computeConflicting(allWorkingTimes);
 
         // Map to responses
         List<WorkingTimeResponse> items = allWorkingTimes.stream()
-            .map(wt -> mapToResponse(wt, conflictingIds.contains(wt.getId())))
-            .toList();
+                .filter(wt -> wt.getOrganizationId().equals(xOrgID)) // Only return for current org context
+                .map(wt -> mapToResponse(wt, conflictingIds.contains(wt.getId())))
+                .toList();
 
         WorkingTimeListResponse response = new WorkingTimeListResponse();
         response.setItems(items);
@@ -196,7 +224,7 @@ public class WorkingTimesService {
                 WorkingTimeEntity b = all.get(j);
 
                 boolean timeOverlap = a.getStartTime().isBefore(b.getEndTime())
-                                   && a.getEndTime().isAfter(b.getStartTime());
+                        && a.getEndTime().isAfter(b.getStartTime());
 
                 boolean dayOverlap = !Collections.disjoint(a.getDays(), b.getDays());
 
@@ -212,7 +240,7 @@ public class WorkingTimesService {
     private WorkingTimeResponse mapToResponse(WorkingTimeEntity entity, boolean conflicting) {
         WorkingTimeResponse response = new WorkingTimeResponse();
         response.setId(entity.getId());
-        response.setAccountId(entity.getUserAccount().getId());
+        response.setAccountId(entity.getMembership().getId());
         response.setOrganizationId(entity.getOrganizationId());
         response.setDays(new ArrayList<>(entity.getDays()));
         response.setStartTime(entity.getStartTime().toString());

@@ -2,7 +2,7 @@ package de.goaldone.backend.service;
 
 import de.goaldone.backend.client.ZitadelManagementClient;
 import de.goaldone.backend.entity.OrganizationEntity;
-import de.goaldone.backend.entity.UserAccountEntity;
+import de.goaldone.backend.entity.MembershipEntity;
 import de.goaldone.backend.exception.EmailAlreadyInUseException;
 import de.goaldone.backend.exception.NotMemberOfOrganizationException;
 import de.goaldone.backend.exception.UserAlreadyActiveException;
@@ -10,7 +10,7 @@ import de.goaldone.backend.exception.ZitadelApiException;
 import de.goaldone.backend.model.InviteMemberRequest;
 import de.goaldone.backend.model.MemberRole;
 import de.goaldone.backend.repository.OrganizationRepository;
-import de.goaldone.backend.repository.UserAccountRepository;
+import de.goaldone.backend.repository.MembershipRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -26,8 +26,9 @@ import java.util.UUID;
 public class MemberInviteService {
 
     private final ZitadelManagementClient zitadelManagementClient;
-    private final UserAccountRepository userAccountRepository;
+    private final MembershipRepository membershipRepository;
     private final OrganizationRepository organizationRepository;
+    private final UserService userService;
 
     @Value("${zitadel.goaldone.project-id}")
     private String goaldoneProjectId;
@@ -35,21 +36,21 @@ public class MemberInviteService {
     @Value("${zitadel.goaldone.org-id}")
     private String mainOrgId;
 
-    public void inviteMember(UUID orgId, InviteMemberRequest request) {
-        String callerSub = getCallerSub();
-        UserAccountEntity callerAccount = userAccountRepository.findByAuthUserId(callerSub)
-                .orElseThrow(() -> new NotMemberOfOrganizationException("Caller account not found"));
-
-        if (!callerAccount.getOrganizationId().equals(orgId)) {
-            throw new NotMemberOfOrganizationException("Caller does not belong to organization: " + orgId);
-        }
+    /**
+     * Invites a new member to an organization.
+     *
+     * @param xOrgID  The organization ID context.
+     * @param request The invite request.
+     */
+    public void inviteMember(UUID xOrgID, InviteMemberRequest request) {
+        userService.validateMembership(xOrgID);
 
         if (zitadelManagementClient.emailExists(request.getEmail())) {
             throw new EmailAlreadyInUseException(request.getEmail());
         }
 
-        OrganizationEntity organization = organizationRepository.findById(orgId)
-                .orElseThrow(() -> new RuntimeException("Organization not found: " + orgId));
+        OrganizationEntity organization = organizationRepository.findById(xOrgID)
+                .orElseThrow(() -> new RuntimeException("Organization not found: " + xOrgID));
 
         String zitadelUserId = null;
         try {
@@ -82,14 +83,14 @@ public class MemberInviteService {
         }
     }
 
-    public void reinviteMember(UUID orgId, String zitadelUserId) {
-        String callerSub = getCallerSub();
-        UserAccountEntity callerAccount = userAccountRepository.findByAuthUserId(callerSub)
-                .orElseThrow(() -> new NotMemberOfOrganizationException("Caller account not found"));
-
-        if (!callerAccount.getOrganizationId().equals(orgId)) {
-            throw new NotMemberOfOrganizationException("Caller does not belong to organization: " + orgId);
-        }
+    /**
+     * Resends an invite code to a member who hasn't completed their registration.
+     *
+     * @param xOrgID         The organization ID context.
+     * @param zitadelUserId The identity provider ID of the member.
+     */
+    public void reinviteMember(UUID xOrgID, String zitadelUserId) {
+        userService.validateMembership(xOrgID);
 
         var userOpt = zitadelManagementClient.getUser(zitadelUserId);
         if (userOpt.isEmpty()) {
@@ -99,16 +100,10 @@ public class MemberInviteService {
         var user = userOpt.get();
         String state = user.getState() != null ? user.getState().toString() : "";
 
-        // Status names in Zitadel v2 are usually USER_STATE_INITIAL, USER_STATE_ACTIVE, etc.
         if (!"USER_STATE_INITIAL".equals(state)) {
             throw new UserAlreadyActiveException(zitadelUserId);
         }
 
         zitadelManagementClient.createInviteCode(zitadelUserId);
-    }
-
-    private String getCallerSub() {
-        Jwt jwt = (Jwt) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        return jwt.getSubject();
     }
 }

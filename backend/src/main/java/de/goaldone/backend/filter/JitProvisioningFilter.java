@@ -18,7 +18,7 @@ import java.io.IOException;
 /**
  * Security filter that performs Just-In-Time (JIT) provisioning for users upon their first request.
  * It intercepts incoming requests, extracts the JWT from the security context, and ensures that
- * a corresponding {@link de.goaldone.backend.entity.UserIdentityEntity} and {@link de.goaldone.backend.entity.UserAccountEntity}
+ * a corresponding {@link de.goaldone.backend.entity.UserEntity} and {@link de.goaldone.backend.entity.MembershipEntity}
  * exist in the local database, synchronizing them with the external IAM (Zitadel).
  */
 @RequiredArgsConstructor

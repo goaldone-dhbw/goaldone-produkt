@@ -31,7 +31,7 @@ import java.util.stream.Collectors;
 /**
  * Service for managing tasks.
  * This service handles business logic for tasks, including validation, persistence, and complex
- * logic like checking for dependency cycles and user access to accounts.
+ * logic like checking for dependency cycles and user access to memberships (accounts) within an organization.
  */
 @Service
 @Slf4j
@@ -39,21 +39,20 @@ import java.util.stream.Collectors;
 public class TasksService {
 
     private final TaskRepository taskRepository;
-    private final UserIdentityService userIdentityService;
+    private final UserService userService;
 
     /**
-     * Creates a new task based on the provided request and the user's JWT.
-     * Validates the request data and checks if the user has access to the specified account.
+     * Creates a new task based on the provided request and the user's JWT within an organization.
      *
      * @param request The {@link TaskCreateRequest} containing details of the task to be created.
-     * @param jwt The {@link Jwt} representing the authenticated user.
+     * @param jwt     The {@link Jwt} representing the authenticated user.
+     * @param xOrgID  The UUID of the organization.
      * @return The created {@link TaskResponse}.
-     * @throws ResponseStatusException if validation fails or the user doesn't have access to the account.
      */
     @Transactional
-    public TaskResponse createTask(TaskCreateRequest request, Jwt jwt) {
-        if (!userIdentityService.hasUserAccessToAccount(jwt, request.getAccountId())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "User does not have access to the task's account");
+    public TaskResponse createTask(TaskCreateRequest request, Jwt jwt, UUID xOrgID) {
+        if (!userService.hasUserAccessToMembership(jwt, xOrgID, request.getAccountId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "User does not have access to the task's membership in this organization");
         }
 
         validateCreateRequest(request);
@@ -81,32 +80,40 @@ public class TasksService {
     }
 
     /**
-     * Retrieves all tasks for a specific account ID if the user has access.
+     * Retrieves all tasks for a specific account (membership) ID if the user has access.
      *
-     * @param jwt The {@link Jwt} of the authenticated user.
-     * @param accountId The UUID of the account for which tasks are being requested.
+     * @param jwt       The {@link Jwt} of the authenticated user.
+     * @param accountId The UUID of the membership for which tasks are being requested.
+     * @param xOrgID    The UUID of the organization.
      * @return A list of {@link TaskResponse} objects.
      */
     @Transactional(readOnly = true)
-    public List<TaskResponse> getTasksForAccountId(Jwt jwt, UUID accountId) {
-        boolean hasUserAccess = userIdentityService.hasUserAccessToAccount(jwt, accountId);
+    public List<TaskResponse> getTasksForAccountId(Jwt jwt, UUID accountId, UUID xOrgID) {
+        if (!userService.hasUserAccessToMembership(jwt, xOrgID, accountId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "User does not have access to this membership in this organization");
+        }
 
         return taskRepository.findAllByAccountIdOrderByIdAsc(accountId)
                 .stream()
-                .filter(task -> hasUserAccess)
                 .map(this::toResponse)
                 .toList();
     }
 
     /**
-     * Retrieves all tasks for all accounts that the authenticated user has access to.
+     * Retrieves all tasks for all memberships (accounts) that the authenticated user has access to within an organization.
      *
-     * @param jwt The {@link Jwt} of the authenticated user.
-     * @return A list of {@link TaskAccountListResponse} objects, each representing an account and its tasks.
+     * @param jwt    The {@link Jwt} of the authenticated user.
+     * @param xOrgID The UUID of the organization.
+     * @return A list of {@link TaskAccountListResponse} objects.
      */
     @Transactional(readOnly = true)
-    public List<TaskAccountListResponse> getTasksForAllAccounts(Jwt jwt) {
-        List<UUID> accountIds = userIdentityService.accountIdsForUser(jwt);
+    public List<TaskAccountListResponse> getTasksForAllAccounts(Jwt jwt, UUID xOrgID) {
+        // Resolve the user's membership in the target organization
+        var membership = userService.resolveMembership(jwt, xOrgID);
+
+        // In this organization, we currently assume the user has access to their own account.
+        // If we want to support multiple accounts or management views, we would fetch all relevant IDs.
+        List<UUID> accountIds = List.of(membership.getId());
 
         Map<UUID, List<TaskEntity>> tasksByAccount = taskRepository.findAllByAccountIdIn(accountIds).stream()
                 .collect(Collectors.groupingBy(TaskEntity::getAccountId));
@@ -121,21 +128,21 @@ public class TasksService {
     }
 
     /**
-     * Updates an existing task with the specified ID based on the provided request and the user's JWT.
+     * Updates an existing task within an organization.
      *
-     * @param jwt The {@link Jwt} of the authenticated user.
-     * @param id The UUID of the task to update.
-     * @param request The {@link TaskUpdateRequest} containing updated details for the task.
+     * @param jwt     The {@link Jwt} of the authenticated user.
+     * @param id      The UUID of the task to update.
+     * @param request The {@link TaskUpdateRequest} containing updated details.
+     * @param xOrgID  The UUID of the organization.
      * @return The updated {@link TaskResponse}.
-     * @throws ResponseStatusException if the task is not found or the user doesn't have access.
      */
     @Transactional
-    public TaskResponse updateTask(Jwt jwt, UUID id, TaskUpdateRequest request) {
+    public TaskResponse updateTask(Jwt jwt, UUID id, TaskUpdateRequest request, UUID xOrgID) {
         TaskEntity task = taskRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Task not found"));
 
-        if (!userIdentityService.hasUserAccessToAccount(jwt, task.getAccountId())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "User does not have access to the task's account");
+        if (!userService.hasUserAccessToMembership(jwt, xOrgID, task.getAccountId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "User does not have access to the task's membership in this organization");
         }
 
         validateUpdateRequest(request);
@@ -156,21 +163,21 @@ public class TasksService {
     }
 
     /**
-     * Deletes the task with the specified ID if the user has access to the account it belongs to.
+     * Deletes the task with the specified ID within an organization.
      *
-     * @param id The UUID of the task to delete.
-     * @param jwt The {@link Jwt} of the authenticated user.
-     * @throws ResponseStatusException if the task is not found or the user doesn't have access.
+     * @param id     The UUID of the task to delete.
+     * @param jwt    The {@link Jwt} of the authenticated user.
+     * @param xOrgID The UUID of the organization.
      */
     @Transactional
-    public void deleteTask(UUID id, Jwt jwt) {
+    public void deleteTask(UUID id, Jwt jwt, UUID xOrgID) {
         TaskEntity task = taskRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Task not found"));
 
-        List<UUID> accountsWithAccess = userIdentityService.accountIdsForUser(jwt);
-        if (!accountsWithAccess.contains(task.getAccountId())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "User does not have access to the task's account");
+        if (!userService.hasUserAccessToMembership(jwt, xOrgID, task.getAccountId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "User does not have access to the task's membership in this organization");
         }
+
         taskRepository.delete(task);
     }
 
@@ -208,11 +215,11 @@ public class TasksService {
     /**
      * Validates fields common to both creation and update requests.
      *
-     * @param title The title of the task.
-     * @param duration The duration of the task.
-     * @param status The {@link TaskStatus} of the task.
-     * @param cognitiveLoad The {@link CognitiveLoad} of the task.
-     * @param customChunkSize An optional custom chunk size for scheduling.
+     * @param title             The title of the task.
+     * @param duration          The duration of the task.
+     * @param status            The {@link TaskStatus} of the task.
+     * @param cognitiveLoad     The {@link CognitiveLoad} of the task.
+     * @param customChunkSize   An optional custom chunk size for scheduling.
      * @throws ResponseStatusException if any validation check fails.
      */
     private void validateCommonFields(String title, Integer duration, TaskStatus status,
@@ -238,10 +245,10 @@ public class TasksService {
      * Checks if the specified dependency IDs are valid and applies them to the given task.
      * Ensures that a task doesn't depend on itself and that all dependencies belong to the same account.
      *
-     * @param task The {@link TaskEntity} to which dependencies are applied.
-     * @param dependencyIds A list of UUIDs of tasks that this task depends on.
-     * @param accountId The UUID of the account that the task belongs to.
-     * @param allowEmptyToClear If true, an empty list of dependency IDs will clear existing dependencies.
+     * @param task               The {@link TaskEntity} to which dependencies are applied.
+     * @param dependencyIds      A list of UUIDs of tasks that this task depends on.
+     * @param accountId          The UUID of the membership that the task belongs to.
+     * @param allowEmptyToClear  If true, an empty list of dependency IDs will clear existing dependencies.
      * @throws ResponseStatusException if any validation fails or a dependency task is not found.
      */
     private void checkDependenciesAndApply(TaskEntity task, List<UUID> dependencyIds, UUID accountId, boolean allowEmptyToClear) {
@@ -264,7 +271,7 @@ public class TasksService {
 
         List<TaskEntity> dependencies = taskRepository.findAllByIdInAndAccountId(uniqueDependencyIds, accountId);
         if (dependencies.size() != uniqueDependencyIds.size()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "dependency task not found for current user");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "dependency task not found for current user in this organization");
         }
 
         task.setDependencies(new LinkedHashSet<>(dependencies));
@@ -275,7 +282,7 @@ public class TasksService {
      * Asserts that adding or updating a task's dependencies doesn't create a cyclic dependency.
      *
      * @param changedTask The task being created or updated.
-     * @param accountId The account ID for which all tasks are fetched for cycle checking.
+     * @param accountId   The membership ID for which all tasks are fetched for cycle checking.
      * @throws ResponseStatusException if a cyclic dependency is detected.
      */
     private void assertNoDependencyCycle(TaskEntity changedTask, UUID accountId) {
@@ -296,7 +303,7 @@ public class TasksService {
     /**
      * Determines if the dependency graph contains a cycle starting from the specified task.
      *
-     * @param graph A map representing the adjacency list of task dependencies.
+     * @param graph   A map representing the adjacency list of task dependencies.
      * @param startId The ID of the task to start checking from.
      * @return True if a cycle is detected, false otherwise.
      */
@@ -309,10 +316,10 @@ public class TasksService {
     /**
      * Performs a depth-first search (DFS) to detect cycles in the dependency graph.
      *
-     * @param current The ID of the task currently being visited.
-     * @param graph A map representing the adjacency list of task dependencies.
-     * @param visiting A set of task IDs currently being visited in the current DFS path.
-     * @param visited A set of task IDs that have already been fully processed.
+     * @param current   The ID of the task currently being visited.
+     * @param graph     A map representing the adjacency list of task dependencies.
+     * @param visiting  A set of task IDs currently being visited in the current DFS path.
+     * @param visited   A set of task IDs that have already been fully processed.
      * @return True if a cycle is detected, false otherwise.
      */
     private boolean dfsHasCycle(UUID current, Map<UUID, Set<UUID>> graph, Set<UUID> visiting, Set<UUID> visited) {

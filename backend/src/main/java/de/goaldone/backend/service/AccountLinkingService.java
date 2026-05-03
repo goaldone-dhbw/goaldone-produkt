@@ -1,16 +1,16 @@
 package de.goaldone.backend.service;
 
 import de.goaldone.backend.entity.LinkTokenEntity;
-import de.goaldone.backend.entity.UserAccountEntity;
-import de.goaldone.backend.entity.UserIdentityEntity;
+import de.goaldone.backend.entity.MembershipEntity;
+import de.goaldone.backend.entity.UserEntity;
 import de.goaldone.backend.exception.AlreadyLinkedException;
 import de.goaldone.backend.exception.LinkTokenExpiredException;
 import de.goaldone.backend.exception.NotLinkedException;
 import de.goaldone.backend.exception.SameOrganizationLinkNotAllowedException;
 import de.goaldone.backend.model.LinkTokenResponse;
 import de.goaldone.backend.repository.LinkTokenRepository;
-import de.goaldone.backend.repository.UserAccountRepository;
-import de.goaldone.backend.repository.UserIdentityRepository;
+import de.goaldone.backend.repository.MembershipRepository;
+import de.goaldone.backend.repository.UserRepository;
 import de.goaldone.backend.repository.WorkingTimeRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -38,8 +38,8 @@ public class AccountLinkingService {
     private static final Duration LINK_TOKEN_TTL = Duration.ofMinutes(10);
 
     private final LinkTokenRepository linkTokenRepository;
-    private final UserAccountRepository userAccountRepository;
-    private final UserIdentityRepository userIdentityRepository;
+    private final MembershipRepository membershipRepository;
+    private final UserRepository userRepository;
     private final WorkingTimeRepository workingTimeRepository;
 
     /**
@@ -64,7 +64,7 @@ public class AccountLinkingService {
 
     /**
      * Confirms a link request using a provided token and a confirming account.
-     * Merges the identities of the two accounts if they are not already linked and do not belong to the same organization.
+     * Merges the identities of the two accounts if they are not already linked.
      *
      * @param linkToken          The UUID of the link token to confirm.
      * @param confirmingAccountId The UUID of the account confirming the link.
@@ -84,37 +84,38 @@ public class AccountLinkingService {
             throw new LinkTokenExpiredException(linkToken);
         }
 
-        UserAccountEntity accountA = userAccountRepository.findById(tokenEntity.getInitiatorAccountId())
+        MembershipEntity accountA = membershipRepository.findById(tokenEntity.getInitiatorAccountId())
             .orElseThrow(() -> new IllegalStateException("Initiator account not found"));
-        UserAccountEntity accountB = userAccountRepository.findById(confirmingAccountId)
+        MembershipEntity accountB = membershipRepository.findById(confirmingAccountId)
             .orElseThrow(() -> new IllegalStateException("Confirming account not found"));
 
-        if (accountA.getUserIdentityId().equals(accountB.getUserIdentityId())) {
+        if (accountA.getUser().getId().equals(accountB.getUser().getId())) {
             throw new AlreadyLinkedException();
         }
 
-        // Check for same-organization link (any org in A's identity matches any org in B's identity)
-        var orgsWithMultipleIdentities = userAccountRepository.findOrgIdsWithMultipleIdentities(
-            accountA.getUserIdentityId(), accountB.getUserIdentityId());
-        if (!orgsWithMultipleIdentities.isEmpty()) {
+        // Check for same-organization link
+        var orgsWithMultipleUsers = membershipRepository.findOrgIdsWithMultipleUsers(
+            accountA.getUser().getId(), accountB.getUser().getId());
+        if (!orgsWithMultipleUsers.isEmpty()) {
             throw new SameOrganizationLinkNotAllowedException();
         }
 
-        // Merge: reassign all accounts from identity B to identity A, then delete identity B
-        UUID identityBId = accountB.getUserIdentityId();
-        userAccountRepository.findAllByUserIdentityId(identityBId)
-            .forEach(acc -> {
-                acc.setUserIdentityId(accountA.getUserIdentityId());
-                userAccountRepository.save(acc);
+        // Merge: reassign all memberships from user B to user A, then delete user B
+        UserEntity userA = accountA.getUser();
+        UserEntity userB = accountB.getUser();
+        membershipRepository.findAllByUserId(userB.getId())
+            .forEach(m -> {
+                m.setUser(userA);
+                membershipRepository.save(m);
             });
-        userIdentityRepository.deleteById(identityBId);
+        userRepository.delete(userB);
         linkTokenRepository.delete(tokenEntity);
 
         // Check if there are conflicts after merging
-        boolean hasConflicts = workingTimeRepository.hasConflictsForIdentity(accountA.getUserIdentityId());
+        boolean hasConflicts = workingTimeRepository.hasConflictsForUser(userA.getId());
 
-        log.info("Linked accounts {} and {} under identity {}, hasConflicts: {}",
-            accountA.getId(), accountB.getId(), accountA.getUserIdentityId(), hasConflicts);
+        log.info("Linked accounts {} and {} under user {}, hasConflicts: {}",
+            accountA.getId(), accountB.getId(), userA.getId(), hasConflicts);
 
         return hasConflicts;
     }
@@ -130,31 +131,33 @@ public class AccountLinkingService {
      */
     @Transactional
     public void unlink(UUID currentAccountId, UUID targetAccountId) {
-        UserAccountEntity currentAccount = userAccountRepository.findById(currentAccountId)
+        MembershipEntity currentAccount = membershipRepository.findById(currentAccountId)
             .orElseThrow(() -> new IllegalStateException("Current account not found"));
-        UserAccountEntity targetAccount = userAccountRepository.findById(targetAccountId)
+        MembershipEntity targetAccount = membershipRepository.findById(targetAccountId)
             .orElseThrow(() -> new IllegalStateException("Target account not found"));
 
-        if (!currentAccount.getUserIdentityId().equals(targetAccount.getUserIdentityId())) {
+        if (!currentAccount.getUser().getId().equals(targetAccount.getUser().getId())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Not authorized to unlink this account");
         }
 
-        long count = userAccountRepository.countByUserIdentityId(currentAccount.getUserIdentityId());
+        long count = membershipRepository.countByUserId(currentAccount.getUser().getId());
         if (count <= 1) {
             throw new NotLinkedException();
         }
 
-        // Create a new identity for the target account
-        UserIdentityEntity newIdentity = new UserIdentityEntity();
+        // Create a new user identity for the target account
+        UserEntity newIdentity = new UserEntity();
         newIdentity.setId(UUID.randomUUID());
+        // Note: we might need a dummy or placeholder authUserId here if the model requires it
+        newIdentity.setAuthUserId("unlinked-" + UUID.randomUUID());
         newIdentity.setCreatedAt(Instant.now());
-        userIdentityRepository.save(newIdentity);
+        userRepository.save(newIdentity);
 
-        targetAccount.setUserIdentityId(newIdentity.getId());
-        userAccountRepository.save(targetAccount);
+        targetAccount.setUser(newIdentity);
+        membershipRepository.save(targetAccount);
 
-        log.info("Unlinked account {} from identity {}, now has identity {}",
-            targetAccountId, currentAccount.getUserIdentityId(), newIdentity.getId());
+        log.info("Unlinked account {} from user {}, now has user {}",
+            targetAccountId, currentAccount.getUser().getId(), newIdentity.getId());
     }
 
     /**

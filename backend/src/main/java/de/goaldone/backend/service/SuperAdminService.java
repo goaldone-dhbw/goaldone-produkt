@@ -1,11 +1,11 @@
 package de.goaldone.backend.service;
 
 import de.goaldone.backend.client.ZitadelManagementClient;
-import de.goaldone.backend.entity.UserAccountEntity;
+import de.goaldone.backend.entity.MembershipEntity;
 import de.goaldone.backend.model.InviteSuperAdminRequest;
 import de.goaldone.backend.model.SuperAdminResponse;
-import de.goaldone.backend.repository.UserAccountRepository;
-import de.goaldone.backend.repository.UserIdentityRepository;
+import de.goaldone.backend.repository.MembershipRepository;
+import de.goaldone.backend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -32,8 +32,8 @@ import java.util.UUID;
 public class SuperAdminService {
 
     private final ZitadelManagementClient zitadelClient;
-    private final UserAccountRepository userAccountRepository;
-    private final UserIdentityRepository userIdentityRepository;
+    private final MembershipRepository membershipRepository;
+    private final UserRepository userRepository;
 
     @Value("${zitadel.goaldone.org-id}")
     private String goaldoneOrgId;
@@ -130,7 +130,7 @@ public class SuperAdminService {
      * Deletes a Super-Admin user from Zitadel and their local shadow record.
      * Prevents deletion of the last remaining Super-Admin.
      *
-     * @param zitadelId The Zitadel ID of the Super-Admin to delete.
+     * @param zitadelId The identity provider ID of the Super-Admin to delete.
      * @throws ResponseStatusException with CONFLICT if attempting to delete the last Super-Admin.
      */
     @Transactional
@@ -145,19 +145,19 @@ public class SuperAdminService {
         zitadelClient.deleteUser(zitadelId);
 
         // 3. Delete local shadow record if exists
-        Optional<UserAccountEntity> accountOpt = userAccountRepository.findByAuthUserId(zitadelId);
-        if (accountOpt.isPresent()) {
-            UserAccountEntity account = accountOpt.get();
-            UUID identityId = account.getUserIdentityId();
+        Optional<MembershipEntity> membershipOpt = membershipRepository.findByUserAuthUserId(zitadelId);
+        if (membershipOpt.isPresent()) {
+            MembershipEntity membership = membershipOpt.get();
+            UUID userId = membership.getUser().getId();
 
             // TODO: Cascade delete Tasks, Breaks, etc. (Stubs)
-            log.info("TODO: Cascade delete tasks for user {}", account.getId());
+            log.info("TODO: Cascade delete tasks for membership {}", membership.getId());
 
-            userAccountRepository.delete(account);
+            membershipRepository.delete(membership);
 
-            // Clean up identity if it was the last account
-            if (userAccountRepository.countByUserIdentityId(identityId) == 0) {
-                userIdentityRepository.deleteById(identityId);
+            // Clean up user if it was the last membership
+            if (membershipRepository.countByUserId(userId) == 0) {
+                userRepository.deleteById(userId);
             }
             log.info("Deleted local shadow record for Super-Admin {}", zitadelId);
         } else {
