@@ -1,0 +1,128 @@
+<div class="mb-8 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+  <div class="border-b border-slate-200 px-6 py-4">
+    <h2 class="text-lg font-semibold text-slate-900">
+      Neues Unternehmen anlegen
+    </h2>
+    <p class="mt-1 text-sm text-slate-600">
+      Lege ein Unternehmen an und lade gleichzeitig den ersten Unternehmens-Admin per E-Mail ein.
+    </p>
+  </div>
+
+  <form class="space-y-5 px-6 py-5" [formGroup]="form" (ngSubmit)="submit()">
+    <div>
+      <label for="organizationName" class="mb-2 block text-sm font-medium text-slate-700">
+        Unternehmensname
+      </label>
+
+      <input
+        id="organizationName"
+        pInputText
+        type="text"
+        formControlName="name"
+        placeholder="z. B. GoalDone GmbH"
+        class="w-full"
+        [class.ng-invalid]="isInvalid('name')"
+        [class.ng-dirty]="isInvalid('name')"
+      />
+
+      @if (isInvalid('name')) {
+        <p class="mt-2 text-sm text-red-600">
+          {{ getNameError() }}
+        </p>
+      }
+    </div>
+
+    <div class="grid gap-5 md:grid-cols-2">
+      <div>
+        <label for="adminFirstName" class="mb-2 block text-sm font-medium text-slate-700">
+          Vorname des ersten Unternehmens-Admins
+        </label>
+
+        <input
+          id="adminFirstName"
+          pInputText
+          type="text"
+          formControlName="adminFirstName"
+          placeholder="z. B. Max"
+          class="w-full"
+          [class.ng-invalid]="isInvalid('adminFirstName')"
+          [class.ng-dirty]="isInvalid('adminFirstName')"
+        />
+
+        @if (isInvalid('adminFirstName')) {
+          <p class="mt-2 text-sm text-red-600">
+            {{ getAdminFirstNameError() }}
+          </p>
+        }
+      </div>
+
+      <div>
+        <label for="adminLastName" class="mb-2 block text-sm font-medium text-slate-700">
+          Nachname des ersten Unternehmens-Admins
+        </label>
+
+        <input
+          id="adminLastName"
+          pInputText
+          type="text"
+          formControlName="adminLastName"
+          placeholder="z. B. Mustermann"
+          class="w-full"
+          [class.ng-invalid]="isInvalid('adminLastName')"
+          [class.ng-dirty]="isInvalid('adminLastName')"
+        />
+
+        @if (isInvalid('adminLastName')) {
+          <p class="mt-2 text-sm text-red-600">
+            {{ getAdminLastNameError() }}
+          </p>
+        }
+      </div>
+    </div>
+
+    <div>
+      <label for="adminEmail" class="mb-2 block text-sm font-medium text-slate-700">
+        E-Mail des ersten Unternehmens-Admins
+      </label>
+
+      <input
+        id="adminEmail"
+        pInputText
+        type="email"
+        formControlName="adminEmail"
+        placeholder="z. B. admin@goaldone.de"
+        class="w-full"
+        [class.ng-invalid]="isInvalid('adminEmail')"
+        [class.ng-dirty]="isInvalid('adminEmail')"
+      />
+
+      @if (isInvalid('adminEmail')) {
+        <p class="mt-2 text-sm text-red-600">
+          {{ getAdminEmailError() }}
+        </p>
+      }
+    </div>
+
+    @if (successMessage()) {
+      <div class="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
+        {{ successMessage() }}
+      </div>
+    }
+
+    @if (errorMessage()) {
+      <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+        {{ errorMessage() }}
+      </div>
+    }
+
+    <div class="flex justify-end">
+      <p-button
+        type="submit"
+        label="Unternehmen anlegen"
+        icon="pi pi-building"
+        [loading]="isSubmitting()"
+        [disabled]="form.invalid || isSubmitting()"
+      ></p-button>
+    </div>
+  </form>
+</div>
