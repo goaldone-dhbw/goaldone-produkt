@@ -1,6 +1,5 @@
 package de.goaldone.backend.service;
 
-import de.goaldone.backend.client.ZitadelManagementClient;
 import de.goaldone.backend.entity.OrganizationEntity;
 import de.goaldone.backend.entity.MembershipEntity;
 import de.goaldone.backend.model.AccountListResponse;
@@ -9,7 +8,6 @@ import de.goaldone.backend.repository.OrganizationRepository;
 import de.goaldone.backend.repository.MembershipRepository;
 import de.goaldone.backend.repository.WorkingTimeRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 
@@ -26,14 +24,7 @@ public class UserService {
 
     private final MembershipRepository membershipRepository;
     private final OrganizationRepository organizationRepository;
-    private final ZitadelManagementClient zitadelManagementClient;
     private final WorkingTimeRepository workingTimeRepository;
-
-    @Value("${zitadel.goaldone.org-id}")
-    private String goaldoneOrgId;
-
-    @Value("${zitadel.goaldone.project-id}")
-    private String goaldoneProjectId;
 
 
     /**
