@@ -38,8 +38,8 @@ public class TabuAlgorithm {
      * @return True if the move should be accepted, false otherwise
      */
     boolean isAspiration(SolverState currentBest, SolverState newState) {
-        int newScore = constraintHandler.calculateScore(currentBest);
-        int currentScore = constraintHandler.calculateScore(newState);
+        int currentScore = constraintHandler.calculateScore(currentBest);
+        int newScore = constraintHandler.calculateScore(newState);
 
         return newScore > currentScore; // Accept move, if better score
 
