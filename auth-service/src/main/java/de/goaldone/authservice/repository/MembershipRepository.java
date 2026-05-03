@@ -4,10 +4,13 @@ import de.goaldone.authservice.domain.Membership;
 import de.goaldone.authservice.domain.MembershipId;
 import de.goaldone.authservice.domain.Role;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -17,6 +20,15 @@ import java.util.UUID;
 public interface MembershipRepository extends JpaRepository<Membership, MembershipId> {
 
     boolean existsByUserIdAndCompanyId(UUID userId, UUID companyId);
+
+    List<Membership> findByCompanyId(UUID companyId);
+
+    @Modifying
+    @Query("DELETE FROM Membership m WHERE m.user.id = :userId AND m.company.id = :companyId")
+    void deleteByUserIdAndCompanyId(@Param("userId") UUID userId, @Param("companyId") UUID companyId);
+
+    @Query("SELECT m FROM Membership m WHERE m.user.id = :userId AND m.company.id = :companyId")
+    Optional<Membership> findByUserIdAndCompanyId(@Param("userId") UUID userId, @Param("companyId") UUID companyId);
 
     /**
      * Count active (non-deleted) memberships with COMPANY_ADMIN role in an organization.

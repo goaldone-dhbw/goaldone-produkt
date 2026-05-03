@@ -50,6 +50,10 @@ public class Invitation {
     @Column(name = "acceptance_reason")
     private String acceptanceReason;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "role", length = 50)
+    private Role role;
+
     // Convenience methods for status updates
     public void markAsAcceptedWithNewAccount(User newUser) {
         this.acceptanceReason = "NEW_ACCOUNT";

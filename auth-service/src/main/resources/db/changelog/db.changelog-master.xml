@@ -11,4 +11,5 @@
     <include file="db/changelog/04-security-foundation.xml"/>
     <include file="db/changelog/05-invitation-linking-status.xml"/>
     <include file="db/changelog/06-auth-server-schema.xml"/>
+    <include file="db/changelog/07-invitation-role.xml"/>
 </databaseChangeLog>

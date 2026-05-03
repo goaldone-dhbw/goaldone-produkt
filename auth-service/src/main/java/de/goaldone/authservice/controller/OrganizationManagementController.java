@@ -2,6 +2,7 @@ package de.goaldone.authservice.controller;
 
 import de.goaldone.authservice.dto.CompanyRequest;
 import de.goaldone.authservice.dto.CompanyResponse;
+import de.goaldone.authservice.dto.MemberListItemResponse;
 import de.goaldone.authservice.service.OrganizationManagementService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -14,6 +15,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -69,5 +71,17 @@ public class OrganizationManagementController {
     })
     public ResponseEntity<CompanyResponse> updateOrganization(@PathVariable @Parameter(description = "Organization UUID") UUID id, @Valid @RequestBody CompanyRequest request) {
         return ResponseEntity.ok(organizationService.updateOrganization(id, request));
+    }
+
+    @GetMapping("/{id}/members")
+    @Operation(summary = "List organization members", description = "Returns all active and pending members")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Members found"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized"),
+            @ApiResponse(responseCode = "404", description = "Organization not found")
+    })
+    public ResponseEntity<List<MemberListItemResponse>> listMembers(
+            @PathVariable @Parameter(description = "Organization UUID") UUID id) {
+        return ResponseEntity.ok(organizationService.listMembers(id));
     }
 }

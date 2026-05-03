@@ -31,7 +31,7 @@ public class DefaultSecurityConfig {
                 .authorizeHttpRequests((authorize) -> authorize
                         // Invitation status endpoint is publicly accessible (token serves as credential)
                         .requestMatchers("/api/v1/invitations/*/status").permitAll()
-                        .anyRequest().authenticated()
+                        .anyRequest().hasAuthority("SCOPE_mgmt:admin")
                 )
                 .oauth2ResourceServer((resourceServer) -> resourceServer
                         .jwt(Customizer.withDefaults()));

@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
@@ -55,7 +56,7 @@ public class OrganizationManagementControllerTests {
                 .build();
 
         mockMvc.perform(post("/api/v1/organizations")
-                        .with(jwt())
+                        .with(jwt().authorities(new SimpleGrantedAuthority("SCOPE_mgmt:admin")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
@@ -72,7 +73,7 @@ public class OrganizationManagementControllerTests {
                 .build();
 
         mockMvc.perform(post("/api/v1/organizations")
-                        .with(jwt())
+                        .with(jwt().authorities(new SimpleGrantedAuthority("SCOPE_mgmt:admin")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
@@ -82,7 +83,7 @@ public class OrganizationManagementControllerTests {
     @Test
     void getOrganizationById_shouldReturnCompany() throws Exception {
         mockMvc.perform(get("/api/v1/organizations/{id}", testCompany.getId())
-                        .with(jwt()))
+                        .with(jwt().authorities(new SimpleGrantedAuthority("SCOPE_mgmt:admin"))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(testCompany.getId().toString()))
                 .andExpect(jsonPath("$.name").value("Test Company"));
@@ -91,7 +92,7 @@ public class OrganizationManagementControllerTests {
     @Test
     void getOrganizationById_whenNotFound_shouldReturn404() throws Exception {
         mockMvc.perform(get("/api/v1/organizations/{id}", UUID.randomUUID())
-                        .with(jwt()))
+                        .with(jwt().authorities(new SimpleGrantedAuthority("SCOPE_mgmt:admin"))))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.title").value("Entity Not Found"));
     }
@@ -100,7 +101,7 @@ public class OrganizationManagementControllerTests {
     void getOrganizationBySlug_shouldReturnCompany() throws Exception {
         mockMvc.perform(get("/api/v1/organizations/search")
                         .param("slug", "test-company")
-                        .with(jwt()))
+                        .with(jwt().authorities(new SimpleGrantedAuthority("SCOPE_mgmt:admin"))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.slug").value("test-company"));
     }
@@ -113,7 +114,7 @@ public class OrganizationManagementControllerTests {
                 .build();
 
         mockMvc.perform(put("/api/v1/organizations/{id}", testCompany.getId())
-                        .with(jwt())
+                        .with(jwt().authorities(new SimpleGrantedAuthority("SCOPE_mgmt:admin")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())

@@ -55,6 +55,7 @@ public class InvitationManagementService {
                 .company(company)
                 .inviterId(request.getInviterId())
                 .expiresAt(LocalDateTime.now().plusDays(7))
+                .role(request.getRole())
                 .build();
 
         Invitation saved = invitationRepository.save(invitation);
