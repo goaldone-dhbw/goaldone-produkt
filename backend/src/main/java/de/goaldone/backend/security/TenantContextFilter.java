@@ -93,9 +93,30 @@ public class TenantContextFilter extends OncePerRequestFilter {
                 return false;
             }
 
+            // Log all org IDs from JWT for debugging
+            log.debug("[TenantContextFilter] JWT orgs claim contains {} organizations", orgs.size());
+            orgs.forEach(org ->
+                log.debug("[TenantContextFilter] JWT org ID: {} (type: {})", org.get("id"), org.get("id") != null ? org.get("id").getClass().getSimpleName() : "null")
+            );
+            log.debug("[TenantContextFilter] Requested org ID: {} (type: {})", requestedOrgId, requestedOrgId.getClass().getSimpleName());
+
             // Check if the requested organization ID exists in the user's memberships
-            return orgs.stream()
-                    .anyMatch(org -> requestedOrgId.equals(org.get("id")));
+            boolean match = orgs.stream()
+                    .anyMatch(org -> {
+                        Object orgId = org.get("id");
+                        boolean isMatch = requestedOrgId.equals(orgId);
+                        if (!isMatch) {
+                            log.debug("[TenantContextFilter] No match: requested '{}' != JWT org '{}'", requestedOrgId, orgId);
+                        }
+                        return isMatch;
+                    });
+
+            if (!match) {
+                log.warn("[TenantContextFilter] Requested org ID '{}' not found in JWT orgs claim. Available IDs: {}",
+                    requestedOrgId, orgs.stream().map(o -> o.get("id")).toList());
+            }
+
+            return match;
 
         } catch (Exception e) {
             log.error("Error validating organization membership", e);

@@ -35,3 +35,6 @@ logging:
     console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
   level:
     root: INFO
+    de.goaldone.backend.security.TenantContextFilter: DEBUG
+    de.goaldone.backend.service.JitProvisioningService: DEBUG
+    de.goaldone.backend.filter.JitProvisioningFilter: DEBUG

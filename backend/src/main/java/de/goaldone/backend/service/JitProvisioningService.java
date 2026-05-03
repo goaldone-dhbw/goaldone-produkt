@@ -60,6 +60,11 @@ public class JitProvisioningService {
             return;
         }
 
+        log.info("[JIT] Processing JWT orgs claim for user {}: {} organizations", authUserId, orgs.size());
+        orgs.forEach(org -> log.info("[JIT] Org claim data: id={} (type: {}), name={}, slug={}, role={}",
+            org.get("id"), org.get("id") != null ? org.get("id").getClass().getSimpleName() : "null",
+            org.get("name"), org.get("slug"), org.get("role")));
+
         // 1. Resolve or create the User record using the auth-service UUID as PK
         UserEntity user = resolveOrCreateUser(authUserId);
 
@@ -68,16 +73,20 @@ public class JitProvisioningService {
             String authCompanyIdStr = (String) orgData.get("id");
             String orgName = (String) orgData.get("name");
 
-            if (authCompanyIdStr == null) continue;
+            if (authCompanyIdStr == null) {
+                log.warn("[JIT] Org data missing 'id' field, skipping. Data: {}", orgData);
+                continue;
+            }
 
             UUID authCompanyId;
             try {
                 authCompanyId = UUID.fromString(authCompanyIdStr);
             } catch (IllegalArgumentException e) {
-                log.warn("Cannot parse org UUID '{}' from JWT claim, skipping", authCompanyIdStr);
+                log.warn("[JIT] Cannot parse org UUID '{}' from JWT claim, skipping", authCompanyIdStr);
                 continue;
             }
 
+            log.info("[JIT] Provisioning membership: user={}, company={}", authUserId, authCompanyId);
             provisionMembership(authUserId, user, authCompanyId, orgName);
         }
     }
