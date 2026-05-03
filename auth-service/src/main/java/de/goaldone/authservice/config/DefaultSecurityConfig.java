@@ -54,12 +54,20 @@ public class DefaultSecurityConfig {
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests((authorize) -> authorize
-                        .requestMatchers("/forgot-password", "/reset-password", "/invitation/**", "/invitations/**", "/css/**", "/error").permitAll()
+                        .requestMatchers(
+                                "/forgot-password", "/reset-password", "/invitation/**", "/invitations/**",
+                                "/css/**", "/error",
+                                "/.well-known/**",              // OIDC Discovery endpoint
+                                "/actuator/health",              // Health check for orchestration
+                                "/h2-console/**"                 // H2 console for local dev
+                        ).permitAll()
                         .anyRequest().authenticated()
                 )
                 // Form login handles the redirect to the login page from the
                 // authorization server filter chain
-                .formLogin(Customizer.withDefaults());
+                .formLogin(Customizer.withDefaults())
+                // H2 console requires frame options to be disabled
+                .headers(headers -> headers.frameOptions(frameOptions -> frameOptions.disable()));
 
         return http.build();
     }
