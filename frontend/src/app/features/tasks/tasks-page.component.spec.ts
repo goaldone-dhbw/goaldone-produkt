@@ -2,6 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { BASE_PATH } from '../../api';
+import { OrgContextService } from '../../core/services/org-context.service';
 import { TasksPageComponent } from './tasks-page.component';
 
 describe('TasksPageComponent', () => {
@@ -16,12 +17,19 @@ describe('TasksPageComponent', () => {
       apiBasePath: 'http://localhost:8080',
     };
 
+    const orgContextServiceMock = {
+      getDefaultOrg: () => ({ id: 'org-1', slug: 'test-org', role: 'USER' }),
+      getDialogOrg: () => null,
+      getSettingsOrg: () => null,
+    };
+
     await TestBed.configureTestingModule({
       imports: [TasksPageComponent],
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
-        { provide: BASE_PATH, useValue: API_BASE }
+        { provide: BASE_PATH, useValue: API_BASE },
+        { provide: OrgContextService, useValue: orgContextServiceMock },
       ],
     }).compileComponents();
 
