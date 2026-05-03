@@ -2,6 +2,8 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { BASE_PATH } from '../../api';
+import { AccountStateService } from '../../core/services/account-state.service';
+import { OrgContextService } from '../../core/services/org-context.service';
 import { WorkingHoursPage } from './working-hours.page';
 import { ConfirmationService, MessageService } from 'primeng/api';
 
@@ -13,12 +15,25 @@ describe('WorkingHoursPage', () => {
   const API_BASE = 'http://localhost:8080/api/v1';
 
   beforeEach(async () => {
+    const orgContextServiceMock = {
+      getDefaultOrg: () => ({ id: 'org-1', slug: 'test-org', role: 'USER' }),
+      getDialogOrg: () => null,
+      getSettingsOrg: () => null,
+    };
+
+    const accountStateServiceMock = {
+      refresh: () => {},
+      hasConflicts: { value: false },
+    };
+
     await TestBed.configureTestingModule({
       imports: [WorkingHoursPage],
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
         { provide: BASE_PATH, useValue: API_BASE },
+        { provide: OrgContextService, useValue: orgContextServiceMock },
+        { provide: AccountStateService, useValue: accountStateServiceMock },
         ConfirmationService,
         MessageService
       ],
