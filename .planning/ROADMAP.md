@@ -85,9 +85,9 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. `AuthService.getUserRoles()` returns roles from the `authorities` claim (not Zitadel URN keys)
   4. Role-gated UI elements render correctly for authenticated users with the appropriate role
 **Plans**: 4 plans
-- [ ] 04-01-PLAN.md — OIDC Configuration & Token Lifecycle (issuer swap, env.js, silent refresh removal)
-- [ ] 04-02-PLAN.md — Role & Org Extraction (authorities claim mapping, OrgContextService)
-- [ ] 04-03-PLAN.md — Token Refresh & X-Org-ID Header Injection (authInterceptor enhancement)
+- [x] 04-01-PLAN.md — OIDC Configuration & Token Lifecycle (issuer swap, env.js, silent refresh removal)
+- [x] 04-02-PLAN.md — Role & Org Extraction (authorities claim mapping, OrgContextService)
+- [x] 04-03-PLAN.md — Token Refresh & X-Org-ID Header Injection (authInterceptor enhancement)
 - [ ] 04-04-PLAN.md — Multi-Org UI Components & End-to-End Testing (dialogs, settings, main page)
 **UI hint**: yes
 
