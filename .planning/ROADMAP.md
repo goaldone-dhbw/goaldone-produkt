@@ -2,7 +2,7 @@
 
 ## Overview
 
-This milestone replaces Zitadel as the identity provider with the custom auth-service across five dependency-ordered phases. Phase 1 stabilizes the auth-service token contract so every downstream phase has a known, stable foundation. Phases 2-3 replace the backend's Zitadel coupling (JWT validation, JIT provisioning, DB schema). Phase 4 flips the frontend config. Phase 5 rewrites the member management layer and completes the cutover. Phase 6 fixes any compilation errors and restores the test suite. No dual-IdP period is needed — this is a complete, atomic replacement.
+This milestone replaces Zitadel as the identity provider with the custom auth-service across five dependency-ordered phases. Phase 1 stabilizes the auth-service token contract so every downstream phase has a known, stable foundation. Phases 2-3 replace the backend's Zitadel coupling (JWT validation, JIT provisioning, DB schema). Phase 4 flips the frontend config. Phase 5 rewrites the member management layer and completes the cutover. Phase 6 fixes any compilation errors and restores the test suite. Phase 6.1 adds CI/CD and deployment infrastructure for auth-service. No dual-IdP period is needed — this is a complete, atomic replacement.
 
 ## Phases
 
@@ -19,6 +19,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 4: Frontend Auth Switch** - Point Angular OIDC client at auth-service; update role and org extraction
 - [ ] **Phase 5: Member Management Rewrite & Cutover** - Replace all Zitadel SDK calls with auth-service management API; final cleanup
 - [ ] **Phase 6: Backend Error Fix & Test Restoration** - Fix all errors that hinder the backend from starting; restore 100+ tests removed by previous phases
+- [ ] **Phase 06.1: CI/CD Pipeline Update** - Auth-service Docker deployment, postgres independence, GitHub Actions build (INSERTED)
+- [ ] **Phase 7: Frontend Integration** - Fix frontend to work with new backend implementation
 
 ## Phase Details
 
@@ -134,10 +136,50 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Wave 2** *(blocked on Wave 1 completion)*
 - [ ] 06-02-PLAN.md — Secondary test restoration + auth-service integration tests (M2M credentials, member ops, role extraction)
 
+### Phase 06.1: CI/CD Pipeline Update: Auth-Service Deployment, Postgres Independence, and GitHub Actions Build (INSERTED)
+
+**Goal:** Update CI/CD infrastructure to support auth-service as a first-class containerized service with independent PostgreSQL instance, separate versioning in GitHub Actions, automated deployment orchestration with JWKS validation, and complete Zitadel removal.
+
+**Depends on:** Phase 6
+
+**Requirements**: INFRA-01, INFRA-02, INFRA-03, INFRA-04, INFRA-05
+
+**Success Criteria** (what must be TRUE):
+  1. Auth-service Docker image builds and pushes to GHCR on every master push alongside backend/frontend
+  2. All three services tagged with unified semantic version (e.g., v0.2.0)
+  3. docker-compose files define auth-service service with separate postgres-auth instance
+  4. Startup order enforced: postgres-auth → postgres-backend → auth-service → backend → frontend
+  5. deploy.sh orchestrates auth-service startup with JWKS endpoint validation before backend starts
+  6. Auth-service version rollback supported via .env version management
+  7. All ZITADEL_* variables removed from .env templates and GitHub Actions
+  8. infra/infra-setup/ (Zitadel infrastructure) completely removed
+
+**Plans:** 4 plans
+
+**Wave 1** *(no dependencies — parallel)*
+- [ ] 06.1-01-PLAN.md — GitHub Actions CI/CD Pipeline Updates (auth-service build job, version tagging)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+- [ ] 06.1-02-PLAN.md — Docker & Docker-Compose Updates (auth-service service, postgres-auth, startup order, .env templates)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+- [ ] 06.1-03-PLAN.md — Deployment Script Expansion (deploy.sh auth-service orchestration, JWKS validation, version management)
+
+**Wave 4** *(blocked on Wave 3 completion)*
+- [ ] 06.1-04-PLAN.md — Configuration Cleanup & Zitadel Removal (remove Zitadel from .env, cd.yml, infra/)
+
+### Phase 7: Fix the frontend to work with my new backend implementation that fully utilizes the auth-service
+
+**Goal:** [To be planned]
+
+**Depends on:** Phase 6.1
+
+**Plans:** TBD (run `/gsd:plan-phase 7` to break down)
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
+Phases execute in numeric order: 1 → 2 → 3 → 03.1 → 4 → 5 → 6 → 6.1 → 7
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -148,3 +190,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 4. Frontend Auth Switch | 4/4 | Not started | - |
 | 5. Member Management Rewrite & Cutover | 5/5 | Ready to execute | - |
 | 6. Backend Error Fix & Test Restoration | 0/2 | Ready to plan | - |
+| 06.1 CI/CD Pipeline Update | 4/4 | Ready to execute | - |
+| 7. Frontend Integration | TBD | Ready to plan | - |
