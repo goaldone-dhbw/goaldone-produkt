@@ -19,6 +19,8 @@ spring:
     store-type: jdbc
 
 app:
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:4200}
   super-admin:
     org-name: "System Admin"
     org-slug: "system-admin"
