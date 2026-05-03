@@ -26,12 +26,27 @@ See: .planning/PROJECT.md (updated 2026-05-02)
 
 ## Current Position
 
-Phase: 8 (fix-frontend-reload-loop) — PLANNING
-Status: Phase directory created, ready for discussion phase
-Last activity: 2026-05-04 -- Phase 08 created (Fix Frontend Reload Loop After Successful Login)
-Current Plan: None — Phase 08 pending discussion
+Phase: 8 (fix-frontend-reload-loop) — IN PROGRESS
+Status: Debugging critical backend bugs blocking frontend auth flow
+Last activity: 2026-05-03 22:30 -- Fixed 2 critical backend bugs preventing frontend auth
+Current Plan: Investigating frontend reload loop root cause
 
-Progress: [▓▓▓▓▓▓▓▓░░] 85% (7/8 main phases done, 1 new issue identified)
+Progress: [▓▓▓▓▓▓▓▓░░] 85% (7/8 main phases done + bugs fixed, 1 phase in progress)
+
+## Critical Bugs Fixed (Phase 8 Progress)
+
+**Bug #1: JWT Subject Claim Parsing Error** ✅
+- Issue: Backend tried to parse email as UUID from jwt.getSubject()
+- Root cause: Auth-service puts email in 'sub' claim instead of UUID
+- Fix: All user ID extraction now uses jwt.getClaimAsString("user_id") with fallback to subject
+- Impact: 500 errors on /accounts endpoint now return 200 OK
+- Commits: 27a5772, 45bde1a
+
+**Bug #2: Incomplete /accounts Endpoint Response** ✅
+- Issue: Response missing required fields: email, roles, hasConflicts
+- Fix: Populated all required fields from JWT claims and membership data
+- Impact: Frontend can now read email and roles correctly
+- Commit: f44a1e5
 
 ## Performance Metrics
 
