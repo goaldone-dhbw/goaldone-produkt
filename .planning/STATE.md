@@ -112,6 +112,7 @@ Recent decisions affecting current work:
 - Phase 03.1 inserted after Phase 03: Refine Organization Context and Header Requirements (URGENT)
 - Phase 06.1 inserted after Phase 06: CI/CD Pipeline Update — Auth-Service Deployment, Postgres Independence, and GitHub Actions Build (URGENT)
 - Phase 7 added: Fix the frontend to work with my new backend implementation that fully utilizes the auth-service
+- Phase 8 added: Auth-Service Login UI & Password Reset + Accounts Endpoint Roles (redesign login page UI, add password reset, improve accounts endpoint with role support)
 
 ### Pending Todos
 

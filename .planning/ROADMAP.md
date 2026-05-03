@@ -206,3 +206,13 @@ Phases execute in numeric order: 1 → 2 → 3 → 03.1 → 4 → 5 → 6 → 6.
 | 6. Backend Error Fix & Test Restoration | 0/2 | Ready to plan | - |
 | 06.1 CI/CD Pipeline Update | 4/4 | Ready to execute | - |
 | 7. Frontend Integration | 6/6 | Completed | 2026-05-03 |
+
+### Phase 8: Auth-Service Login UI & Password Reset + Accounts Endpoint Roles
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 7
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 8 to break down)
