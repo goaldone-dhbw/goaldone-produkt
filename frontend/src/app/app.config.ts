@@ -9,6 +9,7 @@ import { provideOAuthClient } from 'angular-oauth2-oidc';
 
 import { routes } from './app.routes';
 import { authInterceptor } from './core/auth/auth.interceptor';
+import { tenantInterceptor } from './core/interceptors/tenant.interceptor';
 import { AuthService } from './core/auth/auth.service';
 import { BASE_PATH } from './api';
 import { providePrimeNG } from 'primeng/config';
@@ -18,7 +19,7 @@ export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
     provideRouter(routes),
-    provideHttpClient(withInterceptors([authInterceptor])),
+    provideHttpClient(withInterceptors([authInterceptor, tenantInterceptor])),
     providePrimeNG({
       theme: {
         preset: GoaldoneTheme,

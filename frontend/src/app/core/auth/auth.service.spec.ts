@@ -184,5 +184,35 @@ describe('AuthService', () => {
         expect(service.getUserOrganizationId()).toBe('org456');
       });
     });
+
+    describe('getUserMemberships', () => {
+      it('should return empty array if no memberships are present', () => {
+        const token = createMockJwt({ sub: '123' });
+        vi.mocked(oauthService.getAccessToken).mockReturnValue(token);
+        expect(service.getUserMemberships()).toEqual([]);
+      });
+
+      it('should return empty array if no token is available', () => {
+        vi.mocked(oauthService.getAccessToken).mockReturnValue('');
+        expect(service.getUserMemberships()).toEqual([]);
+      });
+
+      it('should extract memberships from "orgs" claim', () => {
+        const memberships = [
+          { id: 'org-1', name: 'Org One', slug: 'org-one', role: 'ADMIN' },
+          { id: 'org-2', name: 'Org Two', slug: 'org-two', role: 'MEMBER' }
+        ];
+        const token = createMockJwt({ orgs: memberships });
+        vi.mocked(oauthService.getAccessToken).mockReturnValue(token);
+
+        expect(service.getUserMemberships()).toEqual(memberships);
+      });
+
+      it('should return empty array if orgs claim is not an array', () => {
+        const token = createMockJwt({ orgs: 'not-an-array' });
+        vi.mocked(oauthService.getAccessToken).mockReturnValue(token);
+        expect(service.getUserMemberships()).toEqual([]);
+      });
+    });
   });
 });

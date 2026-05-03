@@ -120,4 +120,23 @@ export class AuthService {
       null
     );
   }
+
+  /**
+   * Extract the list of user memberships from the JWT 'orgs' claim.
+   * Returns an array of organization objects with id, name, slug, and role.
+   * @returns Array of organization membership objects, or null if claim not found.
+   */
+  getUserMemberships(): any[] {
+    const decodedToken = this.getDecodedAccessToken();
+    if (!decodedToken) {
+      return [];
+    }
+
+    const orgs = decodedToken['orgs'];
+    if (!Array.isArray(orgs)) {
+      return [];
+    }
+
+    return orgs;
+  }
 }
