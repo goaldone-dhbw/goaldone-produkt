@@ -11,6 +11,19 @@ spring:
       resourceserver:
         jwt:
           issuer-uri: ${ZITADEL_ISSUER_URI:https://sso.dev.goaldone.de}
+      client:
+        registration:
+          auth-service-mgmt:
+            client-id: ${MGMT_CLIENT_ID:mgmt-client}
+            client-secret: ${MGMT_CLIENT_SECRET:mgmt-secret}
+            authorization-grant-type: client_credentials
+            scope: mgmt:admin
+        provider:
+          auth-service-mgmt:
+            token-uri: ${AUTH_SERVICE_URL:http://localhost:9000}/oauth2/token
+
+auth-service:
+  base-url: ${AUTH_SERVICE_URL:http://localhost:9000}
 
 zitadel:
   service-account-token: ${ZITADEL_SERVICE_ACCOUNT_TOKEN:}
