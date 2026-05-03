@@ -2,7 +2,7 @@
 
 ## Overview
 
-This milestone replaces Zitadel as the identity provider with the custom auth-service across five dependency-ordered phases. Phase 1 stabilizes the auth-service token contract so every downstream phase has a known, stable foundation. Phases 2-3 replace the backend's Zitadel coupling (JWT validation, JIT provisioning, DB schema). Phase 4 flips the frontend config. Phase 5 rewrites the member management layer and completes the cutover. No dual-IdP period is needed — this is a complete, atomic replacement.
+This milestone replaces Zitadel as the identity provider with the custom auth-service across five dependency-ordered phases. Phase 1 stabilizes the auth-service token contract so every downstream phase has a known, stable foundation. Phases 2-3 replace the backend's Zitadel coupling (JWT validation, JIT provisioning, DB schema). Phase 4 flips the frontend config. Phase 5 rewrites the member management layer and completes the cutover. Phase 6 fixes any compilation errors and restores the test suite. No dual-IdP period is needed — this is a complete, atomic replacement.
 
 ## Phases
 
@@ -117,21 +117,27 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] 05-05-PLAN.md — Liquibase PK unification + Entity updates + Zitadel SDK removal + Integration tests
 
 ### Phase 6: Backend Error Fix & Test Restoration
-**Goal**: Fix all errors that hinder the backend from starting; restore the test suite from 38 to 100+ tests that were removed in previous phases
+**Goal**: Fix all compilation errors that hinder the backend from starting; restore the test suite from 43 to 100+ tests that were removed in previous phases
 **Depends on**: Phase 5
-**Requirements**: TBD
+**Requirements**: TEST-01, TEST-02, TEST-03, TEST-04, TEST-05, TEST-06
 **Success Criteria** (what must be TRUE):
-  1. Backend starts cleanly without errors: `./mvnw spring-boot:run -Dspring-boot.run.profiles=local` succeeds
+  1. Backend starts cleanly without errors: `cd backend && ./mvnw spring-boot:run -Dspring-boot.run.profiles=local` succeeds
   2. All compilation errors are resolved
-  3. Test suite restored: 100+ tests (previously had 100+, currently 38)
-  4. All tests pass: `./mvnw test` returns 0 exit code
+  3. Test suite restored: 100+ tests (previously had 100+, currently 43 after Phase 5)
+  4. All tests pass: `cd backend && ./mvnw test` returns 0 exit code with 100+ passing tests
   5. No regressions in frontend or infrastructure
-**Plans**: TBD
+**Plans**: 2 plans
+
+**Wave 1** *(no dependencies — parallel)*
+- [ ] 06-01-PLAN.md — High-priority test restoration (JWT, JIT provisioning, member management, org management)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+- [ ] 06-02-PLAN.md — Secondary test restoration + auth-service integration tests (M2M credentials, member ops, role extraction)
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
+Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -141,4 +147,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 03.1 Refine Organization Context and Header Requirements | 3/3 | Completed | 2026-05-03 |
 | 4. Frontend Auth Switch | 4/4 | Not started | - |
 | 5. Member Management Rewrite & Cutover | 5/5 | Ready to execute | - |
-| 6. Backend Error Fix & Test Restoration | 0/? | Not started | - |
+| 6. Backend Error Fix & Test Restoration | 0/2 | Ready to plan | - |
