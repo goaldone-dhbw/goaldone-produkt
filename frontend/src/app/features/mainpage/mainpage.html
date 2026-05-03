@@ -1,3 +1,144 @@
-<div class="p-5">
-  <h1>Mainpage works!</h1>
+<div class="min-h-screen bg-slate-50">
+  <div class="mx-auto max-w-4xl px-4 py-12 sm:px-6 lg:px-8">
+    @if (isAuthenticated()) {
+      <div class="space-y-8">
+        <!-- Welcome section -->
+        <div class="rounded-2xl border border-slate-200 bg-white shadow-sm p-8">
+          <div class="text-center">
+            <i class="pi pi-check-circle text-5xl text-emerald-600 mb-4 block"></i>
+            <h1 class="text-3xl font-bold text-slate-900 mb-2">
+              Willkommen!
+            </h1>
+            <p class="text-lg text-slate-600">
+              Du bist erfolgreich authentifiziert.
+            </p>
+          </div>
+        </div>
+
+        <!-- User identity section -->
+        <div class="rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div class="border-b border-slate-200 px-8 py-4">
+            <h2 class="text-xl font-semibold text-slate-900">Benutzerinformation</h2>
+          </div>
+          <div class="px-8 py-6 space-y-4">
+            <div class="flex items-center justify-between py-3 border-b border-slate-100">
+              <span class="text-sm font-medium text-slate-600">E-Mail:</span>
+              <span class="text-sm text-slate-900">{{ userEmail() || '—' }}</span>
+            </div>
+            <div class="flex items-center justify-between py-3">
+              <span class="text-sm font-medium text-slate-600">Benutzer-ID:</span>
+              <span class="text-sm text-slate-900 font-mono">{{ userId() || '—' }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Organization memberships section -->
+        @if (userOrgs().length > 0) {
+          <div class="rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div class="border-b border-slate-200 px-8 py-4">
+              <h2 class="text-xl font-semibold text-slate-900">Deine Organisationen</h2>
+            </div>
+            <div class="px-8 py-6">
+              @if (userOrgs().length === 0) {
+                <p class="text-sm text-slate-600">Du bist noch nicht Mitglied in einer Organisation.</p>
+              } @else {
+                <div class="space-y-3">
+                  @for (org of userOrgs(); track org.id) {
+                    <div class="flex items-center justify-between p-4 rounded-lg border border-slate-200 hover:bg-slate-50 transition">
+                      <div>
+                        <p class="font-semibold text-slate-900">{{ org.slug }}</p>
+                        <p class="text-xs text-slate-500 font-mono">{{ org.id }}</p>
+                      </div>
+                      <div class="text-right">
+                        <span class="inline-flex items-center gap-1 rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700 border border-blue-200">
+                          <i class="pi pi-user text-xs"></i>
+                          {{ formatRole(org.role) }}
+                        </span>
+                        @if (activeOrg() && activeOrg()?.id === org.id) {
+                          <p class="text-xs text-slate-500 mt-2">Aktiv</p>
+                        }
+                      </div>
+                    </div>
+                  }
+                </div>
+              }
+            </div>
+          </div>
+        }
+
+        <!-- Roles by organization section -->
+        @if (objectKeys(userRoles()).length > 0) {
+          <div class="rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div class="border-b border-slate-200 px-8 py-4">
+              <h2 class="text-xl font-semibold text-slate-900">Rollen nach Organisation</h2>
+            </div>
+            <div class="px-8 py-6 space-y-6">
+              @for (orgId of objectKeys(userRoles()); track orgId) {
+                <div>
+                  <h3 class="font-semibold text-slate-900 mb-3">
+                    {{ findOrgName(orgId) }}
+                  </h3>
+                  <div class="flex flex-wrap gap-2">
+                    @for (role of userRoles()[orgId]; track role) {
+                      <span class="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1 text-sm font-medium text-emerald-700 border border-emerald-200">
+                        <i class="pi pi-check text-xs"></i>
+                        {{ formatRole(role) }}
+                      </span>
+                    }
+                  </div>
+                </div>
+              }
+            </div>
+          </div>
+        }
+
+        <!-- Quick actions -->
+        <div class="rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div class="border-b border-slate-200 px-8 py-4">
+            <h2 class="text-xl font-semibold text-slate-900">Schnellzugriff</h2>
+          </div>
+          <div class="px-8 py-6">
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <a
+                href="/tasks"
+                class="flex items-center gap-3 p-4 rounded-lg border border-slate-200 hover:border-blue-300 hover:bg-blue-50 transition group"
+              >
+                <i class="pi pi-check text-lg text-blue-600 group-hover:scale-110 transition"></i>
+                <span class="text-sm font-medium text-slate-900">Aufgaben</span>
+              </a>
+              <a
+                href="/working-hours"
+                class="flex items-center gap-3 p-4 rounded-lg border border-slate-200 hover:border-purple-300 hover:bg-purple-50 transition group"
+              >
+                <i class="pi pi-clock text-lg text-purple-600 group-hover:scale-110 transition"></i>
+                <span class="text-sm font-medium text-slate-900">Arbeitszeiten</span>
+              </a>
+              <a
+                href="/org-settings"
+                class="flex items-center gap-3 p-4 rounded-lg border border-slate-200 hover:border-amber-300 hover:bg-amber-50 transition group"
+              >
+                <i class="pi pi-cog text-lg text-amber-600 group-hover:scale-110 transition"></i>
+                <span class="text-sm font-medium text-slate-900">Einstellungen</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    } @else {
+      <div class="rounded-2xl border border-amber-200 bg-amber-50 p-8 text-center">
+        <i class="pi pi-exclamation-circle text-4xl text-amber-600 mb-4 block"></i>
+        <h2 class="text-2xl font-bold text-amber-900 mb-2">Nicht authentifiziert</h2>
+        <p class="text-amber-700 mb-6">
+          Bitte melde dich an, um deine Aufgaben und Organisationen zu verwalten.
+        </p>
+        <a
+          href="/login"
+          class="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-amber-600 text-white font-medium hover:bg-amber-700 transition"
+        >
+          <i class="pi pi-sign-in"></i>
+          Anmelden
+        </a>
+      </div>
+    }
+  </div>
 </div>
