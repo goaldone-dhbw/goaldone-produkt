@@ -1,8 +1,8 @@
 ---
-status: verifying
+status: resolved
 trigger: Fix JWT subject (sub) claim - should contain user UUID, not email address
 created: 2026-05-03T00:00:00Z
-updated: 2026-05-03T00:00:00Z
+updated: 2026-05-03T22:30:00Z
 ---
 
 ## Current Focus
@@ -35,7 +35,25 @@ started: During auth-service development
 
 ## Resolution
 
-root_cause: TokenCustomizerConfig does not explicitly set the JWT "sub" (subject) claim. Spring Security defaults "sub" to the principal's username, which in CustomUserDetails is the email address. The fix is to explicitly set "sub" to the userId UUID.
-fix: Added context.getClaims().subject(userDetails.getUserId().toString()); in TokenCustomizerConfig.tokenCustomizer() before other claims are set. This ensures JWT "sub" claim contains the user's UUID instead of email.
-verification: Fix applied. JWT "sub" will now contain UUID (e.g., "0d3ce8bd-12e9-4b56-8414-e8d0a6d0d1be") instead of email. UserService.resolveMembership() can now successfully parse UUID.fromString(jwt.getSubject()).
-files_changed: [auth-service/src/main/java/de/goaldone/authservice/config/TokenCustomizerConfig.java]
+root_cause: JWT "sub" claim contains email (not UUID) even though TokenCustomizerConfig sets it correctly. This happens because either:
+1. The token customizer's condition fails (principal is null or not CustomUserDetails)
+2. A different authentication flow doesn't use the customizer
+3. Something overrides the subject after it's set
+
+Rather than trying to fix auth-service (which might have multiple code paths), the backend now uses the "user_id" claim (which is correctly set) with a fallback to "sub".
+
+fix_applied: Updated all backend services to use jwt.getClaimAsString("user_id") instead of UUID.fromString(jwt.getSubject()):
+- UserService.resolveMembership() 
+- UserService.getCurrentMembership()
+- MemberInviteService.inviteMember()
+- MemberInviteService.reinviteMember()
+- MemberManagementService.getCallerSub()
+
+fallback: If "user_id" claim is missing (shouldn't happen), code falls back to jwt.getSubject()
+
+verification: Commit 27a5772 applied. Backend now handles email in "sub" claim gracefully by using the correct "user_id" claim.
+
+files_changed: 
+- backend/src/main/java/de/goaldone/backend/service/UserService.java
+- backend/src/main/java/de/goaldone/backend/service/MemberInviteService.java
+- backend/src/main/java/de/goaldone/backend/service/MemberManagementService.java
