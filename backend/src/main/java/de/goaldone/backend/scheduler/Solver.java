@@ -25,9 +25,9 @@ public class Solver {
      * @param context The scheduling context containing chunked tasks, free time slots, and the scheduling start date.
      * @return The best schedule
      */
-    public SchedulingResult createSchedule(SchedulingContext context, long timeout) {
+    public SchedulingResult createSchedule(SchedulingContext context, long timeoutMs) {
 
-        long endTime = System.currentTimeMillis() + timeout - 500; // Subtract a small buffer to ensure we return before the timeout expires
+        long endTime = System.currentTimeMillis() + timeoutMs - 500; // Subtract a small buffer to ensure we return before the timeout expires
 
         SolverState currentBest = this.cpmAlgorithm.generateInitialSchedule(context);
 

@@ -114,7 +114,7 @@ public class ScheduleService {
      * - the scheduleScore,
      * - constraint warnings
      */
-    public ScheduleResponse generateSchedule(Jwt jwt, UUID accountId, GenerateScheduleRequest generateScheduleRequest, long time) {
+    public ScheduleResponse generateSchedule(Jwt jwt, UUID accountId, GenerateScheduleRequest generateScheduleRequest, long timeoutMs) {
 
         // Get data
         List<TaskResponse> allTasks = taskService.getTasksForAccountId(jwt, accountId);
@@ -139,7 +139,7 @@ public class ScheduleService {
         );
 
         // Forward to schedule generator
-        SchedulingResult bestResult = solver.createSchedule(schedulingContext, time);
+        SchedulingResult bestResult = solver.createSchedule(schedulingContext, timeoutMs);
 
 
         // TODO: Map result to ScheduleResponse and return

@@ -72,7 +72,7 @@ public class ScheduleController implements SchedulesApi {
     @Override
     public ResponseEntity<ScheduleResponse> generateSingleAccountSchedule(UUID accountId, GenerateScheduleRequest generateScheduleRequest) {
         Jwt jwt = currentUserResolver.extractJwt();
-        ScheduleResponse scheduleResponse = scheduleService.generateSchedule(jwt, accountId, generateScheduleRequest);
+        ScheduleResponse scheduleResponse = scheduleService.generateSchedule(jwt, accountId, generateScheduleRequest, 10000);
         return ResponseEntity.status(201).body(scheduleResponse);
     }
 
