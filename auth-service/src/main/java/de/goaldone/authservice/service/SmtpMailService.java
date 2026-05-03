@@ -35,9 +35,16 @@ public class SmtpMailService implements MailService {
     public void sendPasswordReset(String to, String resetUrl) {
         Context context = new Context();
         context.setVariable("resetUrl", resetUrl);
+        // Fix D-08: set expirationDate (1 hour from now, formatted for display)
+        context.setVariable("expirationDate",
+            java.time.LocalDateTime.now().plusHours(1)
+                .format(java.time.format.DateTimeFormatter.ofPattern("dd MMM yyyy 'at' HH:mm 'UTC'")));
+        // Set userName — not passed to sendPasswordReset(); template falls back to "there"
+        context.setVariable("userName", null);
 
         String htmlContent = templateEngine.process("mail/password-reset", context);
-        sendEmail(to, "Password Reset Request", htmlContent);
+        // Fix D-08: correct English subject
+        sendEmail(to, "Reset Your GoalDone Password", htmlContent);
     }
 
     @Override

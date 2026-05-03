@@ -79,7 +79,7 @@ class EmailTemplateRenderingTest {
         String html = templateEngine.process("mail/password-reset", testContext);
         
         assertNotNull(html);
-        assertTrue(html.contains("Passwort-Zurücksetzen"));
+        assertTrue(html.contains("Reset Your GoalDone Password"));
     }
 
     @Test
@@ -97,7 +97,7 @@ class EmailTemplateRenderingTest {
         String text = templateEngine.process("mail/password-reset", testContext);
         
         assertNotNull(text);
-        assertTrue(text.contains("Passwort-Zurücksetzen"));
+        assertTrue(text.contains("Reset Your GoalDone Password"));
     }
 
     @Test
@@ -157,8 +157,8 @@ class EmailTemplateRenderingTest {
     void testSecurityMessagingInPasswordReset() {
         String html = templateEngine.process("mail/password-reset", testContext);
         
-        assertTrue(html.contains("Sicherheit"));
-        assertTrue(html.contains("Teile diesen Link nicht"));
+        assertTrue(html.contains("Security reminder"));
+        assertTrue(html.contains("Do not share this link"));
     }
 
     @Test
