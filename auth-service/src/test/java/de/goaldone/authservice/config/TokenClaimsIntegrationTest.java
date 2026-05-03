@@ -83,7 +83,7 @@ class TokenClaimsIntegrationTest {
         
         List<Map<String, Object>> orgs = (List<Map<String, Object>>) claims.get("orgs");
         assertThat(orgs).hasSize(1);
-        assertThat(orgs.get(0).get("id")).isEqualTo(company.getId());
+        assertThat(orgs.get(0).get("id")).isEqualTo(company.getId().toString());
         assertThat(orgs.get(0).get("slug")).isEqualTo("test-corp");
         assertThat(orgs.get(0).get("role")).isEqualTo("COMPANY_ADMIN");
         

@@ -38,7 +38,7 @@ public class TokenCustomizerConfig {
                 List<java.util.Map<String, Object>> orgs = userDetails.getMemberships().stream()
                         .map(membershipInfo -> {
                             java.util.Map<String, Object> org = new java.util.HashMap<>();
-                            org.put("id", membershipInfo.getCompanyId());
+                            org.put("id", membershipInfo.getCompanyId().toString());
                             org.put("slug", membershipInfo.getCompanySlug());
                             org.put("role", membershipInfo.getRole());
                             return org;
