@@ -1,4 +1,4 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TableModule } from 'primeng/table';
@@ -20,6 +20,7 @@ import {
   DayOfWeek
 } from '../../api';
 import { AccountStateService } from '../../core/services/account-state.service';
+import { OrgContextService } from '../../core/services/org-context.service';
 
 @Component({
   selector: 'app-working-hours',
@@ -46,6 +47,9 @@ export class WorkingHoursPage implements OnInit {
   showDialog = signal(false);
   isEditMode = signal(false);
 
+  /** OrgContextService for resolving the active organization ID per request. */
+  private orgContextService = inject(OrgContextService);
+
   selectedDays: DayOfWeek[] = [];
   selectedAccountId: string | null = null;
   editingId: string | null = null;
@@ -70,13 +74,21 @@ export class WorkingHoursPage implements OnInit {
     private messageService: MessageService
   ) {}
 
+  /** Returns the active org ID based on context priority (dialog > settings > default). */
+  private getActiveOrgId(): string {
+    return this.orgContextService.getDialogOrg()
+      || this.orgContextService.getSettingsOrg()
+      || this.orgContextService.getDefaultOrg()?.id
+      || '';
+  }
+
   ngOnInit(): void {
     this.loadAccounts();
     this.loadWorkingTimes();
   }
 
   loadAccounts(): void {
-    this.userAccountsService.getMyAccounts().subscribe({
+    this.userAccountsService.getMyAccounts(this.getActiveOrgId()).subscribe({
       next: (response) => {
         this.accounts.set(response.accounts || []);
       },
@@ -189,7 +201,7 @@ export class WorkingHoursPage implements OnInit {
       endTime: this.endTimeString
     };
 
-    this.workingTimesService.createWorkingTime(request).subscribe({
+    this.workingTimesService.createWorkingTime(this.getActiveOrgId(), request).subscribe({
       next: () => {
         this.messageService.add({
           severity: 'success',
@@ -219,7 +231,7 @@ export class WorkingHoursPage implements OnInit {
       endTime: this.endTimeString
     };
 
-    this.workingTimesService.updateWorkingTime(this.editingId, request).subscribe({
+    this.workingTimesService.updateWorkingTime(this.getActiveOrgId(), this.editingId, request).subscribe({
       next: () => {
         this.messageService.add({
           severity: 'success',
@@ -248,7 +260,7 @@ export class WorkingHoursPage implements OnInit {
       accept: () => {
         if (!item.id) return;
 
-        this.workingTimesService.deleteWorkingTime(item.id.toString()).subscribe({
+        this.workingTimesService.deleteWorkingTime(this.getActiveOrgId(), item.id.toString()).subscribe({
           next: () => {
             this.messageService.add({
               severity: 'success',
