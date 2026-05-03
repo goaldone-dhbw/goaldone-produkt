@@ -95,10 +95,18 @@ public class UserService {
      * Builds an account list response for the user within a specific organization.
      *
      * @param jwt    The current JWT representing the logged-in user.
-     * @param xOrgID The UUID of the organization.
-     * @return An {@link AccountListResponse} containing the user's accounts in the organization.
+     * @param xOrgID The UUID of the organization (null if user has no organization context).
+     * @return An {@link AccountListResponse} containing the user's accounts in the organization, or empty list if no org context.
      */
     public AccountListResponse buildAccountListResponse(Jwt jwt, UUID xOrgID) {
+        AccountListResponse response = new AccountListResponse();
+
+        // If no org context provided, return empty list (user has no memberships)
+        if (xOrgID == null) {
+            response.setAccounts(List.of());
+            return response;
+        }
+
         MembershipEntity membership = resolveMembership(jwt, xOrgID);
         OrganizationEntity org = organizationRepository.findById(xOrgID).orElseThrow();
 
@@ -107,7 +115,6 @@ public class UserService {
         accResponse.setOrganizationId(xOrgID);
         accResponse.setOrganizationName(org.getName());
 
-        AccountListResponse response = new AccountListResponse();
         response.setAccounts(List.of(accResponse));
         return response;
     }

@@ -67,7 +67,9 @@ public class DefaultSecurityConfig {
                 // authorization server filter chain
                 .formLogin(Customizer.withDefaults())
                 // H2 console requires frame options to be disabled
-                .headers(headers -> headers.frameOptions(frameOptions -> frameOptions.disable()));
+                .headers(headers -> headers.frameOptions(frameOptions -> frameOptions.disable()))
+                // Disable CSRF for POST requests from OAuth2 clients (token endpoint is protected by Authorization Server chain)
+                .csrf(csrf -> csrf.disable());
 
         return http.build();
     }

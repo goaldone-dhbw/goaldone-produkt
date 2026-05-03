@@ -30,11 +30,11 @@ public class UserAccountsController implements UserAccountsApi {
     /**
      * Retrieves a list of all accounts associated with the currently authenticated user identity.
      *
-     * @param xOrgID the organization ID context for the request
+     * @param xOrgID the organization ID context for the request (optional for users with no org membership)
      * @return a {@link ResponseEntity} containing an {@link AccountListResponse}
      */
     @Override
-    public ResponseEntity<AccountListResponse> getMyAccounts(@RequestHeader("X-Org-ID") UUID xOrgID) {
+    public ResponseEntity<AccountListResponse> getMyAccounts(@RequestHeader(value = "X-Org-ID", required = false) UUID xOrgID) {
         var jwt = currentUserResolver.extractJwt();
         AccountListResponse response = userService.buildAccountListResponse(jwt, xOrgID);
         return ResponseEntity.ok(response);

@@ -2,7 +2,9 @@ package de.goaldone.authservice.security;
 
 import de.goaldone.authservice.domain.User;
 import de.goaldone.authservice.domain.UserStatus;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -20,7 +22,6 @@ public class CustomUserDetails implements UserDetails, Serializable {
     @Serial
     private static final long serialVersionUID = 1L;
 
-    private final User user;
     private final UUID userId;
     private final String password;
     private final String username;
@@ -28,9 +29,10 @@ public class CustomUserDetails implements UserDetails, Serializable {
     private final List<GrantedAuthority> authorities;
     private final List<String> verifiedEmails;
     private final String primaryEmail;
+    private final boolean superAdmin;
+    private final List<MembershipInfo> memberships;
 
     public CustomUserDetails(User user, String username) {
-        this.user = user;
         this.userId = user.getId();
         this.password = user.getPassword();
         this.username = username;
@@ -45,6 +47,10 @@ public class CustomUserDetails implements UserDetails, Serializable {
                 .map(de.goaldone.authservice.domain.UserEmail::getEmail)
                 .findFirst()
                 .orElse(null);
+        this.superAdmin = user.isSuperAdmin();
+        this.memberships = user.getMemberships().stream()
+                .map(m -> new MembershipInfo(m.getCompany().getId(), m.getCompany().getSlug(), m.getRole().name()))
+                .toList();
     }
 
     private List<GrantedAuthority> calculateAuthorities(User user) {
@@ -104,5 +110,17 @@ public class CustomUserDetails implements UserDetails, Serializable {
     @Override
     public boolean isEnabled() {
         return status == UserStatus.ACTIVE;
+    }
+
+    @Getter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class MembershipInfo implements Serializable {
+        @Serial
+        private static final long serialVersionUID = 1L;
+
+        private UUID companyId;
+        private String companySlug;
+        private String role;
     }
 }

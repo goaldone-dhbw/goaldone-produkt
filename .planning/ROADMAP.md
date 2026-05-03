@@ -190,10 +190,27 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Wave 4:**
 - [x] 07-06-PLAN.md — Manual E2E Testing & Final Validation (100/100 tests confirmed, 0 build errors, E2E checklist created)
 
+### Phase 8: Fix Frontend Reload Loop After Successful Login
+
+**Goal:** Debug and resolve the frontend reload loop that occurs after successful OIDC authentication
+
+**Depends on:** Phase 7
+
+**Requirements**: FE-07 (new)
+
+**Success Criteria** (what must be TRUE):
+  1. User successfully logs in via OIDC flow without triggering infinite reload
+  2. Token is properly stored and retrieved from browser storage
+  3. AuthService initialization completes without race conditions
+  4. Page stability maintained across tab refresh and navigation
+  5. All 100 tests continue to pass with fix applied
+
+**Plans:** TBD
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 03.1 → 4 → 5 → 6 → 6.1 → 7
+Phases execute in numeric order: 1 → 2 → 3 → 03.1 → 4 → 5 → 6 → 6.1 → 7 → 8
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -206,3 +223,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 03.1 → 4 → 5 → 6 → 6.
 | 6. Backend Error Fix & Test Restoration | 0/2 | Ready to plan | - |
 | 06.1 CI/CD Pipeline Update | 4/4 | Ready to execute | - |
 | 7. Frontend Integration | 6/6 | Completed | 2026-05-03 |
+| 8. Fix Frontend Reload Loop After Successful Login | 0/? | Planning | - |

@@ -62,17 +62,11 @@ public class InvitationController {
             return "redirect:/login";
         }
 
-        User user = null;
-        if (authentication.getPrincipal() instanceof CustomUserDetails userDetails) {
-            user = userDetails.getUser();
-        } else {
-            // Fallback for other principal types (e.g., basic Spring Security User)
-            String email = authentication.getName();
-            user = userRepository.findByEmail(email).orElse(null);
-        }
+        String email = authentication.getName();
+        User user = userRepository.findByEmail(email).orElse(null);
 
         if (user == null) {
-            log.warn("Could not find user for authenticated principal: {}", authentication.getName());
+            log.warn("Could not find user for authenticated principal: {}", email);
             return "redirect:/login";
         }
 

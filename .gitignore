@@ -5,6 +5,7 @@ CLAUDE.md
 mprocs.log
 .idea/workspace.xml
 .DS_STORE
+.env.old
 
 
 .github/workflows/

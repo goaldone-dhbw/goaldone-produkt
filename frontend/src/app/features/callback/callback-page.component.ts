@@ -34,6 +34,10 @@ export class CallbackPageComponent implements OnInit, OnDestroy {
       console.log('[CallbackPage] Authorization code detected in URL, manually triggering tryLogin...');
       this.oauthService.tryLoginCodeFlow().then(() => {
         console.log('[CallbackPage] Manual tryLoginCodeFlow completed');
+        console.log('[CallbackPage] After tryLoginCodeFlow - checking storage:');
+        console.log('[CallbackPage] access_token:', this.oauthService.getAccessToken());
+        console.log('[CallbackPage] id_token:', this.oauthService.getIdToken());
+        console.log('[CallbackPage] refreshToken:', this.oauthService.getRefreshToken());
       }).catch((error) => {
         console.error('[CallbackPage] Manual tryLoginCodeFlow failed:', error);
       });
@@ -48,6 +52,12 @@ export class CallbackPageComponent implements OnInit, OnDestroy {
     setTimeout(() => {
       const hasToken = this.authService.hasValidAccessToken();
       console.log('[CallbackPage] hasValidAccessToken() after initial wait:', hasToken);
+      console.log('[CallbackPage] localStorage keys:', Object.keys(localStorage));
+      console.log('[CallbackPage] localStorage contents:', {
+        access_token: localStorage.getItem('access_token'),
+        id_token: localStorage.getItem('id_token'),
+        refresh_token: localStorage.getItem('refresh_token'),
+      });
 
       if (hasToken) {
         // Token is valid, redirect to app after a short delay

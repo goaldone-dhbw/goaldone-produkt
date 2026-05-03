@@ -57,6 +57,12 @@ export class AuthService {
     return this.oauthService.loadDiscoveryDocumentAndTryLogin().then((result) => {
       console.log('[AuthService.initialize] loadDiscoveryDocumentAndTryLogin completed:', result);
       console.log('[AuthService.initialize] hasValidAccessToken():', this.hasValidAccessToken());
+      console.log('[AuthService.initialize] localStorage keys:', Object.keys(localStorage));
+      console.log('[AuthService.initialize] localStorage contents:', {
+        access_token: localStorage.getItem('access_token'),
+        id_token: localStorage.getItem('id_token'),
+        refresh_token: localStorage.getItem('refresh_token'),
+      });
       return result;
     }).catch((error) => {
       console.error('[AuthService.initialize] loadDiscoveryDocumentAndTryLogin failed:', error);
@@ -81,7 +87,14 @@ export class AuthService {
   }
 
   hasValidAccessToken(): boolean {
-    return this.oauthService.hasValidAccessToken();
+    const result = this.oauthService.hasValidAccessToken();
+    const token = this.oauthService.getAccessToken();
+    console.log('[AuthService.hasValidAccessToken]', {
+      result,
+      tokenExists: !!token,
+      tokenLength: token ? token.length : 0,
+    });
+    return result;
   }
 
   getAccessToken(): string {

@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, OnInit } from '@angular/core';
 import { Button } from 'primeng/button';
 import { Router } from '@angular/router';
 import { AuthService } from '../../core/auth/auth.service';
@@ -9,12 +9,18 @@ import { AuthService } from '../../core/auth/auth.service';
   imports: [Button],
   templateUrl: './start-page.component.html',
 })
-export class StartPageComponent {
+export class StartPageComponent implements OnInit {
   private authService = inject(AuthService);
   private router = inject(Router);
 
+  ngOnInit(): void {
+    console.log('[StartPage] Component initialized, URL:', window.location.href);
+  }
+
   get isLoggedIn(): boolean {
-    return this.authService.hasValidAccessToken();
+    const result = this.authService.hasValidAccessToken();
+    console.log('[StartPage.isLoggedIn getter] called, result:', result);
+    return result;
   }
 
   handleAction(): void {

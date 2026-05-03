@@ -1,7 +1,15 @@
 <div class="flex flex-col items-center justify-center h-screen gap-4">
-  <p-card>
+  <p-card *ngIf="!hasError">
     <p class="text-xl font-semibold">Login erfolgreich!</p>
     <br>
-    <p>Du wirst weitergeleitet...</p>
+    <p *ngIf="isLoading">Authentifizierung läuft...</p>
+    <p *ngIf="!isLoading">Du wirst weitergeleitet...</p>
+  </p-card>
+
+  <p-card *ngIf="hasError" class="bg-red-50 border-red-300">
+    <p class="text-xl font-semibold text-red-700">Authentifizierung fehlgeschlagen</p>
+    <br>
+    <p class="text-red-600">{{ errorMessage }}</p>
+    <p class="text-sm text-gray-600 mt-4">Du wirst zurück zum Login weitergeleitet...</p>
   </p-card>
 </div>
