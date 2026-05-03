@@ -35,7 +35,11 @@ public class MemberInviteService {
     @Transactional
     public void inviteMember(UUID xOrgID, InviteMemberRequest request) {
         Jwt jwt = (Jwt) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        UUID inviterId = UUID.fromString(jwt.getSubject());
+        String userIdClaim = jwt.getClaimAsString("user_id");
+        if (userIdClaim == null) {
+            userIdClaim = jwt.getSubject();
+        }
+        UUID inviterId = UUID.fromString(userIdClaim);
 
         MemberRole memberRole = request.getRole() != null ? request.getRole() : MemberRole.USER;
 
@@ -85,7 +89,11 @@ public class MemberInviteService {
         }
 
         Jwt jwt = (Jwt) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        UUID inviterId = UUID.fromString(jwt.getSubject());
+        String userIdClaim = jwt.getClaimAsString("user_id");
+        if (userIdClaim == null) {
+            userIdClaim = jwt.getSubject();
+        }
+        UUID inviterId = UUID.fromString(userIdClaim);
 
         MemberRole memberRole = membership.getRole() != null
                 ? MemberRole.fromValue(membership.getRole())

@@ -29,7 +29,8 @@ export class TenantService {
   }
 
   /**
-   * Initialize the active org ID based on user memberships.
+   * Initialize the active org ID based on user memberships from JWT.
+   * Always prioritize memberships from the current JWT over stored values.
    * If the user has exactly one membership, auto-select it.
    * If multiple memberships exist, restore from sessionStorage or use first one.
    */
@@ -37,11 +38,8 @@ export class TenantService {
     const memberships = this.authService.getOrganizations();
 
     if (!memberships || memberships.length === 0) {
-      // User has no memberships
-      const stored = this.loadActiveOrgIdFromStorage();
-      if (stored) {
-        (this.activeOrgId as any).set(stored);
-      }
+      // User has no memberships - don't use old stored values
+      (this.activeOrgId as any).set(null);
       return;
     }
 
@@ -53,16 +51,25 @@ export class TenantService {
       return;
     }
 
-    // Multiple memberships: restore from storage or use first
+    // Multiple memberships: restore from storage ONLY if it still exists in current memberships
     const stored = this.loadActiveOrgIdFromStorage();
     if (stored && memberships.some(m => m.id === stored)) {
       (this.activeOrgId as any).set(stored);
     } else {
-      // Default to first membership
+      // Default to first membership (ignore stored if it's from old JWT)
       const defaultOrgId = memberships[0].id;
       (this.activeOrgId as any).set(defaultOrgId);
       this.saveActiveOrgIdToStorage(defaultOrgId);
     }
+  }
+
+  /**
+   * Reinitialize active org from the current JWT.
+   * Call this after successful login to refresh org memberships from the new token.
+   */
+  refreshFromJWT(): void {
+    console.log('[TenantService] Refreshing active org from JWT');
+    this.initializeActiveOrg();
   }
 
   /**

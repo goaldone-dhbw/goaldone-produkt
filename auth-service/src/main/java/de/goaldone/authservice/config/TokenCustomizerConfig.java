@@ -29,6 +29,7 @@ public class TokenCustomizerConfig {
                         .map(GrantedAuthority::getAuthority)
                         .collect(Collectors.toSet());
 
+                context.getClaims().subject(userDetails.getUserId().toString());
                 context.getClaims().claim("authorities", authorities);
                 context.getClaims().claim("emails", userDetails.getVerifiedEmails());
                 context.getClaims().claim("primary_email", userDetails.getPrimaryEmail());

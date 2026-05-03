@@ -95,6 +95,7 @@ public class MemberManagementService {
 
     private String getCallerSub() {
         Jwt jwt = (Jwt) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        return jwt.getSubject();
+        String userIdClaim = jwt.getClaimAsString("user_id");
+        return (userIdClaim != null) ? userIdClaim : jwt.getSubject();
     }
 }

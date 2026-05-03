@@ -2,6 +2,7 @@ import { Component, OnInit, inject, OnDestroy } from '@angular/core';
 import { Router } from '@angular/router';
 import { CardModule } from 'primeng/card';
 import { AuthService } from '../../core/auth/auth.service';
+import { TenantService } from '../../core/services/tenant.service';
 import { CommonModule } from '@angular/common';
 import { OAuthService } from 'angular-oauth2-oidc';
 import { Subject } from 'rxjs';
@@ -14,6 +15,7 @@ import { takeUntil } from 'rxjs/operators';
 })
 export class CallbackPageComponent implements OnInit, OnDestroy {
   private authService = inject(AuthService);
+  private tenantService = inject(TenantService);
   private oauthService = inject(OAuthService);
   private router = inject(Router);
   private destroy$ = new Subject<void>();
@@ -60,7 +62,9 @@ export class CallbackPageComponent implements OnInit, OnDestroy {
       });
 
       if (hasToken) {
-        // Token is valid, redirect to app after a short delay
+        // Token is valid, refresh tenant service to use org IDs from the new JWT
+        console.log('[CallbackPage] Token is valid, refreshing tenant service from JWT');
+        this.tenantService.refreshFromJWT();
         this.isLoading = false;
         console.log('[CallbackPage] Token is valid, scheduling redirect to /app');
         setTimeout(() => {
@@ -82,6 +86,9 @@ export class CallbackPageComponent implements OnInit, OnDestroy {
               // Token was received successfully
               console.log('[CallbackPage] Token received event, checking token validity...');
               console.log('[CallbackPage] hasValidAccessToken() after event:', this.authService.hasValidAccessToken());
+              // Refresh tenant service to use org IDs from the new JWT
+              console.log('[CallbackPage] Refreshing tenant service from JWT');
+              this.tenantService.refreshFromJWT();
               this.isLoading = false;
               setTimeout(() => {
                 console.log('[CallbackPage] Token received, navigating to /app');

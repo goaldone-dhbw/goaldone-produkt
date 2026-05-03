@@ -58,7 +58,11 @@ public class UserService {
      * @throws IllegalStateException if the membership cannot be found.
      */
     public MembershipEntity resolveMembership(Jwt jwt, UUID xOrgID) {
-        UUID userId = UUID.fromString(jwt.getSubject());
+        String userIdClaim = jwt.getClaimAsString("user_id");
+        if (userIdClaim == null) {
+            throw new IllegalStateException("Missing 'user_id' claim in JWT");
+        }
+        UUID userId = UUID.fromString(userIdClaim);
         return membershipRepository
                 .findByUserIdAndOrganizationId(userId, xOrgID)
                 .orElseThrow(() -> new IllegalStateException("Membership not found for organization " + xOrgID));
@@ -120,7 +124,7 @@ public class UserService {
     }
 
     /**
-     * Retrieves the current membership based on the JWT's subject claim.
+     * Retrieves the current membership based on the JWT's user_id claim.
      * Note: This method may be ambiguous if the user has multiple memberships.
      * Use {@link #resolveMembership(Jwt, UUID)} for context-aware resolution.
      *
@@ -129,7 +133,11 @@ public class UserService {
      * @throws IllegalStateException if the membership cannot be found.
      */
     private MembershipEntity getCurrentMembership(Jwt jwt) {
-        UUID userId = UUID.fromString(jwt.getSubject());
+        String userIdClaim = jwt.getClaimAsString("user_id");
+        if (userIdClaim == null) {
+            throw new IllegalStateException("Missing 'user_id' claim in JWT");
+        }
+        UUID userId = UUID.fromString(userIdClaim);
         return membershipRepository
                 .findFirstByUserId(userId)
                 .orElseThrow(() -> new IllegalStateException("Membership not found after JIT provisioning"));
