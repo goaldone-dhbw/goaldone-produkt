@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { AppSidebarComponent } from './app-sidebar.component';
 import { AuthService } from '../../../core/auth/auth.service';
+import { OrgContextService } from '../../../core/services/org-context.service';
 import { provideRouter } from '@angular/router';
 import { AccountStore } from '../../../core/accounts/account.store';
 import { UserAccountsService } from '../../../api';
@@ -30,12 +31,19 @@ describe('AppSidebarComponent', () => {
       getMyAccounts: vi.fn().mockReturnValue(of({ accounts: [] })),
     };
 
+    const orgContextServiceMock = {
+      getDefaultOrg: vi.fn().mockReturnValue({ id: 'org-1', slug: 'test-org', role: 'USER' }),
+      getDialogOrg: vi.fn().mockReturnValue(null),
+      getSettingsOrg: vi.fn().mockReturnValue(null),
+    };
+
     await TestBed.configureTestingModule({
       imports: [AppSidebarComponent],
       providers: [
         { provide: AuthService, useValue: authServiceMock },
         { provide: AccountStore, useValue: accountStoreMock },
         { provide: UserAccountsService, useValue: userAccountsServiceMock },
+        { provide: OrgContextService, useValue: orgContextServiceMock },
         provideRouter([]),
       ],
     }).compileComponents();
