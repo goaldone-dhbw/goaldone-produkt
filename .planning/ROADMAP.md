@@ -20,7 +20,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 5: Member Management Rewrite & Cutover** - Replace all Zitadel SDK calls with auth-service management API; final cleanup
 - [ ] **Phase 6: Backend Error Fix & Test Restoration** - Fix all errors that hinder the backend from starting; restore 100+ tests removed by previous phases
 - [x] **Phase 06.1: CI/CD Pipeline Update** - Auth-service Docker deployment, postgres independence, GitHub Actions build (INSERTED)
-- [ ] **Phase 7: Frontend Integration** - Fix frontend to work with new backend implementation
+- [x] **Phase 7: Frontend Integration** - Fix frontend to work with new backend implementation
 
 ## Phase Details
 
@@ -187,6 +187,9 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Wave 3:**
 - [x] 07-05-PLAN.md — Error Handling & User-Friendly Messaging (authInterceptor mapping, ErrorNotificationService, 401 redirect, 100/100 tests)
 
+**Wave 4:**
+- [x] 07-06-PLAN.md — Manual E2E Testing & Final Validation (100/100 tests confirmed, 0 build errors, E2E checklist created)
+
 ## Progress
 
 **Execution Order:**
@@ -202,4 +205,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 03.1 → 4 → 5 → 6 → 6.
 | 5. Member Management Rewrite & Cutover | 5/5 | Ready to execute | - |
 | 6. Backend Error Fix & Test Restoration | 0/2 | Ready to plan | - |
 | 06.1 CI/CD Pipeline Update | 4/4 | Ready to execute | - |
-| 7. Frontend Integration | 5/TBD | In progress | - |
+| 7. Frontend Integration | 6/6 | Completed | 2026-05-03 |
