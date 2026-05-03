@@ -98,7 +98,7 @@ describe('authInterceptor', () => {
     orgContextService = {
       getDialogOrg: vi.fn(() => null),
       getSettingsOrg: vi.fn(() => null),
-      getDefaultOrg: vi.fn(() => ({ id: 'default-org-id', slug: 'default-org', role: 'MEMBER' })),
+      getDefaultOrg: vi.fn(() => ({ id: 'default-org-id', slug: 'default-org', role: 'USER' })),
     } as any;
   });
 
@@ -195,7 +195,7 @@ describe('authInterceptor', () => {
     vi.mocked(authService.isTokenExpirySoon).mockReturnValue(false);
     vi.mocked(orgContextService.getDialogOrg).mockReturnValue('dialog-org-id');
 
-    const req = new HttpRequest('POST', 'http://localhost:8080/api/tasks');
+    const req = new HttpRequest('POST', 'http://localhost:8080/api/tasks', null);
     let capturedReq: HttpRequest<any> | undefined = undefined;
 
     const next = (r: HttpRequest<any>) => {
@@ -214,7 +214,7 @@ describe('authInterceptor', () => {
     vi.mocked(authService.isTokenExpirySoon).mockReturnValue(false);
     vi.mocked(orgContextService.getDialogOrg).mockReturnValue('dialog-org-id');
 
-    const req = new HttpRequest('PUT', 'http://localhost:8080/api/tasks/123');
+    const req = new HttpRequest('PUT', 'http://localhost:8080/api/tasks/123', null);
     let capturedReq: HttpRequest<any> | undefined = undefined;
 
     const next = (r: HttpRequest<any>) => {
@@ -293,7 +293,7 @@ describe('authInterceptor', () => {
     vi.mocked(orgContextService.getDialogOrg).mockReturnValue('dialog-org-id');
     vi.mocked(orgContextService.getSettingsOrg).mockReturnValue('settings-org-id');
 
-    const req = new HttpRequest('POST', 'http://localhost:8080/api/tasks');
+    const req = new HttpRequest('POST', 'http://localhost:8080/api/tasks', null);
     let capturedReq: HttpRequest<any> | undefined = undefined;
 
     const next = (r: HttpRequest<any>) => {
@@ -313,7 +313,7 @@ describe('authInterceptor', () => {
     vi.mocked(orgContextService.getDialogOrg).mockReturnValue(null);
     vi.mocked(orgContextService.getSettingsOrg).mockReturnValue('settings-org-id');
 
-    const req = new HttpRequest('POST', 'http://localhost:8080/api/tasks');
+    const req = new HttpRequest('POST', 'http://localhost:8080/api/tasks', null);
     let capturedReq: HttpRequest<any> | undefined = undefined;
 
     const next = (r: HttpRequest<any>) => {
@@ -335,10 +335,10 @@ describe('authInterceptor', () => {
     vi.mocked(orgContextService.getDefaultOrg).mockReturnValue({
       id: 'default-org-id',
       slug: 'default-org',
-      role: 'MEMBER',
+      role: 'USER',
     });
 
-    const req = new HttpRequest('POST', 'http://localhost:8080/api/tasks');
+    const req = new HttpRequest('POST', 'http://localhost:8080/api/tasks', null);
     let capturedReq: HttpRequest<any> | undefined = undefined;
 
     const next = (r: HttpRequest<any>) => {
@@ -359,7 +359,7 @@ describe('authInterceptor', () => {
     vi.mocked(orgContextService.getSettingsOrg).mockReturnValue(null);
     vi.mocked(orgContextService.getDefaultOrg).mockReturnValue(null);
 
-    const req = new HttpRequest('POST', 'http://localhost:8080/api/tasks');
+    const req = new HttpRequest('POST', 'http://localhost:8080/api/tasks', null);
     let capturedReq: HttpRequest<any> | undefined = undefined;
 
     const next = (r: HttpRequest<any>) => {
