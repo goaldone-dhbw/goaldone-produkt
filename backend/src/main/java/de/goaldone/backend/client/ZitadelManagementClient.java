@@ -12,6 +12,7 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -417,6 +418,293 @@ public class ZitadelManagementClient {
             log.error("Failed to delete user {}: {}", userId, e.getMessage());
         }
     }
+    /**
+     * Lists all user IDs that have any project grant within a specific organization.
+     * Unlike {@link #listUserIdsByRole}, this method does not filter by role.
+     *
+     * @param zitadelOrgId the Zitadel organization ID
+     * @param projectId    the project ID
+     * @return list of user IDs with any grant in the org+project
+     * @throws ZitadelApiException if the API call fails
+     */
+    public List<String> listAllUserIdsForOrgProject(String zitadelOrgId, String projectId) {
+        try {
+            Map<String, Object> body = Map.of(
+                    "queries", List.of(Map.of("projectIdQuery", Map.of("projectId", projectId)))
+            );
+
+            String responseBody = restClient.post()
+                    .uri("/management/v1/users/grants/_search")
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + serviceAccountToken)
+                    .header("x-zitadel-orgid", zitadelOrgId)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(body)
+                    .retrieve()
+                    .body(String.class);
+
+            JsonNode response = objectMapper.readTree(responseBody);
+            if (response != null && response.has("result")) {
+                return response.findValuesAsText("userId");
+            }
+            return List.of();
+        } catch (Exception e) {
+            log.error("Failed to list user grants for project {} in org {}: {}", projectId, zitadelOrgId, e.getMessage());
+            throw new ZitadelApiException("Failed to list user grants: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Retrieves the state of multiple users by their IDs.
+     *
+     * @param userIds the list of user IDs to query; returns an empty map if the list is empty
+     * @return a map of userId to state string (e.g. {@code "USER_STATE_ACTIVE"}, {@code "USER_STATE_INITIAL"})
+     * @throws ZitadelApiException if the API call fails
+     */
+    public Map<String, String> getUserStates(List<String> userIds) {
+        if (userIds.isEmpty()) {
+            return Map.of();
+        }
+        try {
+            Map<String, Object> body = Map.of(
+                    "queries", List.of(Map.of("inUserIdsQuery", Map.of("userIds", userIds)))
+            );
+
+            String responseBody = restClient.post()
+                    .uri("/v2/users")
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + serviceAccountToken)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(body)
+                    .retrieve()
+                    .body(String.class);
+
+            JsonNode response = objectMapper.readTree(responseBody);
+            Map<String, String> result = new java.util.HashMap<>();
+            if (response != null && response.has("result")) {
+                for (JsonNode user : response.get("result")) {
+                    String id = user.path("userId").asText(null);
+                    String state = user.path("state").asText(null);
+                    if (id != null && state != null) {
+                        result.put(id, state);
+                    }
+                }
+            }
+            return result;
+        } catch (Exception e) {
+            log.error("Failed to get user states: {}", e.getMessage());
+            throw new ZitadelApiException("Failed to get user states: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Lists all users that belong to a specific Zitadel organization, including their state.
+     *
+     * @param zitadelOrgId the Zitadel organization ID
+     * @return list of {@link ZitadelUserInfo} records with user ID and state
+     * @throws ZitadelApiException if the API call fails
+     */
+    public List<ZitadelUserInfo> listUsersInOrganization(String zitadelOrgId) {
+        try {
+            Map<String, Object> body = Map.of(
+                    "queries", List.of(Map.of("organizationIdQuery", Map.of("organizationId", zitadelOrgId)))
+            );
+
+            String responseBody = restClient.post()
+                    .uri("/v2/users")
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + serviceAccountToken)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(body)
+                    .retrieve()
+                    .body(String.class);
+
+            JsonNode response = objectMapper.readTree(responseBody);
+            List<ZitadelUserInfo> users = new ArrayList<>();
+            if (response != null && response.has("result")) {
+                for (JsonNode user : response.get("result")) {
+                    String id = user.path("userId").asText(null);
+                    String state = user.path("state").asText(null);
+                    if (id != null) {
+                        users.add(new ZitadelUserInfo(id, state != null ? state : ""));
+                    }
+                }
+            }
+            return users;
+        } catch (Exception e) {
+            log.error("Failed to list users in organization {}: {}", zitadelOrgId, e.getMessage());
+            throw new ZitadelApiException("Failed to list users in organization: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Deletes a user by their ID, throwing an exception if the deletion fails.
+     * Use this method when the caller needs to detect and handle deletion failures.
+     * For best-effort cleanup (compensation), use {@link #deleteUser(String)} instead.
+     *
+     * @param userId the ID of the user to delete
+     * @throws ZitadelApiException if the deletion fails
+     */
+    public void deleteUserOrThrow(String userId) {
+        try {
+            restClient.delete()
+                    .uri("/v2/users/{userId}", userId)
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + serviceAccountToken)
+                    .retrieve()
+                    .toBodilessEntity();
+        } catch (RestClientResponseException e) {
+            String errorMsg = String.format("Failed to delete user %s: %s: %s", userId, e.getMessage(), e.getResponseBodyAsString());
+            log.error(errorMsg);
+            throw new ZitadelApiException(errorMsg, e);
+        } catch (RestClientException e) {
+            String errorMsg = String.format("Failed to delete user %s: %s", userId, e.getMessage());
+            log.error(errorMsg);
+            throw new ZitadelApiException(errorMsg, e);
+        }
+    }
+
+    /**
+     * Deletes a Zitadel organization by its ID, throwing an exception if the deletion fails.
+     * Use this method when the caller needs to detect and handle deletion failures.
+     * For best-effort cleanup (compensation), use {@link #deleteOrganization(String)} instead.
+     *
+     * @param zitadelOrgId the ID of the organization to delete
+     * @throws ZitadelApiException if the deletion fails
+     */
+    public void deleteOrganizationOrThrow(String zitadelOrgId) {
+        try {
+            restClient.delete()
+                    .uri("/v2/organizations/{orgId}", zitadelOrgId)
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + serviceAccountToken)
+                    .retrieve()
+                    .toBodilessEntity();
+        } catch (RestClientResponseException e) {
+            String errorMsg = String.format("Failed to delete organization %s: %s: %s", zitadelOrgId, e.getMessage(), e.getResponseBodyAsString());
+            log.error(errorMsg);
+            throw new ZitadelApiException(errorMsg, e);
+        } catch (RestClientException e) {
+            String errorMsg = String.format("Failed to delete organization %s: %s", zitadelOrgId, e.getMessage());
+            log.error(errorMsg);
+            throw new ZitadelApiException(errorMsg, e);
+        }
+    }
+
+    /**
+     * Lists all organizations in Zitadel without any filter.
+     * Uses a high page size; for very large deployments a pagination loop should be added.
+     *
+     * @return list of {@link ZitadelOrgInfo} for every active organization
+     * @throws ZitadelApiException if the API call fails
+     */
+    public List<ZitadelOrgInfo> listAllOrganizations() {
+        try {
+            Map<String, Object> body = Map.of("queries", List.of());
+
+            String responseBody = restClient.post()
+                    .uri("/v2/organizations/_search")
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + serviceAccountToken)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(body)
+                    .retrieve()
+                    .body(String.class);
+
+            JsonNode response = objectMapper.readTree(responseBody);
+            List<ZitadelOrgInfo> orgs = new ArrayList<>();
+            log.info("Zitadel response: {}", responseBody);
+            if (response != null && response.has("result")) {
+                for (JsonNode org : response.get("result")) {
+                    String id = org.path("id").asText(null);
+                    String name = org.path("name").asText(null);
+                    String creationDateStr = org.path("details").path("creationDate").asText(null);
+                    OffsetDateTime creationDate = null;
+                    if (creationDateStr != null && !creationDateStr.isEmpty()) {
+                        try {
+                            creationDate = OffsetDateTime.parse(creationDateStr);
+                        } catch (Exception e) {
+                            log.warn("Could not parse creationDate '{}' for org {}: {}", creationDateStr, id, e.getMessage());
+                        }
+                    }
+                    if (id != null) {
+                        orgs.add(new ZitadelOrgInfo(id, name != null ? name : "", creationDate));
+                    }
+                }
+            }
+            log.info("Found {} organizations", orgs.size());
+            return orgs;
+        } catch (Exception e) {
+            log.error("Failed to list all organizations: {}", e.getMessage());
+            throw new ZitadelApiException("Failed to list all organizations: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Get Org Info for one zitadelOrgId
+     *
+     * @param zitadelOrgId the zitadel org id
+     * @return {@link ZitadelOrgInfo} for the provided zitadel org id
+     */
+    public ZitadelOrgInfo getOrgInfo(String zitadelOrgId) {
+        try {
+            Map<String, Object> body = Map.of("queries", List.of(
+                    Map.of("idQuery", Map.of("id", zitadelOrgId))
+            ));
+
+            String responseBody = restClient.post()
+                    .uri("/v2/organizations/_search")
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + serviceAccountToken)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(body)
+                    .retrieve()
+                    .body(String.class);
+
+            JsonNode response = objectMapper.readTree(responseBody);
+            log.info("Zitadel response: {}", responseBody);
+            if (response != null && response.has("result")) {
+                JsonNode resultArray = response.get("result");
+                if (resultArray != null && !resultArray.isEmpty()) {
+                    if (resultArray.size() > 1) {
+                        log.warn("Expected exactly one organization for id {}, but got {}. Returning first result.", zitadelOrgId, resultArray.size());
+                    }
+
+                    JsonNode org = resultArray.get(0);
+                    String id = org.path("id").asText(null);
+                    String name = org.path("name").asText(null);
+                    String creationDateStr = org.path("details").path("creationDate").asText(null);
+                    OffsetDateTime creationDate = null;
+                    if (creationDateStr != null && !creationDateStr.isEmpty()) {
+                        try {
+                            creationDate = OffsetDateTime.parse(creationDateStr);
+                        } catch (Exception e) {
+                            log.warn("Could not parse creationDate '{}' for org {}: {}", creationDateStr, id, e.getMessage());
+                        }
+                    }
+                    if (id != null) {
+                        return new ZitadelOrgInfo(id, name != null ? name : "", creationDate);
+                    }
+                }
+            }
+            throw new ZitadelApiException("No organization found for id: " + zitadelOrgId);
+        } catch (Exception e) {
+            log.error("Failed to get org info: {}", e.getMessage());
+            throw new ZitadelApiException("Failed to get org info: " + e.getMessage(), e);
+        }
+    }
+
+
+    /**
+     * Immutable value type representing a Zitadel organization.
+     *
+     * @param id           the Zitadel organization ID
+     * @param name         the organization name
+     * @param creationDate the organization creation date, or {@code null} if unavailable
+     */
+    public record ZitadelOrgInfo(String id, String name, java.time.OffsetDateTime creationDate) {}
+
+    /**
+     * Immutable value type representing a Zitadel user with their current state.
+     *
+     * @param id    the Zitadel user ID
+     * @param state the user state (e.g. {@code "USER_STATE_ACTIVE"}, {@code "USER_STATE_INITIAL"})
+     */
+    public record ZitadelUserInfo(String id, String state) {}
+
     private String normalizeEmail(String email) {
         if (email == null) {
             return null;

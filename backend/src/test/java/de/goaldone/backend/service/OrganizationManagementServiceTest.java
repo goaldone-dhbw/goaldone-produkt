@@ -6,6 +6,7 @@ import de.goaldone.backend.exception.ConflictException;
 import de.goaldone.backend.exception.ZitadelApiException;
 import de.goaldone.backend.model.CreateOrganizationRequest;
 import de.goaldone.backend.repository.OrganizationRepository;
+import de.goaldone.backend.repository.UserAccountRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InOrder;
@@ -28,10 +29,16 @@ class OrganizationManagementServiceTest {
     @Mock
     private OrganizationRepository organizationRepository;
 
+    @Mock
+    private UserAccountRepository userAccountRepository;
+
+    @Mock
+    private UserAccountDeletionService userAccountDeletionService;
+
     private OrganizationManagementService service;
 
     private void initService() {
-        service = new OrganizationManagementService(zitadelManagementClient, organizationRepository);
+        service = new OrganizationManagementService(zitadelManagementClient, organizationRepository, userAccountRepository, userAccountDeletionService);
         // Use reflection to set the projectId and mainOrgId fields since they are private with @Value
         try {
             Field projectField = service.getClass().getDeclaredField("projectId");
