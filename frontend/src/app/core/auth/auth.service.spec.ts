@@ -18,6 +18,7 @@ describe('AuthService', () => {
       loadDiscoveryDocumentAndTryLogin: vi.fn(() => Promise.resolve(true)),
       hasValidAccessToken: vi.fn(() => true),
       getAccessToken: vi.fn(() => 'test-token'),
+      getRefreshToken: vi.fn(() => null), // revokeToken() no-op stub needs this
       initLoginFlow: vi.fn(),
       logOut: vi.fn(),
       events: eventsSubject.asObservable(),
@@ -103,10 +104,14 @@ describe('AuthService', () => {
   });
 
   describe('logout', () => {
-    it('should call OAuthService.logOut', () => {
+    it('should call OAuthService.logOut after revokeToken resolves (no-op stub)', async () => {
+      // revokeToken() is a no-op: getRefreshToken returns null → resolves immediately.
+      // async fn + Promise.resolve() chain requires multiple microtask ticks.
       service.logout();
-
-      expect(oauthService.logOut).toHaveBeenCalled();
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(oauthService.logOut).toHaveBeenCalledWith(true);
     });
   });
 
@@ -146,14 +151,14 @@ describe('AuthService', () => {
 
       it('should return per-org role mapping from orgs claim', () => {
         const orgs = [
-          { id: 'org-uuid-1', slug: 'acme', role: 'ROLE_ADMIN' },
-          { id: 'org-uuid-2', slug: 'widgets', role: 'ROLE_MEMBER' },
+          { id: 'org-uuid-1', slug: 'acme', role: 'COMPANY_ADMIN' },
+          { id: 'org-uuid-2', slug: 'widgets', role: 'USER' },
         ];
         const token = createMockJwt({ orgs });
         vi.mocked(oauthService.getAccessToken).mockReturnValue(token);
         expect(service.getUserRoles()).toEqual({
-          'org-uuid-1': ['ROLE_ADMIN'],
-          'org-uuid-2': ['ROLE_MEMBER'],
+          'org-uuid-1': ['COMPANY_ADMIN'],
+          'org-uuid-2': ['USER'],
         });
       });
 
@@ -178,8 +183,8 @@ describe('AuthService', () => {
 
       it('should extract orgs from "orgs" claim', () => {
         const orgs = [
-          { id: 'org-1', slug: 'org-one', role: 'ROLE_ADMIN' },
-          { id: 'org-2', slug: 'org-two', role: 'ROLE_MEMBER' },
+          { id: 'org-1', slug: 'org-one', role: 'COMPANY_ADMIN' },
+          { id: 'org-2', slug: 'org-two', role: 'USER' },
         ];
         const token = createMockJwt({ orgs });
         vi.mocked(oauthService.getAccessToken).mockReturnValue(token);
@@ -202,8 +207,8 @@ describe('AuthService', () => {
 
       it('should return first org if orgs are present', () => {
         const orgs = [
-          { id: 'org-1', slug: 'org-one', role: 'ROLE_ADMIN' },
-          { id: 'org-2', slug: 'org-two', role: 'ROLE_MEMBER' },
+          { id: 'org-1', slug: 'org-one', role: 'COMPANY_ADMIN' },
+          { id: 'org-2', slug: 'org-two', role: 'USER' },
         ];
         const token = createMockJwt({ orgs });
         vi.mocked(oauthService.getAccessToken).mockReturnValue(token);
@@ -220,8 +225,8 @@ describe('AuthService', () => {
 
       it('should return first org ID from orgs claim (backward compatibility)', () => {
         const orgs = [
-          { id: 'org-uuid-1', slug: 'acme', role: 'ROLE_ADMIN' },
-          { id: 'org-uuid-2', slug: 'widgets', role: 'ROLE_MEMBER' },
+          { id: 'org-uuid-1', slug: 'acme', role: 'COMPANY_ADMIN' },
+          { id: 'org-uuid-2', slug: 'widgets', role: 'USER' },
         ];
         const token = createMockJwt({ orgs });
         vi.mocked(oauthService.getAccessToken).mockReturnValue(token);
@@ -243,8 +248,8 @@ describe('AuthService', () => {
 
       it('should extract memberships from "orgs" claim', () => {
         const memberships = [
-          { id: 'org-1', name: 'Org One', slug: 'org-one', role: 'ADMIN' },
-          { id: 'org-2', name: 'Org Two', slug: 'org-two', role: 'MEMBER' }
+          { id: 'org-1', slug: 'org-one', role: 'COMPANY_ADMIN' },
+          { id: 'org-2', slug: 'org-two', role: 'USER' }
         ];
         const token = createMockJwt({ orgs: memberships });
         vi.mocked(oauthService.getAccessToken).mockReturnValue(token);
