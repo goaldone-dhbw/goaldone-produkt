@@ -19,6 +19,12 @@ export class AuthService {
     const isProd =
       window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
 
+    console.log('[AuthService.initialize] Starting auth initialization');
+    console.log('[AuthService.initialize] Issuer:', issuerUri);
+    console.log('[AuthService.initialize] ClientId:', clientId);
+    console.log('[AuthService.initialize] RedirectUri:', window.location.origin + '/callback');
+    console.log('[AuthService.initialize] Current URL:', window.location.href);
+
     this.oauthService.configure({
       issuer: issuerUri,
       clientId: clientId,
@@ -30,10 +36,16 @@ export class AuthService {
       showDebugInformation: !isProd,
     });
 
+    // Log ALL OAuth events for debugging
+    this.oauthService.events.subscribe((event) => {
+      console.log('[AuthService.OAuthEvents]', event.type, event);
+    });
+
     // Handle refresh token errors: clear storage + redirect to login
     this.oauthService.events
       .pipe(filter((e) => e.type === 'token_refresh_error' || e.type === 'token_error'))
       .subscribe(() => {
+        console.log('[AuthService] Token refresh error detected, clearing state');
         this.oauthService.logOut(true); // noRedirectToLogoutUrl=true → just clears storage
         this.router.navigateByUrl('/');
         this.oauthService.initLoginFlow();
@@ -41,7 +53,15 @@ export class AuthService {
 
     // Note: useSilentRefresh is false — token refresh is handled per-request in authInterceptor (D-03)
 
-    return this.oauthService.loadDiscoveryDocumentAndTryLogin();
+    console.log('[AuthService.initialize] Calling loadDiscoveryDocumentAndTryLogin...');
+    return this.oauthService.loadDiscoveryDocumentAndTryLogin().then((result) => {
+      console.log('[AuthService.initialize] loadDiscoveryDocumentAndTryLogin completed:', result);
+      console.log('[AuthService.initialize] hasValidAccessToken():', this.hasValidAccessToken());
+      return result;
+    }).catch((error) => {
+      console.error('[AuthService.initialize] loadDiscoveryDocumentAndTryLogin failed:', error);
+      return false;
+    });
   }
 
   initLoginFlow(): void {
