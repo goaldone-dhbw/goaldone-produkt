@@ -48,20 +48,31 @@
     <changeSet id="012-5" author="gemini-cli">
         <comment>Update foreign keys and indexes to reflect new naming</comment>
 
-        <!-- memberships FKs -->
+        <!-- memberships: drop old FK + index first, then add new FK + index.
+             H2 reuses idx_user_accounts_identity as backing for the new FK if the
+             index still exists when addForeignKeyConstraint runs, making it impossible
+             to drop the index afterwards. Dropping indexes before adding new FKs avoids this. -->
         <dropForeignKeyConstraint baseTableName="memberships" constraintName="fk_user_accounts_identity"/>
+        <dropIndex tableName="memberships" indexName="idx_user_accounts_identity"/>
         <addForeignKeyConstraint baseTableName="memberships"
                                  baseColumnNames="user_id"
                                  referencedTableName="users"
                                  referencedColumnNames="id"
                                  constraintName="fk_memberships_user"/>
+        <createIndex tableName="memberships" indexName="idx_memberships_user">
+            <column name="user_id"/>
+        </createIndex>
 
         <dropForeignKeyConstraint baseTableName="memberships" constraintName="fk_users_org"/>
+        <dropIndex tableName="memberships" indexName="idx_user_accounts_org"/>
         <addForeignKeyConstraint baseTableName="memberships" 
                                  baseColumnNames="organization_id" 
                                  referencedTableName="organizations" 
                                  referencedColumnNames="id" 
                                  constraintName="fk_memberships_org"/>
+        <createIndex tableName="memberships" indexName="idx_memberships_org">
+            <column name="organization_id"/>
+        </createIndex>
 
         <!-- Other tables referring to user_accounts (now memberships) -->
         <dropForeignKeyConstraint baseTableName="tasks" constraintName="fk_tasks_account"/>
@@ -92,17 +103,6 @@
                                  referencedColumnNames="id"
                                  constraintName="fk_link_tokens_initiator_membership"
                                  onDelete="CASCADE"/>
-
-        <!-- Indexes -->
-        <dropIndex tableName="memberships" indexName="idx_user_accounts_identity"/>
-        <createIndex tableName="memberships" indexName="idx_memberships_user">
-            <column name="user_id"/>
-        </createIndex>
-
-        <dropIndex tableName="memberships" indexName="idx_user_accounts_org"/>
-        <createIndex tableName="memberships" indexName="idx_memberships_org">
-            <column name="organization_id"/>
-        </createIndex>
     </changeSet>
 
 </databaseChangeLog>
