@@ -1,0 +1,298 @@
+<div class="task-dialog" [class.hidden]="!isOpen">
+  <div class="modal-overlay" (click)="onClose()"></div>
+
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>{{ popupTitle() }}</h2>
+      <button class="close-btn" (click)="onClose()">
+        <i class="pi pi-times"></i>
+      </button>
+    </div>
+
+    <div class="modal-body space-y-5">
+      @if (showOrgDropdown()) {
+        <div class="space-y-2">
+          <label for="org-select" class="block text-sm font-medium text-slate-800">
+            Organization
+          </label>
+          <p-dropdown
+            id="org-select"
+            [options]="userOrgs()"
+            [(ngModel)]="selectedOrg.value"
+            optionLabel="slug"
+            optionValue="id"
+            (onChange)="onOrgSelected($event)"
+            placeholder="Select organization"
+            [showClear]="true"
+          />
+        </div>
+      }
+
+      <form [formGroup]="taskForm" class="space-y-5">
+        <div class="space-y-2">
+          <label for="title" class="block text-sm font-medium text-slate-800">
+            Titel <span class="text-rose-600">*</span>
+          </label>
+          <input
+            id="title"
+            type="text"
+            formControlName="title"
+            class="w-full h-12 rounded-xl border border-slate-300 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+            placeholder="z. B. Dokumentation schreiben"
+          />
+          @if (showFieldError('title')) {
+            <p class="text-sm text-rose-600">Bitte gib einen Titel ein.</p>
+          }
+        </div>
+
+        <div class="space-y-2">
+          <label for="description" class="block text-sm font-medium text-slate-800">
+            Beschreibung
+          </label>
+          <textarea
+            id="description"
+            rows="4"
+            formControlName="description"
+            class="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+            placeholder="Optionale Beschreibung der Aufgabe"
+          ></textarea>
+        </div>
+
+        <div class="grid grid-cols-1 gap-5 md:grid-cols-2">
+          <div class="space-y-2">
+            <label for="duration" class="block text-sm font-medium text-slate-800">
+              Dauer in Minuten <span class="text-rose-600">*</span>
+            </label>
+            <input
+              id="duration"
+              type="number"
+              min="1"
+              formControlName="duration"
+              class="w-full h-12 rounded-xl border border-slate-300 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+              placeholder="z. B. 120"
+            />
+            @if (showFieldError('duration')) {
+              <p class="text-sm text-rose-600">Die Dauer muss größer als 0 sein.</p>
+            }
+          </div>
+
+          <div class="space-y-2">
+            <label for="status" class="block text-sm font-medium text-slate-800">
+              Status <span class="text-rose-600">*</span>
+            </label>
+            <div class="relative">
+              <select
+                id="status"
+                formControlName="status"
+                class="w-full h-12 appearance-none rounded-xl border border-slate-300 bg-white px-4 pr-10 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+              >
+                @for (status of statuses; track status) {
+                  <option [value]="status">{{ formatStatus(status) }}</option>
+                }
+              </select>
+              <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-500">
+                <i class="pi pi-chevron-down text-xs"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 gap-5 md:grid-cols-2">
+          <div class="space-y-2">
+            <label for="deadline" class="block text-sm font-medium text-slate-800">
+              Deadline
+            </label>
+            <input
+              id="deadline"
+              type="datetime-local"
+              formControlName="deadline"
+              class="w-full h-12 rounded-xl border border-slate-300 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+            />
+          </div>
+
+          <div class="space-y-2">
+            <label for="dontScheduleBefore" class="block text-sm font-medium text-slate-800">
+              Nicht planen vor
+            </label>
+            <input
+              id="dontScheduleBefore"
+              type="datetime-local"
+              formControlName="dontScheduleBefore"
+              class="w-full h-12 rounded-xl border border-slate-300 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+            />
+          </div>
+        </div>
+
+        @if (taskForm.errors?.['dontScheduleBeforeAfterDeadline']) {
+          <p class="text-sm text-rose-600">
+            „Nicht planen vor" darf nicht nach der Deadline liegen.
+          </p>
+        }
+
+        <div class="grid grid-cols-1 gap-5 md:grid-cols-2">
+          <div class="space-y-2">
+            <label for="cognitiveLoad" class="block text-sm font-medium text-slate-800">
+              Anforderungsgrad
+            </label>
+            <div class="relative">
+              <select
+                id="cognitiveLoad"
+                formControlName="cognitiveLoad"
+                class="w-full h-12 appearance-none rounded-xl border border-slate-300 bg-white px-4 pr-10 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+              >
+                <option value="">Bitte auswählen</option>
+                @for (load of cognitiveLoads; track load) {
+                  <option [value]="load">{{ formatCognitiveLoad(load) }}</option>
+                }
+              </select>
+              <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-500">
+                <i class="pi pi-chevron-down text-xs"></i>
+              </div>
+            </div>
+          </div>
+
+          <div class="space-y-2">
+            <label for="customChunkSize" class="block text-sm font-medium text-slate-800">
+              Manuelle Chunk-Größe (Min.)
+            </label>
+            <input
+              id="customChunkSize"
+              type="number"
+              min="1"
+              formControlName="customChunkSize"
+              class="w-full h-12 rounded-xl border border-slate-300 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+              placeholder="Optional"
+            />
+            @if (showFieldError('customChunkSize')) {
+              <p class="text-sm text-rose-600">
+                Die Chunk-Größe muss größer als 0 und darf nicht größer als die Dauer sein.
+              </p>
+            }
+          </div>
+        </div>
+
+        <div class="space-y-2">
+          <label for="dependencyIds" class="block text-sm font-medium text-slate-800">
+            Abhängigkeiten
+          </label>
+          <select
+            id="dependencyIds"
+            multiple
+            formControlName="dependencyIds"
+            class="min-h-36 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+          >
+            @for (option of availableDependencyOptions; track option.id) {
+              <option [value]="option.id">
+                {{ option.title }}
+              </option>
+            }
+          </select>
+
+          @if (availableDependencyOptions.length === 0) {
+            <p class="text-xs text-slate-500">
+              Es sind aktuell keine anderen Aufgaben verfügbar, die als Abhängigkeit ausgewählt werden können.
+            </p>
+          }
+
+          <p class="text-xs text-slate-500">
+            Wähle Aufgaben aus, die vor dieser Aufgabe erledigt sein müssen.
+          </p>
+        </div>
+      </form>
+    </div>
+
+    <div class="modal-footer">
+      <p-button
+        label="Abbrechen"
+        severity="secondary"
+        (onClick)="onClose()"
+      />
+      <p-button
+        [label]="popupConfirmLabel()"
+        severity="primary"
+        (onClick)="onSave()"
+      />
+    </div>
+  </div>
+</div>
+
+<style scoped>
+  .task-dialog {
+    display: none;
+  }
+
+  .task-dialog.hidden {
+    display: none;
+  }
+
+  .task-dialog:not(.hidden) {
+    display: block;
+  }
+
+  .modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+  }
+
+  .modal-content {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: white;
+    border-radius: 0.75rem;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+    max-width: 600px;
+    width: 90%;
+    max-height: 90vh;
+    overflow-y: auto;
+    z-index: 1001;
+  }
+
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.5rem;
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  .modal-header h2 {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #1e293b;
+  }
+
+  .close-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #64748b;
+  }
+
+  .close-btn:hover {
+    color: #1e293b;
+  }
+
+  .modal-body {
+    padding: 1.5rem;
+  }
+
+  .modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+    padding: 1.5rem;
+    border-top: 1px solid #e2e8f0;
+  }
+</style>
