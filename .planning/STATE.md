@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 4 context gathered
-last_updated: "2026-05-03T12:00:00.000Z"
-last_activity: 2026-05-03 -- Phase 4 context gathered (frontend auth switch)
+stopped_at: Phase 04-02 completed
+last_updated: "2026-05-03T12:35:00.000Z"
+last_activity: 2026-05-03 -- Completed Plan 04-02 (role extraction & org context)
 progress:
   total_phases: 6
   completed_phases: 3
-  total_plans: 11
-  completed_plans: 11
+  total_plans: 12
+  completed_plans: 12
   percent: 36
 ---
 
@@ -25,11 +25,12 @@ See: .planning/PROJECT.md (updated 2026-05-02)
 
 ## Current Position
 
-Phase: 4 (frontend-auth-switch) — CONTEXT GATHERED
-Status: Ready for planning
-Last activity: 2026-05-03 -- Phase 4 context gathered (frontend auth switch)
+Phase: 4 (frontend-auth-switch) — IN PROGRESS
+Status: Plan 04-02 complete (role extraction & org context management)
+Last activity: 2026-05-03 -- Completed Plan 04-02
+Current Plan: 04-02 of 04 (Phase 4)
 
-Progress: [▓▓▓░░░░░░░] 36%
+Progress: [▓▓▓░░░░░░░] 33% (1/3 phase plans done)
 
 ## Performance Metrics
 
@@ -43,8 +44,11 @@ Progress: [▓▓▓░░░░░░░] 36%
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 01-auth-hardening | 1/1 | 1 | 1h |
-| 02-mgmt-api-consolidation | 0/1 | - | - |
+| 01-auth-hardening | 1/1 | 1h | 1h |
+| 02-backend-jwt-validation | 4/4 | 4h | 1h |
+| 03-database-schema-migration | 3/3 | 3h | 1h |
+| 03.1-refine-org-context | 3/3 | 3h | 1h |
+| 04-frontend-auth-switch | 1/4 | 0.5h | - |
 
 **Recent Trend:**
 
@@ -64,6 +68,10 @@ Recent decisions affecting current work:
 - Phase 1: Client Registration: Seeding from ENV into JDBC (implemented).
 - Phase 1: Multi-org token context strategy: Option B (`orgs` claim array) implemented.
 - Phase 1: Database compatibility: Use `BYTEA` for binary data in H2/Postgres.
+- Phase 4.2: Role extraction from `orgs` claim role field (simpler than flat authorities array)
+- Phase 4.2: Per-org role mapping in getUserRoles() returns { [orgId]: [roles] } object
+- Phase 4.2: Dialog/page-scoped org selection via OrgContextService with BehaviorSubject
+- Phase 4.2: Backward compatibility: deprecated getUserOrganizationId() and getUserMemberships()
 
 ### Roadmap Evolution
 
@@ -80,6 +88,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-05-02T20:48:18.455Z
-Stopped at: Phase 3 context gathered
-Resume file: .planning/phases/03-database-schema-migration/03-CONTEXT.md
+Last session: 2026-05-03T12:35:00.000Z
+Stopped at: Plan 04-02 complete — ready for Plan 04-03
+Resume file: .planning/phases/04-frontend-auth-switch/04-03-PLAN.md
