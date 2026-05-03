@@ -50,6 +50,14 @@ public interface UserAccountRepository extends JpaRepository<UserAccountEntity, 
     Optional<UserAccountEntity> findByIdAndUserIdentityId(UUID id, UUID userIdentityId);
 
     /**
+     * Finds all user accounts belonging to a specific organization.
+     *
+     * @param organizationId The UUID of the organization.
+     * @return A list of {@link UserAccountEntity} objects in the given organization.
+     */
+    List<UserAccountEntity> findAllByOrganizationId(UUID organizationId);
+
+    /**
      * Finds organization IDs where both specified user identities have accounts.
      * This is used to detect potential identity merges or conflicts across organizations.
      *

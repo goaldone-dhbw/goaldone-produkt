@@ -38,6 +38,8 @@ public class Solver {
             boolean moveAccepted = tabuAlgorithm.validateMove(currentBest, newState, moveHistory, latestMove);
 
             boolean lateAcceptance = this.lateAcceptance.validateMove(0,0); //TODO
+        // Collect warnings for violated soft constraints
+        List<ScheduleWarning> warnings = constraintHandler.getWarnings(schedule);
 
             if (moveAccepted || lateAcceptance) {
                 currentBest = newState;

@@ -27,9 +27,9 @@ public class ScheduleController implements SchedulesApi {
     private final UserIdentityService userIdentityService;
     private final CurrentUserResolver currentUserResolver;
 
+    private final long timeoutMilliseconds = 10000;
 
-    private List<UserAccountEntity> getAccountsLinkedToIdentity() {
-        var jwt = currentUserResolver.extractJwt();
+    private List<UserAccountEntity> getAccountsLinkedToIdentity(Jwt jwt) {
         return userIdentityService.
                 findAccountsForIdentity(userIdentityService.findIdentityFromAccount(jwt));
     }
@@ -41,23 +41,27 @@ public class ScheduleController implements SchedulesApi {
      */
     @Override
     public ResponseEntity<MultiAccountScheduleResponse> generateAllAccountsSchedule(GenerateScheduleRequest generateScheduleRequest) {
+
+        // Extract Token
         Jwt jwt = currentUserResolver.extractJwt();
 
-        List<UUID> accountIds = getAccountsLinkedToIdentity().
+        // List all linked accounts
+        List<UUID> accountIds = getAccountsLinkedToIdentity(jwt).
                 stream()
                 .map(UserAccountEntity::getUserIdentityId)
                 .toList();
 
+        // Generate schedule for each account
         List<ScheduleResponse> scheduleResponses = scheduleService.generateMultiAccountSchedule(
-                jwt, accountIds, generateScheduleRequest, 10000
+                jwt, accountIds, generateScheduleRequest, timeoutMilliseconds
         );
-
 
         return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();
     }
 
     @Override
     public ResponseEntity<MultiAccountScheduleResponse> getAllAccountsSchedule(LocalDate from, LocalDate to) {
+
         // Validate goaldone user and its connected accounts using ids
 
         return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();
@@ -71,8 +75,15 @@ public class ScheduleController implements SchedulesApi {
      */
     @Override
     public ResponseEntity<ScheduleResponse> generateSingleAccountSchedule(UUID accountId, GenerateScheduleRequest generateScheduleRequest) {
+
+        // Extract token
         Jwt jwt = currentUserResolver.extractJwt();
-        ScheduleResponse scheduleResponse = scheduleService.generateSchedule(jwt, accountId, generateScheduleRequest, 10000);
+
+        // Generate schedule for account with timeout
+        ScheduleResponse scheduleResponse = scheduleService.generateSingleAccountSchedule(
+                jwt, accountId, generateScheduleRequest, timeoutMilliseconds
+        );
+
         return ResponseEntity.status(201).body(scheduleResponse);
     }
 

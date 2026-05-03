@@ -475,6 +475,29 @@ paths:
           description: Not Found
 
   /admins/organizations:
+    get:
+      tags:
+        - org-management
+      summary: Alle Unternehmen auflisten
+      description: |
+        Listet alle in der lokalen DB registrierten Organisationen auf,
+        angereichert mit der Anzahl aktiver und eingeladener Mitglieder
+        aus Zitadel.
+      operationId: listOrganizations
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrganizationListResponse'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden – nicht SUPER_ADMIN
+
     post:
       tags:
         - org-management
@@ -505,6 +528,37 @@ paths:
           description: Conflict
         '502':
           description: Upstream Error
+
+  /admins/organizations/{zitadelOrgId}:
+    delete:
+      tags:
+        - org-management
+      summary: Unternehmen löschen
+      description: |
+        Löscht ein Unternehmen vollständig: alle Mitglieder (aktive und
+        eingeladene) werden aus Zitadel entfernt, lokale Accounts inklusive
+        aller verknüpften Daten kaskadiert gelöscht, die Zitadel-Organisation
+        gelöscht und der lokale organizations-Record entfernt.
+      operationId: deleteOrganization
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: zitadelOrgId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Unternehmen gelöscht
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden – nicht SUPER_ADMIN
+        '404':
+          description: Organisation nicht gefunden
+        '502':
+          description: Upstream Error (Zitadel)
 
   /admins/super-admins :
     get:
@@ -1217,6 +1271,35 @@ components:
           type: string
           format: date-time
 
+    OrganizationListItem:
+      type: object
+      required:
+        - zitadelOrganizationId
+        - name
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Local DB record UUID — absent when the organization has no local shadow record
+        zitadelOrganizationId:
+          type: string
+        name:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    OrganizationListResponse:
+      type: object
+      required:
+        - organizations
+      properties:
+        organizations:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrganizationListItem'
+
     SuperAdminResponse:
       type: object
       required:
@@ -1473,11 +1556,12 @@ components:
       properties:
         type:
           type: string
-          enum: [DEADLINE_TIGHT, OVERLOADED_DAY, PIN_CONFLICT]
+          enum: [DEADLINE_TIGHT, OVERLOADED_DAY, PIN_CONFLICT, OTHER]
           description: |
             - `DEADLINE_TIGHT`: Task eingeplant, aber < 30 min Puffer bis Deadline.
             - `OVERLOADED_DAY`: Ein Tag übersteigt die verfügbare Arbeitszeit.
             - `PIN_CONFLICT`: Gepinnter Eintrag überlappt mit einem anderen.
+            - `OTHER`: Sonstige Warnung, z.B. aus unerwarteten Fehlern oder Randfällen.
         message:
           type: string
           description: Menschenlesbare Beschreibung

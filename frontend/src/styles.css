@@ -1,17 +1,17 @@
 /* You can add global styles to this file, and also import other style files */
 
 @import 'tailwindcss';
-@import 'primeicons/primeicons.css';
+@import '../node_modules/primeicons/primeicons.css';
 
 @layer utilities {
   .text-primary-icon {
-    color: var(--p-primary-color);
+    color: var(--p-primary-color, currentColor);
   }
 }
 
 @font-face {
   font-family: 'Inter';
-  src: url('/fonts/InterVariable.woff2') format('woff2');
+  src: url('../public/fonts/InterVariable.woff2') format('woff2');
   font-weight: 400;
   font-style: normal;
   font-display: swap;
