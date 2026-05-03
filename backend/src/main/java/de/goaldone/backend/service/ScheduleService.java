@@ -70,8 +70,7 @@ public class ScheduleService {
                                     .exceptionally(ex -> {
                                       log.error("Error generating schedule: {}", ex.getMessage(), ex);
                                       return createErrorResponse("Schedule generation failed: " + ex.getMessage());
-                                     })
-                             )
+                                    })
                     ).toList();
 
             // Collect results
@@ -101,7 +100,7 @@ public class ScheduleService {
             long timeoutMilliseconds) {
 
         try  {
-            return generateSchedule(jwt, accountId, generateScheduleRequest);
+            return generateSchedule(jwt, accountId, generateScheduleRequest, timeoutMilliseconds);
         } catch (Exception e) {
             return createErrorResponse("Schedule generation failed: " + e.getMessage());
         }
@@ -118,6 +117,8 @@ public class ScheduleService {
      * - constraint warnings
      */
     public ScheduleResponse generateSchedule(Jwt jwt, UUID accountId, GenerateScheduleRequest generateScheduleRequest, long timeoutMs) {
+
+        validateRequest(jwt, accountId, generateScheduleRequest);
 
         List<TaskResponse> allTasks = taskService.getTasksForAccountId(jwt, accountId);
 

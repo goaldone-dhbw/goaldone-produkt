@@ -1,18 +1,22 @@
 package de.goaldone.backend.scheduler;
 
+import de.goaldone.backend.model.ScheduleWarning;
 import de.goaldone.backend.scheduler.types.model.*;
 import de.goaldone.backend.scheduler.types.moves.MoveSelector;
 
+import java.util.List;
+
 public class Solver {
 
+    private final ConstraintHandler constraintHandler;
+    private final MoveSelector moveSelector;
     private final CPMAlgorithm cpmAlgorithm;
     private final TabuAlgorithm tabuAlgorithm;
     private final LateAcceptance lateAcceptance;
-    private final MoveSelector moveSelector;
     private final MoveHistory moveHistory;
 
     public Solver() {
-        ConstraintHandler constraintHandler = new ConstraintHandler();
+        this.constraintHandler = new ConstraintHandler();
         this.cpmAlgorithm = new CPMAlgorithm();
         this.tabuAlgorithm = new TabuAlgorithm(constraintHandler);
         this.lateAcceptance = new LateAcceptance(constraintHandler);
@@ -38,14 +42,17 @@ public class Solver {
             boolean moveAccepted = tabuAlgorithm.validateMove(currentBest, newState, moveHistory, latestMove);
 
             boolean lateAcceptance = this.lateAcceptance.validateMove(0,0); //TODO
-        // Collect warnings for violated soft constraints
-        List<ScheduleWarning> warnings = constraintHandler.getWarnings(schedule);
+
 
             if (moveAccepted || lateAcceptance) {
                 currentBest = newState;
                 moveHistory.addMoveEvent(latestMove);
             }
         }
+
+
+        // Collect warnings for violated soft constraints
+        List<ScheduleWarning> warnings = constraintHandler.getWarnings(currentBest);
 
         // TODO: Convert currentBest to SchedulingResult and return it
         return null;
