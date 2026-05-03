@@ -1,9 +1,10 @@
 import '@angular/compiler'; // Required for JIT compilation in tests
-import { HttpRequest } from '@angular/common/http';
+import { HttpRequest, HttpErrorResponse } from '@angular/common/http';
 import { of } from 'rxjs';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { AuthService } from './auth.service';
 import { OrgContextService } from '../services/org-context.service';
+import { mapErrorToUserMessage } from './auth.interceptor';
 
 /**
  * Unit tests for authInterceptor
@@ -14,6 +15,7 @@ import { OrgContextService } from '../services/org-context.service';
  * 3. Conditional X-Org-ID header injection (POST/PUT/DELETE and member endpoints)
  * 4. No X-Org-ID for GET list operations
  * 5. Multi-org context priority (dialog > settings > default)
+ * 6. HTTP error code mapping to user-friendly messages
  */
 
 // Mock interceptor implementation to test (since we can't easily inject into the actual interceptor)
@@ -370,5 +372,58 @@ describe('authInterceptor', () => {
     mockAuthInterceptor(req, authService, orgContextService, apiBasePath, next);
 
     expect(capturedReq!.headers.has('X-Org-ID')).toBe(false);
+  });
+});
+
+// ===== Error Message Mapping Tests =====
+
+describe('mapErrorToUserMessage', () => {
+  function makeError(status: number): HttpErrorResponse {
+    return new HttpErrorResponse({ status, url: '/api/test' });
+  }
+
+  it('should map network error (status 0) to connection message', () => {
+    const message = mapErrorToUserMessage(makeError(0));
+    expect(message).toContain('Unable to connect to server');
+  });
+
+  it('should map 403 Forbidden to permission error message', () => {
+    const message = mapErrorToUserMessage(makeError(403));
+    expect(message).toContain("don't have permission");
+  });
+
+  it('should map 410 Gone to expired link message', () => {
+    const message = mapErrorToUserMessage(makeError(410));
+    expect(message).toContain('expired');
+  });
+
+  it('should map 409 Conflict to conflict message', () => {
+    const message = mapErrorToUserMessage(makeError(409));
+    expect(message).toContain('cannot be completed');
+  });
+
+  it('should return null for 401 Unauthorized (handled separately)', () => {
+    const message = mapErrorToUserMessage(makeError(401));
+    expect(message).toBeNull();
+  });
+
+  it('should map 500 Internal Server Error to generic server error message', () => {
+    const message = mapErrorToUserMessage(makeError(500));
+    expect(message).toContain('Something went wrong');
+  });
+
+  it('should map 502 Bad Gateway to generic server error message', () => {
+    const message = mapErrorToUserMessage(makeError(502));
+    expect(message).toContain('Something went wrong');
+  });
+
+  it('should return null for unhandled 4xx errors (e.g. 404)', () => {
+    const message = mapErrorToUserMessage(makeError(404));
+    expect(message).toBeNull();
+  });
+
+  it('should return null for 422 Unprocessable Entity', () => {
+    const message = mapErrorToUserMessage(makeError(422));
+    expect(message).toBeNull();
   });
 });
