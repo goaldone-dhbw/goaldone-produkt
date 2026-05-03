@@ -22,7 +22,7 @@ import {
 import { CognitiveLoad, TaskCreateRequest, TaskResponse, TaskStatus, TaskUpdateRequest } from '../../../api';
 import { AuthService } from '../../../core/auth/auth.service';
 import { OrgContextService } from '../../../core/services/org-context.service';
-import { Dropdown } from 'primeng/dropdown';
+import { Select } from 'primeng/select';
 import { Button } from 'primeng/button';
 
 type DependencyOption = {
@@ -59,7 +59,7 @@ type TaskFormValue = {
 @Component({
   selector: 'app-add-task-dialog',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, Dropdown, Button],
+  imports: [CommonModule, ReactiveFormsModule, Select, Button],
   templateUrl: './add-task-dialog.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

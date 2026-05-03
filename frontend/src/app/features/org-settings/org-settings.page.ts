@@ -2,7 +2,7 @@ import { Component, OnInit, OnDestroy, inject, signal, computed } from '@angular
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { BehaviorSubject } from 'rxjs';
-import { Dropdown } from 'primeng/dropdown';
+import { Select } from 'primeng/select';
 import { Button } from 'primeng/button';
 import { TableModule } from 'primeng/table';
 import { AuthService } from '../../core/auth/auth.service';
@@ -32,7 +32,7 @@ type RoleOption = {
 @Component({
   selector: 'app-org-settings',
   standalone: true,
-  imports: [CommonModule, FormsModule, Dropdown, Button, TableModule],
+  imports: [CommonModule, FormsModule, Select, Button, TableModule],
   templateUrl: './org-settings.page.html',
   styleUrl: './org-settings.page.scss',
 })

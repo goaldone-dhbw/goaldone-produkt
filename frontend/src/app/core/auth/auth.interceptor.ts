@@ -40,7 +40,7 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
         // Refresh failed, proceed with current token (backend will handle 401)
         return proceedWithAuthorization(req, authService, orgContextService, apiBasePath, next);
       })
-    );
+    ) as any;
   }
 
   // 3. Token is valid, proceed with authorization and header injection

@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { Button } from 'primeng/button';
 import { UserAccountsService, AccountResponse } from '../../api';
 import { AuthService } from '../../core/auth/auth.service';
+import { OrgContextService } from '../../core/services/org-context.service';
 
 @Component({
   selector: 'app-user-settings',
@@ -13,6 +14,7 @@ import { AuthService } from '../../core/auth/auth.service';
 export class UserSettingsPage implements OnInit {
   private userAccountsService = inject(UserAccountsService);
   private authService = inject(AuthService);
+  private orgContextService = inject(OrgContextService);
   private cdr = inject(ChangeDetectorRef);
 
   loading = false;
@@ -26,7 +28,8 @@ export class UserSettingsPage implements OnInit {
   private fetchAccounts(): void {
     this.loading = true;
     this.error = null;
-    this.userAccountsService.getMyAccounts().subscribe({
+    const xOrgID = this.orgContextService.getDefaultOrg()?.id || '';
+    this.userAccountsService.getMyAccounts(xOrgID).subscribe({
       next: (data) => {
         this.accounts = data.accounts ?? [];
         this.loading = false;

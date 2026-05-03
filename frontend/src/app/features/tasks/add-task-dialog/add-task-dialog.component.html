@@ -15,13 +15,13 @@
           <label for="org-select" class="block text-sm font-medium text-slate-800">
             Organization
           </label>
-          <p-dropdown
+          <p-select
             id="org-select"
             [options]="userOrgs()"
-            [(ngModel)]="selectedOrg.value"
+            [formControl]="selectedOrg"
             optionLabel="slug"
             optionValue="id"
-            (onChange)="onOrgSelected($event)"
+            (onChange)="onOrgSelected($event.value)"
             placeholder="Select organization"
             [showClear]="true"
           />
