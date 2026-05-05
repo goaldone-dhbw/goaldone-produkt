@@ -1,6 +1,9 @@
 import { Component, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { forkJoin, of } from 'rxjs';
+import { catchError, map } from 'rxjs/operators';
+
 import { TableModule } from 'primeng/table';
 import { ButtonModule } from 'primeng/button';
 import { DialogModule } from 'primeng/dialog';
@@ -10,16 +13,23 @@ import { ToastModule } from 'primeng/toast';
 import { SelectButtonModule } from 'primeng/selectbutton';
 import { Tooltip } from 'primeng/tooltip';
 import { ConfirmationService, MessageService } from 'primeng/api';
+
 import {
   WorkingTimesService,
   UserAccountsService,
+  AppointmentsService,
   WorkingTimeResponse,
   AccountResponse,
   WorkingTimeCreateRequest,
   WorkingTimeUpdateRequest,
-  DayOfWeek
+  DayOfWeek,
+  Appointment,
+  AppointmentCreate,
 } from '../../api';
+
 import { AccountStateService } from '../../core/services/account-state.service';
+
+type BreakFormType = 'ONCE' | 'RECURRING';
 
 @Component({
   selector: 'app-working-hours',
@@ -34,23 +44,40 @@ import { AccountStateService } from '../../core/services/account-state.service';
     TagModule,
     ToastModule,
     SelectButtonModule,
-    Tooltip
+    Tooltip,
   ],
   templateUrl: './working-hours.page.html',
-  providers: [ConfirmationService, MessageService]
+  providers: [ConfirmationService, MessageService],
 })
 export class WorkingHoursPage implements OnInit {
   workingTimes = signal<WorkingTimeResponse[]>([]);
+  breaks = signal<Appointment[]>([]);
   accounts = signal<AccountResponse[]>([]);
   loading = signal(false);
+  breaksLoading = signal(false);
+
   showDialog = signal(false);
   isEditMode = signal(false);
+
+  showBreakDialog = signal(false);
 
   selectedDays: DayOfWeek[] = [];
   selectedAccountId: string | null = null;
   editingId: string | null = null;
-  startTimeString: string = '';
-  endTimeString: string = '';
+  startTimeString = '';
+  endTimeString = '';
+
+  breakTitle = '';
+  breakDate = '';
+  breakStartTime = '';
+  breakEndTime = '';
+  breakType: BreakFormType = 'ONCE';
+  breakSelectedAccountId: string | null = null;
+
+  readonly breakTypeOptions = [
+    { label: 'Einmalig', value: 'ONCE' },
+    { label: 'Wiederkehrend', value: 'RECURRING' },
+  ];
 
   readonly dayOptions = [
     { label: 'Mo', value: DayOfWeek.Monday },
@@ -65,9 +92,10 @@ export class WorkingHoursPage implements OnInit {
   constructor(
     private workingTimesService: WorkingTimesService,
     private userAccountsService: UserAccountsService,
+    private appointmentsService: AppointmentsService,
     private accountStateService: AccountStateService,
     private confirmationService: ConfirmationService,
-    private messageService: MessageService
+    private messageService: MessageService,
   ) {}
 
   ngOnInit(): void {
@@ -79,32 +107,93 @@ export class WorkingHoursPage implements OnInit {
     this.userAccountsService.getMyAccounts().subscribe({
       next: (response) => {
         this.accounts.set(response.accounts || []);
+
+        if (this.accounts().length > 0) {
+          this.selectedAccountId = this.accounts()[0].accountId?.toString() || null;
+          this.breakSelectedAccountId = this.accounts()[0].accountId?.toString() || null;
+        }
+
+        this.loadBreaks();
       },
-      error: (error) => {
+      error: () => {
         this.messageService.add({
           severity: 'error',
           summary: 'Fehler',
-          detail: 'Accounts konnten nicht geladen werden.'
+          detail: 'Accounts konnten nicht geladen werden.',
         });
-      }
+      },
     });
   }
 
   loadWorkingTimes(): void {
     this.loading.set(true);
+
     this.workingTimesService.getWorkingTimes().subscribe({
       next: (response) => {
         this.workingTimes.set(response.items || []);
         this.loading.set(false);
       },
-      error: (error) => {
+      error: () => {
         this.messageService.add({
           severity: 'error',
           summary: 'Fehler',
-          detail: 'Arbeitszeiten konnten nicht geladen werden.'
+          detail: 'Arbeitszeiten konnten nicht geladen werden.',
         });
         this.loading.set(false);
-      }
+      },
+    });
+  }
+
+  loadBreaks(): void {
+    const accounts = this.accounts();
+
+    if (accounts.length === 0) {
+      this.breaks.set([]);
+      return;
+    }
+
+    this.breaksLoading.set(true);
+
+    const requests = accounts
+      .filter((account) => !!account.accountId)
+      .map((account) =>
+        this.appointmentsService.listAppointments(account.accountId!.toString()).pipe(
+          map((response: any) => {
+            const items = response.items || response.appointments || response.content || [];
+            return items.map((item: Appointment) => ({
+              ...item,
+              accountId: account.accountId,
+            }));
+          }),
+          catchError(() => of([])),
+        ),
+      );
+
+    forkJoin(requests).subscribe({
+      next: (results) => {
+        const allAppointments = results.flat();
+
+        this.breaks.set(
+          allAppointments.filter((item: any) => {
+            return (
+              item.type === 'BREAK' ||
+              item.appointmentType === 'BREAK' ||
+              item.kind === 'BREAK' ||
+              item.category === 'BREAK'
+            );
+          }),
+        );
+
+        this.breaksLoading.set(false);
+      },
+      error: () => {
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Fehler',
+          detail: 'Pausen konnten nicht geladen werden.',
+        });
+        this.breaksLoading.set(false);
+      },
     });
   }
 
@@ -114,7 +203,8 @@ export class WorkingHoursPage implements OnInit {
     this.selectedDays = [];
     this.startTimeString = '08:00';
     this.endTimeString = '17:00';
-    this.selectedAccountId = this.accounts().length > 0 ? this.accounts()[0].accountId?.toString() || null : null;
+    this.selectedAccountId =
+      this.accounts().length > 0 ? this.accounts()[0].accountId?.toString() || null : null;
     this.showDialog.set(true);
   }
 
@@ -130,47 +220,27 @@ export class WorkingHoursPage implements OnInit {
 
   saveWorkingTime(): void {
     if (!this.selectedAccountId) {
-      this.messageService.add({
-        severity: 'warn',
-        summary: 'Validierung',
-        detail: 'Bitte wählen Sie eine Organisation aus.'
-      });
+      this.showWarn('Bitte wählen Sie eine Organisation aus.');
       return;
     }
 
     if (!this.startTimeString) {
-      this.messageService.add({
-        severity: 'warn',
-        summary: 'Validierung',
-        detail: 'Bitte geben Sie eine Startzeit an.'
-      });
+      this.showWarn('Bitte geben Sie eine Startzeit an.');
       return;
     }
 
     if (!this.endTimeString) {
-      this.messageService.add({
-        severity: 'warn',
-        summary: 'Validierung',
-        detail: 'Bitte geben Sie eine Endzeit an.'
-      });
+      this.showWarn('Bitte geben Sie eine Endzeit an.');
       return;
     }
 
     if (this.selectedDays.length === 0) {
-      this.messageService.add({
-        severity: 'warn',
-        summary: 'Validierung',
-        detail: 'Bitte wählen Sie mindestens einen Wochentag aus.'
-      });
+      this.showWarn('Bitte wählen Sie mindestens einen Wochentag aus.');
       return;
     }
 
     if (this.endTimeString <= this.startTimeString) {
-      this.messageService.add({
-        severity: 'warn',
-        summary: 'Validierung',
-        detail: 'Die Endzeit muss nach der Startzeit liegen.'
-      });
+      this.showWarn('Die Endzeit muss nach der Startzeit liegen.');
       return;
     }
 
@@ -186,7 +256,7 @@ export class WorkingHoursPage implements OnInit {
       accountId: this.selectedAccountId as any,
       days: this.selectedDays,
       startTime: this.startTimeString,
-      endTime: this.endTimeString
+      endTime: this.endTimeString,
     };
 
     this.workingTimesService.createWorkingTime(request).subscribe({
@@ -194,7 +264,7 @@ export class WorkingHoursPage implements OnInit {
         this.messageService.add({
           severity: 'success',
           summary: 'Erfolg',
-          detail: 'Arbeitszeit erstellt.'
+          detail: 'Arbeitszeit erstellt.',
         });
         this.showDialog.set(false);
         this.loadWorkingTimes();
@@ -204,9 +274,12 @@ export class WorkingHoursPage implements OnInit {
         this.messageService.add({
           severity: 'error',
           summary: 'Fehler',
-          detail: error.error?.detail || error.error?.message || 'Arbeitszeit konnte nicht erstellt werden.'
+          detail:
+            error.error?.detail ||
+            error.error?.message ||
+            'Arbeitszeit konnte nicht erstellt werden.',
         });
-      }
+      },
     });
   }
 
@@ -216,7 +289,7 @@ export class WorkingHoursPage implements OnInit {
     const request: WorkingTimeUpdateRequest = {
       days: this.selectedDays,
       startTime: this.startTimeString,
-      endTime: this.endTimeString
+      endTime: this.endTimeString,
     };
 
     this.workingTimesService.updateWorkingTime(this.editingId, request).subscribe({
@@ -224,7 +297,7 @@ export class WorkingHoursPage implements OnInit {
         this.messageService.add({
           severity: 'success',
           summary: 'Erfolg',
-          detail: 'Arbeitszeit aktualisiert.'
+          detail: 'Arbeitszeit aktualisiert.',
         });
         this.showDialog.set(false);
         this.loadWorkingTimes();
@@ -234,9 +307,12 @@ export class WorkingHoursPage implements OnInit {
         this.messageService.add({
           severity: 'error',
           summary: 'Fehler',
-          detail: error.error?.detail || error.error?.message || 'Arbeitszeit konnte nicht aktualisiert werden.'
+          detail:
+            error.error?.detail ||
+            error.error?.message ||
+            'Arbeitszeit konnte nicht aktualisiert werden.',
         });
-      }
+      },
     });
   }
 
@@ -253,30 +329,198 @@ export class WorkingHoursPage implements OnInit {
             this.messageService.add({
               severity: 'success',
               summary: 'Erfolg',
-              detail: 'Arbeitszeit gelöscht.'
+              detail: 'Arbeitszeit gelöscht.',
             });
             this.loadWorkingTimes();
             this.accountStateService.refresh();
           },
-          error: (error) => {
+          error: () => {
             this.messageService.add({
               severity: 'error',
               summary: 'Fehler',
-              detail: 'Arbeitszeit konnte nicht gelöscht werden.'
+              detail: 'Arbeitszeit konnte nicht gelöscht werden.',
             });
-          }
+          },
         });
-      }
+      },
+    });
+  }
+
+  openCreateBreakDialog(): void {
+    this.breakTitle = '';
+    this.breakDate = '';
+    this.breakStartTime = '12:00';
+    this.breakEndTime = '13:00';
+    this.breakType = 'ONCE';
+    this.breakSelectedAccountId =
+      this.accounts().length > 0 ? this.accounts()[0].accountId?.toString() || null : null;
+    this.showBreakDialog.set(true);
+  }
+
+  saveBreak(): void {
+    if (!this.breakSelectedAccountId) {
+      this.showWarn('Bitte wählen Sie eine Organisation aus.');
+      return;
+    }
+
+    if (!this.breakTitle.trim()) {
+      this.showWarn('Bitte geben Sie eine Bezeichnung ein.');
+      return;
+    }
+
+    if (this.breakType === 'ONCE' && !this.breakDate) {
+      this.showWarn('Bitte geben Sie ein Datum ein.');
+      return;
+    }
+
+    if (!this.breakStartTime) {
+      this.showWarn('Bitte geben Sie eine Startzeit ein.');
+      return;
+    }
+
+    if (!this.breakEndTime) {
+      this.showWarn('Bitte geben Sie eine Endzeit ein.');
+      return;
+    }
+
+    if (this.breakEndTime <= this.breakStartTime) {
+      this.showWarn('Die Endzeit muss nach der Startzeit liegen.');
+      return;
+    }
+
+
+    const request: AppointmentCreate = {
+      title: this.breakTitle,
+      isBreak: true,
+      appointmentType: 'BREAK' as any,
+      date: this.breakType === 'ONCE' ? this.breakDate : null,
+      startTime: this.breakStartTime,
+      endTime: this.breakEndTime,
+      rrule: this.breakType === 'RECURRING' ? 'FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR' : null,
+    };
+
+    this.appointmentsService.createAppointment(this.breakSelectedAccountId, request).subscribe({
+      next: () => {
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Erfolg',
+          detail: 'Pause wurde erstellt.',
+        });
+        this.showBreakDialog.set(false);
+        this.loadBreaks();
+        this.accountStateService.refresh();
+      },
+      error: (error) => {
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Fehler',
+          detail:
+            error.error?.detail || error.error?.message || 'Pause konnte nicht erstellt werden.',
+        });
+      },
+    });
+  }
+
+  deleteBreak(item: Appointment): void {
+    const appointmentId = (item as any).id?.toString();
+    const accountId = (item as any).accountId?.toString();
+
+    if (!appointmentId || !accountId) return;
+
+    this.confirmationService.confirm({
+      message: 'Möchten Sie diese Pause wirklich löschen?',
+      header: 'Bestätigung',
+      icon: 'pi pi-exclamation-triangle',
+      accept: () => {
+        this.appointmentsService.deleteAppointment(accountId, appointmentId).subscribe({
+          next: () => {
+            this.messageService.add({
+              severity: 'success',
+              summary: 'Erfolg',
+              detail: 'Pause gelöscht.',
+            });
+            this.loadBreaks();
+            this.accountStateService.refresh();
+          },
+          error: () => {
+            this.messageService.add({
+              severity: 'error',
+              summary: 'Fehler',
+              detail: 'Pause konnte nicht gelöscht werden.',
+            });
+          },
+        });
+      },
+    });
+  }
+
+  getBreakTitle(item: Appointment): string {
+    return (item as any).title || (item as any).name || (item as any).label || 'Pause';
+  }
+
+  getBreakStart(item: Appointment): string {
+    return (
+      (item as any).startTime ||
+      this.extractTime((item as any).startAt) ||
+      this.extractTime((item as any).startDateTime) ||
+      ''
+    );
+  }
+
+  getBreakEnd(item: Appointment): string {
+    return (
+      (item as any).endTime ||
+      this.extractTime((item as any).endAt) ||
+      this.extractTime((item as any).endDateTime) ||
+      ''
+    );
+  }
+
+  getBreakDate(item: Appointment): string {
+    return (
+      (item as any).date ||
+      this.extractDate((item as any).startAt) ||
+      this.extractDate((item as any).startDateTime) ||
+      'Wiederkehrend'
+    );
+  }
+
+  getBreakTypeLabel(item: Appointment): string {
+    const breakType = (item as any).breakType || (item as any).recurrence;
+
+    if (breakType === 'ONE_TIME' || breakType === 'ONCE') return 'Einmalig';
+    if (breakType === 'RECURRING' || breakType === 'WEEKDAYS') return 'Wiederkehrend';
+
+    return 'Pause';
+  }
+
+  private extractTime(value?: string): string {
+    if (!value) return '';
+    const match = value.match(/T(\d{2}:\d{2})/);
+    return match ? match[1] : '';
+  }
+
+  private extractDate(value?: string): string {
+    if (!value) return '';
+    return value.split('T')[0] || '';
+  }
+
+  private showWarn(detail: string): void {
+    this.messageService.add({
+      severity: 'warn',
+      summary: 'Validierung',
+      detail,
     });
   }
 
   getAccountName(accountId: any): string {
-    const account = this.accounts().find(a => a.accountId?.toString() === accountId?.toString());
+    const account = this.accounts().find((a) => a.accountId?.toString() === accountId?.toString());
     return account ? account.organizationName || 'Unbekannt' : 'Unbekannt';
   }
 
   formatDays(days: DayOfWeek[] | undefined): string {
     if (!days || days.length === 0) return '';
+
     const labels: Record<string, string> = {
       MONDAY: 'Mo',
       TUESDAY: 'Di',
@@ -284,24 +528,30 @@ export class WorkingHoursPage implements OnInit {
       THURSDAY: 'Do',
       FRIDAY: 'Fr',
       SATURDAY: 'Sa',
-      SUNDAY: 'So'
+      SUNDAY: 'So',
     };
+
     const order = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
+
     return days
       .slice()
       .sort((a, b) => order.indexOf(a.toUpperCase()) - order.indexOf(b.toUpperCase()))
-      .map(d => labels[d.toUpperCase()] ?? d)
+      .map((d) => labels[d.toUpperCase()] ?? d)
       .join(', ');
   }
 
   calculateDuration(startTime: string | undefined, endTime: string | undefined): string {
     if (!startTime || !endTime) return '0';
+
     const [sh, sm] = startTime.split(':').map(Number);
     const [eh, em] = endTime.split(':').map(Number);
-    const totalMinutes = (eh * 60 + em) - (sh * 60 + sm);
+    const totalMinutes = eh * 60 + em - (sh * 60 + sm);
+
     if (totalMinutes <= 0) return '0';
+
     const hours = Math.floor(totalMinutes / 60);
     const mins = totalMinutes % 60;
+
     return mins === 0 ? `${hours}h` : `${hours}h ${mins}min`;
   }
 }

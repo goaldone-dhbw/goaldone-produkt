@@ -5,18 +5,30 @@
 
     <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
       <div>
-        <h1 class="text-3xl font-bold tracking-tight text-slate-900">Arbeitszeiten</h1>
+        <h1 class="text-3xl font-bold tracking-tight text-slate-900">
+          Arbeitszeiten & Pausen
+        </h1>
         <p class="mt-2 text-sm text-slate-600">
-          Verwalte deine regelmäßigen Arbeitszeiten für verschiedene Organisationen.
+          Verwalte deine Arbeitszeiten und festen Pausen.
         </p>
       </div>
 
-      <p-button
-        label="Neue Arbeitszeit"
-        icon="pi pi-plus"
-        (onClick)="openCreateDialog()"
-        [loading]="loading()"
-      ></p-button>
+      <div class="flex flex-wrap gap-2">
+        <p-button
+          label="Neue Pause"
+          icon="pi pi-plus"
+          severity="secondary"
+          (onClick)="openCreateBreakDialog()"
+          [loading]="breaksLoading()"
+        ></p-button>
+
+        <p-button
+          label="Neue Arbeitszeit"
+          icon="pi pi-plus"
+          (onClick)="openCreateDialog()"
+          [loading]="loading()"
+        ></p-button>
+      </div>
     </div>
 
     <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -66,7 +78,7 @@
                       <span>{{ item.startTime }} – {{ item.endTime }}</span>
                       <span class="text-slate-300">|</span>
                       <span class="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                         Dauer:
+                        Dauer:
                       </span>
                       <span>
                         @if (item.startTime && item.endTime) {
@@ -90,6 +102,83 @@
                     [text]="true"
                     severity="danger"
                     (onClick)="deleteWorkingTime(item)"
+                    pTooltip="Löschen"
+                  />
+                </div>
+              </div>
+            </div>
+          }
+        </div>
+      }
+    </div>
+
+    <div class="mt-8 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div class="flex items-center justify-between border-b border-slate-200 px-4 py-4">
+        <h2 class="text-lg font-semibold text-slate-900">Deine Pausen</h2>
+
+        <p-button
+          label="Pause hinzufügen"
+          icon="pi pi-plus"
+          size="small"
+          severity="secondary"
+          (onClick)="openCreateBreakDialog()"
+        />
+      </div>
+
+      @if (breaksLoading()) {
+        <div class="px-6 py-8 text-sm text-slate-600">
+          Pausen werden geladen...
+        </div>
+      } @else if (breaks().length === 0) {
+        <div class="px-6 py-8 text-sm text-slate-600">
+          Es sind noch keine Pausen hinterlegt.
+        </div>
+      } @else {
+        <div class="divide-y divide-slate-200">
+          @for (item of breaks(); track $any(item).id) {
+            <div class="px-4 py-3">
+              <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div class="min-w-0 flex-1">
+                  <div class="mb-2 flex flex-wrap items-center gap-2">
+                    <h3 class="text-base font-semibold text-slate-900">
+                      {{ getBreakTitle(item) }}
+                    </h3>
+
+                    <span class="inline-flex items-center rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
+                      {{ getBreakTypeLabel(item) }}
+                    </span>
+                  </div>
+
+                  <div class="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-slate-600">
+                    <div class="flex items-center gap-2">
+                      <span class="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        <i class="pi pi-building text-xs text-primary-icon"></i> Organisation:
+                      </span>
+                      <span>{{ getAccountName($any(item).accountId) }}</span>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                      <span class="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        <i class="pi pi-calendar text-xs text-primary-icon"></i> Datum:
+                      </span>
+                      <span>{{ getBreakDate(item) }}</span>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                      <span class="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        <i class="pi pi-clock text-xs text-primary-icon"></i> Zeit:
+                      </span>
+                      <span>{{ getBreakStart(item) }} – {{ getBreakEnd(item) }}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="flex shrink-0 items-center gap-1 border-t border-slate-100 pt-3 sm:border-0 sm:pt-0">
+                  <p-button
+                    icon="pi pi-trash"
+                    [text]="true"
+                    severity="danger"
+                    (onClick)="deleteBreak(item)"
                     pTooltip="Löschen"
                   />
                 </div>
@@ -150,8 +239,7 @@
         optionValue="value"
         [multiple]="true"
         class="custom-selectbutton"
-      >
-      </p-select-button>
+      />
     </div>
 
     <div class="grid grid-cols-2 gap-4">
@@ -187,6 +275,111 @@
         label="Speichern"
         (onClick)="saveWorkingTime()"
         icon="pi pi-check"
+      />
+    </div>
+  </ng-template>
+</p-dialog>
+
+<p-dialog
+  [visible]="showBreakDialog()"
+  (visibleChange)="showBreakDialog.set($event)"
+  header="Neue Pause"
+  [modal]="true"
+  [draggable]="false"
+  [resizable]="false"
+  [style]="{ width: '90vw', maxWidth: '500px' }"
+>
+  <div class="flex flex-col gap-4 py-4">
+    <div class="flex flex-col gap-2">
+      <label class="text-sm font-semibold text-slate-700">Organisation</label>
+
+      @if (accounts().length > 1) {
+        <div class="relative">
+          <select
+            [(ngModel)]="breakSelectedAccountId"
+            class="w-full appearance-none rounded-lg border border-slate-300 bg-white px-3 py-2 pr-10 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+          >
+            @for (account of accounts(); track account.accountId) {
+              <option [value]="account.accountId.toString()">
+                {{ account.organizationName }}
+              </option>
+            }
+          </select>
+          <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-500">
+            <i class="pi pi-chevron-down text-xs"></i>
+          </div>
+        </div>
+      } @else {
+        <div class="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
+          {{ accounts()[0]?.organizationName || 'Keine Organisation' }}
+        </div>
+      }
+    </div>
+
+    <div class="flex flex-col gap-2">
+      <label class="text-sm font-semibold text-slate-700">Bezeichnung</label>
+      <input
+        type="text"
+        [(ngModel)]="breakTitle"
+        placeholder="z.B. Mittagspause"
+        class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+      />
+    </div>
+
+    <div class="flex flex-col gap-2">
+      <label class="text-sm font-semibold text-slate-700">Typ</label>
+      <p-select-button
+        [(ngModel)]="breakType"
+        [options]="breakTypeOptions"
+        optionLabel="label"
+        optionValue="value"
+      />
+    </div>
+
+    @if (breakType === 'ONCE') {
+      <div class="flex flex-col gap-2">
+        <label class="text-sm font-semibold text-slate-700">Datum</label>
+        <input
+          type="date"
+          [(ngModel)]="breakDate"
+          class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+        />
+      </div>
+    }
+
+    <div class="grid grid-cols-2 gap-4">
+      <div class="flex flex-col gap-2">
+        <label class="text-sm font-semibold text-slate-700">Startzeit</label>
+        <input
+          type="time"
+          [(ngModel)]="breakStartTime"
+          class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+        />
+      </div>
+
+      <div class="flex flex-col gap-2">
+        <label class="text-sm font-semibold text-slate-700">Endzeit</label>
+        <input
+          type="time"
+          [(ngModel)]="breakEndTime"
+          class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+        />
+      </div>
+    </div>
+  </div>
+
+  <ng-template pTemplate="footer">
+    <div class="flex justify-end gap-2 border-t border-slate-100 pt-4">
+      <p-button
+        label="Abbrechen"
+        (onClick)="showBreakDialog.set(false)"
+        [text]="true"
+        severity="secondary"
+      />
+      <p-button
+        label="Speichern"
+        icon="pi pi-check"
+        (onClick)="saveBreak()"
       />
     </div>
   </ng-template>
