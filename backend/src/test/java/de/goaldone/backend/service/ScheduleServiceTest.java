@@ -1,10 +1,11 @@
 package de.goaldone.backend.service;
 
 import de.goaldone.backend.entity.UserAccountEntity;
-import de.goaldone.backend.model.GenerateScheduleRequest;
-import de.goaldone.backend.model.ScheduleResponse;
-import de.goaldone.backend.model.ScheduleWarning;
+import de.goaldone.backend.entity.WorkingTimeEntity;
+import de.goaldone.backend.model.*;
 import de.goaldone.backend.repository.UserAccountRepository;
+import de.goaldone.backend.scheduler.types.model.SchedulingContext;
+import de.goaldone.backend.scheduler.types.model.TimeSlot;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -12,13 +13,16 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.oauth2.jwt.Jwt;
 
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalTime;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 public class ScheduleServiceTest {
@@ -197,4 +201,175 @@ public class ScheduleServiceTest {
 
         assertEquals(1, warnings);
     }
+
+    // ================================
+    // CREATE SCHEDULING CONTEXT TESTS
+    // (Tests getAvailableTimeSlots indirectly)
+    // ================================
+
+    @Test
+    void createSchedulingContext_noWorkingTimes_returnsContextWithoutSlots() {
+        UUID accountId = UUID.randomUUID();
+        Jwt jwt = mockJwt();
+        LocalDate fromDate = LocalDate.now().plusDays(1);
+
+        UserAccountEntity account = new UserAccountEntity();
+        account.setId(accountId);
+        account.setZitadelSub("user-1");
+        account.setWorkingTimes(List.of());
+
+        when(userAccountRepository.findById(accountId)).thenReturn(Optional.of(account));
+        when(taskService.getTasksForAccountId(jwt, accountId)).thenReturn(List.of());
+        when(appointmentService.listAppointments(accountId)).thenReturn(new AppointmentListResponse());
+
+        SchedulingContext context = scheduleService.createSchedulingContext(jwt, accountId, fromDate, 1);
+
+        assertNotNull(context);
+        assertEquals(fromDate, context.fromDate());
+        assertTrue(context.availableSlots().isEmpty(), "Should have empty slots when no working times defined");
+    }
+
+    @Test
+    void createSchedulingContext_noAppointments_returnsFullWorkingHours() {
+        UUID accountId = UUID.randomUUID();
+        Jwt jwt = mockJwt();
+        LocalDate fromDate = LocalDate.of(2026, 5, 12); // Monday
+
+        WorkingTimeEntity workingTime = new WorkingTimeEntity();
+        workingTime.setId(UUID.randomUUID());
+        workingTime.setStartTime(LocalTime.of(9, 0));
+        workingTime.setEndTime(LocalTime.of(17, 0));
+        workingTime.setDays(new HashSet<>(List.of(DayOfWeek.MONDAY)));
+        workingTime.setCreatedAt(Instant.now());
+
+        UserAccountEntity account = new UserAccountEntity();
+        account.setId(accountId);
+        account.setZitadelSub("user-1");
+        account.setWorkingTimes(List.of(workingTime));
+
+        when(userAccountRepository.findById(accountId)).thenReturn(Optional.of(account));
+        when(taskService.getTasksForAccountId(jwt, accountId)).thenReturn(List.of());
+        when(appointmentService.listAppointments(accountId)).thenReturn(new AppointmentListResponse());
+
+        SchedulingContext context = scheduleService.createSchedulingContext(jwt, accountId, fromDate, 1);
+
+        assertNotNull(context);
+        assertTrue(context.availableSlots().size() > 0, "Should have at least one slot");
+        TimeSlot slot = context.availableSlots().get(0);
+        assertEquals(LocalTime.of(9, 0), slot.startTime());
+        assertEquals(LocalTime.of(17, 0), slot.endTime());
+    }
+
+    @Test
+    void createSchedulingContext_withAppointments_returnsGapsBetweenAppointments() {
+        UUID accountId = UUID.randomUUID();
+        Jwt jwt = mockJwt();
+        LocalDate fromDate = LocalDate.of(2026, 5, 11); // Monday
+
+        WorkingTimeEntity workingTime = new WorkingTimeEntity();
+        workingTime.setId(UUID.randomUUID());
+        workingTime.setStartTime(LocalTime.of(9, 0));
+        workingTime.setEndTime(LocalTime.of(17, 0));
+        workingTime.setDays(new HashSet<>(List.of(DayOfWeek.MONDAY)));
+        workingTime.setCreatedAt(Instant.now());
+
+        // Create two appointments: 10:00-11:00 and 14:00-15:00
+        Appointment apt1 = new Appointment();
+        apt1.setDate(fromDate);
+        apt1.setStartTime("10:00");
+        apt1.setEndTime("11:00");
+
+        Appointment apt2 = new Appointment();
+        apt2.setDate(fromDate);
+        apt2.setStartTime("14:00");
+        apt2.setEndTime("15:00");
+
+        AppointmentListResponse appointmentResponse = new AppointmentListResponse();
+        appointmentResponse.setAppointments(List.of(apt1, apt2));
+
+        UserAccountEntity account = new UserAccountEntity();
+        account.setId(accountId);
+        account.setZitadelSub("user-1");
+        account.setWorkingTimes(List.of(workingTime));
+
+        when(userAccountRepository.findById(accountId)).thenReturn(Optional.of(account));
+        when(taskService.getTasksForAccountId(jwt, accountId)).thenReturn(List.of());
+        when(appointmentService.listAppointments(accountId)).thenReturn(appointmentResponse);
+
+        SchedulingContext context = scheduleService.createSchedulingContext(jwt, accountId, fromDate, 1);
+
+        assertNotNull(context);
+        // Should have 3 slots: 09:00-10:00, 11:00-14:00, 15:00-17:00
+        assertEquals(3, context.availableSlots().size(), "Should have 3 available slots");
+        assertEquals(LocalTime.of(9, 0), context.availableSlots().get(0).startTime());
+        assertEquals(LocalTime.of(10, 0), context.availableSlots().get(0).endTime());
+    }
+
+    @Test
+    void createSchedulingContext_multipleWeekdays_returnsMultipleSlotsPerWeek() {
+        UUID accountId = UUID.randomUUID();
+        Jwt jwt = mockJwt();
+        LocalDate fromDate = LocalDate.of(2026, 5, 11); // Monday
+
+        WorkingTimeEntity workingTime = new WorkingTimeEntity();
+        workingTime.setId(UUID.randomUUID());
+        workingTime.setStartTime(LocalTime.of(9, 0));
+        workingTime.setEndTime(LocalTime.of(17, 0));
+        workingTime.setDays(new HashSet<>(List.of(DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY)));
+        workingTime.setCreatedAt(Instant.now());
+
+        UserAccountEntity account = new UserAccountEntity();
+        account.setId(accountId);
+        account.setZitadelSub("user-1");
+        account.setWorkingTimes(List.of(workingTime));
+
+        when(userAccountRepository.findById(accountId)).thenReturn(Optional.of(account));
+        when(taskService.getTasksForAccountId(jwt, accountId)).thenReturn(List.of());
+        when(appointmentService.listAppointments(accountId)).thenReturn(new AppointmentListResponse());
+
+        SchedulingContext context = scheduleService.createSchedulingContext(jwt, accountId, fromDate, 4);
+
+        assertNotNull(context);
+        // Should have at least 12 slots (3 per day * 4 weeks)
+        assertTrue(context.availableSlots().size() == 12, "Expected exactly 12 slots, got " + context.availableSlots().size());
+    }
+
+    @Test
+    void createSchedulingContext_multipleWorkingTimeDefinitions_returnsCombinedSlots() {
+        UUID accountId = UUID.randomUUID();
+        Jwt jwt = mockJwt();
+        LocalDate fromDate = LocalDate.of(2026, 5, 12); // Tuesday
+
+        // First working time: Monday 09:00-17:00
+        WorkingTimeEntity workingTime1 = new WorkingTimeEntity();
+        workingTime1.setId(UUID.randomUUID());
+        workingTime1.setStartTime(LocalTime.of(9, 0));
+        workingTime1.setEndTime(LocalTime.of(17, 0));
+        workingTime1.setDays(new HashSet<>(List.of(DayOfWeek.MONDAY)));
+        workingTime1.setCreatedAt(Instant.now());
+
+        // Second working time: Tuesday 08:00-16:00
+        WorkingTimeEntity workingTime2 = new WorkingTimeEntity();
+        workingTime2.setId(UUID.randomUUID());
+        workingTime2.setStartTime(LocalTime.of(8, 0));
+        workingTime2.setEndTime(LocalTime.of(16, 0));
+        workingTime2.setDays(new HashSet<>(List.of(DayOfWeek.TUESDAY)));
+        workingTime2.setCreatedAt(Instant.now());
+
+        UserAccountEntity account = new UserAccountEntity();
+        account.setId(accountId);
+        account.setZitadelSub("user-1");
+        account.setWorkingTimes(List.of(workingTime1, workingTime2));
+
+        when(userAccountRepository.findById(accountId)).thenReturn(Optional.of(account));
+        when(taskService.getTasksForAccountId(jwt, accountId)).thenReturn(List.of());
+        when(appointmentService.listAppointments(accountId)).thenReturn(new AppointmentListResponse());
+
+        SchedulingContext context = scheduleService.createSchedulingContext(jwt, accountId, fromDate, 4);
+
+        assertNotNull(context);
+        // Should collect slots from both working time definitions (Monday and Tuesday slots)
+        assertTrue(context.availableSlots().size() == 8, "Expected exactly 8 slots (4 weeks * 2 days), got " + context.availableSlots().size());
+    }
+
 }

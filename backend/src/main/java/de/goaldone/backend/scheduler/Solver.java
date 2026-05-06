@@ -1,9 +1,13 @@
 package de.goaldone.backend.scheduler;
 
+import de.goaldone.backend.entity.UserAccountEntity;
+import de.goaldone.backend.entity.WorkingTimeEntity;
 import de.goaldone.backend.model.ScheduleWarning;
+import de.goaldone.backend.model.TaskResponse;
 import de.goaldone.backend.scheduler.types.model.*;
 import de.goaldone.backend.scheduler.types.moves.MoveSelector;
 
+import java.time.LocalDate;
 import java.util.List;
 
 public class Solver {
@@ -49,7 +53,6 @@ public class Solver {
                 moveHistory.addMoveEvent(latestMove);
             }
         }
-
 
         // Collect warnings for violated soft constraints
         List<ScheduleWarning> warnings = constraintHandler.getWarnings(currentBest);
