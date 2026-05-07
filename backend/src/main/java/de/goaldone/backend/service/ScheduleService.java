@@ -173,7 +173,7 @@ public class ScheduleService {
 
         // Create schedule context
         return new SchedulingContext(
-                fromDate, availableSlots, allTasks
+                fromDate, availableSlots, allTasks, workingTimes
         );
     }
 
