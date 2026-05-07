@@ -1,5 +1,6 @@
 package de.goaldone.backend.scheduler.types.moves;
 
+import de.goaldone.backend.scheduler.types.model.MoveEvent;
 import de.goaldone.backend.scheduler.types.model.ScheduledChunk;
 import de.goaldone.backend.scheduler.types.model.SolverState;
 import de.goaldone.backend.scheduler.types.model.TimeSlot;
@@ -40,6 +41,10 @@ public class ChangeMove extends Move {
         }
 
         ScheduledChunk target = unpinned.get(random.nextInt(unpinned.size()));
+
+        // Update affected chunks
+        moveEvent = new MoveEvent(MoveType.CHANGE, List.of(target.chunk().chunkId()));
+
         TimeSlot newSlot = current.freeSlots().get(random.nextInt(current.freeSlots().size()));
 
         if (newSlot.durationMinutes() < target.chunk().durationMinutes()) {
@@ -56,21 +61,5 @@ public class ChangeMove extends Move {
         return next;
     }
 
-    /**
-     * Gibt die betroffenen Chunk-IDs für diesen Move zurück.
-     * @return leere Liste, da die betroffenen Chunks erst bei konkreter Auswahl bekannt sind
-     */
-    @Override
-    public List<UUID> affectedChunkIds() {
-        return List.of();
-    }
 
-    /**
-     * Gibt die ID des verschobenen Chunks zurück.
-     * @param moved verschobener Chunk
-     * @return Liste mit der ID des verschobenen Chunks
-     */
-    public List<UUID> affectedChunkIds(ScheduledChunk moved) {
-        return List.of(moved.chunk().chunkId());
-    }
 }

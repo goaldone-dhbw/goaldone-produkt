@@ -14,6 +14,8 @@ import java.util.UUID;
 /**
  * Service for deleting user accounts.
  * Handles the removal of user account records and their associated identities if they are no longer needed.
+ * The Zitadel user is deleted first; if that fails, a {@link de.goaldone.backend.exception.ZitadelApiException}
+ * is thrown and the local record is left intact.
  */
 @Service
 @RequiredArgsConstructor
@@ -26,10 +28,12 @@ public class UserAccountDeletionService {
 
     /**
      * Deletes a user account by its ID.
+     * First removes the user from Zitadel (throwing if that fails), then deletes the local account record.
      * If the account is the last one associated with a user identity, the identity is also deleted.
      *
      * @param accountId The UUID of the account to be deleted.
-     * @throws IllegalStateException if the account cannot be found.
+     * @throws IllegalStateException                             if the account cannot be found.
+     * @throws de.goaldone.backend.exception.ZitadelApiException if the Zitadel deletion fails.
      */
     @Transactional
     public void deleteUserAccount(UUID accountId) {
@@ -39,7 +43,7 @@ public class UserAccountDeletionService {
         UUID identityId = account.getUserIdentityId();
         long count = userAccountRepository.countByUserIdentityId(identityId);
 
-        zitadelManagementClient.deleteUser(account.getZitadelSub());
+        zitadelManagementClient.deleteUserOrThrow(account.getZitadelSub());
 
         userAccountRepository.delete(account);
 

@@ -3,11 +3,12 @@
     <p-toast />
     <p-confirmDialog />
 
+    <!-- Page header with super-admin creation action -->
     <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
       <div>
         <h1 class="text-3xl font-bold tracking-tight text-slate-900">Super-Admins</h1>
         <p class="mt-2 text-sm text-slate-600">
-          Verwalte die globalen Administratoren der GoalDone Plattform.
+          Verwalte die globalen Administratoren und Unternehmen der GoalDone Plattform.
         </p>
       </div>
 
@@ -18,6 +19,73 @@
       ></p-button>
     </div>
 
+    <!-- Form/card for creating a new organization -->
+    <app-create-organization-card
+      (created)="onOrganizationCreated()"
+    ></app-create-organization-card>
+
+    <!-- Organization overview including loading, empty and list states -->
+    <div class="mb-8 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div class="border-b border-slate-200 px-6 py-4">
+        <h2 class="text-lg font-semibold text-slate-900">Vorhandene Unternehmen</h2>
+        <p class="mt-1 text-sm text-slate-600">
+          Übersicht aller registrierten Unternehmen.
+        </p>
+      </div>
+
+      @if (isOrganizationsLoading()) {
+        <div class="px-6 py-8 text-sm text-slate-600">
+          Unternehmen werden geladen...
+        </div>
+      } @else if (organizations().length === 0) {
+        <div class="px-6 py-8 text-sm text-slate-600">
+          Es sind aktuell keine Unternehmen vorhanden.
+        </div>
+      } @else {
+        <div class="divide-y divide-slate-200">
+          @for (organization of organizations(); track organization.zitadelOrganizationId) {
+            <div class="px-4 py-4">
+              <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div class="min-w-0 flex-1">
+                  <h3 class="text-base font-semibold text-slate-900">
+                    {{ organization.name }}
+                  </h3>
+
+                  <div class="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-sm text-slate-600">
+                    <span>
+                      Erstellt:
+                      <strong class="font-semibold text-slate-900">
+                        {{ formatDate(organization.createdAt) }}
+                      </strong>
+                    </span>
+
+                    <span>
+                      Zitadel-ID:
+                      <strong class="font-semibold text-slate-900">
+                        {{ organization.zitadelOrganizationId }}
+                      </strong>
+                    </span>
+                  </div>
+                </div>
+
+                <!-- Delete organization button with per-organization loading state -->
+                <p-button
+                  icon="pi pi-trash"
+                  label="Löschen"
+                  [outlined]="true"
+                  severity="danger"
+                  [loading]="isDeletingOrganization(organization.zitadelOrganizationId)"
+                  [disabled]="isDeletingOrganization(organization.zitadelOrganizationId)"
+                  (onClick)="confirmDeleteOrganization(organization)"
+                ></p-button>
+              </div>
+            </div>
+          }
+        </div>
+      }
+    </div>
+
+    <!-- Super-admin overview including loading, empty and list states -->
     <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
       <div class="border-b border-slate-200 px-6 py-4">
         <h2 class="text-lg font-semibold text-slate-900">Aktive Super-Admins</h2>
@@ -45,11 +113,13 @@
                   </div>
                 </div>
 
+                <!-- Delete super-admin button with protection for the last remaining super-admin -->
                 <p-button
                   icon="pi pi-trash"
                   [text]="true"
                   severity="danger"
-                  [disabled]="superAdmins().length <= 1"
+                  [loading]="isDeletingSuperAdmin(admin.zitadelId)"
+                  [disabled]="superAdmins().length <= 1 || isDeletingSuperAdmin(admin.zitadelId)"
                   (onClick)="confirmDelete(admin)"
                   [pTooltip]="superAdmins().length <= 1 ? 'Der letzte Super-Admin kann nicht gelöscht werden' : 'Löschen'"
                   tooltipPosition="top"
@@ -63,6 +133,7 @@
   </div>
 </div>
 
+<!-- Dialog for inviting a new super-admin -->
 <app-add-super-admin-dialog
   [visible]="addDialogVisible"
   (visibleChange)="onDialogVisibleChange($event)"

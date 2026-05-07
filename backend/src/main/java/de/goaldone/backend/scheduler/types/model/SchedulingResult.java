@@ -5,8 +5,8 @@ import de.goaldone.backend.model.ScheduleWarning;
 import java.util.List;
 
 public record SchedulingResult (
+        SolverState schedule,
         int score,
-        Schedule schedule,
         List<ScheduleWarning> scheduleWarnings
 ) {
 }

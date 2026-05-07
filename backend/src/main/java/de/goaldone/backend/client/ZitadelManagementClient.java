@@ -24,8 +24,6 @@ import java.util.Optional;
  * Client for interacting with the Zitadel Management API.
  * Provides methods for user management, organization management, and handling user grants
  * within the Zitadel identity management system.
- * Methods that interact with v2 APIs use the official Zitadel Java SDK.
- * Methods that interact with Management v1 APIs (which lack SDK typed models) use RestClient with JSON parsing.
  */
 @Slf4j
 @Component
@@ -418,6 +416,12 @@ public class ZitadelManagementClient {
         }
     }
 
+    /**
+     * Generates an invitation code for a user and triggers an invitation email.
+     *
+     * @param userId the ID of the user to invite
+     * @throws ZitadelApiException if the operation fails
+     */
     public void createInviteCode(String userId) {
         try {
             UserServiceCreateInviteCodeRequest request = new UserServiceCreateInviteCodeRequest()
@@ -433,6 +437,13 @@ public class ZitadelManagementClient {
         }
     }
 
+    /**
+     * Creates a new organization in Zitadel.
+     *
+     * @param name the name of the organization to create
+     * @return the ID of the newly created organization
+     * @throws ZitadelApiException if the creation fails or no organization ID is returned
+     */
     public String addOrganization(String name) {
         try {
             OrganizationServiceAddOrganizationRequest request = new OrganizationServiceAddOrganizationRequest()
@@ -451,6 +462,11 @@ public class ZitadelManagementClient {
         }
     }
 
+    /**
+     * Deletes an organization by its ID.
+     *
+     * @param zitadelOrgId the ID of the organization to delete
+     */
     public void deleteOrganization(String zitadelOrgId) {
         try {
             OrganizationServiceDeleteOrganizationRequest request = new OrganizationServiceDeleteOrganizationRequest()
@@ -463,6 +479,11 @@ public class ZitadelManagementClient {
         }
     }
 
+    /**
+     * Deletes a user by their ID.
+     *
+     * @param userId the ID of the user to delete
+     */
     public void deleteUser(String userId) {
         try {
             UserServiceDeleteUserRequest request = new UserServiceDeleteUserRequest()

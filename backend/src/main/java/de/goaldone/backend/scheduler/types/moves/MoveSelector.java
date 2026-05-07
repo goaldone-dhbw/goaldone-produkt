@@ -1,7 +1,10 @@
 package de.goaldone.backend.scheduler.types.moves;
 
+import de.goaldone.backend.scheduler.types.model.MoveEvent;
 import de.goaldone.backend.scheduler.types.model.SolverState;
-import java.util.Random;
+import lombok.Getter;
+
+import java.util.*;
 
 /**
  * Wählt anhand gewichteter Wahrscheinlichkeiten einen Move aus und kann ihn direkt anwenden.
@@ -16,6 +19,14 @@ public class MoveSelector {
     private final SwapMove swapMove;
     private final PillarMove pillarMove;
     private final Random random;
+
+    @Getter
+    private MoveEvent lastMoveEvent;
+
+    public MoveSelector() {
+        this(new Random(), 0.5, 0.3, 5);
+    }
+
 
     /**
      * Erstellt einen MoveSelector mit Standardgewichten.
@@ -49,6 +60,7 @@ public class MoveSelector {
         this.changeMove = new ChangeMove(random);
         this.swapMove = new SwapMove(random);
         this.pillarMove = new PillarMove(random, maxPillarShift);
+        this.lastMoveEvent = null;
     }
 
     /**
@@ -57,7 +69,14 @@ public class MoveSelector {
      * @return neuer SolverState nach Anwendung des ausgewählten Moves oder {@code null}, wenn der Move ungültig ist
      */
     public SolverState selectAndApply(SolverState current) {
-        return selectMove().apply(current);
+        Move move = selectMove();
+        SolverState newState = move.apply(current);
+
+        // Update last move event
+        this.lastMoveEvent = move.getMoveEvent();
+
+        return newState;
+
     }
 
     /**
@@ -74,4 +93,5 @@ public class MoveSelector {
             return pillarMove;
         }
     }
+
 }

@@ -1,5 +1,6 @@
 package de.goaldone.backend.scheduler.types.moves;
 
+import de.goaldone.backend.scheduler.types.model.MoveEvent;
 import de.goaldone.backend.scheduler.types.model.ScheduledChunk;
 import de.goaldone.backend.scheduler.types.model.SolverState;
 import de.goaldone.backend.scheduler.types.model.TimeSlot;
@@ -57,6 +58,14 @@ public class PillarMove extends Move {
         List<ScheduledChunk> taskChunks = chunksByTask.get(targetTaskId).stream()
                 .sorted(Comparator.comparingInt(sc -> sc.chunk().chunkIndex()))
                 .toList();
+
+
+        // Update move event
+        List<UUID> affectedChunks = taskChunks.stream()
+                .map(sc -> sc.chunk().chunkId())
+                .toList();
+        moveEvent = new MoveEvent(MoveType.PILLAR, affectedChunks);
+
 
         int shift = 0;
         while (shift == 0) {
@@ -123,26 +132,6 @@ public class PillarMove extends Move {
         return next;
     }
 
-    /**
-     * Gibt die betroffenen Chunk-IDs für diesen Move zurück.
-     *
-     * @return leere Liste, da die betroffenen Chunks erst bei konkreter Auswahl bekannt sind
-     */
-    @Override
-    public List<UUID> affectedChunkIds() {
-        return List.of();
-    }
-
-    /**
-     * Gibt die IDs der verschobenen Chunks zurück.
-     * @param movedChunks verschobene Chunks
-     * @return Liste der IDs der verschobenen Chunks
-     */
-    public List<UUID> affectedChunkIds(List<ScheduledChunk> movedChunks) {
-        return movedChunks.stream()
-                .map(sc -> sc.chunk().chunkId())
-                .toList();
-    }
 
     private List<TimeSlot> buildAllSlots(SolverState state) {
         List<TimeSlot> all = new ArrayList<>(state.freeSlots());

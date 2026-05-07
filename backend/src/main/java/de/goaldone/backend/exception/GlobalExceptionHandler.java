@@ -74,6 +74,17 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * Handles PartialDeletionException and returns HTTP 502 (Bad Gateway) with the list of failed user IDs.
+     */
+    @ExceptionHandler(PartialDeletionException.class)
+    public ProblemDetail handlePartialDeletion(PartialDeletionException ex) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_GATEWAY, "PARTIAL_DELETION_FAILURE");
+        pd.setType(URI.create("https://goaldone.de/errors/upstream-error"));
+        pd.setProperty("failedUserIds", ex.getFailedUserIds());
+        return pd;
+    }
+
+    /**
      * Handles WorkingTimeValidationException and returns HTTP 400 (Bad Request).
      */
     @ExceptionHandler(WorkingTimeValidationException.class)
@@ -100,6 +111,16 @@ public class GlobalExceptionHandler {
     public ProblemDetail handleWorkingTimeAccessDenied(WorkingTimeAccessDeniedException ex) {
         ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, ex.getMessage());
         pd.setType(URI.create("https://goaldone.de/errors/working-time-access-denied"));
+        return pd;
+    }
+
+    /**
+     * Handles ScheduleGenerationException and returns HTTP 500 (Internal Server Error).
+     */
+    @ExceptionHandler(ScheduleGenerationException.class)
+    public ProblemDetail handleScheduleGeneration(ScheduleGenerationException ex) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.INTERNAL_SERVER_ERROR, ex.getMessage());
+        pd.setType(URI.create("https://goaldone.de/errors/schedule-generation-failed"));
         return pd;
     }
 

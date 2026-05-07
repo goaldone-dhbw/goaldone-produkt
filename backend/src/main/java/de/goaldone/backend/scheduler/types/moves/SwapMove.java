@@ -1,5 +1,6 @@
 package de.goaldone.backend.scheduler.types.moves;
 
+import de.goaldone.backend.scheduler.types.model.MoveEvent;
 import de.goaldone.backend.scheduler.types.model.ScheduledChunk;
 import de.goaldone.backend.scheduler.types.model.SolverState;
 import de.goaldone.backend.scheduler.types.model.TimeSlot;
@@ -50,6 +51,10 @@ public class SwapMove extends Move {
         TimeSlot slotA = a.slot();
         TimeSlot slotB = b.slot();
 
+        // Update move event
+        List<UUID> affectedChunks = List.of(a.chunk().chunkId(), b.chunk().chunkId());
+        moveEvent = new MoveEvent(MoveType.SWAP, affectedChunks);
+
         if (!isValidSwap(a, b)) {
             return null;
         }
@@ -64,25 +69,6 @@ public class SwapMove extends Move {
         next.scheduledChunks().add(new ScheduledChunk(a.chunk(), slotB));
         next.scheduledChunks().add(new ScheduledChunk(b.chunk(), slotA));
         return next;
-    }
-
-    /**
-     * Gibt die betroffenen Chunk-IDs für diesen Move zurück.
-     * @return leere Liste, da die betroffenen Chunks erst bei konkreter Auswahl bekannt sind
-     */
-    @Override
-    public List<UUID> affectedChunkIds() {
-        return List.of();
-    }
-
-    /**
-     * Gibt die IDs der beiden getauschten Chunks zurück.
-     * @param a erster getauschter Chunk
-     * @param b zweiter getauschter Chunk
-     * @return Liste mit den IDs der beiden getauschten Chunks
-     */
-    public List<UUID> affectedChunkIds(ScheduledChunk a, ScheduledChunk b) {
-        return List.of(a.chunk().chunkId(), b.chunk().chunkId());
     }
 
     private boolean isValidSwap(ScheduledChunk a, ScheduledChunk b) {

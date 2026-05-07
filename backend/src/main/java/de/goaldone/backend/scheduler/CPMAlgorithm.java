@@ -10,12 +10,17 @@ public class CPMAlgorithm {
      * @param context Scheduling context containing chunked tasks, free time slots, and the scheduling start date.
      * @return A first, heuristic generated schedule
      */
-    Schedule generateInitialSchedule(SchedulingContext context) {
+    SolverState generateInitialSchedule(SchedulingContext context) {
 
         // TODO: Implement CPM
 
-        Schedule schedule = new Schedule();
-        return schedule;
+        SolverState emptyResult = new SolverState(
+                List.of(), // List<ScheduledTask>
+                List.of()  // List<TaskSlack>
+        );
+
+        return emptyResult;
+
     }
 
 
