@@ -167,14 +167,13 @@ public class ScheduleService {
                 .map(UserAccountEntity::getWorkingTimes)
                 .orElse(List.of());
 
-        List<TaskChunk> chunks = chunker.chunkTasks(allTasks, workingTimes);
 
         // Get available timeslots
         List<TimeSlot> availableSlots = getAvailableTimeSlots(accountId, workingTimes, fromDate, weeks);
 
         // Create schedule context
         return new SchedulingContext(
-                fromDate, availableSlots, chunks
+                fromDate, availableSlots, allTasks
         );
     }
 
@@ -227,7 +226,7 @@ public class ScheduleService {
          * Week 3: Mon - Sun
          * Week 4: Mon - Tue (stop on the same weekday after n weeks)
          */
-        for (int i = 0; i < nWeeks+1; i++) {
+        for (int i = 0; i <= nWeeks; i++) {
             // Always go from Mon - Sun
             for (DayOfWeek weekday : DayOfWeek.values()) {
 
