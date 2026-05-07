@@ -1,9 +1,17 @@
 package de.goaldone.backend.scheduler;
 
 import de.goaldone.backend.scheduler.types.model.*;
-import java.util.List;
+
+import java.util.*;
 
 public class CPMAlgorithm {
+
+    private final ChunkSorter chunkSorter;
+
+    public CPMAlgorithm() {
+        chunkSorter = new ChunkSorter();
+    }
+
 
     /**
      * Creates initial schedule
@@ -12,7 +20,18 @@ public class CPMAlgorithm {
      */
     SolverState generateInitialSchedule(SchedulingContext context) {
 
-        // TODO: Implement CPM
+        List<TimeSlot> availableSlots = context.availableSlots();
+        List<TaskChunk> chunks = context.chunks();
+
+        // Sort chunks based on dependencies (topological order)
+        List<TaskChunk> sortedChunks = chunkSorter.topologicalSort(chunks);
+
+        // Assumption: There is more available time than needed to schedule all tasks, so we can ignore scheduling conflicts for the initial solution.
+
+        for (TaskChunk chunk : sortedChunks) {
+            // TODO: Schedule each chunk in available time slots
+        }
+
 
         SolverState emptyResult = new SolverState(
                 List.of(), // List<ScheduledTask>
