@@ -189,7 +189,6 @@ public class ScheduleService {
     private List<TimeSlot> getAvailableTimeSlots(UUID accountId, List<WorkingTimeEntity> workingTimes, LocalDate fromDate, int nWeeks) {
         List<TimeSlot> availableSlots = new ArrayList<>();
 
-        // Get all appointments for this account
         List<Appointment> allAppointments = appointmentService.listAppointments(accountId).getAppointments();
 
         if (workingTimes.isEmpty()) {
@@ -220,6 +219,13 @@ public class ScheduleService {
         for (int i = 0; i < nWeeks; i++) {
             // Always go from Mon - Sun
             for (DayOfWeek weekday : DayOfWeek.values()) {
+
+                if (i == 0 && currentDate.isBefore(fromDate)) {
+                    // Skip days before fromDate in the first week
+                    currentDate = currentDate.plusDays(1);
+                    continue;
+                }
+
                 // Check if there are working times for this weekday
                 if (mapping.containsKey(weekday)) {
 
@@ -252,6 +258,7 @@ public class ScheduleService {
                         availableSlots.add(new TimeSlot(currentDate, currentTime, workEndTime));
                     }
                 }
+                // Update current
                 currentDate = currentDate.plusDays(1);
             }
         }
