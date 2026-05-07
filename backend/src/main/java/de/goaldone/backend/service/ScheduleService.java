@@ -189,7 +189,6 @@ public class ScheduleService {
     private List<TimeSlot> getAvailableTimeSlots(UUID accountId, List<WorkingTimeEntity> workingTimes, LocalDate fromDate, int nWeeks) {
         List<TimeSlot> availableSlots = new ArrayList<>();
 
-        // Get all appointments for this account
         List<Appointment> allAppointments = appointmentService.listAppointments(accountId).getAppointments();
 
         if (workingTimes.isEmpty()) {
@@ -216,10 +215,33 @@ public class ScheduleService {
                         Map.Entry::getValue
                 ));
 
+
         // Run for nWeeks
-        for (int i = 0; i < nWeeks; i++) {
+        /**
+         * Planning logic for n weeks starting from a specific weekday:
+         * Example: Start on Tuesday, plan for 4 weeks
+         *
+         * Week 0: Tue - Sun (skip days before start date)
+         * Week 1: Mon - Sun
+         * Week 2: Mon - Sun
+         * Week 3: Mon - Sun
+         * Week 4: Mon - Tue (stop on the same weekday after n weeks)
+         */
+        for (int i = 0; i < nWeeks+1; i++) {
             // Always go from Mon - Sun
             for (DayOfWeek weekday : DayOfWeek.values()) {
+
+                if (i == 0 && currentDate.isBefore(fromDate)) {
+                    // Skip days before fromDate in the first week
+                    currentDate = currentDate.plusDays(1);
+                    continue;
+                }
+
+                if (i == nWeeks && (currentDate.isAfter(fromDate.plusWeeks(nWeeks)) || currentDate.isEqual(fromDate.plusWeeks(nWeeks)))) {
+                    // Stop if we have reached the weekday on which the schedule was started after planning for nWeeks
+                    break;
+                }
+
                 // Check if there are working times for this weekday
                 if (mapping.containsKey(weekday)) {
 
@@ -252,6 +274,7 @@ public class ScheduleService {
                         availableSlots.add(new TimeSlot(currentDate, currentTime, workEndTime));
                     }
                 }
+                // Update current
                 currentDate = currentDate.plusDays(1);
             }
         }
