@@ -1,3 +1,171 @@
-<div class="p-5">
-  <h1>Schedule works!</h1>
+<div class="min-h-screen bg-slate-50">
+  <div class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+    <div class="mb-8 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+      <div>
+        <h1 class="text-3xl font-bold tracking-tight text-slate-900">
+          Planungsansicht
+        </h1>
+
+        <p class="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+          Starte die automatische Arbeitsplanung und sieh dir den erzeugten Arbeitsplan
+          in der Tages- oder Wochenansicht an.
+        </p>
+      </div>
+
+      <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <a
+          routerLink="/app/tasks"
+          class="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300"
+        >
+          <i class="pi pi-plus"></i>
+          Aufgabe hinzufügen
+        </a>
+
+        <p-button
+          label="Planung starten"
+          icon="pi pi-calendar"
+          [loading]="facade.isGenerating()"
+          [disabled]="facade.isGenerating() || !facade.selectedAccountId()"
+          (onClick)="onGenerateSchedule()"
+        ></p-button>
+      </div>
+    </div>
+
+    <div class="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div>
+        <label
+          for="accountId"
+          class="mb-2 block text-sm font-medium text-slate-800"
+        >
+          Unternehmen / Verein
+        </label>
+
+        @if (facade.isLoadingAccounts()) {
+          <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+            Accounts werden geladen...
+          </div>
+        } @else if (!facade.hasAccounts()) {
+          <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            Es wurde kein Account gefunden. Bitte lege zuerst ein Unternehmen oder einen Verein an.
+          </div>
+        } @else {
+          <select
+            id="accountId"
+            [value]="facade.selectedAccountId()"
+            (change)="onAccountChanged($event)"
+            class="h-11 w-full rounded-xl border border-slate-300 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+          >
+            <option value="">Bitte auswählen</option>
+
+            @for (account of facade.accounts(); track account.id) {
+              <option [value]="account.id">
+                {{ account.label }}
+              </option>
+            }
+          </select>
+        }
+      </div>
+    </div>
+
+    @if (facade.isGenerating()) {
+      <div class="mb-6 rounded-2xl border border-blue-200 bg-blue-50 p-5 text-sm text-blue-800">
+        <div class="mb-3 flex items-center gap-2 font-medium">
+          <i class="pi pi-spin pi-spinner"></i>
+          Planung läuft im Hintergrund...
+        </div>
+
+        <p-progressbar
+          mode="indeterminate"
+          [style]="{ height: '0.5rem' }"
+        ></p-progressbar>
+
+        <p class="mt-3">
+          Du kannst die Anwendung währenddessen weiter verwenden.
+        </p>
+      </div>
+    }
+
+    @if (facade.successMessage()) {
+      <div class="mb-6 flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+        <i class="pi pi-check-circle"></i>
+        {{ facade.successMessage() }}
+      </div>
+    }
+
+    @if (facade.infoMessage()) {
+      <div class="mb-6 flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+        <i class="pi pi-info-circle"></i>
+        {{ facade.infoMessage() }}
+      </div>
+    }
+
+    @if (facade.errorMessage()) {
+      <div class="mb-6 flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+        <i class="pi pi-exclamation-circle"></i>
+        {{ facade.errorMessage() }}
+      </div>
+    }
+
+    @if (facade.hasPartialSchedule()) {
+      <div class="mb-6 space-y-3">
+        @if (facade.unscheduledTasks().length > 0) {
+          <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            <div class="font-semibold">
+              Teilplanung erstellt
+            </div>
+
+            <p class="mt-1">
+              Nicht alle Aufgaben konnten vollständig eingeplant werden.
+            </p>
+
+            <ul class="mt-3 list-disc space-y-1 pl-5">
+              @for (task of facade.unscheduledTasks(); track $index) {
+                <li>
+                  {{ facade.getUnscheduledTaskLabel(task) }}
+                </li>
+              }
+            </ul>
+          </div>
+        }
+
+        @for (warning of facade.warnings(); track $index) {
+          <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            <span class="font-semibold">
+              {{ warning.type }}:
+            </span>
+            {{ warning.message }}
+          </div>
+        }
+      </div>
+    }
+
+    <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div class="border-b border-slate-200 px-6 py-4">
+        <h2 class="text-lg font-semibold text-slate-900">
+          Arbeitsplan
+        </h2>
+      </div>
+
+      @if (facade.isLoadingSchedule()) {
+        <div class="px-6 py-8 text-sm text-slate-600">
+          Arbeitsplan wird geladen...
+        </div>
+      } @else if (!facade.selectedAccountId()) {
+        <div class="px-6 py-8 text-sm text-slate-600">
+          Bitte wähle zuerst ein Unternehmen oder einen Verein aus.
+        </div>
+      } @else if (!facade.hasSchedule()) {
+        <div class="px-6 py-8 text-sm text-slate-600">
+          Noch keine Planung vorhanden. Klicke auf „Planung starten“, um einen Arbeitsplan zu erzeugen.
+        </div>
+      } @else {
+        <div class="p-4 sm:p-6">
+          <app-schedule-calendar
+            [entries]="facade.scheduleEntries()"
+            (rangeChanged)="onRangeChanged($event)"
+          ></app-schedule-calendar>
+        </div>
+      }
+    </div>
+  </div>
 </div>
