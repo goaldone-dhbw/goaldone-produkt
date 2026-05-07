@@ -1,8 +1,10 @@
 package de.goaldone.backend.service;
 
+import com.zitadel.model.OrganizationServiceListOrganizationsResponse;
+import com.zitadel.model.UserServiceListUsersResponse;
+import com.zitadel.model.UserServiceUser;
 import de.goaldone.backend.client.ZitadelManagementClient;
-import de.goaldone.backend.client.ZitadelManagementClient.ZitadelOrgInfo;
-import de.goaldone.backend.client.ZitadelManagementClient.ZitadelUserInfo;
+import de.goaldone.backend.client.ZitadelUserInfo;
 import de.goaldone.backend.entity.OrganizationEntity;
 import de.goaldone.backend.entity.UserAccountEntity;
 import de.goaldone.backend.exception.ConflictException;
@@ -47,6 +49,7 @@ public class OrganizationManagementService {
     private final OrganizationRepository organizationRepository;
     private final UserAccountRepository userAccountRepository;
     private final UserAccountDeletionService userAccountDeletionService;
+    private final DeletionService deletionService;
 
     @Value("${zitadel.goaldone.project-id}")
     private String projectId;
@@ -61,8 +64,8 @@ public class OrganizationManagementService {
      * @param req The {@link CreateOrganizationRequest} containing organization and admin user details.
      * @return An {@link OrganizationResponse} summarizing the created organization.
      * @throws IllegalStateException if required configuration is missing.
-     * @throws ConflictException if the admin email or organization name already exists.
-     * @throws ZitadelApiException if any step in the multi-stage creation process fails.
+     * @throws ConflictException     if the admin email or organization name already exists.
+     * @throws ZitadelApiException   if any step in the multi-stage creation process fails.
      */
     @Transactional
     public OrganizationResponse createOrganization(CreateOrganizationRequest req) {
@@ -143,31 +146,27 @@ public class OrganizationManagementService {
 
         log.info("Listing organizations in DB {}", localByZitadelId.keySet());
 
-        List<ZitadelOrgInfo> zitadelOrgs = zitadelManagementClient.listAllOrganizations();
+        OrganizationServiceListOrganizationsResponse zitadelOrgs = zitadelManagementClient.listOrganizations();
 
-        List<OrganizationListItem> items = zitadelOrgs.stream()
-                .filter(zOrg -> !mainOrgId.equals(zOrg.id()))
+        List<OrganizationEntity> localOrgs = organizationRepository.findAll();
+
+        List<OrganizationListItem> items = zitadelOrgs.getResult().stream()
+                .filter(zOrg -> !mainOrgId.equals(zOrg.getId()))
                 .map(zOrg -> {
-                    OrganizationEntity local = localByZitadelId.get(zOrg.id());
-                    log.info("Mapping zitadelOrgId={} to localOrgId={}", zOrg.id(), local != null ? local.getId() : null);
-                    /*
-                    List<String> userIds = zitadelManagementClient.listAllUserIdsForOrgProject(zOrg.id(), projectId);
-                    Map<String, String> states = zitadelManagementClient.getUserStates(userIds);
-                    long active = states.values().stream().filter("USER_STATE_ACTIVE"::equals).count();
-                    long invited = states.values().stream().filter("USER_STATE_INITIAL"::equals).count();
+                    OrganizationEntity local = localByZitadelId.get(zOrg.getId());
+                    log.info("Mapping zitadelOrgId={} to localOrgId={}", zOrg.getId(), local != null ? local.getId() : null);
 
-
-                     */
                     OffsetDateTime createdAt = (local != null)
                             ? local.getCreatedAt().atOffset(ZoneOffset.UTC)
-                            : zOrg.creationDate();
+                            : zOrg.getDetails().getCreationDate();
 
                     return new OrganizationListItem()
                             .id(local != null ? local.getId() : null)
-                            .zitadelOrganizationId(zOrg.id())
-                            .name(zOrg.name())
+                            .zitadelOrganizationId(zOrg.getId())
+                            .name(zOrg.getName())
                             .createdAt(createdAt);
-                }).toList();
+                })
+                .collect(Collectors.toList());
 
         return new OrganizationListResponse().organizations(items);
     }
@@ -186,78 +185,15 @@ public class OrganizationManagementService {
      * {@link PartialDeletionException} without deleting the organization itself, enabling a retry.
      *
      * @param zitadelOrgId the Zitadel organization ID to delete
-     * @throws ResponseStatusException   with 403 if attempting to delete the home organization
-     * @throws ZitadelApiException       if listing org members or deleting the Zitadel organization fails
-     * @throws PartialDeletionException  if one or more member deletions fail
+     * @throws ResponseStatusException  with 403 if attempting to delete the home organization
+     * @throws ZitadelApiException      if listing org members or deleting the Zitadel organization fails
+     * @throws PartialDeletionException if one or more member deletions fail
      */
+    @Transactional
     public void deleteOrganization(String zitadelOrgId) {
-
-        ZitadelOrgInfo zitadelOrg;
-        try {
-            zitadelOrg = zitadelManagementClient.getOrgInfo(zitadelOrgId);
-        } catch (ZitadelApiException e) {
-            if (e.getMessage() != null && e.getMessage().contains("No organization found for id")) {
-                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "ORGANIZATION_NOT_FOUND");
-            }
-            throw e;
+        if(!deletionService.deleteOrg(zitadelOrgId)) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to delete organization " + zitadelOrgId);
         }
-
-        Optional<OrganizationEntity> orgOptional = organizationRepository.findByZitadelOrgId(zitadelOrg.id());
-
-        if (mainOrgId.equals(zitadelOrg.id())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "HOME_ORGANIZATION_CANNOT_BE_DELETED");
-        }
-
-        List<ZitadelUserInfo> users = zitadelManagementClient.listUsersInOrganization(zitadelOrgId);
-
-        List<String> failedUserIds = new ArrayList<>();
-
-        for (ZitadelUserInfo user : users) {
-            if ("USER_STATE_ACTIVE".equals(user.state())) {
-                Optional<UserAccountEntity> account = userAccountRepository.findByZitadelSub(user.id());
-                if (account.isPresent()) {
-                    try {
-                        userAccountDeletionService.deleteUserAccount(account.get().getId());
-                    } catch (Exception e) {
-                        log.error("Failed to delete active user account {} (zitadelSub={}): {}",
-                                account.get().getId(), user.id(), e.getMessage());
-                        failedUserIds.add(user.id());
-                    }
-                } else {
-                    // Active in Zitadel but no local shadow record — delete directly
-                    try {
-                        zitadelManagementClient.deleteUserOrThrow(user.id());
-                    } catch (Exception e) {
-                        log.error("Failed to delete Zitadel user {} (no local account): {}", user.id(), e.getMessage());
-                        failedUserIds.add(user.id());
-                    }
-                }
-            } else {
-                // Invited (USER_STATE_INITIAL) or any other state — no local record, delete directly in Zitadel
-                try {
-                    zitadelManagementClient.deleteUserOrThrow(user.id());
-                } catch (Exception e) {
-                    log.error("Failed to delete invited user {} in Zitadel: {}", user.id(), e.getMessage());
-                    failedUserIds.add(user.id());
-                }
-            }
-        }
-
-        if (!failedUserIds.isEmpty()) {
-            throw new PartialDeletionException(failedUserIds);
-        }
-
-        zitadelManagementClient.deleteOrganizationOrThrow(zitadelOrg.id());
-
-        orgOptional.ifPresent(org -> {
-            try {
-                organizationRepository.deleteById(org.getId());
-                log.info("Deleted organization {} (zitadelOrgId={})", org.getId(), org.getZitadelOrgId());
-            } catch (Exception e) {
-                log.error("Failed to delete local organization record {}: {}", org.getId(), e.getMessage());
-                throw new ZitadelApiException("Failed to delete local organization record: " + e.getMessage(), e);
-            }
-        });
     }
 
     /**
@@ -319,6 +255,7 @@ public class OrganizationManagementService {
             log.error("Error deleting Zitadel organization {} during compensation: {}", zitadelOrgId, e.getMessage());
         }
     }
+
     private String normalizeEmail(String email) {
         if (email == null) {
             return null;

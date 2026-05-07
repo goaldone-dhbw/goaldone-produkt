@@ -209,9 +209,10 @@ public class ZitadelManagementClient {
 
     /**
      * List all grants for a specific user in a project
+     *
      * @param zitadelProjectId the ID of the project to search for grants (Goaldone Project)
      * @param zitadelUserOrgId the ID of the user organization (Goaldone User)
-     * @param zitadelUserId the ID of the user to search for grants
+     * @param zitadelUserId    the ID of the user to search for grants
      * @return List of all grants for the user in the project
      */
     public AuthorizationServiceListAuthorizationsResponse listAllGrants(String zitadelProjectId, String zitadelUserOrgId, String zitadelUserId) {
@@ -271,8 +272,9 @@ public class ZitadelManagementClient {
 
     /**
      * Update the role of a project authorization.
+     *
      * @param zitadelAuthorizationId the ID of the project authorization to update
-     * @param roleKey the new role key to assign to the project authorization
+     * @param roleKey                the new role key to assign to the project authorization
      */
     public void updateProjectAuthorization(String zitadelAuthorizationId, String roleKey) {
         try {
@@ -310,6 +312,11 @@ public class ZitadelManagementClient {
         }
     }
 
+    /**
+     * Get user information about a list of users
+     * @param userIds a list of user IDs to get information about
+     * @return List of user information objects, one for each user ID provided
+     */
     public List<UserServiceUser> listUsersByIds(List<String> userIds) {
         if (userIds == null || userIds.isEmpty()) {
             return List.of();
@@ -434,6 +441,49 @@ public class ZitadelManagementClient {
             throw new ZitadelApiException(errorMsg, e);
         } catch (Exception e) {
             throw new ZitadelApiException("Failed to create invite code: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Lists all organizations in Zitadel
+     * @return a list of all organizations in Zitadel
+     */
+    public OrganizationServiceListOrganizationsResponse listOrganizations() {
+        try {
+            OrganizationServiceListOrganizationsRequest request = new OrganizationServiceListOrganizationsRequest();
+            OrganizationServiceListOrganizationsResponse response = zitadel.getOrganizations().listOrganizations(request);
+            log.debug("List all organizations response: {} organizations", response.getResult() != null ? response.getResult().size() : 0);
+            return response;
+        } catch (ApiException e) {
+            String errorMsg = String.format("Failed to list organizations: HTTP %d", e.getCode());
+            log.error(errorMsg);
+            throw new ZitadelApiException(errorMsg, e);
+        } catch (Exception e) {
+            log.error("Failed to list organizations: {}", e.getMessage());
+            throw new ZitadelApiException("Failed to list organizations: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Get information about an organization by its ID.
+     * @param zitadelOrgId the ID of the organization to get information about
+     * @return the organization information if found, otherwise an empty response
+     */
+    public OrganizationServiceListOrganizationsResponse getOrganizationInfoById(String zitadelOrgId) {
+        try {
+            OrganizationServiceListOrganizationsRequest request = new OrganizationServiceListOrganizationsRequest().addQueriesItem(
+                    new OrganizationServiceSearchQuery().idQuery(new OrganizationServiceOrganizationIDQuery().id(zitadelOrgId))
+            );
+            OrganizationServiceListOrganizationsResponse response = zitadel.getOrganizations().listOrganizations(request);
+            log.debug("List organization response for {}, response: {}", zitadelOrgId ,response.getResult() != null ? response.getResult().size() : 0);
+            return response;
+        } catch (ApiException e) {
+            String errorMsg = String.format("Failed to list organizations: HTTP %d", e.getCode());
+            log.error(errorMsg);
+            throw new ZitadelApiException(errorMsg, e);
+        } catch (Exception e) {
+            log.error("Failed to list information about organization: {}, error: {}", zitadelOrgId, e.getMessage());
+            throw new ZitadelApiException("Failed to list organizations: " + e.getMessage(), e);
         }
     }
 
