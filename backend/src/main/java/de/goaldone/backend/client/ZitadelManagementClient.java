@@ -101,6 +101,23 @@ public class ZitadelManagementClient {
     }
 
     /**
+     * Check if a project with the given ID exists in the Zitadel system.
+     * @param zitadelOrgId the ID of the organization containing the project (root org for our case)
+     * @return A list with users that are members of the organization
+     */
+    public UserServiceListUsersResponse listUsersOfOrg(String zitadelOrgId) {
+        try {
+            UserServiceListUsersRequest request = new UserServiceListUsersRequest()
+                    .addQueriesItem(new UserServiceSearchQuery()
+                            .organizationIdQuery(new UserServiceOrganizationIdQuery().organizationId(zitadelOrgId)));
+            return zitadel.getUsers().listUsers(request);
+        } catch (Exception e) {
+            log.error("Failed to list users of org {}: {}", zitadelOrgId, e.getMessage());
+            throw new ZitadelApiException("Failed to list users of org: " + e.getMessage(), e);
+        }
+    }
+
+    /**
      * ListUserIdsByRole returns a list of user IDs that have a specific role in a project.
      *
      * @param orgId     the ID of the organization containing the project (root org for our case)
@@ -135,6 +152,31 @@ public class ZitadelManagementClient {
         } catch (Exception e) {
             log.error("Failed to list user grants for role {} in project {}: {}", roleKey, projectId, e.getMessage());
             throw new ZitadelApiException("Failed to list authorizations: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Check if a user has a specific role in a project.
+     */
+    public AuthorizationServiceListAuthorizationsResponse listGrantsForSpecificUser(String projectId, String userId) {
+        try {
+            AuthorizationServiceListAuthorizationsRequest request = new AuthorizationServiceListAuthorizationsRequest()
+                    .addFiltersItem(new AuthorizationServiceAuthorizationsSearchFilter()
+                            .projectId(new AuthorizationServiceIDFilter().id(projectId)))
+                    .addFiltersItem(new AuthorizationServiceAuthorizationsSearchFilter()
+                            .inUserIds(new AuthorizationServiceInIDsFilter().ids(List.of(userId))))
+                    .pagination(new AuthorizationServicePaginationRequest().limit(1000));
+
+            AuthorizationServiceListAuthorizationsResponse response = zitadel.getAuthorizations().listAuthorizations(request);
+            log.debug("List grants for user {} in project {}: {} authorizations", userId, projectId, response.getAuthorizations() != null ? response.getAuthorizations().size() : 0);
+            return response;
+        } catch (ApiException e) {
+            String errorMsg = String.format("Failed to list authorizations: HTTP %d", e.getCode());
+            log.error(errorMsg);
+            throw new ZitadelApiException(errorMsg, e);
+        } catch (Exception e) {
+            log.error("Failed to list user grants for user {}: {}", userId, e.getMessage());
+            throw new ZitadelApiException("Failed to list user grants: " + e.getMessage(), e);
         }
     }
 

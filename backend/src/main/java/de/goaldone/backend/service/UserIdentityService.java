@@ -5,6 +5,7 @@ import de.goaldone.backend.entity.OrganizationEntity;
 import de.goaldone.backend.entity.UserAccountEntity;
 import de.goaldone.backend.model.AccountListResponse;
 import de.goaldone.backend.model.AccountResponse;
+import de.goaldone.backend.model.MemberRole;
 import de.goaldone.backend.repository.OrganizationRepository;
 import de.goaldone.backend.repository.UserAccountRepository;
 import de.goaldone.backend.repository.WorkingTimeRepository;
@@ -14,6 +15,7 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -125,6 +127,11 @@ public class UserIdentityService {
         return response;
     }
 
+
+    private List<UserAccountEntity> getAccountInformationOfCurrentLoggedInUser(Jwt jwt) {
+        return userAccountRepository.findAllByUserIdentityId(findIdentityFromAccount(jwt));
+    }
+
     /**
      * Retrieves the list of UUIDs for all accounts associated with the user's identity.
      *
@@ -149,5 +156,49 @@ public class UserIdentityService {
 
         return accounts.getAccounts().stream()
                 .anyMatch(account -> account.getAccountId().equals(accountId));
+    }
+
+    /**
+     * Checks if the user associated with the provided JWT has access to the specified organization and account IDs with any role
+     * @param jwt JWT Token of the logged in user
+     * @param organizationId UUID of the organization
+     * @return
+     */
+    public boolean hasUserAccessToOrganization(Jwt jwt, UUID organizationId) {
+        List<UserAccountEntity> accounts = getAccountInformationOfCurrentLoggedInUser(jwt);
+
+        return accounts.stream()
+                .anyMatch(account -> account.getOrganizationId().equals(organizationId));
+    }
+
+    /**
+     * Checks if the user associated with the provided JWT has access to the specified organization and account IDs with the specified role
+     * @param jwt JWT Token of the logged in user
+     * @param organizationId UUID of the organization (local DB Id)
+     * @param role Role of the user in the organization to check against
+     * @return true if the user has access to the organization, false otherwise
+     */
+    public boolean hasUserAccessToOrganizationWithRole(Jwt jwt, UUID organizationId, MemberRole role) {
+        List<UserAccountEntity> accounts = getAccountInformationOfCurrentLoggedInUser(jwt);
+
+        Optional<UserAccountEntity> account = accounts.stream()
+                .filter(a -> a.getOrganizationId().equals(organizationId))
+                .findFirst();
+
+        if(account.isEmpty()) {
+            return false;
+        }
+
+        List<MemberRole> roles = zitadelManagementClient.listGrantsForSpecificUser(account.get().getZitadelSub(), goaldoneProjectId)
+                .getAuthorizations()
+                .stream()
+                .map(auth -> {
+                    if(auth.getRoles().isEmpty()) {
+                        return null;
+                    }
+                    return MemberRole.fromValue(auth.getRoles().getFirst().getKey());
+                }).toList();
+
+        return !roles.isEmpty() && roles.contains(role);
     }
 }

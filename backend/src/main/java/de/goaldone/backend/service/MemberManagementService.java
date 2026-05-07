@@ -1,7 +1,9 @@
 package de.goaldone.backend.service;
 
+import com.zitadel.Zitadel;
 import com.zitadel.model.AuthorizationServiceAuthorization;
 import com.zitadel.model.AuthorizationServiceListAuthorizationsResponse;
+import com.zitadel.model.UserServiceListUsersResponse;
 import com.zitadel.model.UserServiceUser;
 import de.goaldone.backend.client.UserGrantDto;
 import de.goaldone.backend.client.ZitadelManagementClient;
@@ -20,9 +22,7 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.time.Instant;
-import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
+import java.lang.reflect.Member;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
@@ -36,6 +36,7 @@ public class MemberManagementService {
     private final UserAccountRepository userAccountRepository;
     private final OrganizationRepository organizationRepository;
     private final UserAccountDeletionService userAccountDeletionService;
+    private final UserIdentityService userIdentityService;
 
     @Value("${zitadel.goaldone.project-id}")
     private String goaldoneProjectId;
@@ -44,97 +45,85 @@ public class MemberManagementService {
     private String mainOrgId;
 
     public MemberListResponse listMembers(UUID orgId) {
-        validateCallerBelongsToOrg(orgId);
 
         OrganizationEntity organization = organizationRepository.findById(orgId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Organization not found"));
 
-        AuthorizationServiceListAuthorizationsResponse grantsResponse = zitadelManagementClient.listAllGrants(goaldoneProjectId, organization.getZitadelOrgId());
-
-        List<String> userIds = new ArrayList<>();
-        Map<String, List<String>> userRoles = new HashMap<>();
-
-        if (grantsResponse.getAuthorizations() != null) {
-            grantsResponse.getAuthorizations().forEach(auth -> {
-                String userId = auth.getUser() != null ? auth.getUser().getId() : null;
-                if (userId == null || userId.isBlank()) return;
-
-                userIds.add(userId);
-
-                List<String> rolesList = new ArrayList<>();
-                if (auth.getRoles() != null) {
-                    auth.getRoles().forEach(role -> rolesList.add(role.getKey()));
-                }
-                userRoles.put(userId, rolesList);
-            });
+        if(organization.getZitadelOrgId().equals(mainOrgId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Cannot list members of main organization on this endpoint");
         }
 
-        List<UserServiceUser> zitadelUsers = zitadelManagementClient.listUsersByIds(userIds);
-        List<UserAccountEntity> localAccounts = userAccountRepository.findAll();
+        UserServiceListUsersResponse zitadelUsers = zitadelManagementClient.listUsersOfOrg(organization.getZitadelOrgId());
+        Map<String, List<MemberRole>> userRoles = findUserRoles(organization.getZitadelOrgId());
 
-        List<MemberResponse> members = zitadelUsers.stream().map(user -> {
+
+        List<String> userIds = new ArrayList<>(userRoles.keySet());
+        List<UserAccountEntity> localAccounts = userAccountRepository.findAllByZitadelSubIn(userIds);
+
+        List<MemberResponse> members = new ArrayList<>();
+
+        zitadelUsers.getResult().stream().forEach(user -> {
             String zitadelUserId = user.getUserId();
             String email = user.getHuman() != null && user.getHuman().getEmail() != null ? user.getHuman().getEmail().getEmail() : "";
             String firstName = user.getHuman() != null && user.getHuman().getProfile() != null ? user.getHuman().getProfile().getGivenName() : "";
             String lastName = user.getHuman() != null && user.getHuman().getProfile() != null ? user.getHuman().getProfile().getFamilyName() : "";
             String state = user.getState() != null ? user.getState().toString() : "";
 
-            log.info("User info: zitadelUserId {}, email {}, firstName {}, lastName {}, state {}", zitadelUserId, email, firstName, lastName, state);
-
-            OffsetDateTime createdAt = null;
-            if (user.getDetails() != null && user.getDetails().getCreationDate() != null) {
-                Object creationDate = user.getDetails().getCreationDate();
-                if (creationDate instanceof OffsetDateTime) {
-                    createdAt = (OffsetDateTime) creationDate;
+            boolean localAccountExists = localAccounts.stream().anyMatch(acc -> acc.getZitadelSub().equals(zitadelUserId));
+            MemberStatus memberState;
+            if(state.equals("USER_STATE_ACTIVE")) {
+                if(localAccountExists) {
+                    memberState = MemberStatus.ACTIVE;
                 } else {
-                    // Fallback: try to parse as string if it's not already an OffsetDateTime
-                    try {
-                        Instant createdAtInstant = Instant.parse(creationDate.toString());
-                        createdAt = createdAtInstant.atOffset(ZoneOffset.UTC);
-                    } catch (Exception e) {
-                        log.warn("Could not parse creation date for user {}: {}", zitadelUserId, e.getMessage());
-                        createdAt = Instant.now().atOffset(ZoneOffset.UTC);
-                    }
+                    memberState = MemberStatus.INACTIVE;
                 }
             } else {
-                createdAt = Instant.now().atOffset(ZoneOffset.UTC);
+                memberState = MemberStatus.INVITED;
             }
 
-            Optional<UserAccountEntity> localAccount = localAccounts.stream().filter(acc -> acc.getZitadelSub().equals(zitadelUserId) && acc.getOrganizationId().equals(orgId)).findFirst();
+            members.add(new MemberResponse()
+                    .zitadelUserId(zitadelUserId)
+                    .email(email)
+                    .firstName(firstName)
+                    .lastName(lastName)
+                    .createdAt(user.getDetails() != null && user.getDetails().getCreationDate() != null ? user.getDetails().getCreationDate() : null)
+                    .status(memberState)
+                    .role(userRoles.getOrDefault(zitadelUserId, List.of()).contains(MemberRole.COMPANY_ADMIN) ? MemberRole.COMPANY_ADMIN : MemberRole.USER)
+             );
+        });
 
-            MemberResponse member = new MemberResponse();
-            member.setZitadelUserId(zitadelUserId);
-            member.setEmail(email);
-            member.setFirstName(firstName);
-            member.setLastName(lastName);
-            member.setCreatedAt(createdAt);
-            member.setAccountId(localAccount.map(UserAccountEntity::getId).orElse(null));
+        return new MemberListResponse(members);
+    }
 
-            if (localAccount.isPresent() && "USER_STATE_ACTIVE".equals(state)) {
-                member.setStatus(MemberStatus.ACTIVE);
-            } else {
-                member.setStatus(MemberStatus.INVITED);
-            }
+    /**
+     * Internal method to fetch the roles of all users in an organization and map them to user IDs.
+     * @param zitadelOrgId the ID of the organization
+     * @return a map of user IDs with a list of their roles
+     */
+    private Map<String, List<MemberRole>> findUserRoles(String zitadelOrgId) {
+        Map<String, List<MemberRole>> userRoles = new HashMap<>();
 
-            List<String> roles = userRoles.getOrDefault(zitadelUserId, List.of());
-            if (roles.contains(MemberRole.COMPANY_ADMIN.getValue())) {
-                member.setRole(MemberRole.COMPANY_ADMIN);
-            } else {
-                member.setRole(MemberRole.USER);
-            }
+        AuthorizationServiceListAuthorizationsResponse grantsResponse = zitadelManagementClient.listAllGrants(goaldoneProjectId, zitadelOrgId);
+        if (grantsResponse.getAuthorizations() != null) {
+            grantsResponse.getAuthorizations().forEach(auth -> {
+                String userId = auth.getUser() != null ? auth.getUser().getId() : null;
+                if (userId == null || userId.isBlank()) return;
 
-            return member;
-        }).collect(Collectors.toList());
-
-        MemberListResponse response = new MemberListResponse();
-        response.setMembers(members);
-        return response;
+                List<MemberRole> rolesList = new ArrayList<>();
+                if (auth.getRoles() != null) {
+                    auth.getRoles().forEach(role -> rolesList.add(MemberRole.fromValue(role.getKey())));
+                }
+                userRoles.put(userId, rolesList);
+            });
+        }
+        return userRoles;
     }
 
     /**
      * Changes the role of a member in the organization.
-     * @param orgId the ID of the org (local DB Id)
+     *
+     * @param orgId         the ID of the org (local DB Id)
      * @param zitadelUserId the ID of the user (Zitadel Id)
-     * @param request the request containing the new role
+     * @param request       the request containing the new role
      */
     public void changeMemberRole(UUID orgId, String zitadelUserId, ChangeRoleRequest request) {
         validateCallerBelongsToOrg(orgId);

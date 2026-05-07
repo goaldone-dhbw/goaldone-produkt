@@ -1477,6 +1477,7 @@ components:
       type: string
       enum:
         - INVITED
+        - INACTIVE
         - ACTIVE
 
     ChangeRoleRequest:

@@ -1,11 +1,11 @@
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Card } from 'primeng/card';
 import { Button } from 'primeng/button';
 import { InputText } from 'primeng/inputtext';
 import { Message } from 'primeng/message';
 import { TableModule } from 'primeng/table';
 import { Tag } from 'primeng/tag';
+import { Tooltip } from 'primeng/tooltip';
 import { ConfirmDialog } from 'primeng/confirmdialog';
 import { Toast } from 'primeng/toast';
 import { ConfirmationService, MessageService } from 'primeng/api';
@@ -17,7 +17,7 @@ import { AccountStore } from '../../core/accounts/account.store';
 @Component({
   selector: 'app-org-settings',
   standalone: true,
-  imports: [FormsModule, Card, Button, InputText, Message, TableModule, Tag, ConfirmDialog, Toast],
+  imports: [FormsModule, Button, InputText, Message, TableModule, Tag, Tooltip, ConfirmDialog, Toast],
   providers: [ConfirmationService, MessageService],
   templateUrl: './org-settings.page.html',
   styleUrl: './org-settings.page.scss',

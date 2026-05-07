@@ -58,6 +58,13 @@ public interface UserAccountRepository extends JpaRepository<UserAccountEntity, 
     Optional<UserAccountEntity> findByIdAndUserIdentityId(UUID id, UUID userIdentityId);
 
     /**
+     * Finds all user accounts by their Zitadel sub (subject) IDs.
+     * @param zitadelSubs List of zitadelUserIds
+     * @return A list of {@link UserAccountEntity} objects.
+     */
+    List<UserAccountEntity> findAllByZitadelSubIn(List<String> zitadelSubs);
+
+    /**
      * Finds organization IDs where both specified user identities have accounts.
      * This is used to detect potential identity merges or conflicts across organizations.
      *
