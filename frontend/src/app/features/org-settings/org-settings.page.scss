@@ -1,0 +1,26 @@
+.invite-input-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr auto;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.invite-input {
+  width: 100%;
+}
+
+/* Button etwas kompakter */
+p-button {
+  height: 42px;
+}
+
+/* Mobile fallback */
+@media (max-width: 768px) {
+  .invite-input-row {
+    grid-template-columns: 1fr;
+  }
+
+  p-button {
+    width: 100%;
+  }
+}

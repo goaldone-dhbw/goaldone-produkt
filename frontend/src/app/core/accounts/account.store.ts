@@ -10,7 +10,7 @@ export interface Account {
 
 @Injectable({ providedIn: 'root' })
 export class AccountStore {
-  private accounts = signal<Account[]>([]);
+  readonly accounts = signal<Account[]>([]);
 
   readonly hasCompanyAdminRole = computed(() =>
     this.accounts().some((account) => account.roles.includes('COMPANY_ADMIN')),
@@ -23,6 +23,7 @@ export class AccountStore {
   setAccounts(accounts: Account[]): void {
     this.accounts.set(accounts);
   }
+
 
   clear(): void {
     this.accounts.set([]);
