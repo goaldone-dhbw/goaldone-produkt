@@ -237,7 +237,7 @@ public class ScheduleService {
                     continue;
                 }
 
-                if (i == nWeeks && currentDate.isAfter(fromDate.plusWeeks(nWeeks))) {
+                if (i == nWeeks && (currentDate.isAfter(fromDate.plusWeeks(nWeeks)) || currentDate.isEqual(fromDate.plusWeeks(nWeeks)))) {
                     // Stop if we have reached the weekday on which the schedule was started after planning for nWeeks
                     break;
                 }

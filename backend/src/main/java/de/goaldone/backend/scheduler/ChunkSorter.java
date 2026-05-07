@@ -102,6 +102,9 @@ public class ChunkSorter {
             }
         }
 
+        System.out.println("inDegree: " + inDegree);
+
+
         // Queue for tasks with no dependencies (in-degree 0)
         Queue<UUID> queue = new LinkedList<>();
         for (Map.Entry<UUID, Integer> entry : inDegree.entrySet()) {
@@ -144,6 +147,4 @@ public class ChunkSorter {
                 .map(taskMap::get)
                 .collect(Collectors.toList());
     }
-
-
 }

@@ -2,6 +2,7 @@ package de.goaldone.backend.scheduler;
 
 import de.goaldone.backend.scheduler.types.model.*;
 
+import java.time.LocalDateTime;
 import java.util.*;
 
 public class CPMAlgorithm {
@@ -22,11 +23,17 @@ public class CPMAlgorithm {
 
         List<TimeSlot> availableSlots = context.availableSlots();
         List<TaskChunk> chunks = context.chunks();
+        // Assumption: There is more available time than needed to schedule all tasks, so we can ignore scheduling conflicts for the initial solution.
+
+
+        List<TaskSlack>  taskSlacks = calculateSlack(chunks);
+
 
         // Sort chunks based on dependencies (topological order)
         List<TaskChunk> sortedChunks = chunkSorter.topologicalSort(chunks);
 
-        // Assumption: There is more available time than needed to schedule all tasks, so we can ignore scheduling conflicts for the initial solution.
+
+
 
         for (TaskChunk chunk : sortedChunks) {
             // TODO: Schedule each chunk in available time slots
@@ -44,30 +51,33 @@ public class CPMAlgorithm {
 
 
     /**
-     * Orchestrates forwardPass + backwardPass, computes final slackMinutes = LS − ES.
-     * Returns one TaskSlack per unique taskId in chunks.
-     */
-    List<TaskSlack> calculateSlack(List<TaskChunk> chunks, List<TimeSlot> availableSlots) {
-        return null;
-    }
-
-    /**
      * Forward pass: compute Earliest Start (ES) and Earliest End (EF) for each task.
      * ES = max(notBefore, max(EF of predecessors))
      * EF = ES + task duration in available work minutes
      */
-    List<TaskSlack> forwardPass(List<TaskChunk> chunks, List<TimeSlot> availableSlots) {
-        return null;
-    }
+    List<TaskSlack> calculateSlack(List<TaskChunk> chunks) {
 
-    /**
-     * Backward pass: compute Latest End (LF) and Latest Start (LS) for each task.
-     * LF = deadline (for tasks with a deadline), else derived from project end
-     * LS = LF − task duration in available work minutes
-     * Requires forwardPassResults to determine the project end for tasks without deadlines.
-     */
-    List<TaskSlack> backwardPass(List<TaskChunk> chunks, List<TimeSlot> availableSlots,
-                                 List<TaskSlack> forwardPassResults) {
-        return null;
+        ArrayList<TaskSlack> results = new ArrayList<>();
+
+        for (TaskChunk chunk : chunks) {
+
+            LocalDateTime earliestStart = chunk.notBefore();
+            LocalDateTime earliestFinish = chunk.notBefore().plusMinutes(chunk.durationMinutes());
+            LocalDateTime latestStart = chunk.deadline().minusMinutes(chunk.durationMinutes());
+            LocalDateTime latestFinish = chunk.deadline();
+            long slackMinutes = java.time.Duration.between(earliestStart, latestStart).toMinutes();
+
+            results.add(new TaskSlack(
+                    chunk.taskId(),
+                    earliestStart,
+                    earliestFinish,
+                    latestStart,
+                    latestFinish,
+                    slackMinutes
+            ));
+        }
+        return results;
     }
 }
+
+
