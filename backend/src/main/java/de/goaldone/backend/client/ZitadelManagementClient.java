@@ -4,34 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zitadel.ApiException;
 import com.zitadel.Zitadel;
-import com.zitadel.model.AuthorizationServiceAuthorizationsSearchFilter;
-import com.zitadel.model.AuthorizationServiceIDFilter;
-import com.zitadel.model.AuthorizationServiceListAuthorizationsRequest;
-import com.zitadel.model.AuthorizationServiceListAuthorizationsResponse;
-import com.zitadel.model.AuthorizationServicePaginationRequest;
-import com.zitadel.model.OrganizationServiceAddOrganizationRequest;
-import com.zitadel.model.OrganizationServiceAddOrganizationResponse;
-import com.zitadel.model.OrganizationServiceDeleteOrganizationRequest;
-import com.zitadel.model.OrganizationServiceListOrganizationsRequest;
-import com.zitadel.model.OrganizationServiceOrganizationIDQuery;
-import com.zitadel.model.OrganizationServiceSearchQuery;
-import com.zitadel.model.UserServiceAddHumanUserRequest;
-import com.zitadel.model.UserServiceAddHumanUserResponse;
-import com.zitadel.model.UserServiceCreateInviteCodeRequest;
-import com.zitadel.model.UserServiceDeleteUserRequest;
-import com.zitadel.model.UserServiceEmailQuery;
-import com.zitadel.model.UserServiceGetUserByIDRequest;
-import com.zitadel.model.UserServiceGetUserByIDResponse;
-import com.zitadel.model.UserServiceSetHumanEmail;
-import com.zitadel.model.UserServiceSetHumanProfile;
-import com.zitadel.model.UserServiceTextQueryMethod;
-import com.zitadel.model.UserServiceInUserIDQuery;
-import com.zitadel.model.UserServiceListUsersRequest;
-import com.zitadel.model.UserServiceListUsersResponse;
-import com.zitadel.model.UserServiceOrganization;
-import com.zitadel.model.UserServiceSearchQuery;
-import com.zitadel.model.UserServiceSendInviteCode;
-import com.zitadel.model.UserServiceUser;
+import com.zitadel.model.*;
 import de.goaldone.backend.exception.ZitadelApiException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -81,6 +54,12 @@ public class ZitadelManagementClient {
         this.serviceAccountToken = serviceAccountToken;
     }
 
+    /**
+     * Check if a user with the given email exists in the Zitadel system.
+     *
+     * @param email the email address of the user to check
+     * @return true if the user exists, false otherwise
+     */
     public boolean emailExists(String email) {
         String normalizedEmail = normalizeEmail(email);
         try {
@@ -102,6 +81,12 @@ public class ZitadelManagementClient {
         }
     }
 
+    /**
+     * Check if a org with the given ID exists in the Zitadel system.
+     *
+     * @param orgId the ID of the organization to check
+     * @return true if the organization exists, false otherwise
+     */
     public boolean organizationExists(String orgId) {
         try {
             OrganizationServiceListOrganizationsRequest request = new OrganizationServiceListOrganizationsRequest()
@@ -115,6 +100,14 @@ public class ZitadelManagementClient {
         }
     }
 
+    /**
+     * ListUserIdsByRole returns a list of user IDs that have a specific role in a project.
+     *
+     * @param orgId     the ID of the organization containing the project (root org for our case)
+     * @param projectId the ID of the project to search for role grants (root Goaldone Project for our case)
+     * @param roleKey   the key of the role to search for (SUPER_ADMIN, COMPANY_ADMIN, USER)
+     * @return List of user IDs that have the specified role in the project
+     */
     public List<String> listUserIdsByRole(String orgId, String projectId, String roleKey) {
         try {
             Map<String, Object> roleQuery = Map.of(
@@ -145,7 +138,14 @@ public class ZitadelManagementClient {
         }
     }
 
-    public AuthorizationServiceListAuthorizationsResponse listAllGrants(String rootOrgId, String projectId, String userOrgId) {
+    /**
+     * List all grants for a user in a project
+     *
+     * @param projectId the ID of the project to search for grants (Goaldone Project)
+     * @param userOrgId the ID of the user organization (Goaldone User)
+     * @return List of all grants for the user in the project
+     */
+    public AuthorizationServiceListAuthorizationsResponse listAllGrants(String projectId, String userOrgId) {
         try {
             AuthorizationServiceListAuthorizationsRequest request = new AuthorizationServiceListAuthorizationsRequest()
                     .addFiltersItem(new AuthorizationServiceAuthorizationsSearchFilter()
@@ -159,6 +159,37 @@ public class ZitadelManagementClient {
             return response;
         } catch (ApiException e) {
             String errorMsg = String.format("Failed to list authorizations in project %s: HTTP %d", projectId, e.getCode());
+            log.error(errorMsg);
+            throw new ZitadelApiException(errorMsg, e);
+        } catch (Exception e) {
+            log.error("Failed to list all authorizations: {}", e.getMessage());
+            throw new ZitadelApiException("Failed to list all grants: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * List all grants for a specific user in a project
+     * @param zitadelProjectId the ID of the project to search for grants (Goaldone Project)
+     * @param zitadelUserOrgId the ID of the user organization (Goaldone User)
+     * @param zitadelUserId the ID of the user to search for grants
+     * @return List of all grants for the user in the project
+     */
+    public AuthorizationServiceListAuthorizationsResponse listAllGrants(String zitadelProjectId, String zitadelUserOrgId, String zitadelUserId) {
+        try {
+            AuthorizationServiceListAuthorizationsRequest request = new AuthorizationServiceListAuthorizationsRequest()
+                    .addFiltersItem(new AuthorizationServiceAuthorizationsSearchFilter()
+                            .projectId(new AuthorizationServiceIDFilter().id(zitadelProjectId)))
+                    .addFiltersItem(new AuthorizationServiceAuthorizationsSearchFilter()
+                            .userOrganizationId(new AuthorizationServiceIDFilter().id(zitadelUserOrgId)))
+                    .addFiltersItem(new AuthorizationServiceAuthorizationsSearchFilter()
+                            .userOrganizationId(new AuthorizationServiceIDFilter().id(zitadelUserId)))
+                    .pagination(new AuthorizationServicePaginationRequest().limit(1000));
+            log.debug("List all grants request for project {} in user org {} for user {}", zitadelProjectId, zitadelUserOrgId, zitadelUserId);
+            AuthorizationServiceListAuthorizationsResponse response = zitadel.getAuthorizations().listAuthorizations(request);
+            log.debug("List all grants for user {} in response: {} authorizations", zitadelUserId, response.getAuthorizations().size());
+            return response;
+        } catch (ApiException e) {
+            String errorMsg = String.format("Failed to list authorizations in project %s: HTTP %d", zitadelProjectId, e.getCode());
             log.error(errorMsg);
             throw new ZitadelApiException(errorMsg, e);
         } catch (Exception e) {
@@ -195,6 +226,27 @@ public class ZitadelManagementClient {
         } catch (Exception e) {
             log.error("Failed to search user grant for user {}: {}", userId, e.getMessage());
             return Optional.empty();
+        }
+    }
+
+    /**
+     * Update the role of a project authorization.
+     * @param zitadelAuthorizationId the ID of the project authorization to update
+     * @param roleKey the new role key to assign to the project authorization
+     */
+    public void updateProjectAuthorization(String zitadelAuthorizationId, String roleKey) {
+        try {
+            AuthorizationServiceUpdateAuthorizationRequest request = new AuthorizationServiceUpdateAuthorizationRequest()
+                    .id(zitadelAuthorizationId)
+                    .roleKeys(List.of(roleKey));
+
+            AuthorizationServiceUpdateAuthorizationResponse response = zitadel.getAuthorizations().updateAuthorization(request);
+        } catch (ApiException e) {
+            String errorMsg = String.format("Failed to update project authorization: HTTP %d", e.getCode());
+            log.error(errorMsg);
+            throw new ZitadelApiException(errorMsg, e);
+        } catch (Exception e) {
+            throw new ZitadelApiException("Failed to update project authorization: " + e.getMessage(), e);
         }
     }
 

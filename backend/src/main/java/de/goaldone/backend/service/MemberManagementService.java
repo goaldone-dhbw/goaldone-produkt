@@ -1,5 +1,6 @@
 package de.goaldone.backend.service;
 
+import com.zitadel.model.AuthorizationServiceAuthorization;
 import com.zitadel.model.AuthorizationServiceListAuthorizationsResponse;
 import com.zitadel.model.UserServiceUser;
 import de.goaldone.backend.client.UserGrantDto;
@@ -23,6 +24,7 @@ import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -44,12 +46,9 @@ public class MemberManagementService {
     public MemberListResponse listMembers(UUID orgId) {
         validateCallerBelongsToOrg(orgId);
 
-        OrganizationEntity organization = organizationRepository.findById(orgId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Organization not found"));
+        OrganizationEntity organization = organizationRepository.findById(orgId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Organization not found"));
 
-        AuthorizationServiceListAuthorizationsResponse grantsResponse = zitadelManagementClient.listAllGrants(
-                mainOrgId, goaldoneProjectId, organization.getZitadelOrgId()
-        );
+        AuthorizationServiceListAuthorizationsResponse grantsResponse = zitadelManagementClient.listAllGrants(goaldoneProjectId, organization.getZitadelOrgId());
 
         List<String> userIds = new ArrayList<>();
         Map<String, List<String>> userRoles = new HashMap<>();
@@ -73,11 +72,11 @@ public class MemberManagementService {
         List<UserAccountEntity> localAccounts = userAccountRepository.findAll();
 
         List<MemberResponse> members = zitadelUsers.stream().map(user -> {
-            String zitadelUserId  = user.getUserId();
-            String email          = user.getHuman() != null && user.getHuman().getEmail() != null ? user.getHuman().getEmail().getEmail() : "";
-            String firstName      = user.getHuman() != null && user.getHuman().getProfile() != null ? user.getHuman().getProfile().getGivenName() : "";
-            String lastName       = user.getHuman() != null && user.getHuman().getProfile() != null ? user.getHuman().getProfile().getFamilyName() : "";
-            String state          = user.getState() != null ? user.getState().toString() : "";
+            String zitadelUserId = user.getUserId();
+            String email = user.getHuman() != null && user.getHuman().getEmail() != null ? user.getHuman().getEmail().getEmail() : "";
+            String firstName = user.getHuman() != null && user.getHuman().getProfile() != null ? user.getHuman().getProfile().getGivenName() : "";
+            String lastName = user.getHuman() != null && user.getHuman().getProfile() != null ? user.getHuman().getProfile().getFamilyName() : "";
+            String state = user.getState() != null ? user.getState().toString() : "";
 
             log.info("User info: zitadelUserId {}, email {}, firstName {}, lastName {}, state {}", zitadelUserId, email, firstName, lastName, state);
 
@@ -100,10 +99,7 @@ public class MemberManagementService {
                 createdAt = Instant.now().atOffset(ZoneOffset.UTC);
             }
 
-            Optional<UserAccountEntity> localAccount = localAccounts.stream()
-                    .filter(acc -> acc.getZitadelSub().equals(zitadelUserId)
-                            && acc.getOrganizationId().equals(orgId))
-                    .findFirst();
+            Optional<UserAccountEntity> localAccount = localAccounts.stream().filter(acc -> acc.getZitadelSub().equals(zitadelUserId) && acc.getOrganizationId().equals(orgId)).findFirst();
 
             MemberResponse member = new MemberResponse();
             member.setZitadelUserId(zitadelUserId);
@@ -134,54 +130,76 @@ public class MemberManagementService {
         return response;
     }
 
+    /**
+     * Changes the role of a member in the organization.
+     * @param orgId the ID of the org (local DB Id)
+     * @param zitadelUserId the ID of the user (Zitadel Id)
+     * @param request the request containing the new role
+     */
     public void changeMemberRole(UUID orgId, String zitadelUserId, ChangeRoleRequest request) {
         validateCallerBelongsToOrg(orgId);
-        MemberRole newRole = request.getRole();
+        MemberRole updatedRole = request.getRole();
 
-        OrganizationEntity organization = organizationRepository.findById(orgId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Organization not found"));
+        OrganizationEntity organization = organizationRepository.findById(orgId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Organization not found"));
 
-        Optional<UserGrantDto> grantOpt = zitadelManagementClient.searchUserGrants(mainOrgId, goaldoneProjectId, zitadelUserId);
-        if (grantOpt.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User grant not found");
+        AuthorizationServiceListAuthorizationsResponse grantOpt = zitadelManagementClient.listAllGrants(goaldoneProjectId, organization.getZitadelOrgId());
+
+        Optional<AuthorizationServiceAuthorization> user = grantOpt
+                .getAuthorizations()
+                .stream()
+                .filter(auth -> auth.getUser() != null && auth.getUser().getId().equals(zitadelUserId)).findFirst();
+
+        if (user.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found in organization");
         }
 
-        UserGrantDto grant = grantOpt.get();
-        String grantId = grant.grantId();
-        List<String> currentRoles = new ArrayList<>(grant.roleKeys());
-
-        if (currentRoles.contains(newRole.getValue()) && currentRoles.size() == 1) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "ROLE_UNCHANGED");
-        }
-
-        // Last admin check
-        if (newRole == MemberRole.USER && currentRoles.contains(MemberRole.COMPANY_ADMIN.getValue())) {
-            int adminCount = zitadelManagementClient.countGrantsByRole(mainOrgId, goaldoneProjectId, MemberRole.COMPANY_ADMIN.getValue());
-            // Filter further by user organization if possible, but countGrantsByRole in root org with specific role already does part of it.
-            // Actually, we need to count admins ONLY in this organization.
-            
-            // Re-fetch all grants for this org to be sure
-            AuthorizationServiceListAuthorizationsResponse allGrants = zitadelManagementClient.listAllGrants(mainOrgId, goaldoneProjectId, organization.getZitadelOrgId());
-            long orgAdminCount = 0;
-            if (allGrants.getAuthorizations() != null) {
-                for (var auth : allGrants.getAuthorizations()) {
-                    if (auth.getRoles() != null) {
-                        for (var role : auth.getRoles()) {
-                            if (MemberRole.COMPANY_ADMIN.getValue().equals(role.getKey())) {
-                                orgAdminCount++;
-                                break;
-                            }
-                        }
-                    }
+        user.ifPresent(auth -> {
+            if (auth.getRoles() != null) {
+                if (auth.getRoles().size() != 1) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT, "Multiple roles assigned to user, cannot change role");
                 }
-            }
-            
-            if (orgAdminCount <= 1) {
-                throw new ResponseStatusException(HttpStatus.CONFLICT, "LAST_ADMIN_CANNOT_BE_DEMOTED");
-            }
-        }
 
-        zitadelManagementClient.updateUserGrant(grantId, mainOrgId, List.of(newRole.getValue()));
+                List<MemberRole> currentRoles = auth
+                        .getRoles()
+                        .stream()
+                        .map(role ->
+                                MemberRole.fromValue(role.getKey())).collect(Collectors.toList());
+
+
+                if (currentRoles.contains(updatedRole)) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT, "Role already assigned to user");
+                }
+
+                if (updatedRole == MemberRole.USER && currentRoles.contains(MemberRole.COMPANY_ADMIN) && !orgHasMoreThanOneAdmin(grantOpt.getAuthorizations())) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT, "LAST_ADMIN_CANNOT_BE_DEMOTED");
+                }
+
+
+                zitadelManagementClient.updateProjectAuthorization(auth.getId(), updatedRole.getValue());
+            }
+        });
+    }
+
+    /**
+     * Checks if the organization has more than one admin.
+     *
+     * @param grants A list of grants to check.
+     * @return true if the organization has more than one admin, false otherwise.
+     */
+    private boolean orgHasMoreThanOneAdmin(List<AuthorizationServiceAuthorization> grants) {
+        AtomicInteger adminCount = new AtomicInteger();
+        grants.forEach(auth -> {
+            if (auth.getRoles() != null) {
+                auth.getRoles().forEach(role -> {
+                    if (MemberRole.COMPANY_ADMIN.getValue().equals(role.getKey())) {
+                        adminCount.getAndIncrement();
+                    }
+                });
+
+            }
+        });
+
+        return adminCount.get() > 1;
     }
 
     public void removeMember(UUID orgId, String zitadelUserId) {
@@ -192,8 +210,7 @@ public class MemberManagementService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "CANNOT_REMOVE_SELF");
         }
 
-        OrganizationEntity organization = organizationRepository.findById(orgId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Organization not found"));
+        OrganizationEntity organization = organizationRepository.findById(orgId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Organization not found"));
 
         Optional<UserGrantDto> grantOpt = zitadelManagementClient.searchUserGrants(mainOrgId, goaldoneProjectId, zitadelUserId);
         if (grantOpt.isEmpty()) {
@@ -205,27 +222,13 @@ public class MemberManagementService {
 
         if (roles.contains(MemberRole.COMPANY_ADMIN.getValue())) {
             // Check if last admin
-            AuthorizationServiceListAuthorizationsResponse allGrants = zitadelManagementClient.listAllGrants(mainOrgId, goaldoneProjectId, organization.getZitadelOrgId());
-            long orgAdminCount = 0;
-            if (allGrants.getAuthorizations() != null) {
-                for (var auth : allGrants.getAuthorizations()) {
-                    if (auth.getRoles() != null) {
-                        for (var role : auth.getRoles()) {
-                            if (MemberRole.COMPANY_ADMIN.getValue().equals(role.getKey())) {
-                                orgAdminCount++;
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
+            int orgAdminCount = LastAdminCheck(organization);
             if (orgAdminCount <= 1) {
                 throw new ResponseStatusException(HttpStatus.CONFLICT, "LAST_ADMIN_CANNOT_BE_REMOVED");
             }
         }
 
-        Optional<UserAccountEntity> accountOpt = userAccountRepository.findByZitadelSub(zitadelUserId)
-                .filter(acc -> acc.getOrganizationId().equals(orgId));
+        Optional<UserAccountEntity> accountOpt = userAccountRepository.findByZitadelSub(zitadelUserId).filter(acc -> acc.getOrganizationId().equals(orgId));
 
         if (accountOpt.isPresent()) {
             userAccountDeletionService.deleteUserAccount(accountOpt.get().getId());
@@ -234,16 +237,49 @@ public class MemberManagementService {
         }
     }
 
+    /**
+     * Checks if the organization has only one admin left.
+     *
+     * @param organization the organization to check
+     * @return the number of admin grants in the organization
+     */
+    private int LastAdminCheck(OrganizationEntity organization) {
+        AuthorizationServiceListAuthorizationsResponse allGrants = zitadelManagementClient.listAllGrants(goaldoneProjectId, organization.getZitadelOrgId());
+        int orgAdminCount = 0;
+        if (allGrants.getAuthorizations() != null) {
+            for (var auth : allGrants.getAuthorizations()) {
+                if (auth.getRoles() != null) {
+                    for (var role : auth.getRoles()) {
+                        if (MemberRole.COMPANY_ADMIN.getValue().equals(role.getKey())) {
+                            orgAdminCount++;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        return orgAdminCount;
+    }
+
+    /**
+     * Validates that the caller is a member of the given organization.
+     *
+     * @param orgId the ID of the organization to check
+     */
     private void validateCallerBelongsToOrg(UUID orgId) {
         String callerSub = getCallerSub();
-        UserAccountEntity callerAccount = userAccountRepository.findByZitadelSub(callerSub)
-                .orElseThrow(() -> new NotMemberOfOrganizationException("Caller account not found"));
+        UserAccountEntity callerAccount = userAccountRepository.findByZitadelSub(callerSub).orElseThrow(() -> new NotMemberOfOrganizationException("Caller account not found"));
 
         if (!callerAccount.getOrganizationId().equals(orgId)) {
             throw new NotMemberOfOrganizationException("Caller does not belong to organization: " + orgId);
         }
     }
 
+    /**
+     * Helper method to get the subject (sub) of the caller's JWT.
+     *
+     * @return the subject (sub) of the caller's JWT
+     */
     private String getCallerSub() {
         Jwt jwt = (Jwt) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         return jwt.getSubject();
