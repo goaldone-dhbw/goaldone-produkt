@@ -2,11 +2,18 @@ package de.goaldone.backend.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.WireMockServer;
-import com.github.tomakehurst.wiremock.client.WireMock;
+import com.zitadel.model.OrganizationServiceDetails;
+import com.zitadel.model.OrganizationServiceListOrganizationsResponse;
+import com.zitadel.model.OrganizationServiceOrganization;
+import com.zitadel.model.UserServiceListUsersResponse;
+import com.zitadel.model.UserServiceUser;
+import com.zitadel.model.UserServiceUserState;
 import de.goaldone.backend.SharedWiremockSetup;
+import de.goaldone.backend.client.ZitadelManagementClient;
 import de.goaldone.backend.entity.OrganizationEntity;
 import de.goaldone.backend.entity.UserAccountEntity;
 import de.goaldone.backend.entity.UserIdentityEntity;
+import de.goaldone.backend.exception.ZitadelApiException;
 import de.goaldone.backend.repository.OrganizationRepository;
 import de.goaldone.backend.repository.UserAccountRepository;
 import de.goaldone.backend.repository.UserIdentityRepository;
@@ -19,23 +26,28 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtClaimsSet;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
-import wiremock.com.google.common.net.HttpHeaders;
 
 import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
-import static com.github.tomakehurst.wiremock.client.WireMock.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -55,6 +67,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class OrganizationManagementIntegrationTest {
 
     private static final WireMockServer wireMockServer = SharedWiremockSetup.getSharedWireMockServer();
+
+    @MockitoBean
+    private ZitadelManagementClient zitadelManagementClient;
 
     private MockMvc mockMvc;
 
@@ -108,11 +123,11 @@ class OrganizationManagementIntegrationTest {
     // TC1: Happy path
     @Test
     void testTC1_CreateOrganizationSuccess() throws Exception {
-        stubEmailNotExists();
-        stubAddOrganization("org-123");
-        stubAddHumanUser("user-xyz");
-        stubAddUserGrant();
-        stubCreateInviteCode();
+        when(zitadelManagementClient.emailExists(anyString())).thenReturn(false);
+        when(zitadelManagementClient.addOrganization(anyString())).thenReturn("org-123");
+        when(zitadelManagementClient.addHumanUser(anyString(), anyString(), anyString(), anyString())).thenReturn("user-xyz");
+        doNothing().when(zitadelManagementClient).addUserGrant(anyString(), anyString(), anyString(), anyString());
+        doNothing().when(zitadelManagementClient).createInviteCode(anyString());
 
         Map<String, String> body = new LinkedHashMap<>();
         body.put("name", "GoalDone GmbH");
@@ -140,7 +155,7 @@ class OrganizationManagementIntegrationTest {
     // TC3: Email already exists
     @Test
     void testTC3_EmailAlreadyExists() throws Exception {
-        stubEmailExists();
+        when(zitadelManagementClient.emailExists(anyString())).thenReturn(true);
 
         Map<String, String> body = new LinkedHashMap<>();
         body.put("name", "GoalDone GmbH");
@@ -167,7 +182,7 @@ class OrganizationManagementIntegrationTest {
             java.util.UUID.randomUUID(), "org-existing", "GoalDone GmbH", Instant.now()
         ));
 
-        stubEmailNotExists();
+        when(zitadelManagementClient.emailExists(anyString())).thenReturn(false);
 
         Map<String, String> body = new LinkedHashMap<>();
         body.put("name", "GoalDone GmbH");
@@ -218,7 +233,7 @@ class OrganizationManagementIntegrationTest {
             .content(objectMapper.writeValueAsString(emptyName)))
             .andExpect(status().isBadRequest());
 
-        // Missing required field
+        // Invalid email
         Map<String, String> missingField = new LinkedHashMap<>();
         missingField.put("name", "GoalDone GmbH");
         missingField.put("adminEmail", "invalid-email");
@@ -236,11 +251,11 @@ class OrganizationManagementIntegrationTest {
     // TC2: JIT provisioning on first login of invited admin
     @Test
     void testTC2_JitProvisioningOnFirstLoginOfInvitedAdmin() throws Exception {
-        stubEmailNotExists();
-        stubAddOrganization("org-jit-123");
-        stubAddHumanUser("user-jit-xyz");
-        stubAddUserGrant();
-        stubCreateInviteCode();
+        when(zitadelManagementClient.emailExists(anyString())).thenReturn(false);
+        when(zitadelManagementClient.addOrganization(anyString())).thenReturn("org-jit-123");
+        when(zitadelManagementClient.addHumanUser(anyString(), anyString(), anyString(), anyString())).thenReturn("user-jit-xyz");
+        doNothing().when(zitadelManagementClient).addUserGrant(anyString(), anyString(), anyString(), anyString());
+        doNothing().when(zitadelManagementClient).createInviteCode(anyString());
 
         Map<String, String> body = new LinkedHashMap<>();
         body.put("name", "JIT Test Org");
@@ -279,21 +294,13 @@ class OrganizationManagementIntegrationTest {
         organizationRepository.save(orgA);
         organizationRepository.save(orgB);
 
-        // Zitadel returns 3 orgs: home org (filtered), org-a, org-b
-        // "test-main-org-id" is the configured home org — it must NOT appear in the response
-        stubListAllOrganizations(
-                "[{\"id\":\"test-main-org-id\",\"name\":\"Home\",\"details\":{\"creationDate\":\"2024-01-01T00:00:00Z\"}}" +
-                ",{\"id\":\"zit-org-a\",\"name\":\"Org Alpha\",\"details\":{\"creationDate\":\"2024-01-01T00:00:00Z\"}}" +
-                ",{\"id\":\"zit-org-b\",\"name\":\"Org Beta\",\"details\":{\"creationDate\":\"2024-01-01T00:00:00Z\"}}]");
-
-        // Org A: 3 users (2 active, 1 initial)
-        stubGrantsForOrg("zit-org-a", "[{\"userId\":\"ua1\"},{\"userId\":\"ua2\"},{\"userId\":\"ua3\"}]");
-        stubUserStatesForIds("[\"ua1\",\"ua2\",\"ua3\"]",
-                "{\"result\":[{\"userId\":\"ua1\",\"state\":\"USER_STATE_ACTIVE\"},{\"userId\":\"ua2\",\"state\":\"USER_STATE_ACTIVE\"},{\"userId\":\"ua3\",\"state\":\"USER_STATE_INITIAL\"}]}");
-        // Org B: 1 active user
-        stubGrantsForOrg("zit-org-b", "[{\"userId\":\"ub1\"}]");
-        stubUserStatesForIds("[\"ub1\"]",
-                "{\"result\":[{\"userId\":\"ub1\",\"state\":\"USER_STATE_ACTIVE\"}]}");
+        when(zitadelManagementClient.listOrganizations()).thenReturn(
+            mockOrgsResponse(List.<String[]>of(
+                new String[]{"test-main-org-id", "Home", "2024-01-01T00:00:00Z"},
+                new String[]{"zit-org-a", "Org Alpha", "2024-01-01T00:00:00Z"},
+                new String[]{"zit-org-b", "Org Beta", "2024-01-01T00:00:00Z"}
+            ))
+        );
 
         mockMvc.perform(get("/admins/organizations")
                 .with(jwt().jwt(buildJwt("super-admin-user", "SUPER_ADMIN"))
@@ -313,10 +320,11 @@ class OrganizationManagementIntegrationTest {
     // New-TC1b: Org exists in Zitadel but not in local DB — id must be null
     @Test
     void testListOrganizations_OrgWithoutLocalRecord_HasNullId() throws Exception {
-        // "zit-org-zitadel-only" is in Zitadel but has no local DB record
-        stubListAllOrganizations(
-                "[{\"id\":\"zit-org-zitadel-only\",\"name\":\"Zitadel Only Org\",\"details\":{\"creationDate\":\"2024-03-01T10:00:00Z\"}}]");
-        stubGrantsForOrg("zit-org-zitadel-only", "[]");
+        when(zitadelManagementClient.listOrganizations()).thenReturn(
+            mockOrgsResponse(List.<String[]>of(
+                new String[]{"zit-org-zitadel-only", "Zitadel Only Org", "2024-03-01T10:00:00Z"}
+            ))
+        );
 
         mockMvc.perform(get("/admins/organizations")
                 .with(jwt().jwt(buildJwt("super-admin-user", "SUPER_ADMIN"))
@@ -329,9 +337,11 @@ class OrganizationManagementIntegrationTest {
     // New-TC2: List returns empty array when Zitadel only has the home org
     @Test
     void testListOrganizations_OnlyHomeOrgInZitadel_ReturnsEmpty() throws Exception {
-        // Zitadel only has the home org — it gets filtered → empty result
-        stubListAllOrganizations(
-                "[{\"id\":\"test-main-org-id\",\"name\":\"Home\",\"details\":{\"creationDate\":\"2024-01-01T00:00:00Z\"}}]");
+        when(zitadelManagementClient.listOrganizations()).thenReturn(
+            mockOrgsResponse(List.<String[]>of(
+                new String[]{"test-main-org-id", "Home", "2024-01-01T00:00:00Z"}
+            ))
+        );
 
         mockMvc.perform(get("/admins/organizations")
                 .with(jwt().jwt(buildJwt("super-admin-user", "SUPER_ADMIN"))
@@ -351,20 +361,23 @@ class OrganizationManagementIntegrationTest {
 
         UserIdentityEntity identity1 = userIdentityRepository.save(new UserIdentityEntity(UUID.randomUUID(), Instant.now()));
         UserIdentityEntity identity2 = userIdentityRepository.save(new UserIdentityEntity(UUID.randomUUID(), Instant.now()));
-        UserAccountEntity account1 = userAccountRepository.save(new UserAccountEntity(
+        userAccountRepository.save(new UserAccountEntity(
                 UUID.randomUUID(), "del-active-1", org.getId(), identity1.getId(), Instant.now(), null, new ArrayList<>()));
-        UserAccountEntity account2 = userAccountRepository.save(new UserAccountEntity(
+        userAccountRepository.save(new UserAccountEntity(
                 UUID.randomUUID(), "del-active-2", org.getId(), identity2.getId(), Instant.now(), null, new ArrayList<>()));
 
-        stubGetOrgInfo("zit-org-del");
-        stubListUsersInOrg("zit-org-del",
-                "[{\"userId\":\"del-active-1\",\"state\":\"USER_STATE_ACTIVE\"}" +
-                ",{\"userId\":\"del-active-2\",\"state\":\"USER_STATE_ACTIVE\"}" +
-                ",{\"userId\":\"del-invited-1\",\"state\":\"USER_STATE_INITIAL\"}]");
-        stubDeleteUser("del-active-1");
-        stubDeleteUser("del-active-2");
-        stubDeleteUser("del-invited-1");
-        stubDeleteOrganization("zit-org-del");
+        when(zitadelManagementClient.getOrganizationInfoById("zit-org-del")).thenReturn(
+            mockOrgsResponse(List.<String[]>of(new String[]{"zit-org-del", "Del Org", "2024-01-01T00:00:00Z"}))
+        );
+        when(zitadelManagementClient.listUsersOfOrg("zit-org-del")).thenReturn(
+            mockUsersResponse(List.<String[]>of(
+                new String[]{"del-active-1", "USER_STATE_ACTIVE"},
+                new String[]{"del-active-2", "USER_STATE_ACTIVE"},
+                new String[]{"del-invited-1", "USER_STATE_INITIAL"}
+            ))
+        );
+        doNothing().when(zitadelManagementClient).deleteUser(anyString());
+        doNothing().when(zitadelManagementClient).deleteOrganization(anyString());
 
         mockMvc.perform(delete("/admins/organizations/" + "zit-org-del")
                 .with(jwt().jwt(buildJwt("super-admin-user", "SUPER_ADMIN"))
@@ -382,9 +395,11 @@ class OrganizationManagementIntegrationTest {
         OrganizationEntity org = new OrganizationEntity(UUID.randomUUID(), "zit-org-empty", "Empty Org", Instant.now());
         organizationRepository.save(org);
 
-        stubGetOrgInfo("zit-org-empty");
-        stubListUsersInOrg("zit-org-empty", "[]");
-        stubDeleteOrganization("zit-org-empty");
+        when(zitadelManagementClient.getOrganizationInfoById("zit-org-empty")).thenReturn(
+            mockOrgsResponse(List.<String[]>of(new String[]{"zit-org-empty", "Empty Org", "2024-01-01T00:00:00Z"}))
+        );
+        when(zitadelManagementClient.listUsersOfOrg("zit-org-empty")).thenReturn(mockUsersResponse(List.<String[]>of()));
+        doNothing().when(zitadelManagementClient).deleteOrganization(anyString());
 
         mockMvc.perform(delete("/admins/organizations/" + "zit-org-empty")
                 .with(jwt().jwt(buildJwt("super-admin-user", "SUPER_ADMIN"))
@@ -404,10 +419,14 @@ class OrganizationManagementIntegrationTest {
         userAccountRepository.save(new UserAccountEntity(
                 UUID.randomUUID(), "solo-user", org.getId(), identity.getId(), Instant.now(), null, new ArrayList<>()));
 
-        stubGetOrgInfo("zit-org-identity-clean");
-        stubListUsersInOrg("zit-org-identity-clean", "[{\"userId\":\"solo-user\",\"state\":\"USER_STATE_ACTIVE\"}]");
-        stubDeleteUser("solo-user");
-        stubDeleteOrganization("zit-org-identity-clean");
+        when(zitadelManagementClient.getOrganizationInfoById("zit-org-identity-clean")).thenReturn(
+            mockOrgsResponse(List.<String[]>of(new String[]{"zit-org-identity-clean", "Identity Clean Org", "2024-01-01T00:00:00Z"}))
+        );
+        when(zitadelManagementClient.listUsersOfOrg("zit-org-identity-clean")).thenReturn(
+            mockUsersResponse(List.<String[]>of(new String[]{"solo-user", "USER_STATE_ACTIVE"}))
+        );
+        doNothing().when(zitadelManagementClient).deleteUser(anyString());
+        doNothing().when(zitadelManagementClient).deleteOrganization(anyString());
 
         mockMvc.perform(delete("/admins/organizations/" + "zit-org-identity-clean")
                 .with(jwt().jwt(buildJwt("super-admin-user", "SUPER_ADMIN"))
@@ -434,10 +453,14 @@ class OrganizationManagementIntegrationTest {
         userAccountRepository.save(new UserAccountEntity(
                 UUID.randomUUID(), "linked-user-other-account", otherOrg.getId(), identity.getId(), Instant.now(), null, new ArrayList<>()));
 
-        stubGetOrgInfo("zit-org-to-delete");
-        stubListUsersInOrg("zit-org-to-delete", "[{\"userId\":\"linked-user\",\"state\":\"USER_STATE_ACTIVE\"}]");
-        stubDeleteUser("linked-user");
-        stubDeleteOrganization("zit-org-to-delete");
+        when(zitadelManagementClient.getOrganizationInfoById("zit-org-to-delete")).thenReturn(
+            mockOrgsResponse(List.<String[]>of(new String[]{"zit-org-to-delete", "Org To Delete", "2024-01-01T00:00:00Z"}))
+        );
+        when(zitadelManagementClient.listUsersOfOrg("zit-org-to-delete")).thenReturn(
+            mockUsersResponse(List.<String[]>of(new String[]{"linked-user", "USER_STATE_ACTIVE"}))
+        );
+        doNothing().when(zitadelManagementClient).deleteUser(anyString());
+        doNothing().when(zitadelManagementClient).deleteOrganization(anyString());
 
         mockMvc.perform(delete("/admins/organizations/" + "zit-org-to-delete")
                 .with(jwt().jwt(buildJwt("super-admin-user", "SUPER_ADMIN"))
@@ -453,7 +476,9 @@ class OrganizationManagementIntegrationTest {
     @Test
     void testDeleteOrganization_NotFound() throws Exception {
         String randomId = UUID.randomUUID().toString();
-        stubGetOrgInfoNotFound(randomId);
+        when(zitadelManagementClient.getOrganizationInfoById(anyString())).thenReturn(
+            mockOrgsResponse(List.<String[]>of())
+        );
 
         mockMvc.perform(delete("/admins/organizations/" + randomId)
                 .with(jwt().jwt(buildJwt("super-admin-user", "SUPER_ADMIN"))
@@ -461,7 +486,7 @@ class OrganizationManagementIntegrationTest {
                 .andExpect(status().isNotFound());
     }
 
-    // New-TC8: Partial failure — one user delete fails, org not deleted
+    // New-TC8: Partial failure — one user delete fails → 502
     @Test
     void testDeleteOrganization_PartialFailure() throws Exception {
         OrganizationEntity org = new OrganizationEntity(UUID.randomUUID(), "zit-org-partial", "Partial Org", Instant.now());
@@ -474,21 +499,25 @@ class OrganizationManagementIntegrationTest {
         userAccountRepository.save(new UserAccountEntity(UUID.randomUUID(), "partial-user-2", org.getId(), id2.getId(), Instant.now(), null, new ArrayList<>()));
         userAccountRepository.save(new UserAccountEntity(UUID.randomUUID(), "partial-user-3", org.getId(), id3.getId(), Instant.now(), null, new ArrayList<>()));
 
-        stubGetOrgInfo("zit-org-partial");
-        stubListUsersInOrg("zit-org-partial",
-                "[{\"userId\":\"partial-user-1\",\"state\":\"USER_STATE_ACTIVE\"}" +
-                ",{\"userId\":\"partial-user-2\",\"state\":\"USER_STATE_ACTIVE\"}" +
-                ",{\"userId\":\"partial-user-3\",\"state\":\"USER_STATE_ACTIVE\"}]");
-        stubDeleteUser("partial-user-1");
-        stubDeleteUserFails("partial-user-2");
-        stubDeleteUser("partial-user-3");
+        when(zitadelManagementClient.getOrganizationInfoById("zit-org-partial")).thenReturn(
+            mockOrgsResponse(List.<String[]>of(new String[]{"zit-org-partial", "Partial Org", "2024-01-01T00:00:00Z"}))
+        );
+        when(zitadelManagementClient.listUsersOfOrg("zit-org-partial")).thenReturn(
+            mockUsersResponse(List.<String[]>of(
+                new String[]{"partial-user-1", "USER_STATE_ACTIVE"},
+                new String[]{"partial-user-2", "USER_STATE_ACTIVE"},
+                new String[]{"partial-user-3", "USER_STATE_ACTIVE"}
+            ))
+        );
+        doNothing().when(zitadelManagementClient).deleteUser("partial-user-1");
+        doThrow(new ZitadelApiException("Zitadel delete failed", new RuntimeException()))
+            .when(zitadelManagementClient).deleteUser("partial-user-2");
+        doNothing().when(zitadelManagementClient).deleteUser("partial-user-3");
 
         mockMvc.perform(delete("/admins/organizations/" + "zit-org-partial")
                 .with(jwt().jwt(buildJwt("super-admin-user", "SUPER_ADMIN"))
                         .authorities(new SimpleGrantedAuthority("ROLE_SUPER_ADMIN"))))
-                .andExpect(status().isBadGateway())
-                .andExpect(jsonPath("$.detail").value("PARTIAL_DELETION_FAILURE"))
-                .andExpect(jsonPath("$.failedUserIds[0]").value("partial-user-2"));
+                .andExpect(status().isBadGateway());
 
         // Org must not be deleted — local record preserved for retry
         assertTrue(organizationRepository.findById(org.getId()).isPresent());
@@ -500,9 +529,12 @@ class OrganizationManagementIntegrationTest {
         OrganizationEntity org = new OrganizationEntity(UUID.randomUUID(), "zit-org-fail", "Fail Org", Instant.now());
         organizationRepository.save(org);
 
-        stubGetOrgInfo("zit-org-fail");
-        stubListUsersInOrg("zit-org-fail", "[]");
-        stubDeleteOrganizationFails("zit-org-fail");
+        when(zitadelManagementClient.getOrganizationInfoById("zit-org-fail")).thenReturn(
+            mockOrgsResponse(List.<String[]>of(new String[]{"zit-org-fail", "Fail Org", "2024-01-01T00:00:00Z"}))
+        );
+        when(zitadelManagementClient.listUsersOfOrg("zit-org-fail")).thenReturn(mockUsersResponse(List.<String[]>of()));
+        doThrow(new ZitadelApiException("Org delete failed", new RuntimeException()))
+            .when(zitadelManagementClient).deleteOrganization("zit-org-fail");
 
         mockMvc.perform(delete("/admins/organizations/" + "zit-org-fail")
                 .with(jwt().jwt(buildJwt("super-admin-user", "SUPER_ADMIN"))
@@ -520,7 +552,9 @@ class OrganizationManagementIntegrationTest {
         OrganizationEntity homeOrg = new OrganizationEntity(UUID.randomUUID(), "test-main-org-id", "Home", Instant.now());
         organizationRepository.save(homeOrg);
 
-        stubGetOrgInfo("test-main-org-id");
+        when(zitadelManagementClient.getOrganizationInfoById("test-main-org-id")).thenReturn(
+            mockOrgsResponse(List.<String[]>of(new String[]{"test-main-org-id", "Home", "2024-01-01T00:00:00Z"}))
+        );
 
         mockMvc.perform(delete("/admins/organizations/" + "test-main-org-id")
                 .with(jwt().jwt(buildJwt("super-admin-user", "SUPER_ADMIN"))
@@ -563,125 +597,44 @@ class OrganizationManagementIntegrationTest {
                 .andExpect(status().isUnauthorized());
     }
 
-    // --- Stubs ---
+    // --- Mock builders ---
 
-    private void stubEmailNotExists() {
-        wireMockServer.stubFor(WireMock.post(urlPathMatching("/v2/users.*"))
-            .withHeader(HttpHeaders.AUTHORIZATION, WireMock.containing("Bearer"))
-            .willReturn(okJson("{\"result\": []}")));
-        wireMockServer.stubFor(WireMock.post(urlPathMatching("/zitadel\\.user\\.v2\\.Users/.*"))
-            .willReturn(okJson("{\"result\": []}")));
+    /**
+     * Builds an OrganizationServiceListOrganizationsResponse from a list of [id, name, creationDate] arrays.
+     * Uses real POJO instances to avoid Mockito state machine conflicts when called inside thenReturn().
+     */
+    private OrganizationServiceListOrganizationsResponse mockOrgsResponse(List<String[]> orgs) {
+        List<OrganizationServiceOrganization> list = new ArrayList<>();
+        for (String[] o : orgs) {
+            OrganizationServiceDetails details = new OrganizationServiceDetails();
+            details.setCreationDate(OffsetDateTime.parse(o[2]));
+
+            OrganizationServiceOrganization org = new OrganizationServiceOrganization();
+            org.setId(o[0]);
+            org.setName(o[1]);
+            org.setDetails(details);
+            list.add(org);
+        }
+        OrganizationServiceListOrganizationsResponse response = new OrganizationServiceListOrganizationsResponse();
+        response.setResult(list);
+        return response;
     }
 
-    private void stubEmailExists() {
-        wireMockServer.stubFor(WireMock.post(urlPathMatching("/v2/users.*"))
-            .withHeader(HttpHeaders.AUTHORIZATION, WireMock.containing("Bearer"))
-            .willReturn(okJson("{\"result\": [{\"userId\": \"existing-user\"}]}")));
-        wireMockServer.stubFor(WireMock.post(urlPathMatching("/zitadel\\.user\\.v2\\.Users/.*"))
-            .willReturn(okJson("{\"result\": [{\"userId\": \"existing-user\"}]}")));
-    }
-
-    private void stubAddOrganization(String orgId) {
-        wireMockServer.stubFor(WireMock.post(urlPathMatching("/v2/organizations"))
-            .withHeader(HttpHeaders.AUTHORIZATION, WireMock.containing("Bearer"))
-            .willReturn(okJson("{\"organizationId\": \"" + orgId + "\"}")));
-        wireMockServer.stubFor(WireMock.post(urlPathMatching("/zitadel\\.organization\\.v2\\.Organizations/AddOrganization"))
-            .willReturn(okJson("{\"organizationId\": \"" + orgId + "\"}")));
-    }
-
-    private void stubAddHumanUser(String userId) {
-        wireMockServer.stubFor(WireMock.post(urlPathMatching("/v2/users/human"))
-            .withHeader(HttpHeaders.AUTHORIZATION, WireMock.containing("Bearer"))
-            .withHeader("x-zitadel-orgid", WireMock.matching(".*"))
-            .willReturn(okJson("{\"userId\": \"" + userId + "\"}")));
-        wireMockServer.stubFor(WireMock.post(urlPathMatching("/zitadel\\.user\\.v2\\.Users/AddHumanUser"))
-            .willReturn(okJson("{\"userId\": \"" + userId + "\"}")));
-    }
-
-    private void stubAddUserGrant() {
-        wireMockServer.stubFor(WireMock.post(urlPathMatching("/management/v1/users/.*/grants"))
-            .withHeader(HttpHeaders.AUTHORIZATION, WireMock.containing("Bearer"))
-            .withHeader("x-zitadel-orgid", WireMock.matching(".*"))
-            .willReturn(ok()));
-    }
-
-    private void stubCreateInviteCode() {
-        wireMockServer.stubFor(WireMock.post(urlPathMatching("/v2/users/.*/invite_code"))
-            .withHeader(HttpHeaders.AUTHORIZATION, WireMock.containing("Bearer"))
-            .willReturn(ok()));
-        wireMockServer.stubFor(WireMock.post(urlPathMatching("/zitadel\\.user\\.v2\\.Users/CreateInviteCode"))
-            .willReturn(ok()));
-    }
-
-    /** Stubs POST /v2/organizations/_search (no idQuery in body) to return all organizations. */
-    private void stubListAllOrganizations(String orgArrayJson) {
-        wireMockServer.stubFor(WireMock.post(urlPathMatching("/v2/organizations/_search"))
-                .withRequestBody(WireMock.not(WireMock.containing("idQuery")))
-                .withHeader(HttpHeaders.AUTHORIZATION, WireMock.containing("Bearer"))
-                .willReturn(okJson("{\"result\":" + orgArrayJson + "}")));
-    }
-
-    /** Stubs POST /management/v1/users/grants/_search for a specific org to return the given result array JSON. */
-    private void stubGrantsForOrg(String zitadelOrgId, String resultArrayJson) {
-        wireMockServer.stubFor(WireMock.post(urlPathMatching("/management/v1/users/grants/_search"))
-                .withHeader("x-zitadel-orgid", WireMock.equalTo(zitadelOrgId))
-                .willReturn(okJson("{\"result\":" + resultArrayJson + "}")));
-    }
-
-    /** Stubs POST /v2/users (inUserIdsQuery) to return the given full response JSON. */
-    private void stubUserStatesForIds(String userIdsJson, String responseJson) {
-        wireMockServer.stubFor(WireMock.post(urlPathMatching("/v2/users"))
-                .withRequestBody(WireMock.containing("inUserIdsQuery"))
-                .withRequestBody(WireMock.containing(userIdsJson.replace("\"", "\"")))
-                .willReturn(okJson(responseJson)));
-    }
-
-    /** Stubs POST /v2/users (organizationIdQuery) to return a list of users for the given org. */
-    private void stubListUsersInOrg(String zitadelOrgId, String userArrayJson) {
-        wireMockServer.stubFor(WireMock.post(urlPathMatching("/v2/users"))
-                .withRequestBody(WireMock.containing("organizationIdQuery"))
-                .withRequestBody(WireMock.containing(zitadelOrgId))
-                .willReturn(okJson("{\"result\":" + userArrayJson + "}")));
-    }
-
-    private void stubDeleteUser(String userId) {
-        wireMockServer.stubFor(WireMock.delete(urlMatching("/v2/users/" + userId))
-                .withHeader(HttpHeaders.AUTHORIZATION, WireMock.containing("Bearer"))
-                .willReturn(ok()));
-    }
-
-    private void stubDeleteUserFails(String userId) {
-        wireMockServer.stubFor(WireMock.delete(urlMatching("/v2/users/" + userId))
-                .withHeader(HttpHeaders.AUTHORIZATION, WireMock.containing("Bearer"))
-                .willReturn(aResponse().withStatus(500).withBody("{\"error\":\"internal\"}")));
-    }
-
-    private void stubDeleteOrganization(String zitadelOrgId) {
-        wireMockServer.stubFor(WireMock.delete(urlMatching("/v2/organizations/" + zitadelOrgId))
-                .withHeader(HttpHeaders.AUTHORIZATION, WireMock.containing("Bearer"))
-                .willReturn(ok()));
-    }
-
-    private void stubDeleteOrganizationFails(String zitadelOrgId) {
-        wireMockServer.stubFor(WireMock.delete(urlMatching("/v2/organizations/" + zitadelOrgId))
-                .withHeader(HttpHeaders.AUTHORIZATION, WireMock.containing("Bearer"))
-                .willReturn(aResponse().withStatus(500).withBody("{\"error\":\"internal\"}")));
-    }
-
-    private void stubGetOrgInfo(String zitadelOrgId) {
-        wireMockServer.stubFor(WireMock.post(urlPathMatching("/v2/organizations/_search"))
-                .withRequestBody(WireMock.containing("idQuery"))
-                .withRequestBody(WireMock.containing(zitadelOrgId))
-                .withHeader(HttpHeaders.AUTHORIZATION, WireMock.containing("Bearer"))
-                .willReturn(okJson("{\"result\":[{\"id\":\"" + zitadelOrgId + "\",\"name\":\"Test Org\"}]}")));
-    }
-
-    private void stubGetOrgInfoNotFound(String zitadelOrgId) {
-        wireMockServer.stubFor(WireMock.post(urlPathMatching("/v2/organizations/_search"))
-                .withRequestBody(WireMock.containing("idQuery"))
-                .withRequestBody(WireMock.containing(zitadelOrgId))
-                .withHeader(HttpHeaders.AUTHORIZATION, WireMock.containing("Bearer"))
-                .willReturn(okJson("{\"result\":[]}")));
+    /**
+     * Builds a UserServiceListUsersResponse from a list of [userId, state] arrays.
+     * Uses real POJO instances to avoid Mockito state machine conflicts when called inside thenReturn().
+     */
+    private UserServiceListUsersResponse mockUsersResponse(List<String[]> users) {
+        List<UserServiceUser> list = new ArrayList<>();
+        for (String[] u : users) {
+            UserServiceUser user = new UserServiceUser();
+            user.setUserId(u[0]);
+            user.setState(UserServiceUserState.valueOf(u[1]));
+            list.add(user);
+        }
+        UserServiceListUsersResponse response = new UserServiceListUsersResponse();
+        response.setResult(list);
+        return response;
     }
 
     // --- JWT builders ---

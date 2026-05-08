@@ -2,8 +2,10 @@ package de.goaldone.backend.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.WireMockServer;
-import com.github.tomakehurst.wiremock.client.WireMock;
+import com.zitadel.model.UserServiceUser;
+import com.zitadel.model.UserServiceUserState;
 import de.goaldone.backend.SharedWiremockSetup;
+import de.goaldone.backend.client.ZitadelManagementClient;
 import de.goaldone.backend.entity.OrganizationEntity;
 import de.goaldone.backend.entity.UserAccountEntity;
 import de.goaldone.backend.entity.UserIdentityEntity;
@@ -19,21 +21,23 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtClaimsSet;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
-import wiremock.com.google.common.net.HttpHeaders;
 
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
-import static com.github.tomakehurst.wiremock.client.WireMock.ok;
-import static com.github.tomakehurst.wiremock.client.WireMock.okJson;
-import static com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -51,6 +55,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class MemberManagementIntegrationTest {
 
     private static final WireMockServer wireMockServer = SharedWiremockSetup.getSharedWireMockServer();
+
+    @MockitoBean
+    private ZitadelManagementClient zitadelManagementClient;
 
     private MockMvc mockMvc;
 
@@ -102,10 +109,10 @@ class MemberManagementIntegrationTest {
 
     @Test
     void inviteMember_Success() throws Exception {
-        stubEmailNotExists();
-        stubAddHumanUser("user-new");
-        stubAddUserGrant();
-        stubCreateInviteCode();
+        when(zitadelManagementClient.emailExists(anyString())).thenReturn(false);
+        when(zitadelManagementClient.addHumanUser(anyString(), anyString(), anyString(), anyString())).thenReturn("user-new");
+        doNothing().when(zitadelManagementClient).addUserGrant(anyString(), anyString(), anyString(), anyString());
+        doNothing().when(zitadelManagementClient).createInviteCode(anyString());
 
         Map<String, String> body = new LinkedHashMap<>();
         body.put("email", "new@example.com");
@@ -123,7 +130,7 @@ class MemberManagementIntegrationTest {
 
     @Test
     void inviteMember_EmailConflict() throws Exception {
-        stubEmailExists();
+        when(zitadelManagementClient.emailExists(anyString())).thenReturn(true);
 
         Map<String, String> body = new LinkedHashMap<>();
         body.put("email", "existing@example.com");
@@ -173,8 +180,10 @@ class MemberManagementIntegrationTest {
 
     @Test
     void reinviteMember_Success() throws Exception {
-        stubGetUser("USER_STATE_INITIAL");
-        stubCreateInviteCode();
+        UserServiceUser user = mock(UserServiceUser.class);
+        when(user.getState()).thenReturn(UserServiceUserState.USER_STATE_INITIAL);
+        when(zitadelManagementClient.getUser("some-user-id")).thenReturn(Optional.of(user));
+        doNothing().when(zitadelManagementClient).createInviteCode(anyString());
 
         mockMvc.perform(post("/organizations/{orgId}/members/{zitadelUserId}/reinvite", myOrg.getId(), "some-user-id")
             .with(jwt().jwt(buildJwt("admin-sub", "COMPANY_ADMIN"))
@@ -184,55 +193,15 @@ class MemberManagementIntegrationTest {
 
     @Test
     void reinviteMember_Conflict_AlreadyActive() throws Exception {
-        stubGetUser("USER_STATE_ACTIVE");
+        UserServiceUser user = mock(UserServiceUser.class);
+        when(user.getState()).thenReturn(UserServiceUserState.USER_STATE_ACTIVE);
+        when(zitadelManagementClient.getUser("some-user-id")).thenReturn(Optional.of(user));
 
         mockMvc.perform(post("/organizations/{orgId}/members/{zitadelUserId}/reinvite", myOrg.getId(), "some-user-id")
             .with(jwt().jwt(buildJwt("admin-sub", "COMPANY_ADMIN"))
                     .authorities(new SimpleGrantedAuthority("ROLE_COMPANY_ADMIN"))))
             .andExpect(status().isConflict())
             .andExpect(jsonPath("$.detail").value("USER_ALREADY_ACTIVE: some-user-id"));
-    }
-
-    // --- Stubs ---
-
-    private void stubEmailNotExists() {
-        wireMockServer.stubFor(WireMock.post(urlPathMatching("/v2/users.*"))
-            .willReturn(okJson("{\"result\": []}")));
-        wireMockServer.stubFor(WireMock.post(urlPathMatching("/zitadel\\.user\\.v2\\.Users/.*"))
-            .willReturn(okJson("{\"result\": []}")));
-    }
-
-    private void stubEmailExists() {
-        wireMockServer.stubFor(WireMock.post(urlPathMatching("/v2/users.*"))
-            .willReturn(okJson("{\"result\": [{\"userId\": \"existing-user\"}]}")));
-        wireMockServer.stubFor(WireMock.post(urlPathMatching("/zitadel\\.user\\.v2\\.Users/.*"))
-            .willReturn(okJson("{\"result\": [{\"userId\": \"existing-user\"}]}")));
-    }
-
-    private void stubAddHumanUser(String userId) {
-        wireMockServer.stubFor(WireMock.post(urlPathMatching("/v2/users/human"))
-            .willReturn(okJson("{\"userId\": \"" + userId + "\"}")));
-        wireMockServer.stubFor(WireMock.post(urlPathMatching("/zitadel\\.user\\.v2\\.Users/AddHumanUser"))
-            .willReturn(okJson("{\"userId\": \"" + userId + "\"}")));
-    }
-
-    private void stubAddUserGrant() {
-        wireMockServer.stubFor(WireMock.post(urlPathMatching("/management/v1/users/.*/grants"))
-            .willReturn(ok()));
-    }
-
-    private void stubCreateInviteCode() {
-        wireMockServer.stubFor(WireMock.post(urlPathMatching("/v2/users/.*/invite_code"))
-            .willReturn(ok()));
-        wireMockServer.stubFor(WireMock.post(urlPathMatching("/zitadel\\.user\\.v2\\.Users/CreateInviteCode"))
-            .willReturn(ok()));
-    }
-
-    private void stubGetUser(String state) {
-        wireMockServer.stubFor(WireMock.get(urlPathMatching("/v2/users/.*"))
-            .willReturn(okJson("{\"user\": {\"state\": \"" + state + "\"}}")));
-        wireMockServer.stubFor(WireMock.post(urlPathMatching("/zitadel\\.user\\.v2\\.Users/GetUser"))
-            .willReturn(okJson("{\"user\": {\"state\": \"" + state + "\"}}")));
     }
 
     // --- JWT builder ---

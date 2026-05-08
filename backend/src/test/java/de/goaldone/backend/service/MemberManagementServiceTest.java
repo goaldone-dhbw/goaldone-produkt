@@ -59,11 +59,11 @@ class MemberManagementServiceTest {
         
         // Mock Security Context
         Jwt jwt = mock(Jwt.class);
-        when(jwt.getSubject()).thenReturn(callerSub);
+        lenient().when(jwt.getSubject()).thenReturn(callerSub);
         Authentication authentication = mock(Authentication.class);
-        when(authentication.getPrincipal()).thenReturn(jwt);
+        lenient().when(authentication.getPrincipal()).thenReturn(jwt);
         SecurityContext securityContext = mock(SecurityContext.class);
-        when(securityContext.getAuthentication()).thenReturn(authentication);
+        lenient().when(securityContext.getAuthentication()).thenReturn(authentication);
         SecurityContextHolder.setContext(securityContext);
 
         // Reflection to set @Value fields
@@ -190,13 +190,6 @@ class MemberManagementServiceTest {
         when(zitadelManagementClient.searchUserGrants(anyString(), anyString(), eq("target-user")))
                 .thenReturn(Optional.of(grant));
 
-        AuthorizationServiceListAuthorizationsResponse allGrants = buildAuthorizationsResponse(
-                List.of("target-user"),
-                List.of("USER")
-        );
-        when(zitadelManagementClient.listAllGrants(anyString(), anyString()))
-                .thenReturn(allGrants);
-
         UserAccountEntity targetAcc = new UserAccountEntity();
         UUID targetAccId = UUID.randomUUID();
         targetAcc.setId(targetAccId);
@@ -225,13 +218,6 @@ class MemberManagementServiceTest {
         UserGrantDto grant = new UserGrantDto("grant-1", List.of("USER"));
         when(zitadelManagementClient.searchUserGrants(anyString(), anyString(), eq("target-user")))
                 .thenReturn(Optional.of(grant));
-
-        AuthorizationServiceListAuthorizationsResponse allGrants = buildAuthorizationsResponse(
-                List.of("target-user"),
-                List.of("USER")
-        );
-        when(zitadelManagementClient.listAllGrants(anyString(), anyString()))
-                .thenReturn(allGrants);
 
         when(userAccountRepository.findByZitadelSub("target-user")).thenReturn(Optional.empty());
 
