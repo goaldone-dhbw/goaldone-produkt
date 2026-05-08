@@ -5,6 +5,7 @@ import de.goaldone.backend.entity.OrganizationEntity;
 import de.goaldone.backend.entity.UserAccountEntity;
 import de.goaldone.backend.model.AccountListResponse;
 import de.goaldone.backend.model.AccountResponse;
+import de.goaldone.backend.model.MemberRole;
 import de.goaldone.backend.repository.OrganizationRepository;
 import de.goaldone.backend.repository.UserAccountRepository;
 import de.goaldone.backend.repository.WorkingTimeRepository;
@@ -14,6 +15,7 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -98,19 +100,19 @@ public class UserIdentityService {
                 r.setRoles(roles);
                 r.setHasConflicts(hasConflicts);
 
-                zitadelManagementClient.getUser(account.getZitadelSub()).ifPresent(userNode -> {
-                    if (userNode.has("human")) {
-                        var human = userNode.get("human");
-                        if (human.has("email") && human.get("email").has("email")) {
-                            r.setEmail(human.get("email").get("email").asText());
+                zitadelManagementClient.getUser(account.getZitadelSub()).ifPresent(user -> {
+                    if (user.getHuman() != null) {
+                        var human = user.getHuman();
+                        if (human.getEmail() != null) {
+                            r.setEmail(human.getEmail().getEmail());
                         }
-                        if (human.has("profile")) {
-                            var profile = human.get("profile");
-                            if (profile.has("givenName")) {
-                                r.setFirstName(profile.get("givenName").asText());
+                        if (human.getProfile() != null) {
+                            var profile = human.getProfile();
+                            if (profile.getGivenName() != null) {
+                                r.setFirstName(profile.getGivenName());
                             }
-                            if (profile.has("familyName")) {
-                                r.setLastName(profile.get("familyName").asText());
+                            if (profile.getFamilyName() != null) {
+                                r.setLastName(profile.getFamilyName());
                             }
                         }
                     }
@@ -123,6 +125,11 @@ public class UserIdentityService {
         AccountListResponse response = new AccountListResponse();
         response.setAccounts(responses);
         return response;
+    }
+
+
+    private List<UserAccountEntity> getAccountInformationOfCurrentLoggedInUser(Jwt jwt) {
+        return userAccountRepository.findAllByUserIdentityId(findIdentityFromAccount(jwt));
     }
 
     /**
@@ -149,5 +156,49 @@ public class UserIdentityService {
 
         return accounts.getAccounts().stream()
                 .anyMatch(account -> account.getAccountId().equals(accountId));
+    }
+
+    /**
+     * Checks if the user associated with the provided JWT has access to the specified organization and account IDs with any role
+     * @param jwt JWT Token of the logged in user
+     * @param organizationId UUID of the organization
+     * @return
+     */
+    public boolean hasUserAccessToOrganization(Jwt jwt, UUID organizationId) {
+        List<UserAccountEntity> accounts = getAccountInformationOfCurrentLoggedInUser(jwt);
+
+        return accounts.stream()
+                .anyMatch(account -> account.getOrganizationId().equals(organizationId));
+    }
+
+    /**
+     * Checks if the user associated with the provided JWT has access to the specified organization and account IDs with the specified role
+     * @param jwt JWT Token of the logged in user
+     * @param organizationId UUID of the organization (local DB Id)
+     * @param role Role of the user in the organization to check against
+     * @return true if the user has access to the organization, false otherwise
+     */
+    public boolean hasUserAccessToOrganizationWithRole(Jwt jwt, UUID organizationId, MemberRole role) {
+        List<UserAccountEntity> accounts = getAccountInformationOfCurrentLoggedInUser(jwt);
+
+        Optional<UserAccountEntity> account = accounts.stream()
+                .filter(a -> a.getOrganizationId().equals(organizationId))
+                .findFirst();
+
+        if(account.isEmpty()) {
+            return false;
+        }
+
+        List<MemberRole> roles = zitadelManagementClient.listGrantsForSpecificUser(goaldoneProjectId, account.get().getZitadelSub())
+                .getAuthorizations()
+                .stream()
+                .map(auth -> {
+                    if(auth.getRoles().isEmpty()) {
+                        return null;
+                    }
+                    return MemberRole.fromValue(auth.getRoles().getFirst().getKey());
+                }).toList();
+
+        return !roles.isEmpty() && roles.contains(role);
     }
 }
