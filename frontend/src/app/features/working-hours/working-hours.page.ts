@@ -174,14 +174,14 @@ export class WorkingHoursPage implements OnInit {
         const allAppointments = results.flat();
 
         this.breaks.set(
-          allAppointments.filter((item: any) => {
-            return (
+          allAppointments.filter(
+            (item: any) =>
+              item.isBreak === true ||
               item.type === 'BREAK' ||
               item.appointmentType === 'BREAK' ||
               item.kind === 'BREAK' ||
-              item.category === 'BREAK'
-            );
-          }),
+              item.category === 'BREAK',
+          ),
         );
 
         this.breaksLoading.set(false);
@@ -388,11 +388,10 @@ export class WorkingHoursPage implements OnInit {
       return;
     }
 
-
     const request: AppointmentCreate = {
       title: this.breakTitle,
       isBreak: true,
-      appointmentType: 'BREAK' as any,
+      appointmentType: this.breakType === 'ONCE' ? 'ONE_TIME' : 'RECURRING',
       date: this.breakType === 'ONCE' ? this.breakDate : null,
       startTime: this.breakStartTime,
       endTime: this.breakEndTime,

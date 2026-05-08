@@ -4,8 +4,8 @@
     <p-confirmDialog />
 
     <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-      <div>
-        <h1 class="text-3xl font-bold tracking-tight text-slate-900">
+      <div class="text-center sm:text-left">
+        <h1 class="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
           Arbeitszeiten & Pausen
         </h1>
         <p class="mt-2 text-sm text-slate-600">
@@ -13,13 +13,14 @@
         </p>
       </div>
 
-      <div class="flex flex-wrap gap-2">
+      <div class="flex flex-col gap-2 sm:flex-row">
         <p-button
           label="Neue Pause"
           icon="pi pi-plus"
           severity="secondary"
           (onClick)="openCreateBreakDialog()"
           [loading]="breaksLoading()"
+          class="w-full sm:w-auto"
         ></p-button>
 
         <p-button
@@ -27,6 +28,7 @@
           icon="pi pi-plus"
           (onClick)="openCreateDialog()"
           [loading]="loading()"
+          class="w-full sm:w-auto"
         ></p-button>
       </div>
     </div>
@@ -63,7 +65,7 @@
                     }
                   </div>
 
-                  <div class="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-slate-600">
+                  <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-6 sm:gap-y-2 text-sm text-slate-600">
                     <div class="flex items-center gap-2">
                       <span class="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
                         <i class="pi pi-calendar text-xs text-primary-icon"></i> Tage:
@@ -76,7 +78,7 @@
                         <i class="pi pi-clock text-xs text-primary-icon"></i> Zeit:
                       </span>
                       <span>{{ item.startTime }} – {{ item.endTime }}</span>
-                      <span class="text-slate-300">|</span>
+                      <span class="hidden sm:inline text-slate-300">|</span>
                       <span class="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
                         Dauer:
                       </span>
@@ -115,14 +117,6 @@
     <div class="mt-8 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
       <div class="flex items-center justify-between border-b border-slate-200 px-4 py-4">
         <h2 class="text-lg font-semibold text-slate-900">Deine Pausen</h2>
-
-        <p-button
-          label="Pause hinzufügen"
-          icon="pi pi-plus"
-          size="small"
-          severity="secondary"
-          (onClick)="openCreateBreakDialog()"
-        />
       </div>
 
       @if (breaksLoading()) {
@@ -149,7 +143,7 @@
                     </span>
                   </div>
 
-                  <div class="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-slate-600">
+                  <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-6 sm:gap-y-2 text-sm text-slate-600">
                     <div class="flex items-center gap-2">
                       <span class="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
                         <i class="pi pi-building text-xs text-primary-icon"></i> Organisation:
