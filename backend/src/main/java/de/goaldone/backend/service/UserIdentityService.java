@@ -189,7 +189,7 @@ public class UserIdentityService {
             return false;
         }
 
-        List<MemberRole> roles = zitadelManagementClient.listGrantsForSpecificUser(account.get().getZitadelSub(), goaldoneProjectId)
+        List<MemberRole> roles = zitadelManagementClient.listGrantsForSpecificUser(goaldoneProjectId, account.get().getZitadelSub())
                 .getAuthorizations()
                 .stream()
                 .map(auth -> {

@@ -30,6 +30,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -105,10 +106,15 @@ class MemberManagementIntegrationTest {
                 myOrg.getId(), identity.getId(),
                 Instant.now(), Instant.now(), new ArrayList<>());
         userAccountRepository.save(myAdminAccount);
+
+        // Default stub for authorization check
+        com.zitadel.model.AuthorizationServiceListAuthorizationsResponse response = mock(com.zitadel.model.AuthorizationServiceListAuthorizationsResponse.class);
+        when(zitadelManagementClient.listGrantsForSpecificUser(anyString(), anyString())).thenReturn(response);
     }
 
     @Test
     void inviteMember_Success() throws Exception {
+        stubUserRole("admin-sub", "COMPANY_ADMIN");
         when(zitadelManagementClient.emailExists(anyString())).thenReturn(false);
         when(zitadelManagementClient.addHumanUser(anyString(), anyString(), anyString(), anyString())).thenReturn("user-new");
         doNothing().when(zitadelManagementClient).addUserGrant(anyString(), anyString(), anyString(), anyString());
@@ -130,6 +136,7 @@ class MemberManagementIntegrationTest {
 
     @Test
     void inviteMember_EmailConflict() throws Exception {
+        stubUserRole("admin-sub", "COMPANY_ADMIN");
         when(zitadelManagementClient.emailExists(anyString())).thenReturn(true);
 
         Map<String, String> body = new LinkedHashMap<>();
@@ -148,6 +155,7 @@ class MemberManagementIntegrationTest {
 
     @Test
     void inviteMember_Forbidden_WrongOrg() throws Exception {
+        stubUserRole("admin-sub", "COMPANY_ADMIN");
         UUID otherOrgId = UUID.randomUUID();
 
         Map<String, String> body = new LinkedHashMap<>();
@@ -165,6 +173,7 @@ class MemberManagementIntegrationTest {
 
     @Test
     void inviteMember_Forbidden_NoAdminRole() throws Exception {
+        stubUserRole("admin-sub", "USER");
         Map<String, String> body = new LinkedHashMap<>();
         body.put("email", "new@example.com");
         body.put("firstName", "Max");
@@ -180,6 +189,7 @@ class MemberManagementIntegrationTest {
 
     @Test
     void reinviteMember_Success() throws Exception {
+        stubUserRole("admin-sub", "COMPANY_ADMIN");
         UserServiceUser user = mock(UserServiceUser.class);
         when(user.getState()).thenReturn(UserServiceUserState.USER_STATE_INITIAL);
         when(zitadelManagementClient.getUser("some-user-id")).thenReturn(Optional.of(user));
@@ -193,6 +203,7 @@ class MemberManagementIntegrationTest {
 
     @Test
     void reinviteMember_Conflict_AlreadyActive() throws Exception {
+        stubUserRole("admin-sub", "COMPANY_ADMIN");
         UserServiceUser user = mock(UserServiceUser.class);
         when(user.getState()).thenReturn(UserServiceUserState.USER_STATE_ACTIVE);
         when(zitadelManagementClient.getUser("some-user-id")).thenReturn(Optional.of(user));
@@ -202,6 +213,20 @@ class MemberManagementIntegrationTest {
                     .authorities(new SimpleGrantedAuthority("ROLE_COMPANY_ADMIN"))))
             .andExpect(status().isConflict())
             .andExpect(jsonPath("$.detail").value("USER_ALREADY_ACTIVE: some-user-id"));
+    }
+
+    // --- Helpers ---
+
+    private void stubUserRole(String userId, String roleKey) {
+        com.zitadel.model.AuthorizationServiceAuthorization auth = mock(com.zitadel.model.AuthorizationServiceAuthorization.class);
+        com.zitadel.model.AuthorizationServiceRole role = mock(com.zitadel.model.AuthorizationServiceRole.class);
+        when(role.getKey()).thenReturn(roleKey);
+        when(auth.getRoles()).thenReturn(List.of(role));
+
+        com.zitadel.model.AuthorizationServiceListAuthorizationsResponse response = mock(com.zitadel.model.AuthorizationServiceListAuthorizationsResponse.class);
+        when(response.getAuthorizations()).thenReturn(List.of(auth));
+
+        when(zitadelManagementClient.listGrantsForSpecificUser(anyString(), anyString())).thenReturn(response);
     }
 
     // --- JWT builder ---

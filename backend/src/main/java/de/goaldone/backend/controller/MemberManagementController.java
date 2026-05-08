@@ -30,8 +30,8 @@ public class MemberManagementController implements MemberManagementApi {
 
     @Override
     public ResponseEntity<Void> inviteMember(UUID orgId, InviteMemberRequest inviteMemberRequest) {
-        if(userIdentityService.hasUserAccessToOrganizationWithRole(currrentUserResolver.extractJwt(), orgId, MemberRole.COMPANY_ADMIN)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Cannot list members of organization on this endpoint");
+        if(!userIdentityService.hasUserAccessToOrganizationWithRole(currrentUserResolver.extractJwt(), orgId, MemberRole.COMPANY_ADMIN)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Insufficient permissions to invite members");
         }
         memberInviteService.inviteMember(orgId, inviteMemberRequest);
         return ResponseEntity.status(201).build();
@@ -39,8 +39,8 @@ public class MemberManagementController implements MemberManagementApi {
 
     @Override
     public ResponseEntity<Void> reinviteMember(UUID orgId, String zitadelUserId) {
-        if(userIdentityService.hasUserAccessToOrganizationWithRole(currrentUserResolver.extractJwt(), orgId, MemberRole.COMPANY_ADMIN)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Cannot list members of organization on this endpoint");
+        if(!userIdentityService.hasUserAccessToOrganizationWithRole(currrentUserResolver.extractJwt(), orgId, MemberRole.COMPANY_ADMIN)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Insufficient permissions to reinvite members");
         }
         memberInviteService.reinviteMember(orgId, zitadelUserId);
         return ResponseEntity.noContent().build();
@@ -48,16 +48,16 @@ public class MemberManagementController implements MemberManagementApi {
 
     @Override
     public ResponseEntity<MemberListResponse> listMembers(UUID orgId) {
-        if(userIdentityService.hasUserAccessToOrganizationWithRole(currrentUserResolver.extractJwt(), orgId, MemberRole.COMPANY_ADMIN)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Cannot list members of organization on this endpoint");
+        if(!userIdentityService.hasUserAccessToOrganizationWithRole(currrentUserResolver.extractJwt(), orgId, MemberRole.COMPANY_ADMIN)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Insufficient permissions to list members");
         }
         return ResponseEntity.ok(memberManagementService.listMembers(orgId));
     }
 
     @Override
     public ResponseEntity<Void> changeMemberRole(UUID orgId, String zitadelUserId, ChangeRoleRequest changeRoleRequest) {
-        if(userIdentityService.hasUserAccessToOrganizationWithRole(currrentUserResolver.extractJwt(), orgId, MemberRole.COMPANY_ADMIN)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Cannot list members of organization on this endpoint");
+        if(!userIdentityService.hasUserAccessToOrganizationWithRole(currrentUserResolver.extractJwt(), orgId, MemberRole.COMPANY_ADMIN)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Insufficient permissions to change member roles");
         }
         memberManagementService.changeMemberRole(orgId, zitadelUserId, changeRoleRequest);
         return ResponseEntity.ok().build();
@@ -65,8 +65,8 @@ public class MemberManagementController implements MemberManagementApi {
 
     @Override
     public ResponseEntity<Void> removeMember(UUID orgId, String zitadelUserId) {
-        if(userIdentityService.hasUserAccessToOrganizationWithRole(currrentUserResolver.extractJwt(), orgId, MemberRole.COMPANY_ADMIN)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Cannot list members of organization on this endpoint");
+        if(!userIdentityService.hasUserAccessToOrganizationWithRole(currrentUserResolver.extractJwt(), orgId, MemberRole.COMPANY_ADMIN)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Insufficient permissions to remove members");
         }
         memberManagementService.removeMember(orgId, zitadelUserId);
         return ResponseEntity.noContent().build();

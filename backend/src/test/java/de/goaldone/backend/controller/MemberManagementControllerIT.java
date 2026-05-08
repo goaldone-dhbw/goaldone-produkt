@@ -2,7 +2,10 @@ package de.goaldone.backend.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.WireMockServer;
+import com.zitadel.model.*;
 import de.goaldone.backend.SharedWiremockSetup;
+import de.goaldone.backend.client.UserGrantDto;
+import de.goaldone.backend.client.ZitadelManagementClient;
 import de.goaldone.backend.entity.OrganizationEntity;
 import de.goaldone.backend.entity.UserAccountEntity;
 import de.goaldone.backend.entity.UserIdentityEntity;
@@ -19,6 +22,7 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtClaimsSet;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
@@ -26,33 +30,24 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 
 import java.time.Instant;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
-import static com.github.tomakehurst.wiremock.client.WireMock.delete;
-import static com.github.tomakehurst.wiremock.client.WireMock.matchingJsonPath;
-import static com.github.tomakehurst.wiremock.client.WireMock.ok;
-import static com.github.tomakehurst.wiremock.client.WireMock.okJson;
-import static com.github.tomakehurst.wiremock.client.WireMock.post;
-import static com.github.tomakehurst.wiremock.client.WireMock.put;
-import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
-import static com.github.tomakehurst.wiremock.client.WireMock.urlMatching;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.*;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest(properties = {
-    "spring.security.oauth2.resourceserver.jwt.issuer-uri=http://localhost:8099",
+    "spring.security.oauth2.resourceserver.jwt.issuer-uri=http://localhost:8080",
     "zitadel.goaldone.project-id=project-1",
     "zitadel.goaldone.org-id=root-org"
 })
 @ActiveProfiles("local")
 class MemberManagementControllerIT {
-
-    private static final WireMockServer wireMockServer = SharedWiremockSetup.getSharedWireMockServer();
 
     @Autowired
     private WebApplicationContext webApplicationContext;
@@ -66,6 +61,9 @@ class MemberManagementControllerIT {
     @Autowired
     private OrganizationRepository organizationRepository;
 
+    @MockitoBean
+    private ZitadelManagementClient zitadelManagementClient;
+
     private MockMvc mockMvc;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private UUID orgId;
@@ -74,11 +72,6 @@ class MemberManagementControllerIT {
 
     @BeforeEach
     void setUp() {
-        if (!wireMockServer.isRunning()) {
-            wireMockServer.start();
-        }
-        wireMockServer.resetAll();
-
         mockMvc = MockMvcBuilders
             .webAppContextSetup(webApplicationContext)
             .apply(springSecurity())
@@ -96,6 +89,41 @@ class MemberManagementControllerIT {
         userIdentityRepository.save(callerIdentity);
     }
 
+    private void stubUserRole(String userId, String roleKey) {
+        AuthorizationServiceAuthorization auth = mock(AuthorizationServiceAuthorization.class);
+        when(auth.getId()).thenReturn("auth-id-" + userId);
+        AuthorizationServiceRole role = mock(AuthorizationServiceRole.class);
+        when(role.getKey()).thenReturn(roleKey);
+        when(auth.getRoles()).thenReturn(List.of(role));
+
+        AuthorizationServiceListAuthorizationsResponse response = mock(AuthorizationServiceListAuthorizationsResponse.class);
+        when(response.getAuthorizations()).thenReturn(List.of(auth));
+
+        when(zitadelManagementClient.listGrantsForSpecificUser(anyString(), eq(userId))).thenReturn(response);
+    }
+
+    private void stubAllOrgGrants(List<Map<String, String>> userRoles) {
+        List<AuthorizationServiceAuthorization> authorizations = new ArrayList<>();
+        for (Map<String, String> ur : userRoles) {
+            AuthorizationServiceUser user = mock(AuthorizationServiceUser.class);
+            when(user.getId()).thenReturn(ur.get("userId"));
+
+            AuthorizationServiceRole role = mock(AuthorizationServiceRole.class);
+            when(role.getKey()).thenReturn(ur.get("role"));
+
+            AuthorizationServiceAuthorization auth = mock(AuthorizationServiceAuthorization.class);
+            when(auth.getId()).thenReturn("auth-id-" + ur.get("userId"));
+            when(auth.getUser()).thenReturn(user);
+            when(auth.getRoles()).thenReturn(List.of(role));
+            authorizations.add(auth);
+        }
+
+        AuthorizationServiceListAuthorizationsResponse response = mock(AuthorizationServiceListAuthorizationsResponse.class);
+        when(response.getAuthorizations()).thenReturn(authorizations);
+
+        when(zitadelManagementClient.listAllGrants(anyString(), anyString())).thenReturn(response);
+    }
+
     // =========================================================
     // Testfall 1 – Mitgliederliste anzeigen
     // =========================================================
@@ -104,29 +132,30 @@ class MemberManagementControllerIT {
     void listMembers_Success() throws Exception {
         // Arrange
         saveCallerAccount();
+        stubUserRole("caller-sub", "COMPANY_ADMIN");
 
-        wireMockServer.stubFor(post(urlEqualTo("/management/v1/users/grants/_search"))
-                .willReturn(okJson("""
-                        {
-                          "result": [
-                            { "userId": "user-1", "roleKeys": ["USER"] }
-                          ]
-                        }
-                        """)));
+        stubAllOrgGrants(List.of(
+                Map.of("userId", "user-1", "role", "USER")
+        ));
 
-        wireMockServer.stubFor(post(urlEqualTo("/v2/users"))
-                .willReturn(okJson("""
-                        {
-                          "result": [
-                            {
-                              "id": "user-1",
-                              "state": "USER_STATE_ACTIVE",
-                              "human": { "email": { "email": "user1@test.com" }, "profile": { "givenName": "User", "familyName": "One" } },
-                              "details": { "creationDate": "2023-01-01T00:00:00Z" }
-                            }
-                          ]
-                        }
-                        """)));
+        UserServiceUser user1 = mock(UserServiceUser.class);
+        when(user1.getUserId()).thenReturn("user-1");
+        UserServiceUserState state = UserServiceUserState.USER_STATE_ACTIVE;
+        when(user1.getState()).thenReturn(state);
+        
+        UserServiceHumanUser human = mock(UserServiceHumanUser.class);
+        UserServiceHumanEmail email = mock(UserServiceHumanEmail.class);
+        when(email.getEmail()).thenReturn("user1@test.com");
+        when(human.getEmail()).thenReturn(email);
+        UserServiceHumanProfile profile = mock(UserServiceHumanProfile.class);
+        when(profile.getGivenName()).thenReturn("User");
+        when(profile.getFamilyName()).thenReturn("One");
+        when(human.getProfile()).thenReturn(profile);
+        when(user1.getHuman()).thenReturn(human);
+
+        UserServiceListUsersResponse usersResponse = mock(UserServiceListUsersResponse.class);
+        when(usersResponse.getResult()).thenReturn(List.of(user1));
+        when(zitadelManagementClient.listUsersOfOrg(anyString())).thenReturn(usersResponse);
 
         // Act & Assert
         mockMvc.perform(MockMvcRequestBuilders.get("/organizations/" + orgId + "/members")
@@ -144,18 +173,11 @@ class MemberManagementControllerIT {
     void changeMemberRole_Success() throws Exception {
         // Arrange
         saveCallerAccount();
+        stubUserRole("caller-sub", "COMPANY_ADMIN");
 
-        wireMockServer.stubFor(post(urlEqualTo("/management/v1/users/grants/_search"))
-                .willReturn(okJson("""
-                        {
-                          "result": [
-                            { "grantId": "grant-1", "roleKeys": ["USER"] }
-                          ]
-                        }
-                        """)));
-
-        wireMockServer.stubFor(put(urlMatching("/management/v1/users/grants/grant-1"))
-                .willReturn(ok()));
+        stubAllOrgGrants(List.of(
+                Map.of("userId", "user-1", "role", "USER")
+        ));
 
         Map<String, String> body = Map.of("role", "COMPANY_ADMIN");
 
@@ -165,6 +187,8 @@ class MemberManagementControllerIT {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(body)))
                 .andExpect(status().isOk());
+
+        verify(zitadelManagementClient).updateProjectAuthorization(anyString(), eq("COMPANY_ADMIN"));
     }
 
     // =========================================================
@@ -175,32 +199,12 @@ class MemberManagementControllerIT {
     void changeMemberRole_DemoteAdmin_MultipleAdmins_Success() throws Exception {
         // Arrange
         saveCallerAccount();
+        stubUserRole("caller-sub", "COMPANY_ADMIN");
 
-        // searchUserGrants: body contains userIdQuery
-        wireMockServer.stubFor(post(urlEqualTo("/management/v1/users/grants/_search"))
-                .withRequestBody(matchingJsonPath("$.queries[?(@.userIdQuery)]"))
-                .willReturn(okJson("""
-                        {
-                          "result": [
-                            { "grantId": "grant-1", "roleKeys": ["COMPANY_ADMIN"] }
-                          ]
-                        }
-                        """)));
-
-        // listAllGrants: body contains organizationIdQuery – 2 admins present
-        wireMockServer.stubFor(post(urlEqualTo("/management/v1/users/grants/_search"))
-                .withRequestBody(matchingJsonPath("$.queries[?(@.organizationIdQuery)]"))
-                .willReturn(okJson("""
-                        {
-                          "result": [
-                            { "userId": "user-1", "roleKeys": ["COMPANY_ADMIN"] },
-                            { "userId": "other-admin", "roleKeys": ["COMPANY_ADMIN"] }
-                          ]
-                        }
-                        """)));
-
-        wireMockServer.stubFor(put(urlMatching("/management/v1/users/grants/grant-1"))
-                .willReturn(ok()));
+        stubAllOrgGrants(List.of(
+                Map.of("userId", "user-1", "role", "COMPANY_ADMIN"),
+                Map.of("userId", "other-admin", "role", "COMPANY_ADMIN")
+        ));
 
         Map<String, String> body = Map.of("role", "USER");
 
@@ -210,6 +214,8 @@ class MemberManagementControllerIT {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(body)))
                 .andExpect(status().isOk());
+
+        verify(zitadelManagementClient).updateProjectAuthorization(anyString(), eq("USER"));
     }
 
     // =========================================================
@@ -220,30 +226,12 @@ class MemberManagementControllerIT {
     void changeMemberRole_SelfDemotion_MultipleAdmins_Success() throws Exception {
         // Arrange
         saveCallerAccount();
+        stubUserRole("caller-sub", "COMPANY_ADMIN");
 
-        wireMockServer.stubFor(post(urlEqualTo("/management/v1/users/grants/_search"))
-                .withRequestBody(matchingJsonPath("$.queries[?(@.userIdQuery)]"))
-                .willReturn(okJson("""
-                        {
-                          "result": [
-                            { "grantId": "grant-1", "roleKeys": ["COMPANY_ADMIN"] }
-                          ]
-                        }
-                        """)));
-
-        wireMockServer.stubFor(post(urlEqualTo("/management/v1/users/grants/_search"))
-                .withRequestBody(matchingJsonPath("$.queries[?(@.organizationIdQuery)]"))
-                .willReturn(okJson("""
-                        {
-                          "result": [
-                            { "userId": "caller-sub", "roleKeys": ["COMPANY_ADMIN"] },
-                            { "userId": "other-admin", "roleKeys": ["COMPANY_ADMIN"] }
-                          ]
-                        }
-                        """)));
-
-        wireMockServer.stubFor(put(urlMatching("/management/v1/users/grants/grant-1"))
-                .willReturn(ok()));
+        stubAllOrgGrants(List.of(
+                Map.of("userId", "caller-sub", "role", "COMPANY_ADMIN"),
+                Map.of("userId", "other-admin", "role", "COMPANY_ADMIN")
+        ));
 
         Map<String, String> body = Map.of("role", "USER");
 
@@ -263,23 +251,20 @@ class MemberManagementControllerIT {
     void removeMember_Active_Success() throws Exception {
         // Arrange
         saveCallerAccount();
+        stubUserRole("caller-sub", "COMPANY_ADMIN");
 
         UserIdentityEntity targetIdentity = new UserIdentityEntity(UUID.randomUUID(), Instant.now());
         userIdentityRepository.save(targetIdentity);
         UserAccountEntity targetAccount = new UserAccountEntity(UUID.randomUUID(), "user-1", orgId, targetIdentity.getId(), Instant.now(), null, null);
         userAccountRepository.save(targetAccount);
 
-        wireMockServer.stubFor(post(urlEqualTo("/management/v1/users/grants/_search"))
-                .willReturn(okJson("""
-                        {
-                          "result": [
-                            { "grantId": "grant-1", "roleKeys": ["USER"] }
-                          ]
-                        }
-                        """)));
+        when(zitadelManagementClient.searchUserGrants(anyString(), anyString(), eq("user-1")))
+                .thenReturn(Optional.of(new UserGrantDto("grant-1", List.of("USER"))));
 
-        wireMockServer.stubFor(delete(urlEqualTo("/v2/users/user-1"))
-                .willReturn(ok()));
+        stubAllOrgGrants(List.of(
+                Map.of("userId", "caller-sub", "role", "COMPANY_ADMIN"),
+                Map.of("userId", "user-1", "role", "USER")
+        ));
 
         // Act & Assert
         mockMvc.perform(MockMvcRequestBuilders.delete("/organizations/" + orgId + "/members/user-1")
@@ -297,23 +282,22 @@ class MemberManagementControllerIT {
     void removeMember_Invited_Success() throws Exception {
         // Arrange – invited user has no local UserAccountEntity
         saveCallerAccount();
+        stubUserRole("caller-sub", "COMPANY_ADMIN");
 
-        wireMockServer.stubFor(post(urlEqualTo("/management/v1/users/grants/_search"))
-                .willReturn(okJson("""
-                        {
-                          "result": [
-                            { "grantId": "grant-1", "roleKeys": ["USER"] }
-                          ]
-                        }
-                        """)));
+        when(zitadelManagementClient.searchUserGrants(anyString(), anyString(), eq("invited-user")))
+                .thenReturn(Optional.of(new UserGrantDto("grant-1", List.of("USER"))));
 
-        wireMockServer.stubFor(delete(urlEqualTo("/v2/users/invited-user"))
-                .willReturn(ok()));
+        stubAllOrgGrants(List.of(
+                Map.of("userId", "caller-sub", "role", "COMPANY_ADMIN"),
+                Map.of("userId", "invited-user", "role", "USER")
+        ));
 
         // Act & Assert
         mockMvc.perform(MockMvcRequestBuilders.delete("/organizations/" + orgId + "/members/invited-user")
                 .with(adminJwt("caller-sub")))
                 .andExpect(status().isNoContent());
+
+        verify(zitadelManagementClient).deleteUser("invited-user");
     }
 
     // =========================================================
@@ -324,16 +308,11 @@ class MemberManagementControllerIT {
     void changeMemberRole_LastAdmin_Conflict() throws Exception {
         // Arrange
         saveCallerAccount();
+        stubUserRole("caller-sub", "COMPANY_ADMIN");
 
-        // Same stub covers both searchUserGrants and listAllGrants – only 1 admin in org
-        wireMockServer.stubFor(post(urlEqualTo("/management/v1/users/grants/_search"))
-                .willReturn(okJson("""
-                        {
-                          "result": [
-                            { "grantId": "grant-1", "userId": "user-1", "roleKeys": ["COMPANY_ADMIN"] }
-                          ]
-                        }
-                        """)));
+        stubAllOrgGrants(List.of(
+                Map.of("userId", "user-1", "role", "COMPANY_ADMIN")
+        ));
 
         Map<String, String> body = Map.of("role", "USER");
 
@@ -353,16 +332,14 @@ class MemberManagementControllerIT {
     void removeMember_LastAdmin_Conflict() throws Exception {
         // Arrange
         saveCallerAccount();
+        stubUserRole("caller-sub", "COMPANY_ADMIN");
 
-        // Same stub covers both searchUserGrants and listAllGrants – only 1 admin in org
-        wireMockServer.stubFor(post(urlEqualTo("/management/v1/users/grants/_search"))
-                .willReturn(okJson("""
-                        {
-                          "result": [
-                            { "grantId": "grant-1", "userId": "user-1", "roleKeys": ["COMPANY_ADMIN"] }
-                          ]
-                        }
-                        """)));
+        when(zitadelManagementClient.searchUserGrants(anyString(), anyString(), eq("user-1")))
+                .thenReturn(Optional.of(new UserGrantDto("grant-1", List.of("COMPANY_ADMIN"))));
+
+        stubAllOrgGrants(List.of(
+                Map.of("userId", "user-1", "role", "COMPANY_ADMIN")
+        ));
 
         // Act & Assert
         mockMvc.perform(MockMvcRequestBuilders.delete("/organizations/" + orgId + "/members/user-1")
@@ -378,6 +355,7 @@ class MemberManagementControllerIT {
     void removeMember_Self_Forbidden() throws Exception {
         // Arrange
         saveCallerAccount();
+        stubUserRole("caller-sub", "COMPANY_ADMIN");
 
         // Act & Assert
         mockMvc.perform(MockMvcRequestBuilders.delete("/organizations/" + orgId + "/members/caller-sub")
@@ -412,15 +390,11 @@ class MemberManagementControllerIT {
     void changeMemberRole_RoleUnchanged_BadRequest() throws Exception {
         // Arrange
         saveCallerAccount();
+        stubUserRole("caller-sub", "COMPANY_ADMIN");
 
-        wireMockServer.stubFor(post(urlEqualTo("/management/v1/users/grants/_search"))
-                .willReturn(okJson("""
-                        {
-                          "result": [
-                            { "grantId": "grant-1", "roleKeys": ["USER"] }
-                          ]
-                        }
-                        """)));
+        stubAllOrgGrants(List.of(
+                Map.of("userId", "user-1", "role", "USER")
+        ));
 
         Map<String, String> body = Map.of("role", "USER");
 
@@ -429,7 +403,7 @@ class MemberManagementControllerIT {
                 .with(adminJwt("caller-sub"))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(body)))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isConflict());
     }
 
     // =========================================================
@@ -438,6 +412,11 @@ class MemberManagementControllerIT {
 
     @Test
     void listMembers_AsUser_Forbidden() throws Exception {
+        // Arrange
+        UserAccountEntity userAccount = new UserAccountEntity(UUID.randomUUID(), "user-sub", orgId, callerIdentity.getId(), Instant.now(), null, null);
+        userAccountRepository.save(userAccount);
+        stubUserRole("user-sub", "USER");
+
         // Act & Assert – @PreAuthorize("hasRole('COMPANY_ADMIN')") rejects USER role
         mockMvc.perform(MockMvcRequestBuilders.get("/organizations/" + orgId + "/members")
                 .with(userJwt("user-sub")))
@@ -463,14 +442,10 @@ class MemberManagementControllerIT {
     void removeMember_UserNotFoundInOrg_NotFound() throws Exception {
         // Arrange
         saveCallerAccount();
+        stubUserRole("caller-sub", "COMPANY_ADMIN");
 
-        // searchUserGrants returns empty result → user has no grant in this project
-        wireMockServer.stubFor(post(urlEqualTo("/management/v1/users/grants/_search"))
-                .willReturn(okJson("""
-                        {
-                          "result": []
-                        }
-                        """)));
+        when(zitadelManagementClient.searchUserGrants(anyString(), anyString(), eq("unknown-user")))
+                .thenReturn(Optional.empty());
 
         // Act & Assert
         mockMvc.perform(MockMvcRequestBuilders.delete("/organizations/" + orgId + "/members/unknown-user")

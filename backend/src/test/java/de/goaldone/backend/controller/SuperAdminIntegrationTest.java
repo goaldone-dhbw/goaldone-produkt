@@ -106,8 +106,12 @@ class SuperAdminIntegrationTest {
     void testListSuperAdmins_Success() throws Exception {
         when(zitadelManagementClient.listUserIdsByRole(anyString(), anyString(), anyString()))
             .thenReturn(List.of("admin-1", "admin-2"));
-        when(zitadelManagementClient.getUser("admin-1")).thenReturn(Optional.of(mockUserWithEmail("admin-1", "admin1@goaldone.de")));
-        when(zitadelManagementClient.getUser("admin-2")).thenReturn(Optional.of(mockUserWithEmail("admin-2", "admin2@goaldone.de")));
+        
+        UserServiceUser user1 = mockUserWithEmail("admin-1", "admin1@goaldone.de");
+        UserServiceUser user2 = mockUserWithEmail("admin-2", "admin2@goaldone.de");
+        
+        when(zitadelManagementClient.getUser("admin-1")).thenReturn(Optional.of(user1));
+        when(zitadelManagementClient.getUser("admin-2")).thenReturn(Optional.of(user2));
 
         mockMvc.perform(get("/admins/super-admins")
             .with(jwt().jwt(buildJwt("caller", "SUPER_ADMIN"))
