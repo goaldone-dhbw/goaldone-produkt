@@ -92,6 +92,13 @@ public class UserAccountsController implements UserAccountsApi {
         return ResponseEntity.noContent().build();
     }
 
+    /**
+     * Updates an account's details.
+     * @param accountId  (required) The unique identifier (UUID) of the account to update
+     * @param accountUpdateRequest  (required) The request body containing the updated account details
+     * @return a {@link ResponseEntity} containing the updated {@link AccountResponse}
+     * @throws Exception if the account update fails or if the user does not have access to the account
+     */
     @Override
     public ResponseEntity<AccountResponse> updateAccount(UUID accountId, AccountUpdateRequest accountUpdateRequest) throws Exception {
         hasAccess(accountId);
@@ -99,9 +106,15 @@ public class UserAccountsController implements UserAccountsApi {
         return ResponseEntity.ok(response);
     }
 
+    /**
+     * Update the password of the current user account.
+     * @param passwordUpdateRequest  (required) The request body containing the current password and the new password
+     * @return a {@link ResponseEntity} with HTTP status 204 (No Content)
+     * @throws Exception if the password update fails
+     */
     @Override
-    public ResponseEntity<Void> updateAccountPassword(UUID accountId, PasswordUpdateRequest passwordUpdateRequest) throws Exception {
-        hasAccess(accountId);
+    public ResponseEntity<Void> updateAccountPassword(PasswordUpdateRequest passwordUpdateRequest) throws Exception {
+        UUID accountId = currentUserResolver.resolveCurrentAccount().getId();
         userIdentityService.updateAccountPassword(accountId, passwordUpdateRequest);
         return ResponseEntity.noContent().build();
     }
