@@ -6,6 +6,7 @@ import de.goaldone.backend.entity.OrganizationEntity;
 import de.goaldone.backend.entity.UserAccountEntity;
 import de.goaldone.backend.entity.UserIdentityEntity;
 import de.goaldone.backend.model.AccountUpdateRequest;
+import de.goaldone.backend.model.MemberRole;
 import de.goaldone.backend.model.PasswordUpdateRequest;
 import de.goaldone.backend.repository.OrganizationRepository;
 import de.goaldone.backend.repository.UserAccountRepository;
@@ -145,6 +146,26 @@ class UserAccountsControllerIT {
                 .with(jwtWithAuthorities(sub))
         )
             .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void TC12_deleteAccount_lastAdmin_returns409WithExplanatoryMessage() throws Exception {
+        String sub = "last-admin-sub";
+        UserAccountEntity account = seedAccount(sub);
+
+        // Override: only 1 admin exists in this org
+        when(zitadelManagementClient.listUsersWithTheirRoles(anyString(), anyString()))
+            .thenReturn(java.util.Map.of(sub, List.of(MemberRole.COMPANY_ADMIN)));
+
+        mockMvc.perform(
+            MockMvcRequestBuilders.delete("/users/accounts/{accountId}", account.getId())
+                .with(jwtWithAuthorities(sub))
+        )
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.detail").value("LAST_ADMIN_CANNOT_BE_REMOVED"));
+
+        // Account must still exist — deletion was blocked
+        assertTrue(userAccountRepository.findById(account.getId()).isPresent());
     }
 
     // ============ PATCH /users/accounts/{accountId} Tests ============
@@ -318,6 +339,13 @@ class UserAccountsControllerIT {
             .thenReturn(List.of("COMPANY_ADMIN"));
         when(zitadelManagementClient.getUser(anyString()))
             .thenReturn(Optional.empty());
+
+        // Stub listUsersWithTheirRoles to return 2 admins by default (happy path)
+        when(zitadelManagementClient.listUsersWithTheirRoles(anyString(), anyString()))
+            .thenReturn(java.util.Map.of(
+                "admin-sub-1", List.of(MemberRole.COMPANY_ADMIN),
+                "admin-sub-2", List.of(MemberRole.COMPANY_ADMIN)
+            ));
 
         return account;
     }
