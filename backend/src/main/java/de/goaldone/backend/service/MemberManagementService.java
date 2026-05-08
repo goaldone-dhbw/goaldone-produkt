@@ -67,7 +67,10 @@ public class MemberManagementService {
             String lastName = user.getHuman() != null && user.getHuman().getProfile() != null ? user.getHuman().getProfile().getFamilyName() : "";
             String state = user.getState() != null ? user.getState().toString() : "";
 
-            boolean localAccountExists = localAccounts.stream().anyMatch(acc -> acc.getZitadelSub().equals(zitadelUserId));
+            Optional<UserAccountEntity> localAccount = localAccounts.stream()
+                    .filter(acc -> acc.getZitadelSub().equals(zitadelUserId))
+                    .findFirst();
+            boolean localAccountExists = localAccount.isPresent();
             MemberStatus memberState;
             if(state.equals("USER_STATE_ACTIVE")) {
                 if(localAccountExists) {
@@ -79,6 +82,10 @@ public class MemberManagementService {
                 memberState = MemberStatus.INVITED;
             }
 
+            UUID accountIdUuid = null;
+            if (localAccount.isPresent()) {
+                accountIdUuid = localAccount.get().getId();
+            }
             members.add(new MemberResponse()
                     .zitadelUserId(zitadelUserId)
                     .email(email)
@@ -87,6 +94,7 @@ public class MemberManagementService {
                     .createdAt(user.getDetails() != null && user.getDetails().getCreationDate() != null ? user.getDetails().getCreationDate() : null)
                     .status(memberState)
                     .role(userRoles.getOrDefault(zitadelUserId, List.of()).contains(MemberRole.COMPANY_ADMIN) ? MemberRole.COMPANY_ADMIN : MemberRole.USER)
+                    .accountId(accountIdUuid)
              );
         });
 

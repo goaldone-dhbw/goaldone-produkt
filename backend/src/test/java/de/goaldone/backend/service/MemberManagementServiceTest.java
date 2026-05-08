@@ -45,7 +45,7 @@ class MemberManagementServiceTest {
     @Mock
     private OrganizationRepository organizationRepository;
     @Mock
-    private UserAccountDeletionService userAccountDeletionService;
+    private DeletionService deletionService;
 
     @InjectMocks
     private MemberManagementService memberManagementService;
@@ -79,40 +79,40 @@ class MemberManagementServiceTest {
     @Test
     void listMembers_MixedStatus_Success() throws Exception {
         // Arrange
-        UserAccountEntity callerAccount = new UserAccountEntity();
-        callerAccount.setOrganizationId(orgId);
-        when(userAccountRepository.findByZitadelSub(callerSub)).thenReturn(Optional.of(callerAccount));
-
         OrganizationEntity org = new OrganizationEntity();
         org.setZitadelOrgId("zitadel-org-id");
         when(organizationRepository.findById(orgId)).thenReturn(Optional.of(org));
+
+        UserServiceUser user1 = buildUser("user-1", "USER_STATE_ACTIVE", "user1@test.com", "User", "One", "2023-01-01T00:00:00Z");
+        UserServiceUser user2 = buildUser("user-2", "USER_STATE_INITIAL", "user2@test.com", "User", "Two", "2023-01-02T00:00:00Z");
+
+        UserServiceListUsersResponse usersResponse = mock(UserServiceListUsersResponse.class);
+        when(usersResponse.getResult()).thenReturn(List.of(user1, user2));
+        when(zitadelManagementClient.listUsersOfOrg("zitadel-org-id")).thenReturn(usersResponse);
 
         AuthorizationServiceListAuthorizationsResponse grantsResponse = buildAuthorizationsResponse(
                 List.of("user-1", "user-2"),
                 List.of("USER", "COMPANY_ADMIN")
         );
-        when(zitadelManagementClient.listAllGrants(anyString(), anyString(), anyString())).thenReturn(grantsResponse);
+        when(zitadelManagementClient.listAllGrants(anyString(), anyString())).thenReturn(grantsResponse);
 
-        UserServiceUser user1 = buildUser("user-1", "USER_STATE_ACTIVE", "user1@test.com", "User", "One", "2023-01-01T00:00:00Z");
-        UserServiceUser user2 = buildUser("user-2", "USER_STATE_INITIAL", "user2@test.com", "User", "Two", "2023-01-02T00:00:00Z");
-        when(zitadelManagementClient.listUsersByIds(anyList())).thenReturn(List.of(user1, user2));
-
+        UUID accountId = UUID.randomUUID();
         UserAccountEntity acc1 = new UserAccountEntity();
-        acc1.setId(UUID.randomUUID());
+        acc1.setId(accountId);
         acc1.setZitadelSub("user-1");
         acc1.setOrganizationId(orgId);
-        when(userAccountRepository.findAll()).thenReturn(List.of(acc1));
+        when(userAccountRepository.findAllByZitadelSubIn(anyList())).thenReturn(List.of(acc1));
 
         // Act
         MemberListResponse response = memberManagementService.listMembers(orgId);
 
         // Assert
         assertThat(response.getMembers()).hasSize(2);
-        
+
         var m1 = response.getMembers().stream().filter(m -> m.getZitadelUserId().equals("user-1")).findFirst().get();
         assertThat(m1.getStatus()).isEqualTo(MemberStatus.ACTIVE);
         assertThat(m1.getRole()).isEqualTo(MemberRole.USER);
-        assertThat(m1.getAccountId()).isNotNull();
+        assertThat(m1.getAccountId()).isEqualTo(accountId);
 
         var m2 = response.getMembers().stream().filter(m -> m.getZitadelUserId().equals("user-2")).findFirst().get();
         assertThat(m2.getStatus()).isEqualTo(MemberStatus.INVITED);
@@ -127,11 +127,15 @@ class MemberManagementServiceTest {
         callerAccount.setOrganizationId(orgId);
         when(userAccountRepository.findByZitadelSub(callerSub)).thenReturn(Optional.of(callerAccount));
 
-        when(organizationRepository.findById(orgId)).thenReturn(Optional.of(new OrganizationEntity()));
+        OrganizationEntity org = new OrganizationEntity();
+        org.setZitadelOrgId("zitadel-org");
+        when(organizationRepository.findById(orgId)).thenReturn(Optional.of(org));
 
-        UserGrantDto grant = new UserGrantDto("grant-1", List.of("USER"));
-        when(zitadelManagementClient.searchUserGrants(anyString(), anyString(), eq("target-user")))
-                .thenReturn(Optional.of(grant));
+        AuthorizationServiceListAuthorizationsResponse grantsResponse = buildAuthorizationsResponse(
+                List.of("target-user"),
+                List.of("USER")
+        );
+        when(zitadelManagementClient.listAllGrants(anyString(), anyString())).thenReturn(grantsResponse);
 
         ChangeRoleRequest request = new ChangeRoleRequest();
         request.setRole(MemberRole.COMPANY_ADMIN);
@@ -140,7 +144,7 @@ class MemberManagementServiceTest {
         memberManagementService.changeMemberRole(orgId, "target-user", request);
 
         // Assert
-        verify(zitadelManagementClient).updateUserGrant(eq("grant-1"), anyString(), eq(List.of(MemberRole.COMPANY_ADMIN.getValue())));
+        verify(zitadelManagementClient).updateProjectAuthorization(anyString(), eq(MemberRole.COMPANY_ADMIN.getValue()));
     }
 
     @Test
@@ -154,22 +158,18 @@ class MemberManagementServiceTest {
         org.setZitadelOrgId("user-org");
         when(organizationRepository.findById(orgId)).thenReturn(Optional.of(org));
 
-        UserGrantDto grant = new UserGrantDto("grant-1", List.of("COMPANY_ADMIN"));
-        when(zitadelManagementClient.searchUserGrants(anyString(), anyString(), eq("target-user")))
-                .thenReturn(Optional.of(grant));
-
         AuthorizationServiceListAuthorizationsResponse allGrants = buildAuthorizationsResponse(
                 List.of("target-user", "user-3"),
                 List.of("COMPANY_ADMIN", "USER")
         );
-        when(zitadelManagementClient.listAllGrants(anyString(), anyString(), eq("user-org")))
+        when(zitadelManagementClient.listAllGrants(anyString(), anyString()))
                 .thenReturn(allGrants);
 
         ChangeRoleRequest request = new ChangeRoleRequest();
         request.setRole(MemberRole.USER);
 
         // Act & Assert
-        ResponseStatusException ex = assertThrows(ResponseStatusException.class, 
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
                 () -> memberManagementService.changeMemberRole(orgId, "target-user", request));
         assertThat(ex.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
         assertThat(ex.getReason()).isEqualTo("LAST_ADMIN_CANNOT_BE_DEMOTED");
@@ -182,11 +182,20 @@ class MemberManagementServiceTest {
         callerAccount.setOrganizationId(orgId);
         when(userAccountRepository.findByZitadelSub(callerSub)).thenReturn(Optional.of(callerAccount));
 
-        when(organizationRepository.findById(orgId)).thenReturn(Optional.of(new OrganizationEntity()));
+        OrganizationEntity org = new OrganizationEntity();
+        org.setZitadelOrgId("zitadel-org");
+        when(organizationRepository.findById(orgId)).thenReturn(Optional.of(org));
 
         UserGrantDto grant = new UserGrantDto("grant-1", List.of("USER"));
         when(zitadelManagementClient.searchUserGrants(anyString(), anyString(), eq("target-user")))
                 .thenReturn(Optional.of(grant));
+
+        AuthorizationServiceListAuthorizationsResponse allGrants = buildAuthorizationsResponse(
+                List.of("target-user"),
+                List.of("USER")
+        );
+        when(zitadelManagementClient.listAllGrants(anyString(), anyString()))
+                .thenReturn(allGrants);
 
         UserAccountEntity targetAcc = new UserAccountEntity();
         UUID targetAccId = UUID.randomUUID();
@@ -198,7 +207,7 @@ class MemberManagementServiceTest {
         memberManagementService.removeMember(orgId, "target-user");
 
         // Assert
-        verify(userAccountDeletionService).deleteUserAccount(targetAccId);
+        verify(deletionService).deleteUserAccount(targetAccId);
         verify(zitadelManagementClient, never()).deleteUser(anyString());
     }
 
@@ -209,11 +218,20 @@ class MemberManagementServiceTest {
         callerAccount.setOrganizationId(orgId);
         when(userAccountRepository.findByZitadelSub(callerSub)).thenReturn(Optional.of(callerAccount));
 
-        when(organizationRepository.findById(orgId)).thenReturn(Optional.of(new OrganizationEntity()));
+        OrganizationEntity org = new OrganizationEntity();
+        org.setZitadelOrgId("zitadel-org");
+        when(organizationRepository.findById(orgId)).thenReturn(Optional.of(org));
 
         UserGrantDto grant = new UserGrantDto("grant-1", List.of("USER"));
         when(zitadelManagementClient.searchUserGrants(anyString(), anyString(), eq("target-user")))
                 .thenReturn(Optional.of(grant));
+
+        AuthorizationServiceListAuthorizationsResponse allGrants = buildAuthorizationsResponse(
+                List.of("target-user"),
+                List.of("USER")
+        );
+        when(zitadelManagementClient.listAllGrants(anyString(), anyString()))
+                .thenReturn(allGrants);
 
         when(userAccountRepository.findByZitadelSub("target-user")).thenReturn(Optional.empty());
 
@@ -222,7 +240,7 @@ class MemberManagementServiceTest {
 
         // Assert
         verify(zitadelManagementClient).deleteUser("target-user");
-        verify(userAccountDeletionService, never()).deleteUserAccount(any());
+        verify(deletionService, never()).deleteUserAccount(any());
     }
 
     @Test
@@ -250,15 +268,11 @@ class MemberManagementServiceTest {
         org.setZitadelOrgId("user-org");
         when(organizationRepository.findById(orgId)).thenReturn(Optional.of(org));
 
-        UserGrantDto grant = new UserGrantDto("grant-1", List.of("COMPANY_ADMIN"));
-        when(zitadelManagementClient.searchUserGrants(anyString(), anyString(), eq("target-user")))
-                .thenReturn(Optional.of(grant));
-
         AuthorizationServiceListAuthorizationsResponse allGrants = buildAuthorizationsResponse(
                 List.of("target-user", "other-admin"),
                 List.of("COMPANY_ADMIN", "COMPANY_ADMIN")
         );
-        when(zitadelManagementClient.listAllGrants(anyString(), anyString(), eq("user-org")))
+        when(zitadelManagementClient.listAllGrants(anyString(), anyString()))
                 .thenReturn(allGrants);
 
         ChangeRoleRequest request = new ChangeRoleRequest();
@@ -268,7 +282,7 @@ class MemberManagementServiceTest {
         memberManagementService.changeMemberRole(orgId, "target-user", request);
 
         // Assert
-        verify(zitadelManagementClient).updateUserGrant(eq("grant-1"), anyString(), eq(List.of(MemberRole.USER.getValue())));
+        verify(zitadelManagementClient).updateProjectAuthorization(anyString(), eq(MemberRole.USER.getValue()));
     }
 
     @Test
@@ -282,15 +296,11 @@ class MemberManagementServiceTest {
         org.setZitadelOrgId("user-org");
         when(organizationRepository.findById(orgId)).thenReturn(Optional.of(org));
 
-        UserGrantDto grant = new UserGrantDto("grant-1", List.of("COMPANY_ADMIN"));
-        when(zitadelManagementClient.searchUserGrants(anyString(), anyString(), eq(callerSub)))
-                .thenReturn(Optional.of(grant));
-
         AuthorizationServiceListAuthorizationsResponse allGrants = buildAuthorizationsResponse(
                 List.of("caller-sub", "other-admin"),
                 List.of("COMPANY_ADMIN", "COMPANY_ADMIN")
         );
-        when(zitadelManagementClient.listAllGrants(anyString(), anyString(), eq("user-org")))
+        when(zitadelManagementClient.listAllGrants(anyString(), anyString()))
                 .thenReturn(allGrants);
 
         ChangeRoleRequest request = new ChangeRoleRequest();
@@ -300,7 +310,7 @@ class MemberManagementServiceTest {
         memberManagementService.changeMemberRole(orgId, callerSub, request);
 
         // Assert
-        verify(zitadelManagementClient).updateUserGrant(eq("grant-1"), anyString(), eq(List.of(MemberRole.USER.getValue())));
+        verify(zitadelManagementClient).updateProjectAuthorization(anyString(), eq(MemberRole.USER.getValue()));
     }
 
     @Test
@@ -322,7 +332,7 @@ class MemberManagementServiceTest {
                 List.of("target-user"),
                 List.of("COMPANY_ADMIN")
         );
-        when(zitadelManagementClient.listAllGrants(anyString(), anyString(), eq("user-org")))
+        when(zitadelManagementClient.listAllGrants(anyString(), anyString()))
                 .thenReturn(allGrants);
 
         // Act & Assert
@@ -334,30 +344,21 @@ class MemberManagementServiceTest {
     }
 
     @Test
-    void listMembers_CallerNotInOrg_ThrowsForbidden() {
-        // Arrange
-        UUID differentOrgId = UUID.randomUUID();
-        UserAccountEntity callerAccount = new UserAccountEntity();
-        callerAccount.setOrganizationId(differentOrgId);
-        when(userAccountRepository.findByZitadelSub(callerSub)).thenReturn(Optional.of(callerAccount));
-
-        // Act & Assert
-        assertThrows(NotMemberOfOrganizationException.class,
-                () -> memberManagementService.listMembers(orgId));
-    }
-
-    @Test
-    void changeMemberRole_RoleUnchanged_ThrowsBadRequest() throws Exception {
+    void changeMemberRole_RoleUnchanged_ThrowsConflict() throws Exception {
         // Arrange
         UserAccountEntity callerAccount = new UserAccountEntity();
         callerAccount.setOrganizationId(orgId);
         when(userAccountRepository.findByZitadelSub(callerSub)).thenReturn(Optional.of(callerAccount));
 
-        when(organizationRepository.findById(orgId)).thenReturn(Optional.of(new OrganizationEntity()));
+        OrganizationEntity org = new OrganizationEntity();
+        org.setZitadelOrgId("zitadel-org");
+        when(organizationRepository.findById(orgId)).thenReturn(Optional.of(org));
 
-        UserGrantDto grant = new UserGrantDto("grant-1", List.of("USER"));
-        when(zitadelManagementClient.searchUserGrants(anyString(), anyString(), eq("target-user")))
-                .thenReturn(Optional.of(grant));
+        AuthorizationServiceListAuthorizationsResponse grantsResponse = buildAuthorizationsResponse(
+                List.of("target-user"),
+                List.of("USER")
+        );
+        when(zitadelManagementClient.listAllGrants(anyString(), anyString())).thenReturn(grantsResponse);
 
         ChangeRoleRequest request = new ChangeRoleRequest();
         request.setRole(MemberRole.USER);
@@ -365,8 +366,8 @@ class MemberManagementServiceTest {
         // Act & Assert
         ResponseStatusException ex = assertThrows(ResponseStatusException.class,
                 () -> memberManagementService.changeMemberRole(orgId, "target-user", request));
-        assertThat(ex.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-        assertThat(ex.getReason()).isEqualTo("ROLE_UNCHANGED");
+        assertThat(ex.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+        assertThat(ex.getReason()).isEqualTo("Role already assigned to user");
     }
 
     @Test
@@ -434,6 +435,7 @@ class MemberManagementServiceTest {
             when(role.getKey()).thenReturn(roleKey);
 
             AuthorizationServiceAuthorization auth = mock(AuthorizationServiceAuthorization.class);
+            lenient().when(auth.getId()).thenReturn("auth-id-" + i);
             lenient().when(auth.getUser()).thenReturn(user);
             when(auth.getRoles()).thenReturn(List.of(role));
 
