@@ -2,12 +2,13 @@ package de.goaldone.backend.service;
 
 import de.goaldone.backend.entity.UserAccountEntity;
 import de.goaldone.backend.entity.WorkingTimeEntity;
-import de.goaldone.backend.exception.ScheduleGenerationException;
+import de.goaldone.backend.exception.ScheduleException;
 import de.goaldone.backend.model.*;
 import de.goaldone.backend.repository.UserAccountRepository;
-import de.goaldone.backend.scheduler.Chunker;
 import de.goaldone.backend.scheduler.Solver;
-import de.goaldone.backend.scheduler.types.model.*;
+import de.goaldone.backend.scheduler.types.model.SchedulingContext;
+import de.goaldone.backend.scheduler.types.model.SchedulingResult;
+import de.goaldone.backend.scheduler.types.model.TimeSlot;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Lazy;
@@ -17,7 +18,10 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.*;
-import java.util.concurrent.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -26,7 +30,6 @@ import java.util.stream.Collectors;
 public class ScheduleService {
 
     Solver solver = new Solver();
-    Chunker chunker = new Chunker();
 
     private final TasksService taskService;
     private final AppointmentService appointmentService;
@@ -79,7 +82,7 @@ public class ScheduleService {
                     .toList();
         } catch (Exception e) {
             log.error("Failed to initialize account scheduling", e);
-            throw new ScheduleGenerationException("Failed to initialize account scheduling", e);
+            throw new ScheduleException("Failed to initialize account scheduling", e);
         }
     }
 
@@ -216,7 +219,7 @@ public class ScheduleService {
 
 
         // Run for nWeeks
-        /**
+        /*
          * Planning logic for n weeks starting from a specific weekday:
          * Example: Start on Tuesday, plan for 4 weeks
          *

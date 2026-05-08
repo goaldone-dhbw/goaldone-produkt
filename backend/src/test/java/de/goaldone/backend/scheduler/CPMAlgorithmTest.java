@@ -5,7 +5,6 @@ import de.goaldone.backend.model.CognitiveLoad;
 import de.goaldone.backend.model.DayOfWeek;
 import de.goaldone.backend.model.TaskResponse;
 import de.goaldone.backend.model.TaskStatus;
-import de.goaldone.backend.repository.TaskRepository;
 import de.goaldone.backend.scheduler.types.model.*;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -33,7 +32,7 @@ class CPMAlgorithmTest {
         LocalDate date = LocalDate.of(2026, 5, 10); // Monday
         List<TimeSlot> availableSlots = List.of(slot(date, 9, 10));
         List<TaskResponse> tasks = List.of(task(60));
-        List<WorkingTimeEntity> workingTime = List.of(working(List.of(DayOfWeek.MONDAY), 8, 16));
+        List<WorkingTimeEntity> workingTime = List.of(working(List.of(DayOfWeek.MONDAY), 16));
 
         SchedulingContext context = new SchedulingContext(
                 date, availableSlots, tasks, workingTime
@@ -56,7 +55,7 @@ class CPMAlgorithmTest {
                 slot(date, 9, 0,  9,  30),
                 slot(date, 10,30, 11, 0));
         List<TaskResponse> tasks = List.of(task(60));
-        List<WorkingTimeEntity> workingTime = List.of(working(List.of(DayOfWeek.MONDAY), 8, 16));
+        List<WorkingTimeEntity> workingTime = List.of(working(List.of(DayOfWeek.MONDAY), 16));
 
         SchedulingContext context = new SchedulingContext(
                 date, availableSlots, tasks, workingTime
@@ -79,7 +78,7 @@ class CPMAlgorithmTest {
         List<TaskResponse> tasks = List.of(
                 task(30),
                 task(30));
-        List<WorkingTimeEntity> workingTime = List.of(working(List.of(DayOfWeek.MONDAY), 8, 16));
+        List<WorkingTimeEntity> workingTime = List.of(working(List.of(DayOfWeek.MONDAY), 16));
 
         SchedulingContext context = new SchedulingContext(
                 date, availableSlots, tasks, workingTime
@@ -102,7 +101,7 @@ class CPMAlgorithmTest {
         TaskResponse task2 = task(60, List.of(task1.getId()));
         List<TaskResponse> tasks = List.of(task1, task2);
 
-        List<WorkingTimeEntity> workingTime = List.of(working(List.of(DayOfWeek.MONDAY), 8, 17));
+        List<WorkingTimeEntity> workingTime = List.of(working(List.of(DayOfWeek.MONDAY), 17));
 
         SchedulingContext context = new SchedulingContext(
                 date, availableSlots, tasks, workingTime
@@ -127,7 +126,7 @@ class CPMAlgorithmTest {
         TaskResponse task2 = task(60, List.of(), null, date.plusDays(2));
         List<TaskResponse> tasks = List.of(task1, task2);
 
-        List<WorkingTimeEntity> workingTime = List.of(working(List.of(DayOfWeek.MONDAY), 8, 17));
+        List<WorkingTimeEntity> workingTime = List.of(working(List.of(DayOfWeek.MONDAY), 17));
 
         SchedulingContext context = new SchedulingContext(
                 date, availableSlots, tasks, workingTime
@@ -153,7 +152,7 @@ class CPMAlgorithmTest {
 
         List<TaskResponse> tasks = List.of(task1, task2);
 
-        List<WorkingTimeEntity> workingTime = List.of(working(List.of(DayOfWeek.MONDAY), 8, 17));
+        List<WorkingTimeEntity> workingTime = List.of(working(List.of(DayOfWeek.MONDAY), 17));
 
         SchedulingContext context = new SchedulingContext(
                 date, availableSlots, tasks, workingTime
@@ -179,7 +178,7 @@ class CPMAlgorithmTest {
         TaskResponse task = task(60, List.of(), LocalDateTime.of(date, LocalTime.of(15, 0)), null);
         List<TaskResponse> tasks = List.of(task);
 
-        List<WorkingTimeEntity> workingTime = List.of(working(List.of(DayOfWeek.MONDAY, DayOfWeek.TUESDAY), 8, 17));
+        List<WorkingTimeEntity> workingTime = List.of(working(List.of(DayOfWeek.MONDAY, DayOfWeek.TUESDAY), 17));
 
         SchedulingContext context = new SchedulingContext(
                 date, availableSlots, tasks, workingTime
@@ -209,7 +208,7 @@ class CPMAlgorithmTest {
 
         List<TaskResponse> tasks = List.of(taskWithoutDeadline, taskWithDeadline);
 
-        List<WorkingTimeEntity> workingTime = List.of(working(List.of(DayOfWeek.MONDAY, DayOfWeek.TUESDAY), 8, 17));
+        List<WorkingTimeEntity> workingTime = List.of(working(List.of(DayOfWeek.MONDAY, DayOfWeek.TUESDAY), 17));
 
         SchedulingContext context = new SchedulingContext(
                 date, availableSlots, tasks, workingTime
@@ -229,7 +228,7 @@ class CPMAlgorithmTest {
         List<TimeSlot> availableSlots = List.of(slot(date, 9, 10));
         TaskResponse task = task(65);
         List<TaskResponse> tasks = List.of(task);
-        List<WorkingTimeEntity> workingTime = List.of(working(List.of(DayOfWeek.MONDAY), 8, 17));
+        List<WorkingTimeEntity> workingTime = List.of(working(List.of(DayOfWeek.MONDAY), 17));
 
         SchedulingContext context = new SchedulingContext(
                 date, availableSlots, tasks, workingTime
@@ -245,11 +244,30 @@ class CPMAlgorithmTest {
 
     }
 
+    @Test
+    void shouldWarnFromUnscheduledTasks() {
+        LocalDate date = LocalDate.of(2026, 5, 10); // Monday
 
+        TimeSlot slot1 = slot(date.plusDays(0), 15, 16);
+        TimeSlot slot2 = slot(date.plusDays(1), 8, 9);
+        List<TimeSlot> availableSlots = List.of(slot1, slot2);
 
-    //TODO: More tests like
-    // throws error when not possible (a abhängig von b, a hat deadline bevor b und a abgearbeitet werden kann)
+        TaskResponse task1 = task(60,  List.of(), LocalDateTime.of(date, LocalTime.of(15, 0)), null);
+        TaskResponse task2 = task(60, List.of(task1.getId()), null, date.plusDays(1));
+        List<TaskResponse> tasks = List.of(task1, task2);
 
+        List<WorkingTimeEntity> workingTime = List.of(working(List.of(DayOfWeek.MONDAY, DayOfWeek.TUESDAY), 17));
+
+        SchedulingContext context = new SchedulingContext(
+                date, availableSlots, tasks, workingTime
+        );
+
+        SolverState result = algorithm.generateInitialSchedule(context);
+
+        assertThat(result).isNotNull();
+        assertThat(result.unscheduledChunks().size()).isEqualTo(1);
+        assertThat(result.scheduledChunks().getFirst().chunk().taskId()).isEqualTo(task1.getId());
+    }
 
     private TaskResponse task(int taskDuration) {
         return task(taskDuration, List.of());
@@ -305,13 +323,13 @@ class CPMAlgorithmTest {
         );
     }
 
-    private WorkingTimeEntity working(List<DayOfWeek> days, int start, int end) {
+    private WorkingTimeEntity working(List<DayOfWeek> days, int end) {
         WorkingTimeEntity entity = new WorkingTimeEntity();
         entity.setId(UUID.randomUUID());
         entity.setUserAccount(null);
         entity.setOrganizationId(null);
         entity.setDays(new HashSet<>(days));
-        entity.setStartTime(LocalTime.of(start, 0));
+        entity.setStartTime(LocalTime.of(8, 0));
         entity.setEndTime(LocalTime.of(end, 0));
         entity.setCreatedAt(Instant.now());
         return entity;

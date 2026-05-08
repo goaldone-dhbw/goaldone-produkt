@@ -117,8 +117,8 @@ public class GlobalExceptionHandler {
     /**
      * Handles ScheduleGenerationException and returns HTTP 500 (Internal Server Error).
      */
-    @ExceptionHandler(ScheduleGenerationException.class)
-    public ProblemDetail handleScheduleGeneration(ScheduleGenerationException ex) {
+    @ExceptionHandler(ScheduleException.class)
+    public ProblemDetail handleScheduleGeneration(ScheduleException ex) {
         ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.INTERNAL_SERVER_ERROR, ex.getMessage());
         pd.setType(URI.create("https://goaldone.de/errors/schedule-generation-failed"));
         return pd;

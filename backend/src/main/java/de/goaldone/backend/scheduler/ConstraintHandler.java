@@ -5,7 +5,6 @@ import de.goaldone.backend.scheduler.types.HardConstraint;
 import de.goaldone.backend.scheduler.types.SoftConstraint;
 import de.goaldone.backend.scheduler.types.constraints.DeadlineConstraint;
 import de.goaldone.backend.scheduler.types.constraints.PauseAfterReachedCognitiveLoadConstraint;
-import de.goaldone.backend.scheduler.types.model.Schedule;
 import de.goaldone.backend.scheduler.types.model.SolverState;
 
 import java.util.ArrayList;
@@ -52,7 +51,7 @@ public class ConstraintHandler {
         // Then validate schedule
         if (!isValidSchedule()) {
             return invalidScheduleScore; // Return a default score for invalid schedules
-        };
+        }
 
         int score = 0;
         // Lastly calculate score
@@ -79,17 +78,39 @@ public class ConstraintHandler {
         return true;
     }
 
+
+    ArrayList<ScheduleWarning> addUnscheduledWarning(int numUnscheduled) {
+        String message;
+        if (numUnscheduled == 0) {
+            return new ArrayList<>();
+        }
+        else if (numUnscheduled == 1) {
+            message = "There is one unscheduled chunk due to lack of available time";
+        }
+        else {
+            message = "There are " + numUnscheduled + " unscheduled chunks due to lack of available time";
+        }
+        return new ArrayList<>(
+                List.of(new ScheduleWarning(
+                    ScheduleWarning.TypeEnum.OTHER,
+                    message
+        )));
+    }
+
     /**
-     *
      * @param schedule The schedule to check
-     * @return A list of warnings for inactive soft constraints and violated hard constraints
+     * @return A list of warnings for inactive soft constraints, violated hard constraints and unscheduled chunks.
      */
     public List<ScheduleWarning> getWarnings(SolverState schedule) {
+
+        // Add warning for unscheduled tasks
+        ArrayList<ScheduleWarning> scheduleWarnings = addUnscheduledWarning(
+                schedule.unscheduledChunks().size()
+        );
 
         // Update the constraints for the given schedule
         updateConstraints(schedule);
 
-        ArrayList<ScheduleWarning> scheduleWarnings = new ArrayList<>();
 
         // Check soft constraints
         for (SoftConstraint constraint : softConstraints) {

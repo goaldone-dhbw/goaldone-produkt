@@ -13,7 +13,8 @@ public class CPMAlgorithm {
     private final TaskSorter taskSorter;
     private final Chunker chunker;
 
-    private ArrayList<TimeSlot> globalAvailableTimeSlots;
+    private ArrayList<TimeSlot> availableTimeSlots;
+    private ArrayList<TaskChunk> unscheduledChunks;
 
 
     public CPMAlgorithm() {
@@ -28,9 +29,8 @@ public class CPMAlgorithm {
      * @return A first, heuristic generated schedule
      */
     public SolverState generateInitialSchedule(SchedulingContext context) {
-
-        this.globalAvailableTimeSlots = new ArrayList<>(context.availableSlots());
-
+        this.availableTimeSlots = new ArrayList<>(context.availableSlots());
+        this.unscheduledChunks = new ArrayList<>();
 
         List<TaskResponse> tasks = context.tasks();
         // Assumption: There is more available time than needed to schedule all tasks
@@ -46,6 +46,7 @@ public class CPMAlgorithm {
         List<ScheduledChunk> resultChunks = new ArrayList<>();
 
         for (UUID taskId : sortedTasks) {
+
             List<TaskChunk> chunks = chunkMap.get(taskId);
 
             List<ScheduledChunk> tempResults = new ArrayList<>();
@@ -62,7 +63,7 @@ public class CPMAlgorithm {
                 resultChunks.addAll(tempResults);
             }
         }
-        return new SolverState (resultChunks, this.globalAvailableTimeSlots);
+        return new SolverState (resultChunks, this.availableTimeSlots, this.unscheduledChunks);
     }
 
     /**
@@ -84,14 +85,14 @@ public class CPMAlgorithm {
     private boolean isSuitableDate(TaskChunk chunk, TimeSlot slot) {
         LocalDateTime slotDateTime = LocalDateTime.of(slot.date(), slot.startTime());
 
-        boolean isNotBefore = false;
+        boolean isNotBefore;
         if (chunk.notBefore() != null) {
             isNotBefore = !slotDateTime.isBefore(chunk.notBefore());
         } else {
             isNotBefore = true;
         }
 
-        boolean isBeforeDeadline = false;
+        boolean isBeforeDeadline;
         if (chunk.deadline() != null) {
             isBeforeDeadline = !slotDateTime.isAfter(chunk.deadline());
         } else {
@@ -110,9 +111,8 @@ public class CPMAlgorithm {
      * @throws IllegalStateException if there is not enough free time available
      */
     private List<ScheduledChunk> findTimeSlotForChunk(TaskChunk chunk) {
-
         // Find the earliest available slot that can accommodate this chunk
-        Optional<TimeSlot> suitableSlot = this.globalAvailableTimeSlots.stream()
+        Optional<TimeSlot> suitableSlot = this.availableTimeSlots.stream()
                 .filter(slot -> isSuitableSlot(chunk, slot))
                 .findFirst();
 
@@ -133,7 +133,7 @@ public class CPMAlgorithm {
         // At this point, no slot was large enough to accommodate this chunk
         // -> further splitting
 
-        List<TimeSlot> nextAvailableSlots = this.globalAvailableTimeSlots.stream()
+        List<TimeSlot> nextAvailableSlots = this.availableTimeSlots.stream()
                 .filter(slot -> isSuitableDate(chunk, slot))
                 .collect(Collectors.toCollection(ArrayList::new));
 
@@ -184,7 +184,8 @@ public class CPMAlgorithm {
         }
 
         if (remainingMinutes > 0) {
-            throw new IllegalStateException("Not enough free time available");
+            this.unscheduledChunks.add(chunk);
+            return List.of();
         }
 
         return result;
@@ -253,15 +254,15 @@ public class CPMAlgorithm {
                     target.endTime()
             );
 
-            this.globalAvailableTimeSlots.remove(target);
-            this.globalAvailableTimeSlots.add(newTimeSlot);
+            this.availableTimeSlots.remove(target);
+            this.availableTimeSlots.add(newTimeSlot);
 
 
         }
         // Case 2: TimeSlot is equal to or only lightly bigger than the chunk
         else  {
             //this.globalAvailableTimeSlots.contains(target);
-            this.globalAvailableTimeSlots.remove(target);
+            this.availableTimeSlots.remove(target);
         }
     }
 

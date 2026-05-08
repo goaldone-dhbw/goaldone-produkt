@@ -10,7 +10,8 @@ import java.util.List;
  */
 public record SolverState(
         List<ScheduledChunk> scheduledChunks,
-        List<TimeSlot> freeSlots
+        List<TimeSlot> freeSlots,
+        List<TaskChunk> unscheduledChunks
 ) {
 
     /**
@@ -21,7 +22,8 @@ public record SolverState(
     public SolverState deepCopy() {
         return new SolverState(
                 new ArrayList<>(scheduledChunks),
-                new ArrayList<>(freeSlots)
+                new ArrayList<>(freeSlots),
+                new ArrayList<>(unscheduledChunks)
         );
     }
 }
