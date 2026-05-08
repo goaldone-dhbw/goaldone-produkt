@@ -12,10 +12,13 @@ describe('OrgSettingsPage', () => {
 
   const memberManagementServiceMock = {
     inviteMember: vi.fn(),
+    listMembers: vi.fn(),
   };
 
   beforeEach(async () => {
     memberManagementServiceMock.inviteMember.mockReset();
+    memberManagementServiceMock.listMembers.mockReset();
+    memberManagementServiceMock.listMembers.mockReturnValue(of({ members: [] }));
 
     await TestBed.configureTestingModule({
       imports: [OrgSettingsPage],
