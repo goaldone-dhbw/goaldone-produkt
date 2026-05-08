@@ -1,20 +1,20 @@
 package de.goaldone.backend.scheduler;
 
 import de.goaldone.backend.entity.WorkingTimeEntity;
+import de.goaldone.backend.model.CognitiveLoad;
+import de.goaldone.backend.model.DayOfWeek;
 import de.goaldone.backend.model.TaskResponse;
+import de.goaldone.backend.model.TaskStatus;
+import de.goaldone.backend.repository.TaskRepository;
 import de.goaldone.backend.scheduler.types.model.*;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
-import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.time.LocalDate;
-import java.time.LocalTime;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.time.*;
+import java.util.*;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -23,197 +23,298 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class CPMAlgorithmTest {
 
-    @Mock
-    private TaskSorter taskSorter;
-
-    @Mock
-    private Chunker chunker;
-
     @Spy
     @InjectMocks
     private CPMAlgorithm algorithm;
 
     @Test
-    void shouldGenerateInitialScheduleWithoutSplittingChunks() {
+    void shouldGenerate_singleTaskInSingleSlot() {
 
-        UUID taskId = UUID.randomUUID();
-
-        TaskResponse task = mock(TaskResponse.class);
-        when(task.getId()).thenReturn(taskId);
-
-        List<TaskResponse> tasks = List.of(task);
-
-        TimeSlot freeSlot = new TimeSlot(
-                LocalDate.now(),
-                LocalTime.of(9, 0),
-                LocalTime.of(10, 0)
-        );
-
-        List<TimeSlot> availableSlots = List.of(freeSlot);
+        LocalDate date = LocalDate.of(2026, 5, 10); // Monday
+        List<TimeSlot> availableSlots = List.of(slot(date, 9, 10));
+        List<TaskResponse> tasks = List.of(task(60));
+        List<WorkingTimeEntity> workingTime = List.of(working(List.of(DayOfWeek.MONDAY), 8, 16));
 
         SchedulingContext context = new SchedulingContext(
-                LocalDate.of(2026, 5, 11), // Tuesday
-                availableSlots,
-                tasks,
-                List.of()
+                date, availableSlots, tasks, workingTime
         );
-
-        TaskChunk chunk = mock(TaskChunk.class);
-
-        ScheduledChunk scheduledChunk = new ScheduledChunk(chunk, freeSlot);
-
-        doReturn(List.of())
-                .when(algorithm)
-                .calculateSlack(tasks);
-
-        when(taskSorter.sort(any(), any()))
-                .thenReturn(List.of(taskId));
-
-        when(chunker.chunkTasks(tasks, context.workingTimes()))
-                .thenReturn(Map.of(taskId, List.of(chunk)));
-
-        doReturn(List.of(scheduledChunk))
-                .when(algorithm)
-                .findTimeSlotForChunk(chunk, availableSlots);
 
         SolverState result = algorithm.generateInitialSchedule(context);
 
         assertThat(result).isNotNull();
         assertThat(result.scheduledChunks()).hasSize(1);
-        assertThat(result.scheduledChunks().getFirst())
-                .isEqualTo(scheduledChunk);
-
-        assertThat(result.freeSlots())
-                .containsExactly(freeSlot);
+        assertThat(result.freeSlots()).isEmpty();
 
         verify(algorithm, never()).updateChunks(any());
     }
 
     @Test
-    void shouldUpdateChunksWhenChunkWasSplit() {
+    void shouldSplitInChunks_whenNoTimeSlotBigEnough() {
 
-        UUID taskId = UUID.randomUUID();
-
-        TaskResponse task = mock(TaskResponse.class);
-        when(task.getId()).thenReturn(taskId);
-
-        List<TaskResponse> tasks = List.of(task);
-
-        TimeSlot slot1 = new TimeSlot(
-                LocalDate.now(),
-                LocalTime.of(9, 0),
-                LocalTime.of(9, 30)
-        );
-
-        TimeSlot slot2 = new TimeSlot(
-                LocalDate.now(),
-                LocalTime.of(9, 30),
-                LocalTime.of(10, 0)
-        );
-
-        List<TimeSlot> availableSlots = List.of(slot1, slot2);
+        LocalDate date = LocalDate.of(2026, 5, 10); // Monday
+        List<TimeSlot> availableSlots = List.of(
+                slot(date, 9, 0,  9,  30),
+                slot(date, 10,30, 11, 0));
+        List<TaskResponse> tasks = List.of(task(60));
+        List<WorkingTimeEntity> workingTime = List.of(working(List.of(DayOfWeek.MONDAY), 8, 16));
 
         SchedulingContext context = new SchedulingContext(
-                LocalDate.now(),
-                availableSlots,
-                tasks,
-                List.<WorkingTimeEntity>of()
+                date, availableSlots, tasks, workingTime
         );
-
-        TaskChunk chunk = mock(TaskChunk.class);
-
-        ScheduledChunk splitChunk1 = new ScheduledChunk(chunk, slot1);
-        ScheduledChunk splitChunk2 = new ScheduledChunk(chunk, slot2);
-
-        ScheduledChunk updatedChunk1 = new ScheduledChunk(chunk, slot1);
-        ScheduledChunk updatedChunk2 = new ScheduledChunk(chunk, slot2);
-
-        doReturn(List.of())
-                .when(algorithm)
-                .calculateSlack(tasks);
-
-        when(taskSorter.sort(any(), any()))
-                .thenReturn(List.of(taskId));
-
-        when(chunker.chunkTasks(tasks, context.workingTimes()))
-                .thenReturn(Map.of(taskId, List.of(chunk)));
-
-        doReturn(List.of(splitChunk1, splitChunk2))
-                .when(algorithm)
-                .findTimeSlotForChunk(chunk, availableSlots);
-
-        doReturn(List.of(updatedChunk1, updatedChunk2))
-                .when(algorithm)
-                .updateChunks(List.of(splitChunk1, splitChunk2));
 
         SolverState result = algorithm.generateInitialSchedule(context);
 
         assertThat(result).isNotNull();
-        assertThat(result.scheduledChunks())
-                .containsExactly(updatedChunk1, updatedChunk2);
+        assertThat(result.scheduledChunks()).hasSize(2);
+        assertThat(result.freeSlots()).isEmpty();
 
-        verify(algorithm).updateChunks(List.of(splitChunk1, splitChunk2));
+        verify(algorithm).updateChunks(any());
     }
 
     @Test
-    void shouldProcessTasksInSortedOrder() {
+    void shouldSplitTimeSlot_whenTaskDoesntFillSlot() {
 
-        UUID taskId1 = UUID.randomUUID();
-        UUID taskId2 = UUID.randomUUID();
-
-        TaskResponse task1 = mock(TaskResponse.class);
-        TaskResponse task2 = mock(TaskResponse.class);
-
-        when(task1.getId()).thenReturn(taskId1);
-        when(task2.getId()).thenReturn(taskId2);
-
-        List<TaskResponse> tasks = List.of(task1, task2);
-
-        TimeSlot slot = new TimeSlot(
-                LocalDate.now(),
-                LocalTime.of(9, 0),
-                LocalTime.of(10, 0)
-        );
-
-        List<TimeSlot> availableSlots = List.of(slot);
+        LocalDate date = LocalDate.of(2026, 5, 10); // Monday
+        List<TimeSlot> availableSlots = List.of(slot(date, 9, 10));
+        List<TaskResponse> tasks = List.of(
+                task(30),
+                task(30));
+        List<WorkingTimeEntity> workingTime = List.of(working(List.of(DayOfWeek.MONDAY), 8, 16));
 
         SchedulingContext context = new SchedulingContext(
-                LocalDate.now(),
-                availableSlots,
-                tasks,
-                List.<WorkingTimeEntity>of()
+                date, availableSlots, tasks, workingTime
         );
-
-        TaskChunk chunk1 = mock(TaskChunk.class);
-        TaskChunk chunk2 = mock(TaskChunk.class);
-
-        ScheduledChunk scheduledChunk1 = new ScheduledChunk(chunk1, slot);
-        ScheduledChunk scheduledChunk2 = new ScheduledChunk(chunk2, slot);
-
-        doReturn(List.of())
-                .when(algorithm)
-                .calculateSlack(tasks);
-
-        when(taskSorter.sort(any(), any()))
-                .thenReturn(List.of(taskId2, taskId1));
-
-        when(chunker.chunkTasks(tasks, context.workingTimes()))
-                .thenReturn(Map.of(
-                        taskId1, List.of(chunk1),
-                        taskId2, List.of(chunk2)
-                ));
-
-        doReturn(List.of(scheduledChunk1))
-                .when(algorithm)
-                .findTimeSlotForChunk(chunk1, availableSlots);
-
-        doReturn(List.of(scheduledChunk2))
-                .when(algorithm)
-                .findTimeSlotForChunk(chunk2, availableSlots);
 
         SolverState result = algorithm.generateInitialSchedule(context);
 
-        assertThat(result.scheduledChunks())
-                .containsExactly(scheduledChunk2, scheduledChunk1);
+        assertThat(result.scheduledChunks().size() == 2);
+        assertThat(result.freeSlots().isEmpty());
     }
+
+    @Test
+    void shouldGenerateInOrder_byDependencies() {
+        LocalDate date = LocalDate.of(2026, 5, 10); // Monday
+        List<TimeSlot> availableSlots = List.of(
+                slot(date, 9, 10),
+                slot(date, 13, 14));
+
+        TaskResponse task1 = task(60);
+        TaskResponse task2 = task(60, List.of(task1.getId()));
+        List<TaskResponse> tasks = List.of(task1, task2);
+
+        List<WorkingTimeEntity> workingTime = List.of(working(List.of(DayOfWeek.MONDAY), 8, 17));
+
+        SchedulingContext context = new SchedulingContext(
+                date, availableSlots, tasks, workingTime
+        );
+
+        SolverState result = algorithm.generateInitialSchedule(context);
+        assertThat(result).isNotNull();
+        assertThat(result.scheduledChunks()).hasSize(2);
+
+        assertThat(result.scheduledChunks().get(0).chunk().taskId()).isEqualTo(task1.getId());
+        assertThat(result.scheduledChunks().get(1).chunk().taskId()).isEqualTo(task2.getId());
+    }
+
+    @Test
+    void shouldGenerateInOrder_bySlack() {
+        LocalDate date = LocalDate.of(2026, 5, 10); // Monday
+        List<TimeSlot> availableSlots = List.of(
+                slot(date, 9, 10),
+                slot(date, 13, 14));
+
+        TaskResponse task1 = task(60, List.of(), null, date.plusDays(5));
+        TaskResponse task2 = task(60, List.of(), null, date.plusDays(2));
+        List<TaskResponse> tasks = List.of(task1, task2);
+
+        List<WorkingTimeEntity> workingTime = List.of(working(List.of(DayOfWeek.MONDAY), 8, 17));
+
+        SchedulingContext context = new SchedulingContext(
+                date, availableSlots, tasks, workingTime
+        );
+
+        SolverState result = algorithm.generateInitialSchedule(context);
+        assertThat(result).isNotNull();
+        assertThat(result.scheduledChunks()).hasSize(2);
+
+        assertThat(result.scheduledChunks().get(0).chunk().taskId()).isEqualTo(task2.getId());
+        assertThat(result.scheduledChunks().get(1).chunk().taskId()).isEqualTo(task1.getId());
+    }
+
+    @Test
+    void shouldGenerateInOrder_byCognitiveLoad() {
+        LocalDate date = LocalDate.of(2026, 5, 10); // Monday
+        List<TimeSlot> availableSlots = List.of(
+                slot(date, 9, 10),
+                slot(date, 13, 14));
+
+        TaskResponse task1 = task(60, List.of(), null, null, CognitiveLoad.LOW);
+        TaskResponse task2 = task(60, List.of(), null, null, CognitiveLoad.HIGH);
+
+        List<TaskResponse> tasks = List.of(task1, task2);
+
+        List<WorkingTimeEntity> workingTime = List.of(working(List.of(DayOfWeek.MONDAY), 8, 17));
+
+        SchedulingContext context = new SchedulingContext(
+                date, availableSlots, tasks, workingTime
+        );
+
+        SolverState result = algorithm.generateInitialSchedule(context);
+        assertThat(result).isNotNull();
+        assertThat(result.scheduledChunks()).hasSize(2);
+
+        assertThat(result.scheduledChunks().get(0).chunk().taskId()).isEqualTo(task2.getId());
+        assertThat(result.scheduledChunks().get(1).chunk().taskId()).isEqualTo(task1.getId());
+    }
+
+    @Test
+    void shouldNotScheduleBefore() {
+        LocalDate date = LocalDate.of(2026, 5, 10); // Monday
+
+        TimeSlot freeSlot = slot(date.plusDays(0), 9, 10);
+        TimeSlot occupiedSlot = slot(date.plusDays(1), 9, 10);
+        List<TimeSlot> availableSlots = List.of(freeSlot, occupiedSlot);
+
+
+        TaskResponse task = task(60, List.of(), LocalDateTime.of(date, LocalTime.of(15, 0)), null);
+        List<TaskResponse> tasks = List.of(task);
+
+        List<WorkingTimeEntity> workingTime = List.of(working(List.of(DayOfWeek.MONDAY, DayOfWeek.TUESDAY), 8, 17));
+
+        SchedulingContext context = new SchedulingContext(
+                date, availableSlots, tasks, workingTime
+        );
+
+        SolverState result = algorithm.generateInitialSchedule(context);
+
+        assertThat(result).isNotNull();
+        assertThat(result.scheduledChunks()).hasSize(1);
+        assertThat(result.freeSlots()).hasSize(1);
+
+        assertThat(result.freeSlots().getFirst()).isEqualTo(freeSlot);
+        assertThat(result.scheduledChunks().getFirst().slot()).isEqualTo(occupiedSlot);
+    }
+
+    @Test
+    void shouldScheduleBeforeDeadline() {
+        LocalDate date = LocalDate.of(2026, 5, 10); // Monday
+
+        List<TimeSlot> availableSlots = List.of(
+                slot(date.plusDays(0), 9, 10),
+                slot(date.plusDays(1), 9, 10));
+
+
+        TaskResponse taskWithDeadline = task(60, List.of(), null, date.plusDays(1));
+        TaskResponse taskWithoutDeadline = task(60);
+
+        List<TaskResponse> tasks = List.of(taskWithoutDeadline, taskWithDeadline);
+
+        List<WorkingTimeEntity> workingTime = List.of(working(List.of(DayOfWeek.MONDAY, DayOfWeek.TUESDAY), 8, 17));
+
+        SchedulingContext context = new SchedulingContext(
+                date, availableSlots, tasks, workingTime
+        );
+
+        SolverState result = algorithm.generateInitialSchedule(context);
+
+        assertThat(result.scheduledChunks().getFirst().chunk().taskId()).isEqualTo(taskWithDeadline.getId());
+        assertThat(result.scheduledChunks().getLast().chunk().taskId()).isEqualTo(taskWithoutDeadline.getId());
+    }
+
+    @Test
+    void shouldNotSplit_whenLittleTimeLeft() {
+        // Should append the 5 minutes to the time slot
+
+        LocalDate date = LocalDate.of(2026, 5, 10); // Monday
+        List<TimeSlot> availableSlots = List.of(slot(date, 9, 10));
+        TaskResponse task = task(65);
+        List<TaskResponse> tasks = List.of(task);
+        List<WorkingTimeEntity> workingTime = List.of(working(List.of(DayOfWeek.MONDAY), 8, 17));
+
+        SchedulingContext context = new SchedulingContext(
+                date, availableSlots, tasks, workingTime
+        );
+
+        SolverState result = algorithm.generateInitialSchedule(context);
+
+        assertThat(result.scheduledChunks().size()).isEqualTo(1);
+
+        ScheduledChunk scheduledChunk = result.scheduledChunks().getFirst();
+        assertThat(scheduledChunk.chunk().durationMinutes()).isEqualTo(task.getDuration());
+        assertThat(scheduledChunk.chunk().durationMinutes()).isEqualTo(scheduledChunk.slot().durationMinutes());
+
+    }
+
+
+
+    //TODO: More tests like
+    // throws error when not possible (a abhängig von b, a hat deadline bevor b und a abgearbeitet werden kann)
+
+
+    private TaskResponse task(int taskDuration) {
+        return task(taskDuration, List.of());
+    }
+
+    private TaskResponse task(int taskDuration, List<UUID> dependencyIds) {
+        return task(taskDuration, dependencyIds, null, null);
+    }
+
+    private TaskResponse task(int taskDuration, List<UUID> dependencyIds, LocalDateTime dontScheduleBefore, LocalDate deadline) {
+        return task(taskDuration, dependencyIds, dontScheduleBefore, deadline, CognitiveLoad.LOW);
+    }
+
+    private TaskResponse task(int taskDuration, List<UUID> dependencyIds, LocalDateTime dontScheduleBefore, LocalDate deadline, CognitiveLoad cognitiveLoad) {
+
+        OffsetDateTime convertedDeadline;
+        if (deadline != null) {
+            convertedDeadline = OffsetDateTime.of(deadline, LocalTime.of(0,0), ZoneOffset.ofHours(0));
+        } else {
+            convertedDeadline = null;
+        }
+
+        OffsetDateTime convertedNotBefore;
+        if (dontScheduleBefore != null) {
+            convertedNotBefore = OffsetDateTime.of(dontScheduleBefore, ZoneOffset.ofHours(0));
+        } else {
+            convertedNotBefore = null;
+        }
+
+
+        return new TaskResponse()
+                .id(UUID.randomUUID())
+                .title("Task")
+                .description("Description")
+                .duration(taskDuration)
+                .deadline(convertedDeadline)
+                .status(TaskStatus.OPEN)
+                .cognitiveLoad(cognitiveLoad)
+                .customChunkSize(null)
+                .dontScheduleBefore(convertedNotBefore)
+                .dependencyIds(dependencyIds);
+    }
+
+    private TimeSlot slot(LocalDate date, int startHour, int endHour) {
+        return slot(date, startHour, 0, endHour, 0);
+    }
+
+    private TimeSlot slot(LocalDate date, int startHour, int startMin, int endHour, int endMin) {
+        return new TimeSlot(
+                date,
+                LocalTime.of(startHour, startMin),
+                LocalTime.of(endHour, endMin)
+        );
+    }
+
+    private WorkingTimeEntity working(List<DayOfWeek> days, int start, int end) {
+        WorkingTimeEntity entity = new WorkingTimeEntity();
+        entity.setId(UUID.randomUUID());
+        entity.setUserAccount(null);
+        entity.setOrganizationId(null);
+        entity.setDays(new HashSet<>(days));
+        entity.setStartTime(LocalTime.of(start, 0));
+        entity.setEndTime(LocalTime.of(end, 0));
+        entity.setCreatedAt(Instant.now());
+        return entity;
+    }
+
 }

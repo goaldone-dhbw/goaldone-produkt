@@ -13,7 +13,7 @@ public record TimeSlot(
         return (int) ChronoUnit.MINUTES.between(startTime, endTime);
     }
 
-    public boolean canFit(int durationMinutes) {
-        return durationMinutes() >= durationMinutes;
+    public boolean canFit(int requestedDurationMinutes) {
+        return requestedDurationMinutes <= durationMinutes();
     }
 }
