@@ -156,7 +156,7 @@ paths:
     patch:
       tags:
         - user-accounts
-      summary: Update an account
+      summary: Update an account (e.g. name, email)
       operationId: updateAccount
       security:
         - bearerAuth: [ ]
@@ -188,21 +188,14 @@ paths:
           description: Forbidden
         '404':
           description: Account not found
-  /users/accounts/{accountId}/password:
+  /users/accounts/password:
     put:
       tags:
         - user-accounts
-      summary: Update the password of an account
+      summary: Update the password of the account the user is currently logged in with
       operationId: updateAccountPassword
       security:
         - bearerAuth: [ ]
-      parameters:
-        - name: accountId
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
       requestBody:
         required: true
         content:
