@@ -169,6 +169,13 @@
 
                 <div class="flex shrink-0 items-center gap-1 border-t border-slate-100 pt-3 sm:border-0 sm:pt-0">
                   <p-button
+                    icon="pi pi-pencil"
+                    [text]="true"
+                    severity="secondary"
+                    (onClick)="openEditBreakDialog(item)"
+                    pTooltip="Bearbeiten"
+                  />
+                  <p-button
                     icon="pi pi-trash"
                     [text]="true"
                     severity="danger"
@@ -277,7 +284,7 @@
 <p-dialog
   [visible]="showBreakDialog()"
   (visibleChange)="showBreakDialog.set($event)"
-  header="Neue Pause"
+  [header]="isBreakEditMode() ? 'Pause bearbeiten' : 'Neue Pause'"
   [modal]="true"
   [draggable]="false"
   [resizable]="false"
