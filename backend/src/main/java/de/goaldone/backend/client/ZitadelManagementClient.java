@@ -7,6 +7,7 @@ import com.zitadel.Zitadel;
 import com.zitadel.model.*;
 import de.goaldone.backend.exception.ZitadelApiException;
 import de.goaldone.backend.model.AccountUpdateRequest;
+import de.goaldone.backend.model.MemberRole;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
@@ -18,6 +19,7 @@ import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.lang.reflect.Member;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -115,6 +117,48 @@ public class ZitadelManagementClient {
         } catch (Exception e) {
             log.error("Failed to list users of org {}: {}", zitadelOrgId, e.getMessage());
             throw new ZitadelApiException("Failed to list users of org: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Check if user is last admin in org.
+     */
+    public Map<String, List<MemberRole>> listUsersWithTheirRoles(String zitadelOrgId, String projectId) {
+        try {
+            AuthorizationServiceListAuthorizationsRequest request = new AuthorizationServiceListAuthorizationsRequest()
+                    .addFiltersItem(new AuthorizationServiceAuthorizationsSearchFilter()
+                            .projectId(new AuthorizationServiceIDFilter().id(projectId)))
+                    .addFiltersItem(new AuthorizationServiceAuthorizationsSearchFilter()
+                            .userOrganizationId(new AuthorizationServiceIDFilter().id(zitadelOrgId)))
+                    .pagination(new AuthorizationServicePaginationRequest().limit(1000));
+
+            AuthorizationServiceListAuthorizationsResponse response = zitadel.getAuthorizations().listAuthorizations(request);
+            Map<String, List<MemberRole>> userRolesMap = new java.util.HashMap<>();
+            if (response.getAuthorizations() != null) {
+                for (AuthorizationServiceAuthorization auth : response.getAuthorizations()) {
+                    AuthorizationServiceUser user = auth.getUser();
+
+                    if (user == null) continue;
+
+                    String userId = user.getId();
+
+                    if(auth.getRoles() == null || auth.getRoles().isEmpty()) continue;
+
+                    List<MemberRole> roles = auth.getRoles()
+                            .stream()
+                            .map(role -> MemberRole.fromValue(role.getKey()))
+                            .toList();
+                    userRolesMap.put(userId, roles);
+                }
+            }
+            return userRolesMap;
+        } catch (ApiException e) {
+            String errorMsg = String.format("Failed to list authorizations in project %s: HTTP %d", projectId, e.getCode());
+            log.error(errorMsg);
+            throw new ZitadelApiException(errorMsg, e);
+        } catch (Exception e) {
+            log.error("Failed to list all authorizations: {}", e.getMessage());
+            throw new ZitadelApiException("Failed to list all grants: " + e.getMessage(), e);
         }
     }
 

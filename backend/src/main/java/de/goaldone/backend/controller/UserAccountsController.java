@@ -88,7 +88,7 @@ public class UserAccountsController implements UserAccountsApi {
     @Override
     public ResponseEntity<Void> deleteAccount(UUID accountId) throws Exception {
         hasAccess(accountId);
-        deletionService.deleteUserAccount(accountId);
+        deletionService.deleteUser(accountId);
         return ResponseEntity.noContent().build();
     }
 
