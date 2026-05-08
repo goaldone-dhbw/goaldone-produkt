@@ -6,14 +6,17 @@ import com.zitadel.ApiException;
 import com.zitadel.Zitadel;
 import com.zitadel.model.*;
 import de.goaldone.backend.exception.ZitadelApiException;
+import de.goaldone.backend.model.AccountUpdateRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -382,6 +385,79 @@ public class ZitadelManagementClient {
             throw new ZitadelApiException("Failed to get user: HTTP " + e.getCode(), e);
         } catch (Exception e) {
             throw new ZitadelApiException("Failed to get user: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Update a user's profile.
+     * @param userId the ID of the user to update
+     * @param updateRequest the update request containing the new profile information
+     * @return the updated user information
+     */
+    public void updateUser(String userId, AccountUpdateRequest updateRequest) {
+        try {
+            UserServiceUpdateUserRequest request = new UserServiceUpdateUserRequest();
+            request.userId(userId);
+
+            UserServiceHuman humanUser = new UserServiceHuman();
+
+            // Handle Email
+            if (updateRequest.getEmail() != null) {
+                humanUser.setEmail(new UserServiceSetHumanEmail()
+                        .email(updateRequest.getEmail())
+                        .sendCode(new UserServiceSendEmailVerificationCode()));
+            }
+
+            // Handle Profile (First Name / Last Name)
+            if (updateRequest.getFirstName() != null || updateRequest.getLastName() != null) {
+                UserServiceProfile profile = new UserServiceProfile();
+
+                if (updateRequest.getFirstName() != null) {
+                    profile.setGivenName(updateRequest.getFirstName());
+                }
+                if (updateRequest.getLastName() != null) {
+                    profile.setFamilyName(updateRequest.getLastName());
+                }
+
+                humanUser.setProfile(profile);
+            }
+
+            request.human(humanUser);
+
+            UserServiceUpdateUserResponse response = zitadel.getUsers().updateUser(request);
+            log.info("Updated user {} successfully at {}", userId, response.getChangeDate());
+
+        } catch (ZitadelApiException e) {
+            throw new ZitadelApiException("Failed to update user: HTTP " + e.getMessage(), e);
+        } catch (Exception e) {
+            throw new ZitadelApiException("Failed to update user: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Update a user's password.
+     * @param userId the ID of the user to update
+     * @param currentPassword the current password of the user
+     * @param newPassword the new password to set for the user
+     */
+    public void updateUserPassword(String userId, String currentPassword, String newPassword) {
+        try {
+            UserServiceUpdateUserRequest request = new UserServiceUpdateUserRequest()
+                    .userId(userId)
+                    .human(new UserServiceHuman()
+                            .password(new UserServiceSetPassword()
+                                    .currentPassword(currentPassword)
+                                    .password(new UserServicePassword()
+                                            .password(newPassword)
+                                            .changeRequired(false)
+                                    ))
+                            );
+            zitadel.getUsers().updateUser(request);
+        } catch (ApiException e) {
+            log.error("Failed to update user password: HTTP {}", e.getCode());
+            throw new ZitadelApiException("Failed to update user password: HTTP " + e.getCode(), e);
+        } catch (Exception e) {
+            throw new ZitadelApiException("Failed to update user password: " + e.getMessage(), e);
         }
     }
 
