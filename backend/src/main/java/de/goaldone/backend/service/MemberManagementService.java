@@ -35,8 +35,7 @@ public class MemberManagementService {
     private final ZitadelManagementClient zitadelManagementClient;
     private final UserAccountRepository userAccountRepository;
     private final OrganizationRepository organizationRepository;
-    private final UserAccountDeletionService userAccountDeletionService;
-    private final UserIdentityService userIdentityService;
+    private final DeletionService deletionService;
 
     @Value("${zitadel.goaldone.project-id}")
     private String goaldoneProjectId;
@@ -220,7 +219,7 @@ public class MemberManagementService {
         Optional<UserAccountEntity> accountOpt = userAccountRepository.findByZitadelSub(zitadelUserId).filter(acc -> acc.getOrganizationId().equals(orgId));
 
         if (accountOpt.isPresent()) {
-            userAccountDeletionService.deleteUserAccount(accountOpt.get().getId());
+            deletionService.deleteUserAccount(accountOpt.get().getId());
         } else {
             zitadelManagementClient.deleteUser(zitadelUserId);
         }

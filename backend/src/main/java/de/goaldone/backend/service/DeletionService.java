@@ -1,6 +1,8 @@
 package de.goaldone.backend.service;
 
+import com.nimbusds.openid.connect.sdk.assurance.evidences.Organization;
 import com.zitadel.model.OrganizationServiceListOrganizationsResponse;
+import com.zitadel.model.OrganizationServiceOrganization;
 import com.zitadel.model.UserServiceListUsersResponse;
 import com.zitadel.model.UserServiceUser;
 import de.goaldone.backend.client.ZitadelManagementClient;
@@ -29,7 +31,6 @@ public class DeletionService {
     private final ZitadelManagementClient zitadelManagementClient;
     private final OrganizationRepository organizationRepository;
     private final UserAccountRepository userAccountRepository;
-    private final UserAccountDeletionService userAccountDeletionService;
     private final UserIdentityRepository userIdentityRepository;
 
     @Value("${zitadel.goaldone.project-id}")
@@ -41,17 +42,22 @@ public class DeletionService {
     /**
      * Deletes an organization and all associated users from Zitadel and local database.
      * The Transactional annotation ensures that the database changes are rolled back in case of an error.
-     * @param zitadelOrgId
-     * @return
+     * @param zitadelOrgId the ID of the organization to delete in Zitadel
      */
     @Transactional
-    public boolean deleteOrg(String zitadelOrgId) {
+    public void deleteOrg(String zitadelOrgId) {
         if (mainOrgId.equals(zitadelOrgId)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "HOME_ORGANIZATION_CANNOT_BE_DELETED");
         }
 
         try {
-            OrganizationServiceListOrganizationsResponse orgInfo = zitadelManagementClient.getOrganizationInfoById(zitadelOrgId);
+            List<OrganizationServiceOrganization> orgInfoList = zitadelManagementClient.getOrganizationInfoById(zitadelOrgId).getResult();
+            if (orgInfoList == null || orgInfoList.isEmpty()) {
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "ORGANIZATION_NOT_FOUND");
+            } else if (orgInfoList.size() > 1) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "ORGANIZATION_ID_NOT_UNIQUE");
+            }
+
             Optional<OrganizationEntity> localOrg = organizationRepository.findByZitadelOrgId(zitadelOrgId);
             UserServiceListUsersResponse orgUsers = zitadelManagementClient.listUsersOfOrg(zitadelOrgId);
 
@@ -61,8 +67,9 @@ public class DeletionService {
                 throw new ResponseStatusException(HttpStatus.NOT_FOUND, "ORGANIZATION_USERS_NOT_FOUND");
             }
 
-            if( localOrg.isEmpty()) {
-                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "ORGANIZATION_NOT_FOUND");
+            if(localOrg.isEmpty()) {
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "LOCAL_ORGANIZATION_NOT_FOUND");
+                //TODO: can be empty
             }
 
             List<UserAccountEntity> userAccounts = userAccountRepository.findAllByOrganizationId(localOrg.get().getId());
@@ -72,62 +79,28 @@ public class DeletionService {
             }
 
             for (UserServiceUser user : orgUsers.getResult()) {
+
+                // If the user is active in zitadel, there can be a local record of the user.
+                // In that case, delete the local record.
                 if (user.getState().toString().equals("USER_STATE_ACTIVE")) {
-                    // If there is a local shadow record for the user, delete it
                     if (zitadelSubToAccountMap.containsKey(user.getUserId())) {
                         try {
                             UUID localUserId = zitadelSubToAccountMap.get(user.getUserId()).getId();
-                            deleteLocalUserAccount(zitadelSubToAccountMap.get(localUserId);
-                            deleteZitadelUserAccount();
-                            //TODO: continue here
-
-
-
-
-
-
+                            deleteLocalUserAccount(localUserId);
                         } catch (Exception e) {
                             log.error("Failed to delete active user account {} (zitadelSub={}): {}",
-                                    zitadelSubToAccountMap.get(user.getUserId()).getId(), user.id(), e.getMessage());
-                            failedUserIds.add(user.id());
-                        }
-                    } else {
-                        // Active in Zitadel but no local shadow record — delete directly
-                        try {
-                            zitadelManagementClient.deleteUserOrThrow(user.id());
-                        } catch (Exception e) {
-                            log.error("Failed to delete Zitadel user {} (no local account): {}", user.id(), e.getMessage());
-                            failedUserIds.add(user.id());
+                                    zitadelSubToAccountMap.get(user.getUserId()).getId(), user.getUserId(), e.getMessage());
                         }
                     }
-                } else {
-                    // Invited (USER_STATE_INITIAL) or any other state — no local record, delete directly in Zitadel
-                    try {
-                        zitadelManagementClient.deleteUserOrThrow(user.id());
-                    } catch (Exception e) {
-                        log.error("Failed to delete invited user {} in Zitadel: {}", user.id(), e.getMessage());
-                        failedUserIds.add(user.id());
-                    }
                 }
+                // Delete user in zitadel
+                deleteZitadelUserAccount(user.getUserId());
             }
 
-            if (!failedUserIds.isEmpty()) {
-                throw new PartialDeletionException(failedUserIds);
-            }
-
-            zitadelManagementClient.deleteOrganizationOrThrow(zitadelOrg.id());
-
-            orgOptional.ifPresent(org -> {
-                try {
-                    organizationRepository.deleteById(org.getId());
-                    log.info("Deleted organization {} (zitadelOrgId={})", org.getId(), org.getZitadelOrgId());
-                } catch (Exception e) {
-                    log.error("Failed to delete local organization record {}: {}", org.getId(), e.getMessage());
-                    throw new ZitadelApiException("Failed to delete local organization record: " + e.getMessage(), e);
-                }
+            localOrg.ifPresent(org -> {
+                deleteLocalOrg(org.getId(), zitadelOrgId);
             });
-
-
+            deleteZitadelOrg(zitadelOrgId);
         } catch (ZitadelApiException e) {
             if (e.getMessage() != null && e.getMessage().contains("No organization found for id")) {
                 throw new ResponseStatusException(HttpStatus.NOT_FOUND, "ORGANIZATION_NOT_FOUND");
@@ -136,8 +109,51 @@ public class DeletionService {
         }
     }
 
-    private void deleteZitadelUserAccount(String zitadelSub) {
-        //TODO: implement
+    /**
+     * Deletes a user account by its ID.
+     * First removes the user from Zitadel (throwing if that fails), then deletes the local account record.
+     * If the account is the last one associated with a user identity, the identity is also deleted.
+     *
+     * @param accountId The UUID of the account to be deleted.
+     * @throws IllegalStateException                             if the account cannot be found.
+     * @throws de.goaldone.backend.exception.ZitadelApiException if the Zitadel deletion fails.
+     */
+    @Transactional
+    public void deleteUserAccount(UUID accountId) {
+        UserAccountEntity account = userAccountRepository.findById(accountId)
+                .orElseThrow(() -> new IllegalStateException("Account not found"));
+
+        UUID identityId = account.getUserIdentityId();
+        long count = userAccountRepository.countByUserIdentityId(identityId);
+
+        zitadelManagementClient.deleteUser(account.getZitadelSub());
+
+        userAccountRepository.delete(account);
+
+        if (count == 1) {
+            // Last account in identity — clean up identity too
+            userIdentityRepository.deleteById(identityId);
+            log.info("Deleted account {} and its identity {}", accountId, identityId);
+        } else {
+            log.info("Deleted account {}, identity {} remains with {} accounts",
+                    accountId, identityId, count - 1);
+        }
+    }
+
+
+    /**
+     * Deletes a user account from Zitadel. If the deletion fails, a ZitadelApiException is thrown,
+     * therefore, the Transactional annotation will roll back the database changes.
+     * @param zitadelUserId the ID of the user to delete in Zitadel
+     */
+    private void deleteZitadelUserAccount(String zitadelUserId) {
+        try {
+            zitadelManagementClient.deleteUser(zitadelUserId);
+            log.info("Deleted Zitadel user {}", zitadelUserId);
+        } catch (Exception e) {
+            log.error("Failed to delete Zitadel user {}: {}", zitadelUserId, e.getMessage());
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "FAILED_TO_DELETE_ZITADEL_USER: " + zitadelUserId);
+        }
     }
 
     private void deleteLocalUserAccount(UUID accountId) {
@@ -158,6 +174,25 @@ public class DeletionService {
         } else {
             log.info("Deleted account {}, identity {} remains with {} accounts",
                     accountId, account.getUserIdentityId(), accountsInIdentity - 1);
+        }
+    }
+
+    private void deleteZitadelOrg(String zitadelOrgId) {
+        try {
+            zitadelManagementClient.deleteOrganization(zitadelOrgId);
+        } catch (Exception e) {
+            log.error("Failed to delete zitadel org: {}", e.getMessage());
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "FAILED_TO_DELETE_ZITADEL_ORGANIZATION");
+        }
+    }
+
+    private void deleteLocalOrg(UUID orgId, String zitadelOrgId) {
+        try {
+            organizationRepository.deleteById(orgId);
+            log.info("Deleted organization {} (zitadelOrgId={})", orgId, zitadelOrgId);
+        } catch (Exception e) {
+            log.error("Failed to delete local organization record {}: {}", orgId, e.getMessage());
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "FAILED_TO_DELETE_LOCAL_ORGANIZATION");
         }
     }
 }

@@ -1,12 +1,8 @@
 package de.goaldone.backend.service;
 
 import com.zitadel.model.OrganizationServiceListOrganizationsResponse;
-import com.zitadel.model.UserServiceListUsersResponse;
-import com.zitadel.model.UserServiceUser;
 import de.goaldone.backend.client.ZitadelManagementClient;
-import de.goaldone.backend.client.ZitadelUserInfo;
 import de.goaldone.backend.entity.OrganizationEntity;
-import de.goaldone.backend.entity.UserAccountEntity;
 import de.goaldone.backend.exception.ConflictException;
 import de.goaldone.backend.exception.PartialDeletionException;
 import de.goaldone.backend.exception.ZitadelApiException;
@@ -15,11 +11,9 @@ import de.goaldone.backend.model.OrganizationListItem;
 import de.goaldone.backend.model.OrganizationListResponse;
 import de.goaldone.backend.model.OrganizationResponse;
 import de.goaldone.backend.repository.OrganizationRepository;
-import de.goaldone.backend.repository.UserAccountRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -28,10 +22,8 @@ import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -47,8 +39,6 @@ public class OrganizationManagementService {
 
     private final ZitadelManagementClient zitadelManagementClient;
     private final OrganizationRepository organizationRepository;
-    private final UserAccountRepository userAccountRepository;
-    private final UserAccountDeletionService userAccountDeletionService;
     private final DeletionService deletionService;
 
     @Value("${zitadel.goaldone.project-id}")
@@ -148,15 +138,16 @@ public class OrganizationManagementService {
 
         OrganizationServiceListOrganizationsResponse zitadelOrgs = zitadelManagementClient.listOrganizations();
 
-        List<OrganizationEntity> localOrgs = organizationRepository.findAll();
-
+        if(zitadelOrgs.getResult() == null) {
+            return new OrganizationListResponse();
+        }
         List<OrganizationListItem> items = zitadelOrgs.getResult().stream()
                 .filter(zOrg -> !mainOrgId.equals(zOrg.getId()))
                 .map(zOrg -> {
                     OrganizationEntity local = localByZitadelId.get(zOrg.getId());
                     log.info("Mapping zitadelOrgId={} to localOrgId={}", zOrg.getId(), local != null ? local.getId() : null);
 
-                    OffsetDateTime createdAt = (local != null)
+                    OffsetDateTime createdAt = (local != null && zOrg.getDetails() != null)
                             ? local.getCreatedAt().atOffset(ZoneOffset.UTC)
                             : zOrg.getDetails().getCreationDate();
 
@@ -174,7 +165,7 @@ public class OrganizationManagementService {
     /**
      * Deletes an organization and all its members in a cascading operation across Zitadel and the local database.
      * <p>
-     * Deletion order: active members (via {@link UserAccountDeletionService}) → invited members (direct Zitadel delete)
+     * Deletion order: active members (via {@link DeletionService}) → invited members (direct Zitadel delete)
      * → Zitadel organization → local record.
      * <p>
      * The operation does not require a local database record to exist. If the organization exists in Zitadel,
@@ -191,9 +182,7 @@ public class OrganizationManagementService {
      */
     @Transactional
     public void deleteOrganization(String zitadelOrgId) {
-        if(!deletionService.deleteOrg(zitadelOrgId)) {
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to delete organization " + zitadelOrgId);
-        }
+        deletionService.deleteOrg(zitadelOrgId);
     }
 
     /**
