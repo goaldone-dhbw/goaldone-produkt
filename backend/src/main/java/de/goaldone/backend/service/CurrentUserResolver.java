@@ -10,6 +10,10 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Component;
 
+/**
+ * Component for resolving the current user's account and organization based on the security context.
+ * It provides methods to extract JWT information and resolve the corresponding database entities.
+ */
 @Component
 @RequiredArgsConstructor
 public class CurrentUserResolver {
@@ -17,6 +21,12 @@ public class CurrentUserResolver {
     private final UserAccountRepository userAccountRepository;
     private final OrganizationRepository organizationRepository;
 
+    /**
+     * Extracts the JWT from the current security context.
+     *
+     * @return The {@link Jwt} from the authentication token.
+     * @throws IllegalStateException if the current authentication is not a JWT token.
+     */
     public Jwt extractJwt() {
         var auth = SecurityContextHolder.getContext().getAuthentication();
         if (!(auth instanceof JwtAuthenticationToken jwtAuth)) {
@@ -25,6 +35,12 @@ public class CurrentUserResolver {
         return (Jwt) jwtAuth.getPrincipal();
     }
 
+    /**
+     * Resolves the {@link UserAccountEntity} for the current user based on the JWT in the security context.
+     *
+     * @return The {@link UserAccountEntity} associated with the current user.
+     * @throws IllegalStateException if the account cannot be found for the JWT's subject claim.
+     */
     public UserAccountEntity resolveCurrentAccount() {
         Jwt jwt = extractJwt();
         return userAccountRepository.findByZitadelSub(jwt.getSubject())
@@ -32,6 +48,12 @@ public class CurrentUserResolver {
                 "Account not found for sub " + jwt.getSubject() + " after JIT provisioning"));
     }
 
+    /**
+     * Resolves the {@link OrganizationEntity} for the current user based on their account.
+     *
+     * @return The {@link OrganizationEntity} the current user belongs to.
+     * @throws IllegalStateException if the organization cannot be found for the user's account.
+     */
     public OrganizationEntity resolveCurrentOrganization() {
         UserAccountEntity user = resolveCurrentAccount();
         return organizationRepository.findById(user.getOrganizationId())
@@ -39,6 +61,13 @@ public class CurrentUserResolver {
                 "Organization not found for user " + user.getId()));
     }
 
+    /**
+     * Resolves the {@link UserAccountEntity} for a user based on a provided JWT.
+     *
+     * @param jwt The JWT to use for resolving the account.
+     * @return The {@link UserAccountEntity} associated with the provided JWT.
+     * @throws IllegalStateException if the account cannot be found for the JWT's subject claim.
+     */
     public UserAccountEntity resolveCurrentAccount(Jwt jwt) {
         return userAccountRepository.findByZitadelSub(jwt.getSubject())
             .orElseThrow(() -> new IllegalStateException(

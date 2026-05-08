@@ -16,6 +16,11 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.util.UUID;
 
+/**
+ * Service for Just-In-Time (JIT) provisioning of users and organizations.
+ * When a user logs in for the first time with a JWT from Zitadel, this service
+ * ensures that the corresponding local records (UserAccount, UserIdentity, and Organization) are created.
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -25,6 +30,13 @@ public class JitProvisioningService {
     private final UserIdentityRepository userIdentityRepository;
     private final OrganizationRepository organizationRepository;
 
+    /**
+     * Provisions a user based on the information in the provided JWT.
+     * If the user already exists, it updates their 'last seen' timestamp.
+     * If the organization does not exist, it creates a new one.
+     *
+     * @param jwt The {@link Jwt} containing the user's information and organization claims.
+     */
     @Transactional
     public void provisionUser(Jwt jwt) {
         String sub = jwt.getSubject();
@@ -65,6 +77,15 @@ public class JitProvisioningService {
         log.info("Provisioned new user {} in organization {} with identity {}", sub, org.getId(), identity.getId());
     }
 
+    /**
+     * Helper method to create a new organization record.
+     * Handles potential race conditions by catching unique constraint violations.
+     *
+     * @param zitadelOrgId The unique organization ID from Zitadel.
+     * @param orgName      The name of the organization.
+     * @return The newly created or already existing {@link OrganizationEntity}.
+     * @throws RuntimeException if organization creation fails due to reasons other than race conditions.
+     */
     private OrganizationEntity createOrganization(String zitadelOrgId, String orgName) {
         try {
             OrganizationEntity org = new OrganizationEntity();

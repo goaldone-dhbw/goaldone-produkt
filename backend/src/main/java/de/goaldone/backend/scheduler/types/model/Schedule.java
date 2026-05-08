@@ -8,7 +8,7 @@ import java.util.ArrayList;
 @Getter
 public class Schedule {
 
-    ArrayList<ScheduleEntry> scheduledTasks;
+   private ArrayList<ScheduleEntry> scheduledTasks;
 
     public Schedule() {
         this.scheduledTasks = new ArrayList<>();

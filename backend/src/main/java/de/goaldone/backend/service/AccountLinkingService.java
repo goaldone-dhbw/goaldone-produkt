@@ -26,6 +26,10 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.UUID;
 
+/**
+ * Service for managing the linking and unlinking of user accounts across different organizations.
+ * It handles the creation and confirmation of link tokens, merging user identities, and cleaning up expired tokens.
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -38,6 +42,12 @@ public class AccountLinkingService {
     private final UserIdentityRepository userIdentityRepository;
     private final WorkingTimeRepository workingTimeRepository;
 
+    /**
+     * Requests a new link token for the specified initiator account.
+     *
+     * @param initiatorAccountId The UUID of the account initiating the link request.
+     * @return A {@link LinkTokenResponse} containing the generated token and its expiration time.
+     */
     public LinkTokenResponse requestLink(UUID initiatorAccountId) {
         LinkTokenEntity token = new LinkTokenEntity();
         token.setToken(UUID.randomUUID());
@@ -52,6 +62,18 @@ public class AccountLinkingService {
         return response;
     }
 
+    /**
+     * Confirms a link request using a provided token and a confirming account.
+     * Merges the identities of the two accounts if they are not already linked and do not belong to the same organization.
+     *
+     * @param linkToken          The UUID of the link token to confirm.
+     * @param confirmingAccountId The UUID of the account confirming the link.
+     * @return {@code true} if there are working time conflicts after merging identities, {@code false} otherwise.
+     * @throws LinkTokenExpiredException          if the token is not found or has expired.
+     * @throws AlreadyLinkedException             if the accounts are already linked to the same identity.
+     * @throws SameOrganizationLinkNotAllowedException if the accounts belong to the same organization.
+     * @throws IllegalStateException              if the initiator or confirming account cannot be found.
+     */
     @Transactional
     public boolean confirmLink(UUID linkToken, UUID confirmingAccountId) {
         LinkTokenEntity tokenEntity = linkTokenRepository.findById(linkToken)
@@ -97,6 +119,15 @@ public class AccountLinkingService {
         return hasConflicts;
     }
 
+    /**
+     * Unlinks a target account from its current identity and creates a new identity for it.
+     *
+     * @param currentAccountId The UUID of the currently logged-in account.
+     * @param targetAccountId  The UUID of the account to be unlinked.
+     * @throws ResponseStatusException if the current account is not authorized to unlink the target account.
+     * @throws NotLinkedException      if the account is not linked to any other accounts.
+     * @throws IllegalStateException    if the current or target account cannot be found.
+     */
     @Transactional
     public void unlink(UUID currentAccountId, UUID targetAccountId) {
         UserAccountEntity currentAccount = userAccountRepository.findById(currentAccountId)
@@ -126,6 +157,10 @@ public class AccountLinkingService {
             targetAccountId, currentAccount.getUserIdentityId(), newIdentity.getId());
     }
 
+    /**
+     * Periodically cleans up expired link tokens from the database.
+     * Runs every hour at the top of the hour.
+     */
     @Scheduled(cron = "0 0 * * * *")
     @Transactional
     public void cleanupExpiredTokens() {

@@ -26,6 +26,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
+import static com.github.tomakehurst.wiremock.client.WireMock.ok;
 import static com.github.tomakehurst.wiremock.client.WireMock.okJson;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlMatching;
 import static org.junit.jupiter.api.Assertions.*;
@@ -95,6 +96,9 @@ class UserAccountDeletionServiceIntegrationTest {
         // Verify identity exists
         assertTrue(userIdentityRepository.existsById(identityId));
 
+        // Stub Zitadel deleteUser call that is now part of deleteUserAccount
+        stubDeleteUser("test-user-1");
+
         // Delete the account
         userAccountDeletionService.deleteUserAccount(account.getId());
 
@@ -133,6 +137,9 @@ class UserAccountDeletionServiceIntegrationTest {
         UserAccountEntity a2Fresh = userAccountRepository.findById(account2.getId()).orElseThrow();
         assertEquals(a1Fresh.getUserIdentityId(), a2Fresh.getUserIdentityId());
 
+        // Stub Zitadel deleteUser call that is now part of deleteUserAccount
+        stubDeleteUser("test-user-1");
+
         // Delete one account
         userAccountDeletionService.deleteUserAccount(account1.getId());
 
@@ -150,6 +157,11 @@ class UserAccountDeletionServiceIntegrationTest {
     void deleteNonExistentAccount_throwsIllegalStateException() {
         UUID randomId = UUID.randomUUID();
         assertThrows(IllegalStateException.class, () -> userAccountDeletionService.deleteUserAccount(randomId));
+    }
+
+    private void stubDeleteUser(String userId) {
+        wireMockServer.stubFor(WireMock.delete(urlMatching("/v2/users/" + userId))
+                .willReturn(ok()));
     }
 
     private Jwt buildJwt(String sub, String email, String givenName, String familyName,

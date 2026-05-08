@@ -6,6 +6,7 @@ import de.goaldone.backend.scheduler.types.SoftConstraint;
 import de.goaldone.backend.scheduler.types.constraints.DeadlineConstraint;
 import de.goaldone.backend.scheduler.types.constraints.PauseAfterReachedCognitiveLoadConstraint;
 import de.goaldone.backend.scheduler.types.model.Schedule;
+import de.goaldone.backend.scheduler.types.model.SolverState;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -28,27 +29,28 @@ public class ConstraintHandler {
         DeadlineConstraint deadlineConstraint = new DeadlineConstraint();
 
         this.hardConstraints.add(deadlineConstraint);
-
+        //TODO: Add constraints
 
         // Soft constraints
         PauseAfterReachedCognitiveLoadConstraint pauseAfterReachedCognitiveLoadConstraint =
                 new PauseAfterReachedCognitiveLoadConstraint(3);
 
         this.softConstraints.add(pauseAfterReachedCognitiveLoadConstraint);
+        //TODO: Add constraints
     }
 
     /**
      *
-     * @param schedule The schedule for which the score is to be calculated
+     * @param solverState The schedule for which the score is to be calculated
      * @return The score of the schedule
      */
-    public int calculateScore(Schedule schedule) {
+    public int calculateScore(SolverState solverState) {
 
         // First update the constraints for the given schedule
-        updateConstraints(schedule);
+        updateConstraints(solverState);
 
         // Then validate schedule
-        if (!isValidSchedule(schedule)) {
+        if (!isValidSchedule()) {
             return invalidScheduleScore; // Return a default score for invalid schedules
         };
 
@@ -59,18 +61,14 @@ public class ConstraintHandler {
                 score += constraint.getValue();
             }
         }
-        return score; // Return a default score if all constraints are valid
+        return score;
     }
 
     /**
      *
-     * @param schedule The schedule to validate
      * @return False if the schedule violates at least one hard constraint, true otherwise
      */
-    private boolean isValidSchedule(Schedule schedule) {
-
-        // Update the constraints for the given schedule
-        updateConstraints(schedule);
+    private boolean isValidSchedule() {
 
         // Check for violated hard constraints
         for (HardConstraint constraint : hardConstraints) {
@@ -86,7 +84,7 @@ public class ConstraintHandler {
      * @param schedule The schedule to check
      * @return A list of warnings for inactive soft constraints and violated hard constraints
      */
-    public List<ScheduleWarning> getWarnings(Schedule schedule) {
+    public List<ScheduleWarning> getWarnings(SolverState schedule) {
 
         // Update the constraints for the given schedule
         updateConstraints(schedule);
@@ -113,7 +111,7 @@ public class ConstraintHandler {
      * Updates the constraints for a specific schedule
      * @param scheduledTasks The schedule for which the constraints are updated
      */
-    private void updateConstraints(Schedule scheduledTasks) {
+    private void updateConstraints(SolverState scheduledTasks) {
 
         // Update soft constraints
         for (SoftConstraint constraint : softConstraints) {

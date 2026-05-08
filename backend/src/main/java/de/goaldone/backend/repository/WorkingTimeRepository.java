@@ -12,9 +12,23 @@ import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * Repository interface for {@link WorkingTimeEntity}.
+ * Manages working time slots for user identities across different days and time ranges.
+ */
 @Repository
 public interface WorkingTimeRepository extends JpaRepository<WorkingTimeEntity, UUID> {
 
+    /**
+     * Checks if there is an overlapping working time slot for the given user identity,
+     * within the specified time range and days.
+     *
+     * @param userIdentityId The UUID of the user identity.
+     * @param startTime      The start time of the slot to check.
+     * @param endTime        The end time of the slot to check.
+     * @param days           The collection of days to check for overlaps.
+     * @return {@code true} if an overlapping slot exists, {@code false} otherwise.
+     */
     @Query("""
             SELECT CASE WHEN COUNT(wt) > 0 THEN true ELSE false END
             FROM WorkingTimeEntity wt
@@ -31,6 +45,17 @@ public interface WorkingTimeRepository extends JpaRepository<WorkingTimeEntity, 
         @Param("days")       Collection<DayOfWeek> days
     );
 
+    /**
+     * Checks if there is an overlapping working time slot for the given user identity,
+     * excluding a specific slot ID. Useful for updates to avoid self-conflict.
+     *
+     * @param userIdentityId The UUID of the user identity.
+     * @param excludedId     The UUID of the slot to exclude from the overlap check.
+     * @param startTime      The start time of the slot to check.
+     * @param endTime        The end time of the slot to check.
+     * @param days           The collection of days to check for overlaps.
+     * @return {@code true} if an overlapping slot exists (excluding the specified one), {@code false} otherwise.
+     */
     @Query("""
             SELECT CASE WHEN COUNT(wt) > 0 THEN true ELSE false END
             FROM WorkingTimeEntity wt
@@ -49,6 +74,12 @@ public interface WorkingTimeRepository extends JpaRepository<WorkingTimeEntity, 
             @Param("days")        Collection<DayOfWeek> days
     );
 
+    /**
+     * Finds all working times for a specific user identity, ordered by start time ascending.
+     *
+     * @param userIdentityId The UUID of the user identity.
+     * @return A list of {@link WorkingTimeEntity} objects.
+     */
     @Query("""
             SELECT wt
             FROM WorkingTimeEntity wt
@@ -59,6 +90,12 @@ public interface WorkingTimeRepository extends JpaRepository<WorkingTimeEntity, 
             @Param("userIdentityId") UUID userIdentityId
     );
 
+    /**
+     * Checks if any conflicts (overlaps) exist between all working time slots for a given user identity.
+     *
+     * @param userIdentityId The UUID of the user identity.
+     * @return {@code true} if conflicts exist, {@code false} otherwise.
+     */
     @Query("""
             SELECT CASE WHEN COUNT(w1) > 0 THEN true ELSE false END
             FROM WorkingTimeEntity w1

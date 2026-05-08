@@ -2,7 +2,12 @@ package de.goaldone.backend.scheduler;
 
 public class LateAcceptance {
 
-    boolean acceptMove(int candidateScore, int lateScore) {
+    private final ConstraintHandler constraintHandler;
+
+    public LateAcceptance(ConstraintHandler constraintHandler) {
+        this.constraintHandler = constraintHandler;
+    }
+    boolean validateMove(int candidateScore, int lateScore) {
         return false;
     }
 }

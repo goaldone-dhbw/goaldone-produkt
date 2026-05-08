@@ -16,6 +16,10 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * Service for managing user identities and their associated accounts.
+ * Provides methods to retrieve identities, list accounts for an identity, and build account list responses.
+ */
 @Service
 @RequiredArgsConstructor
 public class UserIdentityService {
@@ -33,9 +37,10 @@ public class UserIdentityService {
 
 
     /**
+     * Finds the identity ID for the user account associated with the provided JWT.
      *
-     * @param jwt The current web-token
-     * @return The identityId for the current account
+     * @param jwt The current JWT representing the logged-in user.
+     * @return The UUID of the user's identity.
      */
     public UUID findIdentityFromAccount(Jwt jwt) {
         UserAccountEntity currentAccount = getCurrentAccount(jwt);
@@ -43,14 +48,22 @@ public class UserIdentityService {
     }
 
 
+    /**
+     * Retrieves all user accounts associated with a specific identity.
+     *
+     * @param identityId The UUID of the identity to find accounts for.
+     * @return A list of {@link UserAccountEntity} objects.
+     */
     public List<UserAccountEntity> findAccountsForIdentity(UUID identityId) {
         return userAccountRepository.findAllByUserIdentityId(identityId);
     }
 
     /**
+     * Retrieves the current user account based on the JWT's subject claim.
      *
-     * @param jwt The current web-token
-     * @return The current account from the token
+     * @param jwt The current JWT representing the logged-in user.
+     * @return The {@link UserAccountEntity} associated with the token.
+     * @throws IllegalStateException if the account cannot be found.
      */
     private UserAccountEntity getCurrentAccount(Jwt jwt) {
         return userAccountRepository
@@ -59,6 +72,13 @@ public class UserIdentityService {
     }
 
 
+    /**
+     * Builds an {@link AccountListResponse} containing details of all accounts linked to the user's identity.
+     *
+     * @param jwt The current JWT representing the logged-in user.
+     * @return An {@link AccountListResponse} summarizing the linked accounts and potential conflicts.
+     * @throws IllegalStateException if organization details for any account cannot be found.
+     */
     public AccountListResponse buildAccountListResponse(Jwt jwt) {
         UserAccountEntity currentAccount = getCurrentAccount(jwt);
 
@@ -105,12 +125,25 @@ public class UserIdentityService {
         return response;
     }
 
+    /**
+     * Retrieves the list of UUIDs for all accounts associated with the user's identity.
+     *
+     * @param jwt The current JWT representing the logged-in user.
+     * @return A list of account UUIDs.
+     */
     public List<UUID> accountIdsForUser(Jwt jwt) {
         return buildAccountListResponse(jwt).getAccounts().stream()
                 .map(AccountResponse::getAccountId)
                 .toList();
     }
 
+    /**
+     * Checks if the user associated with the provided JWT has access to the specified account ID.
+     *
+     * @param jwt       The current JWT representing the logged-in user.
+     * @param accountId The UUID of the account to check access for.
+     * @return {@code true} if the user has access to the account, {@code false} otherwise.
+     */
     public boolean hasUserAccessToAccount(Jwt jwt, UUID accountId) {
         AccountListResponse accounts = buildAccountListResponse(jwt);
 
