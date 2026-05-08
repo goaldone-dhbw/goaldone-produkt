@@ -12,8 +12,6 @@ import de.goaldone.backend.service.UserIdentityService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -30,45 +28,41 @@ public class MemberManagementController implements MemberManagementApi {
 
     @Override
     public ResponseEntity<Void> inviteMember(UUID orgId, InviteMemberRequest inviteMemberRequest) {
-        if(!userIdentityService.hasUserAccessToOrganizationWithRole(currrentUserResolver.extractJwt(), orgId, MemberRole.COMPANY_ADMIN)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Insufficient permissions to invite members");
-        }
+        hasAccess(orgId);
         memberInviteService.inviteMember(orgId, inviteMemberRequest);
         return ResponseEntity.status(201).build();
     }
 
     @Override
     public ResponseEntity<Void> reinviteMember(UUID orgId, String zitadelUserId) {
-        if(!userIdentityService.hasUserAccessToOrganizationWithRole(currrentUserResolver.extractJwt(), orgId, MemberRole.COMPANY_ADMIN)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Insufficient permissions to reinvite members");
-        }
+        hasAccess(orgId);
         memberInviteService.reinviteMember(orgId, zitadelUserId);
         return ResponseEntity.noContent().build();
     }
 
     @Override
     public ResponseEntity<MemberListResponse> listMembers(UUID orgId) {
-        if(!userIdentityService.hasUserAccessToOrganizationWithRole(currrentUserResolver.extractJwt(), orgId, MemberRole.COMPANY_ADMIN)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Insufficient permissions to list members");
-        }
+        hasAccess(orgId);
         return ResponseEntity.ok(memberManagementService.listMembers(orgId));
     }
 
     @Override
     public ResponseEntity<Void> changeMemberRole(UUID orgId, String zitadelUserId, ChangeRoleRequest changeRoleRequest) {
-        if(!userIdentityService.hasUserAccessToOrganizationWithRole(currrentUserResolver.extractJwt(), orgId, MemberRole.COMPANY_ADMIN)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Insufficient permissions to change member roles");
-        }
+        hasAccess(orgId);
         memberManagementService.changeMemberRole(orgId, zitadelUserId, changeRoleRequest);
         return ResponseEntity.ok().build();
     }
 
     @Override
     public ResponseEntity<Void> removeMember(UUID orgId, String zitadelUserId) {
-        if(!userIdentityService.hasUserAccessToOrganizationWithRole(currrentUserResolver.extractJwt(), orgId, MemberRole.COMPANY_ADMIN)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Insufficient permissions to remove members");
-        }
+        hasAccess(orgId);
         memberManagementService.removeMember(orgId, zitadelUserId);
         return ResponseEntity.noContent().build();
+    }
+
+    private void hasAccess(UUID orgId) {
+        if(!userIdentityService.hasUserAccessToOrganizationWithRole(currrentUserResolver.extractJwt(), orgId, MemberRole.COMPANY_ADMIN)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Insufficient permissions to manage members");
+        }
     }
 }

@@ -182,6 +182,42 @@ paths:
           description: Account not found
 
   /appointments/{accountId}/{appointmentId}:
+    put:
+      tags: [ appointments ]
+      summary: Update an existing appointment (full replace)
+      operationId: updateAppointment
+      security:
+        - bearerAuth: [ ]
+      parameters:
+        - $ref: '#/components/parameters/AccountIdPath'
+        - name: appointmentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AppointmentCreate'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Appointment'
+        '400':
+          description: Validation error
+        '401':
+          description: Unauthorized
+        '403':
+          description: Account not owned by user
+        '404':
+          description: Appointment not found
+
     get:
       tags: [ appointments ]
       summary: Get an appointment by ID

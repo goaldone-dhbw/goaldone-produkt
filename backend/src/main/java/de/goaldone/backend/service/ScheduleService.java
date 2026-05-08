@@ -31,6 +31,7 @@ public class ScheduleService {
 
     private final TasksService taskService;
     private final AppointmentService appointmentService;
+    private final CurrentUserResolver currentUserResolver;
     private final UserAccountRepository userAccountRepository;
     private final @Lazy UserIdentityService userIdentityService;
 
@@ -168,7 +169,8 @@ public class ScheduleService {
      * @return Available timeslots between appointments
      */
     private List<TimeSlot> getAvailableTimeSlots(UUID accountId) {
-        List<Appointment> allAppointments = appointmentService.listAppointments(accountId).getAppointments();
+        Jwt jwt = currentUserResolver.extractJwt();
+        List<Appointment> allAppointments = appointmentService.listAppointments(accountId, jwt).getAppointments();
 
         //TODO: calculate free time slots based on appointments and working hours
 
