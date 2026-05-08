@@ -1,0 +1,141 @@
+info:
+  name: Neuen Super-Admin einladen
+  type: http
+  seq: 2
+  tags:
+    - super-admin-management
+
+http:
+  method: POST
+  url: "{{baseUrl}}/admins/super-admins"
+  body:
+    type: json
+    data: |-
+      {
+        "email": "",
+        "firstName": "",
+        "lastName": ""
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+examples:
+  - name: 201 Response
+    description: Created
+    request:
+      url: "{{baseUrl}}/admins/super-admins"
+      method: POST
+      body:
+        type: json
+        data: |-
+          {
+            "email": "",
+            "firstName": "",
+            "lastName": ""
+          }
+    response:
+      status: 201
+      statusText: Created
+      body:
+        type: text
+        data: ""
+  - name: 400 Response
+    description: Bad Request
+    request:
+      url: "{{baseUrl}}/admins/super-admins"
+      method: POST
+      body:
+        type: json
+        data: |-
+          {
+            "email": "",
+            "firstName": "",
+            "lastName": ""
+          }
+    response:
+      status: 400
+      statusText: Bad Request
+      body:
+        type: text
+        data: ""
+  - name: 401 Response
+    description: Unauthorized
+    request:
+      url: "{{baseUrl}}/admins/super-admins"
+      method: POST
+      body:
+        type: json
+        data: |-
+          {
+            "email": "",
+            "firstName": "",
+            "lastName": ""
+          }
+    response:
+      status: 401
+      statusText: Unauthorized
+      body:
+        type: text
+        data: ""
+  - name: 403 Response
+    description: Forbidden
+    request:
+      url: "{{baseUrl}}/admins/super-admins"
+      method: POST
+      body:
+        type: json
+        data: |-
+          {
+            "email": "",
+            "firstName": "",
+            "lastName": ""
+          }
+    response:
+      status: 403
+      statusText: Forbidden
+      body:
+        type: text
+        data: ""
+  - name: 409 Response
+    description: Conflict (Email already in use)
+    request:
+      url: "{{baseUrl}}/admins/super-admins"
+      method: POST
+      body:
+        type: json
+        data: |-
+          {
+            "email": "",
+            "firstName": "",
+            "lastName": ""
+          }
+    response:
+      status: 409
+      statusText: Conflict
+      body:
+        type: text
+        data: ""
+  - name: 502 Response
+    description: Upstream Error
+    request:
+      url: "{{baseUrl}}/admins/super-admins"
+      method: POST
+      body:
+        type: json
+        data: |-
+          {
+            "email": "",
+            "firstName": "",
+            "lastName": ""
+          }
+    response:
+      status: 502
+      statusText: Bad Gateway
+      body:
+        type: text
+        data: ""

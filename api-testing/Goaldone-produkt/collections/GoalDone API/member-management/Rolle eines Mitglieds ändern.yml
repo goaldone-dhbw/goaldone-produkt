@@ -1,0 +1,28 @@
+info:
+  name: Rolle eines Mitglieds ändern
+  type: http
+  seq: 4
+
+http:
+  method: PUT
+  url: "{{baseUrl}}/organizations/:orgId/members/:zitadelUserId/role"
+  params:
+    - name: orgId
+      value: 9e800cb8-9356-441a-bb95-5048ec624e2b
+      type: path
+    - name: zitadelUserId
+      value: "370716114662981634"
+      type: path
+  body:
+    type: json
+    data: |-
+      {
+        "role": "COMPANY_ADMIN"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
