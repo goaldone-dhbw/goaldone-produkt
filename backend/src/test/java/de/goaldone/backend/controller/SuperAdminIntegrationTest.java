@@ -2,8 +2,14 @@ package de.goaldone.backend.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.WireMockServer;
-import com.github.tomakehurst.wiremock.client.WireMock;
+import com.zitadel.model.UserServiceDetails;
+import com.zitadel.model.UserServiceHumanEmail;
+import com.zitadel.model.UserServiceHumanProfile;
+import com.zitadel.model.UserServiceHumanUser;
+import com.zitadel.model.UserServiceUser;
+import com.zitadel.model.UserServiceUserState;
 import de.goaldone.backend.SharedWiremockSetup;
+import de.goaldone.backend.client.ZitadelManagementClient;
 import de.goaldone.backend.entity.OrganizationEntity;
 import de.goaldone.backend.entity.UserAccountEntity;
 import de.goaldone.backend.entity.UserIdentityEntity;
@@ -19,24 +25,27 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtClaimsSet;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 
 import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
-import static com.github.tomakehurst.wiremock.client.WireMock.ok;
-import static com.github.tomakehurst.wiremock.client.WireMock.okJson;
-import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
-import static com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -56,6 +65,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class SuperAdminIntegrationTest {
 
     private static final WireMockServer wireMockServer = SharedWiremockSetup.getSharedWireMockServer();
+
+    @MockitoBean
+    private ZitadelManagementClient zitadelManagementClient;
 
     private MockMvc mockMvc;
 
@@ -92,9 +104,14 @@ class SuperAdminIntegrationTest {
 
     @Test
     void testListSuperAdmins_Success() throws Exception {
-        stubListAuthorizations(List.of("admin-1", "admin-2"));
-        stubGetUser("admin-1", "admin1@goaldone.de");
-        stubGetUser("admin-2", "admin2@goaldone.de");
+        when(zitadelManagementClient.listUserIdsByRole(anyString(), anyString(), anyString()))
+            .thenReturn(List.of("admin-1", "admin-2"));
+        
+        UserServiceUser user1 = mockUserWithEmail("admin-1", "admin1@goaldone.de");
+        UserServiceUser user2 = mockUserWithEmail("admin-2", "admin2@goaldone.de");
+        
+        when(zitadelManagementClient.getUser("admin-1")).thenReturn(Optional.of(user1));
+        when(zitadelManagementClient.getUser("admin-2")).thenReturn(Optional.of(user2));
 
         mockMvc.perform(get("/admins/super-admins")
             .with(jwt().jwt(buildJwt("caller", "SUPER_ADMIN"))
@@ -107,10 +124,10 @@ class SuperAdminIntegrationTest {
 
     @Test
     void testInviteSuperAdmin_Success() throws Exception {
-        stubEmailNotExists();
-        stubAddHumanUser("new-admin-id");
-        stubAddUserGrant();
-        stubCreateInviteCode();
+        when(zitadelManagementClient.emailExists(anyString())).thenReturn(false);
+        when(zitadelManagementClient.addHumanUser(anyString(), anyString(), anyString(), anyString())).thenReturn("new-admin-id");
+        doNothing().when(zitadelManagementClient).addUserGrant(anyString(), anyString(), anyString(), anyString());
+        doNothing().when(zitadelManagementClient).createInviteCode(anyString());
 
         Map<String, String> request = Map.of("email", "new@goaldone.de");
 
@@ -124,9 +141,9 @@ class SuperAdminIntegrationTest {
 
     @Test
     void testDeleteSuperAdmin_Success() throws Exception {
-        // Arrange: 2 admins exist, delete one
-        stubListAuthorizations(List.of("admin-1", "admin-2"));
-        stubDeleteUser("admin-2");
+        when(zitadelManagementClient.listUserIdsByRole(anyString(), anyString(), anyString()))
+            .thenReturn(List.of("admin-1", "admin-2"));
+        doNothing().when(zitadelManagementClient).deleteUser(anyString());
 
         // Local shadow record
         UserIdentityEntity identity = userIdentityRepository.save(new UserIdentityEntity(UUID.randomUUID(), Instant.now()));
@@ -146,7 +163,8 @@ class SuperAdminIntegrationTest {
 
     @Test
     void testDeleteSuperAdmin_PreventsLastAdminDeletion() throws Exception {
-        stubListAuthorizations(List.of("admin-1"));
+        when(zitadelManagementClient.listUserIdsByRole(anyString(), anyString(), anyString()))
+            .thenReturn(List.of("admin-1"));
 
         mockMvc.perform(delete("/admins/super-admins/admin-1")
             .with(jwt().jwt(buildJwt("admin-1", "SUPER_ADMIN"))
@@ -163,62 +181,33 @@ class SuperAdminIntegrationTest {
             .andExpect(status().isForbidden());
     }
 
-    // --- Stubs ---
+    // --- Helpers ---
 
-    private void stubListAuthorizations(List<String> userIds) {
-        StringBuilder result = new StringBuilder("{\"result\": [");
-        for (int i = 0; i < userIds.size(); i++) {
-            result.append("{\"userId\": \"").append(userIds.get(i)).append("\"}");
-            if (i < userIds.size() - 1) result.append(",");
-        }
-        result.append("]}");
+    /**
+     * Builds a mock UserServiceUser with the given userId and email for testing.
+     */
+    private UserServiceUser mockUserWithEmail(String userId, String email) {
+        UserServiceHumanEmail humanEmail = mock(UserServiceHumanEmail.class);
+        when(humanEmail.getEmail()).thenReturn(email);
 
-        wireMockServer.stubFor(WireMock.post(urlPathMatching("/management/v1/users/grants/_search"))
-            .willReturn(okJson(result.toString())));
-    }
+        UserServiceHumanProfile profile = mock(UserServiceHumanProfile.class);
+        when(profile.getGivenName()).thenReturn("Admin");
+        when(profile.getFamilyName()).thenReturn("User");
 
-    private void stubGetUser(String userId, String email) {
-        String userJson = String.format("""
-            {
-                "user": {
-                    "id": "%s",
-                    "human": {
-                        "email": { "email": "%s" },
-                        "profile": { "givenName": "Admin", "familyName": "User" }
-                    },
-                    "state": "USER_STATE_ACTIVE",
-                    "details": { "createdDate": "2023-10-27T10:00:00Z" }
-                }
-            }
-            """, userId, email);
+        UserServiceHumanUser human = mock(UserServiceHumanUser.class);
+        when(human.getEmail()).thenReturn(humanEmail);
+        when(human.getProfile()).thenReturn(profile);
 
-        wireMockServer.stubFor(WireMock.get(urlPathEqualTo("/v2/users/" + userId))
-            .willReturn(okJson(userJson)));
-    }
+        UserServiceDetails details = mock(UserServiceDetails.class);
+        when(details.getCreationDate()).thenReturn(OffsetDateTime.parse("2023-10-27T10:00:00Z"));
 
-    private void stubDeleteUser(String userId) {
-        wireMockServer.stubFor(WireMock.delete(urlPathEqualTo("/v2/users/" + userId))
-            .willReturn(ok()));
-    }
+        UserServiceUser user = mock(UserServiceUser.class);
+        when(user.getUserId()).thenReturn(userId);
+        when(user.getHuman()).thenReturn(human);
+        when(user.getDetails()).thenReturn(details);
+        when(user.getState()).thenReturn(UserServiceUserState.USER_STATE_ACTIVE);
 
-    private void stubEmailNotExists() {
-        wireMockServer.stubFor(WireMock.post(urlPathMatching("/v2/users"))
-            .willReturn(okJson("{\"result\": []}")));
-    }
-
-    private void stubAddHumanUser(String userId) {
-        wireMockServer.stubFor(WireMock.post(urlPathMatching("/v2/users/human"))
-            .willReturn(okJson("{\"userId\": \"" + userId + "\"}")));
-    }
-
-    private void stubAddUserGrant() {
-        wireMockServer.stubFor(WireMock.post(urlPathMatching("/management/v1/users/.*/grants"))
-            .willReturn(ok()));
-    }
-
-    private void stubCreateInviteCode() {
-        wireMockServer.stubFor(WireMock.post(urlPathMatching("/v2/users/.*/invite_code"))
-            .willReturn(ok()));
+        return user;
     }
 
     private Jwt buildJwt(String sub, String role) {
