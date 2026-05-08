@@ -60,12 +60,16 @@ export class WorkingHoursPage implements OnInit {
   isEditMode = signal(false);
 
   showBreakDialog = signal(false);
+  isBreakEditMode = signal(false);
 
   selectedDays: DayOfWeek[] = [];
   selectedAccountId: string | null = null;
   editingId: string | null = null;
   startTimeString = '';
   endTimeString = '';
+
+  editingBreakId: string | null = null;
+  editingBreakAccountId: string | null = null;
 
   breakTitle = '';
   breakDate = '';
@@ -160,6 +164,7 @@ export class WorkingHoursPage implements OnInit {
         this.appointmentsService.listAppointments(account.accountId!.toString()).pipe(
           map((response: any) => {
             const items = response.items || response.appointments || response.content || [];
+
             return items.map((item: Appointment) => ({
               ...item,
               accountId: account.accountId,
@@ -321,6 +326,8 @@ export class WorkingHoursPage implements OnInit {
       message: 'Möchten Sie diese Arbeitszeit wirklich löschen?',
       header: 'Bestätigung',
       icon: 'pi pi-exclamation-triangle',
+      acceptLabel: 'Ja',
+      rejectLabel: 'Nein',
       accept: () => {
         if (!item.id) return;
 
@@ -347,6 +354,10 @@ export class WorkingHoursPage implements OnInit {
   }
 
   openCreateBreakDialog(): void {
+    this.isBreakEditMode.set(false);
+    this.editingBreakId = null;
+    this.editingBreakAccountId = null;
+
     this.breakTitle = '';
     this.breakDate = '';
     this.breakStartTime = '12:00';
@@ -354,6 +365,36 @@ export class WorkingHoursPage implements OnInit {
     this.breakType = 'ONCE';
     this.breakSelectedAccountId =
       this.accounts().length > 0 ? this.accounts()[0].accountId?.toString() || null : null;
+
+    this.showBreakDialog.set(true);
+  }
+
+  openEditBreakDialog(item: Appointment): void {
+    const appointmentId = (item as any).id?.toString();
+    const accountId = (item as any).accountId?.toString();
+
+    if (!appointmentId || !accountId) return;
+
+    this.isBreakEditMode.set(true);
+    this.editingBreakId = appointmentId;
+    this.editingBreakAccountId = accountId;
+
+    this.breakSelectedAccountId = accountId;
+    this.breakTitle = this.getBreakTitle(item);
+    this.breakStartTime = this.getBreakStart(item) || '12:00';
+    this.breakEndTime = this.getBreakEnd(item) || '13:00';
+
+    const breakDate = this.getBreakDate(item);
+    this.breakDate = breakDate !== 'Wiederkehrend' ? breakDate : '';
+
+    const appointmentType =
+      (item as any).appointmentType || (item as any).type || (item as any).breakType || '';
+
+    this.breakType =
+      appointmentType === 'RECURRING' || appointmentType === 'WEEKDAYS' || !!(item as any).rrule
+        ? 'RECURRING'
+        : 'ONCE';
+
     this.showBreakDialog.set(true);
   }
 
@@ -389,7 +430,7 @@ export class WorkingHoursPage implements OnInit {
     }
 
     const request: AppointmentCreate = {
-      title: this.breakTitle,
+      title: this.breakTitle.trim(),
       isBreak: true,
       appointmentType: this.breakType === 'ONCE' ? 'ONE_TIME' : 'RECURRING',
       date: this.breakType === 'ONCE' ? this.breakDate : null,
@@ -397,6 +438,16 @@ export class WorkingHoursPage implements OnInit {
       endTime: this.breakEndTime,
       rrule: this.breakType === 'RECURRING' ? 'FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR' : null,
     };
+
+    if (this.isBreakEditMode()) {
+      this.updateBreak(request);
+    } else {
+      this.createBreak(request);
+    }
+  }
+
+  createBreak(request: AppointmentCreate): void {
+    if (!this.breakSelectedAccountId) return;
 
     this.appointmentsService.createAppointment(this.breakSelectedAccountId, request).subscribe({
       next: () => {
@@ -420,6 +471,35 @@ export class WorkingHoursPage implements OnInit {
     });
   }
 
+  updateBreak(request: AppointmentCreate): void {
+    if (!this.editingBreakId || !this.editingBreakAccountId) return;
+
+    this.appointmentsService
+      .updateAppointment(this.editingBreakAccountId, this.editingBreakId, request as any)
+      .subscribe({
+        next: () => {
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Erfolg',
+            detail: 'Pause aktualisiert.',
+          });
+          this.showBreakDialog.set(false);
+          this.loadBreaks();
+          this.accountStateService.refresh();
+        },
+        error: (error) => {
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Fehler',
+            detail:
+              error.error?.detail ||
+              error.error?.message ||
+              'Pause konnte nicht aktualisiert werden.',
+          });
+        },
+      });
+  }
+
   deleteBreak(item: Appointment): void {
     const appointmentId = (item as any).id?.toString();
     const accountId = (item as any).accountId?.toString();
@@ -430,6 +510,8 @@ export class WorkingHoursPage implements OnInit {
       message: 'Möchten Sie diese Pause wirklich löschen?',
       header: 'Bestätigung',
       icon: 'pi pi-exclamation-triangle',
+      acceptLabel: 'Ja',
+      rejectLabel: 'Nein',
       accept: () => {
         this.appointmentsService.deleteAppointment(accountId, appointmentId).subscribe({
           next: () => {
@@ -485,10 +567,16 @@ export class WorkingHoursPage implements OnInit {
   }
 
   getBreakTypeLabel(item: Appointment): string {
-    const breakType = (item as any).breakType || (item as any).recurrence;
+    const breakType =
+      (item as any).appointmentType ||
+      (item as any).breakType ||
+      (item as any).type ||
+      (item as any).recurrence;
 
     if (breakType === 'ONE_TIME' || breakType === 'ONCE') return 'Einmalig';
     if (breakType === 'RECURRING' || breakType === 'WEEKDAYS') return 'Wiederkehrend';
+
+    if ((item as any).rrule) return 'Wiederkehrend';
 
     return 'Pause';
   }
