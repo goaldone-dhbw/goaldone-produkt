@@ -41,4 +41,13 @@ public interface AppointmentRepository extends JpaRepository<AppointmentEntity, 
      * @return A list of {@link AppointmentEntity} objects within the specified range.
      */
     List<AppointmentEntity> findByAccountIdAndDateBetween(UUID accountId, LocalDate from, LocalDate to);
+
+    /**
+     * Finds all appointments for a specific account filtered by the isBreak flag.
+     *
+     * @param accountId The UUID of the account.
+     * @param isBreak   True to return only breaks, false to return only regular appointments.
+     * @return A list of matching {@link AppointmentEntity} objects.
+     */
+    List<AppointmentEntity> findByAccountIdAndIsBreak(UUID accountId, boolean isBreak);
 }

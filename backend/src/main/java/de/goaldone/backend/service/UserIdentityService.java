@@ -1,10 +1,13 @@
 package de.goaldone.backend.service;
 
+import com.zitadel.model.AuthorizationServiceAuthorization;
+import com.zitadel.model.AuthorizationServiceRole;
 import de.goaldone.backend.client.ZitadelManagementClient;
 import de.goaldone.backend.entity.OrganizationEntity;
 import de.goaldone.backend.entity.UserAccountEntity;
 import de.goaldone.backend.model.AccountListResponse;
 import de.goaldone.backend.model.AccountResponse;
+import de.goaldone.backend.model.MemberRole;
 import de.goaldone.backend.repository.OrganizationRepository;
 import de.goaldone.backend.repository.UserAccountRepository;
 import de.goaldone.backend.repository.WorkingTimeRepository;
@@ -14,6 +17,7 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -86,43 +90,48 @@ public class UserIdentityService {
         boolean hasConflicts = workingTimeRepository.hasConflictsForIdentity(currentAccount.getUserIdentityId());
 
         List<AccountResponse> responses = accounts.stream()
-            .map(account -> {
-                OrganizationEntity org = organizationRepository.findById(account.getOrganizationId())
-                    .orElseThrow(() -> new IllegalStateException("Organization not found for account " + account.getId()));
-                List<String> roles = zitadelManagementClient.getUserGrantRoles(
-                        account.getZitadelSub(), goaldoneOrgId, goaldoneProjectId);
-                AccountResponse r = new AccountResponse();
-                r.setAccountId(account.getId());
-                r.setOrganizationId(account.getOrganizationId());
-                r.setOrganizationName(org.getName());
-                r.setRoles(roles);
-                r.setHasConflicts(hasConflicts);
+                .map(account -> {
+                    OrganizationEntity org = organizationRepository.findById(account.getOrganizationId())
+                            .orElseThrow(() -> new IllegalStateException("Organization not found for account " + account.getId()));
+                    List<String> roles = zitadelManagementClient.getUserGrantRoles(
+                            account.getZitadelSub(), goaldoneOrgId, goaldoneProjectId);
+                    AccountResponse r = new AccountResponse();
+                    r.setAccountId(account.getId());
+                    r.setOrganizationId(account.getOrganizationId());
+                    r.setOrganizationName(org.getName());
+                    r.setRoles(roles);
+                    r.setHasConflicts(hasConflicts);
 
-                zitadelManagementClient.getUser(account.getZitadelSub()).ifPresent(userNode -> {
-                    if (userNode.has("human")) {
-                        var human = userNode.get("human");
-                        if (human.has("email") && human.get("email").has("email")) {
-                            r.setEmail(human.get("email").get("email").asText());
-                        }
-                        if (human.has("profile")) {
-                            var profile = human.get("profile");
-                            if (profile.has("givenName")) {
-                                r.setFirstName(profile.get("givenName").asText());
+                    zitadelManagementClient.getUser(account.getZitadelSub()).ifPresent(user -> {
+                        if (user.getHuman() != null) {
+                            var human = user.getHuman();
+                            if (human.getEmail() != null) {
+                                r.setEmail(human.getEmail().getEmail());
                             }
-                            if (profile.has("familyName")) {
-                                r.setLastName(profile.get("familyName").asText());
+                            if (human.getProfile() != null) {
+                                var profile = human.getProfile();
+                                if (profile.getGivenName() != null) {
+                                    r.setFirstName(profile.getGivenName());
+                                }
+                                if (profile.getFamilyName() != null) {
+                                    r.setLastName(profile.getFamilyName());
+                                }
                             }
                         }
-                    }
-                });
+                    });
 
-                return r;
-            })
-            .toList();
+                    return r;
+                })
+                .toList();
 
         AccountListResponse response = new AccountListResponse();
         response.setAccounts(responses);
         return response;
+    }
+
+
+    private List<UserAccountEntity> getAccountInformationOfCurrentLoggedInUser(Jwt jwt) {
+        return userAccountRepository.findAllByUserIdentityId(findIdentityFromAccount(jwt));
     }
 
     /**
@@ -149,5 +158,101 @@ public class UserIdentityService {
 
         return accounts.getAccounts().stream()
                 .anyMatch(account -> account.getAccountId().equals(accountId));
+    }
+
+    /**
+     * Checks if the user associated with the provided JWT has access to the specified organization and account IDs with any role
+     *
+     * @param jwt            JWT Token of the logged in user
+     * @param organizationId UUID of the organization
+     * @return true if the user has access to the organization, false otherwise
+     */
+    public boolean hasUserAccessToOrganization(Jwt jwt, UUID organizationId) {
+        List<UserAccountEntity> accounts = getAccountInformationOfCurrentLoggedInUser(jwt);
+
+        return accounts.stream()
+                .anyMatch(account -> account.getOrganizationId().equals(organizationId));
+    }
+
+    /**
+     * Checks if the user associated with the provided JWT has access to the specified organization and account IDs with the specified role
+     *
+     * @param jwt            JWT Token of the logged in user
+     * @param organizationId UUID of the organization (local DB Id)
+     * @param role           Role of the user in the organization to check against
+     * @return true if the user has access to the organization, false otherwise
+     */
+    public boolean hasUserAccessToOrganizationWithRole(Jwt jwt, UUID organizationId, MemberRole role) {
+        List<UserAccountEntity> accounts = getAccountInformationOfCurrentLoggedInUser(jwt);
+
+        Optional<UserAccountEntity> account = accounts.stream()
+                .filter(a -> a.getOrganizationId().equals(organizationId))
+                .findFirst();
+
+        if (account.isEmpty()) {
+            return false;
+        }
+
+        List<MemberRole> roles = zitadelManagementClient.listGrantsForSpecificUser(goaldoneProjectId, account.get().getZitadelSub())
+                .getAuthorizations()
+                .stream()
+                .map(auth -> {
+                    if (auth.getRoles().isEmpty()) {
+                        return null;
+                    }
+                    return MemberRole.fromValue(auth.getRoles().getFirst().getKey());
+                }).toList();
+
+        return !roles.isEmpty() && roles.contains(role);
+    }
+
+    public boolean isUserSuperAdmin(Jwt jwt) {
+        // Find all local accounts that the user has access to
+        List<UserAccountEntity> accounts = getAccountInformationOfCurrentLoggedInUser(jwt);
+        List<UUID> orgIds = accounts.stream()
+                .map(UserAccountEntity::getOrganizationId)
+                .toList();
+
+        // Find all local orgs that the user has access to and check if any of them is the goaldone org
+        // If the user is not a member of the goaldone org, then they cannot be a super admin
+        List<OrganizationEntity> localOrgs = organizationRepository.findAllById(orgIds);
+        List<String> zitadelOrgIds = localOrgs.stream()
+                .map(OrganizationEntity::getZitadelOrgId)
+                .toList();
+        if (zitadelOrgIds.isEmpty() || !zitadelOrgIds.contains(goaldoneOrgId)) {
+            return false;
+        }
+
+        // Find the accountId that is linked to the goaldone org
+        OrganizationEntity localOrgOfGoaldoneRoot = organizationRepository
+                .findByZitadelOrgId(goaldoneOrgId).orElse(null);
+        if (localOrgOfGoaldoneRoot == null) {
+            return false;
+        }
+        UserAccountEntity localSuperAdminAccount = accounts
+                .stream()
+                .filter(a -> a.getOrganizationId().equals(localOrgOfGoaldoneRoot.getId()))
+                .findFirst()
+                .orElse(null);
+        if (localSuperAdminAccount == null) {
+            return false;
+        }
+
+        // Check zitadel for the SUPER_ADMIN role
+        List<AuthorizationServiceAuthorization> zitadelRecord = zitadelManagementClient.listGrantsForSpecificUser(
+                goaldoneProjectId, localSuperAdminAccount.getZitadelSub()
+        ).getAuthorizations();
+
+        if(zitadelRecord.isEmpty()) {
+            return false;
+        }
+
+        return zitadelRecord.stream().anyMatch(auth -> {
+            if(auth.getRoles().isEmpty()) {
+                return false;
+            }
+            List<String> roles = auth.getRoles().stream().map(AuthorizationServiceRole::getKey).toList();
+            return roles.contains("SUPER_ADMIN");
+        });
     }
 }

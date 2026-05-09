@@ -30,15 +30,12 @@ class OrganizationManagementServiceTest {
     private OrganizationRepository organizationRepository;
 
     @Mock
-    private UserAccountRepository userAccountRepository;
-
-    @Mock
-    private UserAccountDeletionService userAccountDeletionService;
+    private DeletionService deletionService;
 
     private OrganizationManagementService service;
 
     private void initService() {
-        service = new OrganizationManagementService(zitadelManagementClient, organizationRepository, userAccountRepository, userAccountDeletionService);
+        service = new OrganizationManagementService(zitadelManagementClient, organizationRepository, deletionService);
         // Use reflection to set the projectId and mainOrgId fields since they are private with @Value
         try {
             Field projectField = service.getClass().getDeclaredField("projectId");

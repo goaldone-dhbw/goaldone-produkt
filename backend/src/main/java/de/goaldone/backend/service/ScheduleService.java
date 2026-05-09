@@ -33,6 +33,7 @@ public class ScheduleService {
 
     private final TasksService taskService;
     private final AppointmentService appointmentService;
+    private final CurrentUserResolver currentUserResolver;
     private final UserAccountRepository userAccountRepository;
     private final @Lazy UserIdentityService userIdentityService;
 
@@ -308,10 +309,13 @@ public class ScheduleService {
      * @param target The date for which the appointments are listed
      * @return List of appointments for a given day
      */
-    private List<Appointment> getAppointmentsForDay(List<Appointment> allAppointments, LocalDate target) {
-        return allAppointments.stream()
-                .filter(apt -> apt.getDate().equals(target))
-                .sorted(Comparator.comparing(Appointment::getStartTime))
-                .toList();
+    private List<TimeSlot> getAvailableTimeSlots(UUID accountId) {
+        Jwt jwt = currentUserResolver.extractJwt();
+        List<Appointment> allAppointments = appointmentService.listAppointments(accountId, jwt).getAppointments();
+
+        //TODO: calculate free time slots based on appointments and working hours
+
+        List<TimeSlot> availableSlots = null;
+        return availableSlots;
     }
 }
