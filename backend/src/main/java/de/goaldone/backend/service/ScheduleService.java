@@ -12,9 +12,12 @@ import de.goaldone.backend.scheduler.types.model.SchedulingResult;
 import de.goaldone.backend.scheduler.types.model.TimeSlot;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.coyote.Response;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -85,7 +88,7 @@ public class ScheduleService {
                     .toList();
         } catch (Exception e) {
             log.error("Failed to initialize account scheduling", e);
-            throw new ScheduleException("Failed to initialize account scheduling", e);
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_CONTENT, "Failed to initialize account scheduling", e);
         }
     }
 
@@ -144,17 +147,17 @@ public class ScheduleService {
         // Check if account exists
         Optional<UserAccountEntity> accountOpt = userAccountRepository.findById(accountId);
         if (accountOpt.isEmpty()) {
-            throw new IllegalArgumentException("Account not found: " + accountId);
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found: " + accountId);
         }
 
         // Checks permissions
         if (!userIdentityService.hasUserAccessToAccount(jwt, accountId)) {
-            throw new SecurityException("User " + jwt.getSubject() + " does not have access to account " + accountId);
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "User " + jwt.getSubject() + " does not have access to account " + accountId);
         }
 
         // Validate fromDate (e.g. cannot be in the past)
         if (fromDate.isBefore(LocalDate.now())) {
-            throw new IllegalArgumentException("From date cannot be in the past");
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_CONTENT, "From date cannot be in the past");
         }
     }
 
