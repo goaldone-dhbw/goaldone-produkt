@@ -1,10 +1,7 @@
 package de.goaldone.backend.scheduler;
 
-import de.goaldone.backend.model.ScheduleWarning;
 import de.goaldone.backend.scheduler.types.model.*;
 import de.goaldone.backend.scheduler.types.moves.MoveSelector;
-
-import java.util.List;
 
 public class Solver {
 
@@ -35,7 +32,10 @@ public class Solver {
 
         SolverState currentBest = this.cpmAlgorithm.generateInitialSchedule(context);
 
+        boolean skip = true; // TODO: Remove. Only demo version
         while (System.currentTimeMillis() < endTime) {
+            if (skip) break;
+
             SolverState newState = moveSelector.selectAndApply(currentBest);
 
             MoveEvent latestMove = moveSelector.getLastMoveEvent();
@@ -50,12 +50,10 @@ public class Solver {
             }
         }
 
-
-        // Collect warnings for violated soft constraints
-        List<ScheduleWarning> warnings = constraintHandler.getWarnings(currentBest);
-
-        // TODO: Convert currentBest to SchedulingResult and return it
-        return null;
-
+        return new SchedulingResult(
+                constraintHandler.calculateScore(currentBest),
+                currentBest,
+                constraintHandler.getWarnings(currentBest)
+        );
     }
 }
