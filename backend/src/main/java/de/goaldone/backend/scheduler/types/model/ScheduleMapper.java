@@ -17,7 +17,12 @@ public class ScheduleMapper {
     private static final DateTimeFormatter TIME_FORMATTER =
             DateTimeFormatter.ofPattern("HH:mm");
 
-
+    /**
+     * @param accountId The account the schedule was generated for
+     * @param context The information base of the schedule
+     * @param schedule The generated schedule
+     * @return A schedule result for the backend
+     */
     public ScheduleResponse mapToScheduleResult(UUID accountId, SchedulingContext context, SchedulingResult schedule) {
         ScheduleResponse response = new ScheduleResponse();
 
@@ -44,6 +49,10 @@ public class ScheduleMapper {
         return response;
     }
 
+    /**
+     * @param schedule The generated schedule
+     * @return The total amount of time planed as working time
+     */
     private Integer getWorkMinutes(SolverState schedule) {
         return schedule
                 .scheduledChunks()
@@ -52,6 +61,11 @@ public class ScheduleMapper {
                 .sum();
     }
 
+    /**
+     * @param schedule The generated schedule
+     * @param fromDate The date from which on the plan is generated
+     * @return The date of the latest scheduled task
+     */
     private LocalDate getToDate(SolverState schedule, LocalDate fromDate) {
         Optional<LocalDate> latestDate = schedule
                 .scheduledChunks()
@@ -61,6 +75,10 @@ public class ScheduleMapper {
         return latestDate.orElse(fromDate);
     }
 
+    /**
+     * @param state The generated schedule
+     * @return ScheduledChunks mapped as List of ScheduleEntry
+     */
     private List<ScheduleEntry> getSchedule(SolverState state) {
         List<ScheduleEntry> schedule = new ArrayList<>();
 
@@ -71,6 +89,10 @@ public class ScheduleMapper {
         return schedule;
     }
 
+    /**
+     * @param scheduledChunk A single scheduled chunk
+     * @return A ScheduledChunk mapped as ScheduleEntry
+     */
     private ScheduleEntry toScheduleEntry(ScheduledChunk scheduledChunk) {
         return new ScheduleEntry()
                 .source(ScheduleEntry.SourceEnum.ONE_TIME)
