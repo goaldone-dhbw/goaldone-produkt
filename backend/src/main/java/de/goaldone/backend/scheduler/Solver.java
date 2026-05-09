@@ -1,10 +1,7 @@
 package de.goaldone.backend.scheduler;
 
-import de.goaldone.backend.model.ScheduleWarning;
 import de.goaldone.backend.scheduler.types.model.*;
 import de.goaldone.backend.scheduler.types.moves.MoveSelector;
-
-import java.util.List;
 
 public class Solver {
 
@@ -47,6 +44,7 @@ public class Solver {
         lateAcceptance.initialize(currentScore);
 
         while (System.currentTimeMillis() < endTime) {
+
             SolverState newState = moveSelector.selectAndApply(currentBest);
             int newScore = constraintHandler.calculateScore(newState);
 
@@ -66,14 +64,10 @@ public class Solver {
                 moveHistory.addMoveEvent(latestMove);
             }
 
-            lateAcceptance.updateHistory(currentScore);
-        }
-
-        // Collect warnings for violated soft constraints
-        List<ScheduleWarning> warnings = constraintHandler.getWarnings(currentBest);
-
-        // TODO: Convert currentBest to SchedulingResult and return it
-        return null;
-
+        return new SchedulingResult(
+                constraintHandler.calculateScore(currentBest),
+                currentBest,
+                constraintHandler.getWarnings(currentBest)
+        );
     }
 }

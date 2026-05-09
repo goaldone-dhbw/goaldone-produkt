@@ -220,7 +220,7 @@ public class ScheduleServiceTest {
 
         when(userAccountRepository.findById(accountId)).thenReturn(Optional.of(account));
         when(taskService.getTasksForAccountId(jwt, accountId)).thenReturn(List.of());
-        when(appointmentService.listAppointments(accountId)).thenReturn(new AppointmentListResponse());
+        when(appointmentService.listAppointments(accountId, jwt)).thenReturn(new AppointmentListResponse());
 
         SchedulingContext context = scheduleService.createSchedulingContext(jwt, accountId, fromDate, 1);
 
@@ -249,13 +249,13 @@ public class ScheduleServiceTest {
 
         when(userAccountRepository.findById(accountId)).thenReturn(Optional.of(account));
         when(taskService.getTasksForAccountId(jwt, accountId)).thenReturn(List.of());
-        when(appointmentService.listAppointments(accountId)).thenReturn(new AppointmentListResponse());
+        when(appointmentService.listAppointments(accountId, jwt)).thenReturn(new AppointmentListResponse());
 
         SchedulingContext context = scheduleService.createSchedulingContext(jwt, accountId, fromDate, 1);
 
         assertNotNull(context);
-        assertTrue(context.availableSlots().size() > 0, "Should have at least one slot");
-        TimeSlot slot = context.availableSlots().get(0);
+        assertFalse(context.availableSlots().isEmpty(), "Should have at least one slot");
+        TimeSlot slot = context.availableSlots().getFirst();
         assertEquals(LocalTime.of(9, 0), slot.startTime());
         assertEquals(LocalTime.of(17, 0), slot.endTime());
     }
@@ -294,15 +294,15 @@ public class ScheduleServiceTest {
 
         when(userAccountRepository.findById(accountId)).thenReturn(Optional.of(account));
         when(taskService.getTasksForAccountId(jwt, accountId)).thenReturn(List.of());
-        when(appointmentService.listAppointments(accountId)).thenReturn(appointmentResponse);
+        when(appointmentService.listAppointments(accountId, jwt)).thenReturn(appointmentResponse);
 
         SchedulingContext context = scheduleService.createSchedulingContext(jwt, accountId, fromDate, 1);
 
         assertNotNull(context);
         // Should have 3 slots: 09:00-10:00, 11:00-14:00, 15:00-17:00
         assertEquals(3, context.availableSlots().size(), "Should have 3 available slots");
-        assertEquals(LocalTime.of(9, 0), context.availableSlots().get(0).startTime());
-        assertEquals(LocalTime.of(10, 0), context.availableSlots().get(0).endTime());
+        assertEquals(LocalTime.of(9, 0), context.availableSlots().getFirst().startTime());
+        assertEquals(LocalTime.of(10, 0), context.availableSlots().getFirst().endTime());
     }
 
     @Test
@@ -325,13 +325,13 @@ public class ScheduleServiceTest {
 
         when(userAccountRepository.findById(accountId)).thenReturn(Optional.of(account));
         when(taskService.getTasksForAccountId(jwt, accountId)).thenReturn(List.of());
-        when(appointmentService.listAppointments(accountId)).thenReturn(new AppointmentListResponse());
+        when(appointmentService.listAppointments(accountId, jwt)).thenReturn(new AppointmentListResponse());
 
         SchedulingContext context = scheduleService.createSchedulingContext(jwt, accountId, fromDate, 4);
 
         assertNotNull(context);
         // Should have at least 12 slots (3 per day * 4 weeks)
-        assertTrue(context.availableSlots().size() == 12, "Expected exactly 12 slots, got " + context.availableSlots().size());
+        assertEquals(12, context.availableSlots().size(), "Expected exactly 12 slots, got " + context.availableSlots().size());
     }
 
     @Test
@@ -363,13 +363,12 @@ public class ScheduleServiceTest {
 
         when(userAccountRepository.findById(accountId)).thenReturn(Optional.of(account));
         when(taskService.getTasksForAccountId(jwt, accountId)).thenReturn(List.of());
-        when(appointmentService.listAppointments(accountId)).thenReturn(new AppointmentListResponse());
+        when(appointmentService.listAppointments(accountId, jwt)).thenReturn(new AppointmentListResponse());
 
         SchedulingContext context = scheduleService.createSchedulingContext(jwt, accountId, fromDate, 4);
 
         assertNotNull(context);
         // Should collect slots from both working time definitions (Monday and Tuesday slots)
-        assertTrue(context.availableSlots().size() == 8, "Expected exactly 8 slots (4 weeks * 2 days), got " + context.availableSlots().size());
+        assertEquals(8, context.availableSlots().size(), "Expected exactly 8 slots (4 weeks * 2 days), got " + context.availableSlots().size());
     }
-
 }

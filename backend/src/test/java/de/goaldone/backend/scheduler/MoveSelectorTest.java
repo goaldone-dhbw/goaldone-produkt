@@ -86,11 +86,12 @@ class MoveSelectorTest {
         TimeSlot newSlot = slot(10, 11);
 
         UUID taskId = UUID.randomUUID();
-        TaskChunk chunk = chunk(taskId, 0, 60, false);
+        TaskChunk chunk = chunk(taskId);
 
         SolverState current = new SolverState(
                 new ArrayList<>(List.of(new ScheduledChunk(chunk, oldSlot))),
-                new ArrayList<>(List.of(newSlot))
+                new ArrayList<>(List.of(newSlot)),
+                null
         );
 
         MoveSelector selector = new MoveSelector(
@@ -101,7 +102,7 @@ class MoveSelectorTest {
         SolverState next = selector.selectAndApply(current);
 
         assertNotNull(next);
-        assertEquals(newSlot, next.scheduledChunks().get(0).slot());
+        assertEquals(newSlot, next.scheduledChunks().getFirst().slot());
         assertTrue(next.freeSlots().contains(oldSlot));
         assertFalse(next.freeSlots().contains(newSlot));
     }
@@ -114,19 +115,19 @@ class MoveSelectorTest {
         );
     }
 
-    private static TaskChunk chunk(UUID taskId, int chunkIndex, int durationMinutes, boolean pinned) {
+    private static TaskChunk chunk(UUID taskId) {
         return new TaskChunk(
                 UUID.randomUUID(),
                 taskId,
-                chunkIndex,
+                0,
                 1,
-                durationMinutes,
+                60,
                 0,
                 0,
                 null,
                 null,
                 null,
-                pinned,
+                false,
                 null
         );
     }

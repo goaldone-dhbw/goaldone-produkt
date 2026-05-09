@@ -24,22 +24,22 @@ class PillarMoveTest {
         return new TimeSlot(DAY, LocalTime.of(startHour, 0), LocalTime.of(endHour, 0));
     }
 
-    private static TaskChunk chunk(UUID taskId, int chunkIndex, int durationMinutes,
+    private static TaskChunk chunk(UUID taskId, int chunkIndex,
                                    boolean pinned, LocalDateTime notBefore, LocalDateTime deadline) {
         return new TaskChunk(
                 UUID.randomUUID(), taskId,
-                chunkIndex, 3, durationMinutes,
+                chunkIndex, 3, 60,
                 0, 0, null,
                 notBefore, deadline, pinned, null
         );
     }
 
-    private static TaskChunk chunk(UUID taskId, int chunkIndex, int durationMinutes, boolean pinned) {
-        return chunk(taskId, chunkIndex, durationMinutes, pinned, null, null);
+    private static TaskChunk chunk(UUID taskId, int chunkIndex, boolean pinned) {
+        return chunk(taskId, chunkIndex, pinned, null, null);
     }
 
     private static SolverState state(List<ScheduledChunk> scheduled, List<TimeSlot> free) {
-        return new SolverState(new ArrayList<>(scheduled), new ArrayList<>(free));
+        return new SolverState(new ArrayList<>(scheduled), new ArrayList<>(free), null);
     }
 
     private static Random fixed(Integer... ints) {
@@ -65,9 +65,9 @@ class PillarMoveTest {
     @Test
     void apply_shiftsAllChunksOfTask_byPositiveN() {
         UUID taskId = UUID.randomUUID();
-        TaskChunk chunkA = chunk(taskId, 0, 60, false);
-        TaskChunk chunkB = chunk(taskId, 1, 60, false);
-        TaskChunk chunkC = chunk(taskId, 2, 60, false);
+        TaskChunk chunkA = chunk(taskId, 0, false);
+        TaskChunk chunkB = chunk(taskId, 1, false);
+        TaskChunk chunkC = chunk(taskId, 2, false);
 
         TimeSlot s8  = slot(8,  9);
         TimeSlot s9  = slot(9,  10);
@@ -96,8 +96,8 @@ class PillarMoveTest {
     @Test
     void apply_preservesOrderAndSpacing() {
         UUID taskId = UUID.randomUUID();
-        TaskChunk chunkA = chunk(taskId, 0, 60, false);
-        TaskChunk chunkB = chunk(taskId, 1, 60, false);
+        TaskChunk chunkA = chunk(taskId, 0, false);
+        TaskChunk chunkB = chunk(taskId, 1, false);
 
         TimeSlot s8  = slot(8,  9);
         TimeSlot s9  = slot(9,  10);
@@ -122,8 +122,8 @@ class PillarMoveTest {
     @Test
     void apply_returnsNull_whenTargetIndexOutOfBounds() {
         UUID taskId = UUID.randomUUID();
-        TaskChunk chunkA = chunk(taskId, 0, 60, false);
-        TaskChunk chunkB = chunk(taskId, 1, 60, false);
+        TaskChunk chunkA = chunk(taskId, 0, false);
+        TaskChunk chunkB = chunk(taskId, 1, false);
 
         TimeSlot s8 = slot(8, 9);
         TimeSlot s9 = slot(9, 10);
@@ -142,8 +142,8 @@ class PillarMoveTest {
         UUID taskId      = UUID.randomUUID();
         UUID otherTaskId = UUID.randomUUID();
 
-        TaskChunk chunkA = chunk(taskId,      0, 60, false);
-        TaskChunk other  = chunk(otherTaskId, 0, 60, false);
+        TaskChunk chunkA = chunk(taskId,      0, false);
+        TaskChunk other  = chunk(otherTaskId, 0, false);
 
         TimeSlot s8 = slot(8, 9);
         TimeSlot s9 = slot(9, 10); // belegt durch andere Task
@@ -162,7 +162,7 @@ class PillarMoveTest {
         UUID taskId = UUID.randomUUID();
         LocalDateTime deadline = LocalDateTime.of(DAY, LocalTime.of(10, 0)); // Ende spätestens 10:00
 
-        TaskChunk chunkA = chunk(taskId, 0, 60, false, null, deadline);
+        TaskChunk chunkA = chunk(taskId, 0, false, null, deadline);
 
         TimeSlot s8  = slot(8,  9);
         TimeSlot s10 = slot(10, 11); // endet 11:00 → nach deadline
@@ -179,7 +179,7 @@ class PillarMoveTest {
         UUID taskId = UUID.randomUUID();
         LocalDateTime notBefore = LocalDateTime.of(DAY, LocalTime.of(10, 0));
 
-        TaskChunk chunkA = chunk(taskId, 0, 60, false, notBefore, null);
+        TaskChunk chunkA = chunk(taskId, 0, false, notBefore, null);
 
         TimeSlot s8  = slot(8,  9);
         TimeSlot s9  = slot(9, 10);
@@ -196,8 +196,8 @@ class PillarMoveTest {
     @Test
     void apply_doesNotMovePinnedChunks() {
         UUID taskId = UUID.randomUUID();
-        TaskChunk pinned   = chunk(taskId, 0, 60, true);
-        TaskChunk unpinned = chunk(taskId, 1, 60, false);
+        TaskChunk pinned   = chunk(taskId, 0, true);
+        TaskChunk unpinned = chunk(taskId, 1, false);
 
         TimeSlot s8  = slot(8,  9);
         TimeSlot s9  = slot(9,  10);

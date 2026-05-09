@@ -2,19 +2,31 @@ package de.goaldone.backend.service;
 
 import de.goaldone.backend.entity.UserAccountEntity;
 import de.goaldone.backend.entity.WorkingTimeEntity;
-import de.goaldone.backend.exception.ScheduleGenerationException;
+import de.goaldone.backend.exception.ScheduleException;
 import de.goaldone.backend.model.*;
 import de.goaldone.backend.repository.UserAccountRepository;
-import de.goaldone.backend.scheduler.Chunker;
 import de.goaldone.backend.scheduler.Solver;
-import de.goaldone.backend.scheduler.types.model.*;
+import de.goaldone.backend.scheduler.types.model.ScheduleMapper;
+import de.goaldone.backend.scheduler.types.model.SchedulingContext;
+import de.goaldone.backend.scheduler.types.model.SchedulingResult;
+import de.goaldone.backend.scheduler.types.model.TimeSlot;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.coyote.Response;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
+import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import java.time.LocalTime;
 import java.util.*;
 import java.util.concurrent.*;
@@ -26,13 +38,13 @@ import java.util.stream.Collectors;
 public class ScheduleService {
 
     Solver solver = new Solver();
-    Chunker chunker = new Chunker();
 
     private final TasksService taskService;
     private final AppointmentService appointmentService;
     private final CurrentUserResolver currentUserResolver;
     private final UserAccountRepository userAccountRepository;
     private final @Lazy UserIdentityService userIdentityService;
+    private final ScheduleMapper scheduleMapper = new ScheduleMapper();
 
     /**
      * Generates schedules for multiple accounts asynchronously
@@ -80,7 +92,7 @@ public class ScheduleService {
                     .toList();
         } catch (Exception e) {
             log.error("Failed to initialize account scheduling", e);
-            throw new ScheduleGenerationException("Failed to initialize account scheduling", e);
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_CONTENT, "Failed to initialize account scheduling", e);
         }
     }
 
@@ -122,8 +134,9 @@ public class ScheduleService {
         SchedulingContext schedulingContext = createSchedulingContext(jwt, accountId, fromDate, 1);
         SchedulingResult bestResult = solver.createSchedule(schedulingContext, timeoutMs);
 
-        // TODO: Map result to ScheduleResponse and return
-        return null;
+        return this.scheduleMapper.mapToScheduleResult(
+                accountId, schedulingContext, bestResult
+        );
     }
 
 
@@ -138,17 +151,17 @@ public class ScheduleService {
         // Check if account exists
         Optional<UserAccountEntity> accountOpt = userAccountRepository.findById(accountId);
         if (accountOpt.isEmpty()) {
-            throw new IllegalArgumentException("Account not found: " + accountId);
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found: " + accountId);
         }
 
         // Checks permissions
         if (!userIdentityService.hasUserAccessToAccount(jwt, accountId)) {
-            throw new SecurityException("User " + jwt.getSubject() + " does not have access to account " + accountId);
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "User " + jwt.getSubject() + " does not have access to account " + accountId);
         }
 
         // Validate fromDate (e.g. cannot be in the past)
         if (fromDate.isBefore(LocalDate.now())) {
-            throw new IllegalArgumentException("From date cannot be in the past");
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_CONTENT, "From date cannot be in the past");
         }
     }
 
@@ -168,14 +181,13 @@ public class ScheduleService {
                 .map(UserAccountEntity::getWorkingTimes)
                 .orElse(List.of());
 
-        List<TaskChunk> chunks = chunker.chunkTasks(allTasks, workingTimes);
 
         // Get available timeslots
-        List<TimeSlot> availableSlots = getAvailableTimeSlots(accountId, workingTimes, fromDate, weeks);
+        List<TimeSlot> availableSlots = getAvailableTimeSlots(accountId, jwt, workingTimes, fromDate, weeks);
 
         // Create schedule context
         return new SchedulingContext(
-                fromDate, availableSlots, chunks
+                fromDate, availableSlots, allTasks, workingTimes
         );
     }
 
@@ -187,10 +199,10 @@ public class ScheduleService {
      * @param nWeeks Plan for N   nWeeks ahead
      * @return Available timeslots for multiple days starting from fromDate
      */
-    private List<TimeSlot> getAvailableTimeSlots(UUID accountId, List<WorkingTimeEntity> workingTimes, LocalDate fromDate, int nWeeks) {
+    private List<TimeSlot> getAvailableTimeSlots(UUID accountId, Jwt jwt, List<WorkingTimeEntity> workingTimes, LocalDate fromDate, int nWeeks) {
         List<TimeSlot> availableSlots = new ArrayList<>();
 
-        List<Appointment> allAppointments = appointmentService.listAppointments(accountId).getAppointments();
+        List<Appointment> allAppointments = appointmentService.listAppointments(accountId, jwt).getAppointments();
 
         if (workingTimes.isEmpty()) {
             log.warn("No working times defined for account {}", accountId);
@@ -218,7 +230,7 @@ public class ScheduleService {
 
 
         // Run for nWeeks
-        /**
+        /*
          * Planning logic for n weeks starting from a specific weekday:
          * Example: Start on Tuesday, plan for 4 weeks
          *
@@ -228,7 +240,7 @@ public class ScheduleService {
          * Week 3: Mon - Sun
          * Week 4: Mon - Tue (stop on the same weekday after n weeks)
          */
-        for (int i = 0; i < nWeeks+1; i++) {
+        for (int i = 0; i <= nWeeks; i++) {
             // Always go from Mon - Sun
             for (DayOfWeek weekday : DayOfWeek.values()) {
 
@@ -299,7 +311,6 @@ public class ScheduleService {
         )));
         return response;
     }
-
 
     /**
      *
