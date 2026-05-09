@@ -19,6 +19,7 @@ export class BasePopupComponent implements OnChanges {
 
   @Input() showConfirmButton = true;
   @Input() showCancelButton = true;
+  @Input() confirmDisabled = false;
   @Input() autoCloseOnConfirm = true;
 
   @Output() confirm = new EventEmitter<void>();
