@@ -10,6 +10,7 @@ import de.goaldone.backend.entity.OrganizationEntity;
 import de.goaldone.backend.entity.UserAccountEntity;
 import de.goaldone.backend.exception.PartialDeletionException;
 import de.goaldone.backend.exception.ZitadelApiException;
+import de.goaldone.backend.model.MemberRole;
 import de.goaldone.backend.repository.OrganizationRepository;
 import de.goaldone.backend.repository.UserAccountRepository;
 import de.goaldone.backend.repository.UserIdentityRepository;
@@ -101,6 +102,42 @@ public class DeletionService {
                 deleteLocalOrg(org.getId(), zitadelOrgId);
             });
             deleteZitadelOrg(zitadelOrgId);
+        } catch (ZitadelApiException e) {
+            if (e.getMessage() != null && e.getMessage().contains("No organization found for id")) {
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "ORGANIZATION_NOT_FOUND");
+            }
+            throw e;
+        }
+    }
+
+    /**
+     * This method includes a safety check to ensure that the user is not the last admin in the organization.
+     * If the user is the last admin, the deletion is not allowed.
+     * @param accountId the ID of the user to be deleted
+     */
+    @Transactional
+    public void deleteUser(UUID accountId) {
+        UserAccountEntity account = userAccountRepository.findById(accountId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "ACCOUNT_NOT_FOUND"));
+        OrganizationEntity organization = organizationRepository.findById(account.getOrganizationId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "ORGANIZATION_NOT_FOUND"));
+
+        try {
+            Map<String, List<MemberRole>> rolesMap = zitadelManagementClient.listUsersWithTheirRoles(organization.getZitadelOrgId(), projectId);
+            int adminCount = 0;
+            for (List<MemberRole> role : rolesMap.values()) {
+                for (MemberRole r : role) {
+                    if(MemberRole.COMPANY_ADMIN.equals(r)) {
+                        adminCount++;
+                    }
+                }
+            }
+            if(adminCount <= 1) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "LAST_ADMIN_CANNOT_BE_REMOVED");
+            }
+
+            deleteUserAccount(accountId);
+
         } catch (ZitadelApiException e) {
             if (e.getMessage() != null && e.getMessage().contains("No organization found for id")) {
                 throw new ResponseStatusException(HttpStatus.NOT_FOUND, "ORGANIZATION_NOT_FOUND");
