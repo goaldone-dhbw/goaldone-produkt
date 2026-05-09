@@ -3,13 +3,17 @@ package de.goaldone.backend.service;
 import de.goaldone.backend.entity.TaskEntity;
 import de.goaldone.backend.model.CognitiveLoad;
 import de.goaldone.backend.model.TaskAccountListResponse;
-import de.goaldone.backend.model.TaskStatus;
 import de.goaldone.backend.model.TaskCreateRequest;
 import de.goaldone.backend.model.TaskResponse;
+import de.goaldone.backend.model.TaskStatus;
 import de.goaldone.backend.model.TaskUpdateRequest;
 import de.goaldone.backend.repository.TaskRepository;
+import jakarta.persistence.criteria.JoinType;
+import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
@@ -19,6 +23,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -117,6 +122,68 @@ public class TasksService {
                                 .stream()
                                 .map(this::toResponse)
                                 .toList()))
+                .toList();
+    }
+
+    /**
+     * Retrieves tasks filtered and sorted.
+     */
+    @Transactional(readOnly = true)
+    public List<TaskResponse> getTasks(Jwt jwt, TaskStatus status, CognitiveLoad cognitiveLoad,
+                                       OffsetDateTime deadlineFrom, OffsetDateTime deadlineTo,
+                                       Integer minDuration, Integer maxDuration,
+                                       String sortBy, String sortDirection) {
+
+        List<UUID> accountIds = userIdentityService.accountIdsForUser(jwt);
+        if (accountIds.isEmpty()) {
+            return List.of();
+        }
+
+        Specification<TaskEntity> spec = (root, query, cb) -> {
+            if (query.getResultType() != Long.class) {
+                root.fetch("dependencies", JoinType.LEFT);
+            }
+
+            List<Predicate> predicates = new ArrayList<>();
+            predicates.add(root.get("accountId").in(accountIds));
+
+            if (status != null) {
+                predicates.add(cb.equal(root.get("status"), status));
+            }
+            if (cognitiveLoad != null) {
+                predicates.add(cb.equal(root.get("cognitiveLoad"), cognitiveLoad));
+            }
+            if (deadlineFrom != null) {
+                predicates.add(cb.greaterThanOrEqualTo(root.get("deadline"), deadlineFrom.toInstant()));
+            }
+            if (deadlineTo != null) {
+                predicates.add(cb.lessThanOrEqualTo(root.get("deadline"), deadlineTo.toInstant()));
+            }
+            if (minDuration != null) {
+                predicates.add(cb.greaterThanOrEqualTo(root.get("duration"), minDuration));
+            }
+            if (maxDuration != null) {
+                predicates.add(cb.lessThanOrEqualTo(root.get("duration"), maxDuration));
+            }
+
+            query.distinct(true);
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+
+        Sort.Direction direction = Sort.Direction.ASC;
+        if ("desc".equalsIgnoreCase(sortDirection)) {
+            direction = Sort.Direction.DESC;
+        }
+
+        String sortProperty = "id";
+        if (sortBy != null && !sortBy.isBlank()) {
+            sortProperty = sortBy;
+        }
+        Sort sort = Sort.by(direction, sortProperty);
+
+        return taskRepository.findAll(spec, sort)
+                .stream()
+                .map(this::toResponse)
                 .toList();
     }
 

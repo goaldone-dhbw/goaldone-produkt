@@ -1,10 +1,11 @@
 package de.goaldone.backend.controller;
 
 import de.goaldone.backend.api.TasksApi;
-import de.goaldone.backend.exception.NotLinkedException;
+import de.goaldone.backend.model.CognitiveLoad;
 import de.goaldone.backend.model.TaskAccountListResponse;
 import de.goaldone.backend.model.TaskCreateRequest;
 import de.goaldone.backend.model.TaskResponse;
+import de.goaldone.backend.model.TaskStatus;
 import de.goaldone.backend.model.TaskUpdateRequest;
 import de.goaldone.backend.service.CurrentUserResolver;
 import de.goaldone.backend.service.TasksService;
@@ -14,6 +15,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -95,5 +97,12 @@ public class TasksController implements TasksApi {
         Jwt jwt = currentUserResolver.extractJwt();
         TaskResponse updatedTask = tasksService.updateTask(jwt, id, taskUpdateRequest);
         return ResponseEntity.ok(updatedTask);
+    }
+
+    @Override
+    public ResponseEntity<List<TaskResponse>> getTasks(TaskStatus status, CognitiveLoad cognitiveLoad, OffsetDateTime deadlineFrom, OffsetDateTime deadlineTo, Integer minDuration, Integer maxDuration, String sortBy, String sortDirection) {
+        Jwt jwt = currentUserResolver.extractJwt();
+        List<TaskResponse> tasks = tasksService.getTasks(jwt, status, cognitiveLoad, deadlineFrom, deadlineTo, minDuration, maxDuration, sortBy, sortDirection);
+        return ResponseEntity.ok(tasks);
     }
 }

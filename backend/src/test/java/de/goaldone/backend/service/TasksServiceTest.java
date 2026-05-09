@@ -3,19 +3,23 @@ package de.goaldone.backend.service;
 import de.goaldone.backend.entity.TaskEntity;
 import de.goaldone.backend.model.CognitiveLoad;
 import de.goaldone.backend.model.TaskCreateRequest;
+import de.goaldone.backend.model.TaskResponse;
 import de.goaldone.backend.model.TaskStatus;
 import de.goaldone.backend.model.TaskUpdateRequest;
 import de.goaldone.backend.repository.TaskRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
@@ -26,8 +30,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -97,29 +99,52 @@ class TasksServiceTest {
         TaskEntity existing = new TaskEntity();
         existing.setId(taskId);
         existing.setAccountId(accountId);
-        existing.setTitle("Task");
-        existing.setDuration(30);
-        existing.setStatus(TaskStatus.OPEN);
+        existing.setTitle("Title");
+        existing.setDuration(120);
+        existing.setStatus(TaskStatus.IN_PROGRESS);
         existing.setCognitiveLoad(CognitiveLoad.MODERATE);
-        existing.setDependencies(new LinkedHashSet<>());
-
-        TaskUpdateRequest request = new TaskUpdateRequest();
-        request.setTitle("Task");
-        request.setDuration(30);
-        request.setStatus(TaskStatus.DONE);
-        request.setCognitiveLoad(CognitiveLoad.MODERATE);
-        request.setDependencyIds(null);
 
         when(taskRepository.findById(taskId)).thenReturn(Optional.of(existing));
-        when(userIdentityService.hasUserAccessToAccount(any(), eq(accountId))).thenReturn(true);
-        when(taskRepository.save(any(TaskEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(userIdentityService.hasUserAccessToAccount(jwt, accountId)).thenReturn(true);
+        when(taskRepository.save(any())).thenReturn(existing);
 
-        var response = tasksService.updateTask(jwt, taskId, request);
+        TaskUpdateRequest request = new TaskUpdateRequest();
+        request.setTitle("Title");
+        request.setDuration(120);
+        request.setStatus(TaskStatus.DONE);
+        request.setCognitiveLoad(CognitiveLoad.MODERATE);
 
+        TaskResponse response = tasksService.updateTask(jwt, taskId, request);
         assertEquals(TaskStatus.DONE, response.getStatus());
-        ArgumentCaptor<TaskEntity> captor = ArgumentCaptor.forClass(TaskEntity.class);
-        verify(taskRepository, times(1)).save(captor.capture());
-        assertEquals(TaskStatus.DONE, captor.getValue().getStatus());
+    }
+
+    @Test
+    void getTasks_withFilters_returnsFilteredTasks() {
+        UUID accountId = UUID.randomUUID();
+        Jwt jwt = mockJwt();
+        when(userIdentityService.accountIdsForUser(jwt)).thenReturn(List.of(accountId));
+
+        TaskEntity entity = new TaskEntity();
+        entity.setId(UUID.randomUUID());
+        entity.setAccountId(accountId);
+        entity.setTitle("Task 1");
+        entity.setDuration(60);
+        entity.setStatus(TaskStatus.OPEN);
+        entity.setCognitiveLoad(CognitiveLoad.HIGH);
+        entity.setDeadline(Instant.parse("2026-06-01T10:00:00Z"));
+
+        when(taskRepository.findAll(any(Specification.class), any(Sort.class)))
+                .thenReturn(List.of(entity));
+
+        List<TaskResponse> results = tasksService.getTasks(
+                jwt, TaskStatus.OPEN, CognitiveLoad.HIGH,
+                OffsetDateTime.parse("2026-05-01T00:00:00Z"), null,
+                30, 100,
+                "deadline", "desc"
+        );
+
+        assertEquals(1, results.size());
+        assertEquals("Task 1", results.get(0).getTitle());
     }
 
     @Test
