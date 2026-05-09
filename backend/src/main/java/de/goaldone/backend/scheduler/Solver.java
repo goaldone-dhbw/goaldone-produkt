@@ -1,12 +1,11 @@
 package de.goaldone.backend.scheduler;
 
-import de.goaldone.backend.model.ScheduleWarning;
 import de.goaldone.backend.scheduler.types.model.*;
 import de.goaldone.backend.scheduler.types.moves.MoveSelector;
 
-import java.util.List;
-
 public class Solver {
+
+    private static final int DEFAULT_LATE_ACCEPTANCE_SIZE = 400;
 
     private final ConstraintHandler constraintHandler;
     private final MoveSelector moveSelector;
@@ -16,10 +15,17 @@ public class Solver {
     private final MoveHistory moveHistory;
 
     public Solver() {
+        this(DEFAULT_LATE_ACCEPTANCE_SIZE);
+    }
+
+    /**
+     * @param lateAcceptanceSize Length L of the Late Acceptance ring buffer
+     */
+    public Solver(int lateAcceptanceSize) {
         this.constraintHandler = new ConstraintHandler();
         this.cpmAlgorithm = new CPMAlgorithm();
-        this.tabuAlgorithm = new TabuAlgorithm(constraintHandler);
-        this.lateAcceptance = new LateAcceptance(constraintHandler);
+        this.tabuAlgorithm = new TabuAlgorithm();
+        this.lateAcceptance = new LateAcceptance(lateAcceptanceSize);
         this.moveSelector = new MoveSelector();
         this.moveHistory = new MoveHistory();
     }
@@ -34,28 +40,35 @@ public class Solver {
         long endTime = System.currentTimeMillis() + timeoutMs - 500; // Subtract a small buffer to ensure we return before the timeout expires
 
         SolverState currentBest = this.cpmAlgorithm.generateInitialSchedule(context);
+        int currentScore = constraintHandler.calculateScore(currentBest);
+        lateAcceptance.initialize(currentScore);
 
         while (System.currentTimeMillis() < endTime) {
+
             SolverState newState = moveSelector.selectAndApply(currentBest);
+            int newScore = constraintHandler.calculateScore(newState);
 
             MoveEvent latestMove = moveSelector.getLastMoveEvent();
-            boolean moveAccepted = tabuAlgorithm.validateMove(currentBest, newState, moveHistory, latestMove);
 
-            boolean lateAcceptance = this.lateAcceptance.validateMove(0,0); //TODO
+            // Tabu check: reject tabu moves that don't meet aspiration criteria
+            boolean tabuAccepted = tabuAlgorithm.validateMove(currentScore, newScore, moveHistory, latestMove);
+            if (!tabuAccepted) {
+                lateAcceptance.updateHistory(currentScore);
+                continue;
+            }
 
-
-            if (moveAccepted || lateAcceptance) {
+            // Late Acceptance check
+            if (lateAcceptance.validateMove(newScore, currentScore)) {
                 currentBest = newState;
+                currentScore = newScore;
                 moveHistory.addMoveEvent(latestMove);
             }
         }
 
-
-        // Collect warnings for violated soft constraints
-        List<ScheduleWarning> warnings = constraintHandler.getWarnings(currentBest);
-
-        // TODO: Convert currentBest to SchedulingResult and return it
-        return null;
-
+        return new SchedulingResult(
+                constraintHandler.calculateScore(currentBest),
+                currentBest,
+                constraintHandler.getWarnings(currentBest)
+        );
     }
 }

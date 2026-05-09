@@ -1737,6 +1737,7 @@ components:
         role:
           $ref: '#/components/schemas/MemberRole'
 
+
     MemberStatus:
       type: string
       enum:
@@ -1873,7 +1874,9 @@ components:
           description: Summe aller eingeplanten Task-Minuten im Zeitraum
           example: 1920
         score:
-          $ref: '#/components/schemas/ScheduleScore'
+          type: integer
+          description: Score zur Bewertung des Plans
+          example: 16
         warnings:
           type: array
           description: Warnungen des Planungsalgorithmus. Leer wenn keine Probleme.
@@ -2003,35 +2006,22 @@ components:
     # ----------------------------------------------------------
     UnscheduledTask:
       type: object
-      required: [ taskId, taskTitle, durationMinutes, reason, shortfallMinutes ]
+      required: [taskId, taskTitle, reason]
       properties:
         taskId:
           type: string
           format: uuid
         taskTitle:
           type: string
-        durationMinutes:
-          type: integer
-          description: Gesamtdauer des Tasks in Minuten
-          example: 480
-        deadline:
-          type: string
-          format: date-time
-          nullable: true
-          description: Deadline des Tasks (null = keine Deadline)
         reason:
           type: string
-          enum: [ DEADLINE_IMPOSSIBLE, CAPACITY_EXCEEDED, DEPENDENCY_BLOCKED ]
+          enum: [NO_TIMESLOTS_AFTER_NOTBEFORE, DEADLINE_IMPOSSIBLE, CAPACITY_EXCEEDED, DEPENDENCY_BLOCKED, OTHER]
           description: |
+            - `NO_TIMESLOTS_AFTER_NOTBEFORE`: Es gibt keine freie Arbeitszeit nach "not before"
             - `DEADLINE_IMPOSSIBLE`: Zu wenig Arbeitszeit bis zur Deadline.
             - `CAPACITY_EXCEEDED`: Gesamtkapazität im Planungshorizont reicht nicht.
             - `DEPENDENCY_BLOCKED`: Abhängiger Task ist selbst nicht planbar.
-        shortfallMinutes:
-          type: integer
-          description: |
-            Fehlende Minuten. Bei `DEADLINE_IMPOSSIBLE`: wie viel Zeit
-            bis zur Deadline fehlt. Bei `CAPACITY_EXCEEDED`: Gesamtüberlauf.
-          example: 120
+            - `OTHER`: Ein anderer Fehler ist aufgetreten
 
     # ----------------------------------------------------------
     # Schedule Warning
@@ -2062,42 +2052,6 @@ components:
           format: date
           nullable: true
           description: Betroffenes Datum (wenn zutreffend)
-
-    # ----------------------------------------------------------
-    # Schedule Score (Debug)
-    # ----------------------------------------------------------
-    ScheduleScore:
-      type: object
-      description: |
-        Score des Planungsalgorithmus zur Einschätzung der Planungsqualität.
-        TODO: In Zukunft entfernen oder hinter ein Feature-Flag setzen.
-        Nur für Entwicklung und Debugging vorgesehen.
-      required: [ hard, medium, soft, feasible ]
-      properties:
-        hard:
-          type: integer
-          format: int64
-          description: |
-            Hard-Score. Muss 0 sein für einen gültigen Plan.
-            < 0 bedeutet: harte Constraints verletzt.
-          example: 0
-        medium:
-          type: integer
-          format: int64
-          description: |
-            Medium-Score. < 0 bedeutet: Deadlines nicht alle einhaltbar
-            oder Tasks nicht vollständig eingeplant.
-          example: -120
-        soft:
-          type: integer
-          format: int64
-          description: |
-            Soft-Score. Optimierungsqualität. Je näher an 0, desto besser.
-          example: -45
-        feasible:
-          type: boolean
-          description: "`true` wenn hard == 0 (Plan ist gültig)."
-          example: true
 
     # ----------------------------------------------------------
     # Schedule Validation Error (422)

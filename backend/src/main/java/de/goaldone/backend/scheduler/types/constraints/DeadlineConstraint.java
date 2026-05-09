@@ -1,12 +1,8 @@
 package de.goaldone.backend.scheduler.types.constraints;
 
-import de.goaldone.backend.model.ScheduleEntry;
 import de.goaldone.backend.model.ScheduleWarning;
 import de.goaldone.backend.scheduler.types.HardConstraint;
-import de.goaldone.backend.scheduler.types.model.Schedule;
 import de.goaldone.backend.scheduler.types.model.SolverState;
-
-import java.util.ArrayList;
 
 public class DeadlineConstraint extends HardConstraint {
 

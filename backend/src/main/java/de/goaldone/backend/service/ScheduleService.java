@@ -2,24 +2,35 @@ package de.goaldone.backend.service;
 
 import de.goaldone.backend.entity.UserAccountEntity;
 import de.goaldone.backend.entity.WorkingTimeEntity;
-import de.goaldone.backend.exception.ScheduleGenerationException;
+import de.goaldone.backend.exception.ScheduleException;
 import de.goaldone.backend.model.*;
 import de.goaldone.backend.repository.UserAccountRepository;
-import de.goaldone.backend.scheduler.Chunker;
 import de.goaldone.backend.scheduler.Solver;
-import de.goaldone.backend.scheduler.types.model.*;
+import de.goaldone.backend.scheduler.types.model.ScheduleMapper;
+import de.goaldone.backend.scheduler.types.model.SchedulingContext;
+import de.goaldone.backend.scheduler.types.model.SchedulingResult;
+import de.goaldone.backend.scheduler.types.model.TimeSlot;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.coyote.Response;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
-import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.UUID;
+import java.time.LocalTime;
+import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+import java.time.LocalTime;
+import java.util.*;
 import java.util.concurrent.*;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -27,13 +38,13 @@ import java.util.concurrent.*;
 public class ScheduleService {
 
     Solver solver = new Solver();
-    Chunker chunker = new Chunker();
 
     private final TasksService taskService;
     private final AppointmentService appointmentService;
     private final CurrentUserResolver currentUserResolver;
     private final UserAccountRepository userAccountRepository;
     private final @Lazy UserIdentityService userIdentityService;
+    private final ScheduleMapper scheduleMapper = new ScheduleMapper();
 
     /**
      * Generates schedules for multiple accounts asynchronously
@@ -62,7 +73,7 @@ public class ScheduleService {
             List<CompletableFuture<ScheduleResponse>> futures = accountIds.stream()
                     .map(accountId ->
                             CompletableFuture.supplyAsync(
-                                            () -> generateSchedule(jwt, accountId, request, timeoutMilliseconds), executor
+                                            () -> generateSchedule(jwt, accountId, request.getFrom(), timeoutMilliseconds), executor
                                     )
                                     // If task takes too long -> complete with null instead of blocking
                                     .completeOnTimeout(createErrorResponse("Schedule generation timed out"), timeoutMilliseconds, TimeUnit.MILLISECONDS) //TODO: adjust timeout
@@ -81,7 +92,7 @@ public class ScheduleService {
                     .toList();
         } catch (Exception e) {
             log.error("Failed to initialize account scheduling", e);
-            throw new ScheduleGenerationException("Failed to initialize account scheduling", e);
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_CONTENT, "Failed to initialize account scheduling", e);
         }
     }
 
@@ -101,7 +112,7 @@ public class ScheduleService {
             long timeoutMilliseconds) {
 
         try  {
-            return generateSchedule(jwt, accountId, generateScheduleRequest, timeoutMilliseconds);
+            return generateSchedule(jwt, accountId, generateScheduleRequest.getFrom(), timeoutMilliseconds);
         } catch (Exception e) {
             return createErrorResponse("Schedule generation failed: " + e.getMessage());
         }
@@ -110,16 +121,58 @@ public class ScheduleService {
     /**
      * Orders the generation of a scheduling for an account
      *
-     * @param accountId               Specific account
-     * @param generateScheduleRequest Request
+     * @param accountId Specific account for which the schedule should be generated
+     * @param fromDate Date from which on the schedule should be generated
      * @return Response containing
      * - the generated schedule,
      * - the scheduleScore,
      * - constraint warnings
      */
-    public ScheduleResponse generateSchedule(Jwt jwt, UUID accountId, GenerateScheduleRequest generateScheduleRequest, long timeoutMs) {
+    public ScheduleResponse generateSchedule(Jwt jwt, UUID accountId, LocalDate fromDate, long timeoutMs) {
 
-        validateRequest(jwt, accountId, generateScheduleRequest);
+        validateRequest(jwt, accountId, fromDate);
+        SchedulingContext schedulingContext = createSchedulingContext(jwt, accountId, fromDate, 1);
+        SchedulingResult bestResult = solver.createSchedule(schedulingContext, timeoutMs);
+
+        return this.scheduleMapper.mapToScheduleResult(
+                accountId, schedulingContext, bestResult
+        );
+    }
+
+
+    /**
+     * Validate the request
+     * @param jwt Token
+     * @param accountId Account
+     * @param fromDate Start date for schedule generation
+     */
+    private void validateRequest(Jwt jwt, UUID accountId, LocalDate fromDate) {
+
+        // Check if account exists
+        Optional<UserAccountEntity> accountOpt = userAccountRepository.findById(accountId);
+        if (accountOpt.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found: " + accountId);
+        }
+
+        // Checks permissions
+        if (!userIdentityService.hasUserAccessToAccount(jwt, accountId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "User " + jwt.getSubject() + " does not have access to account " + accountId);
+        }
+
+        // Validate fromDate (e.g. cannot be in the past)
+        if (fromDate.isBefore(LocalDate.now())) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_CONTENT, "From date cannot be in the past");
+        }
+    }
+
+    /**
+     * Creates a scheduling context containing tasks, free time slots and the scheduling start date
+     * @param jwt Token
+     * @param accountId Account
+     * @param fromDate Start date for the schedule
+     * @return Scheduling context for the solver
+     */
+    public SchedulingContext createSchedulingContext(Jwt jwt, UUID accountId, LocalDate fromDate, int weeks) {
 
         List<TaskResponse> allTasks = taskService.getTasksForAccountId(jwt, accountId);
 
@@ -128,24 +181,120 @@ public class ScheduleService {
                 .map(UserAccountEntity::getWorkingTimes)
                 .orElse(List.of());
 
-        List<TaskChunk> chunks = chunker.chunkTasks(allTasks, workingTimes);
 
         // Get available timeslots
-        List<TimeSlot> availableSlots = getAvailableTimeSlots(accountId);
-
-        // Get schedule start date
-        LocalDate fromDate = generateScheduleRequest.getFrom();
+        List<TimeSlot> availableSlots = getAvailableTimeSlots(accountId, jwt, workingTimes, fromDate, weeks);
 
         // Create schedule context
-        SchedulingContext schedulingContext = new SchedulingContext(
-                fromDate, availableSlots, chunks
+        return new SchedulingContext(
+                fromDate, availableSlots, allTasks, workingTimes
         );
+    }
 
-        // Forward to schedule generator
-        SchedulingResult bestResult = solver.createSchedule(schedulingContext, timeoutMs);
+    /**
+     * Calculate a list of available time slots to plan the task chunks into
+     * @param accountId Specific account
+     * @param workingTimes List of working time definitions for the account
+     * @param fromDate Start date for calculating available slots
+     * @param nWeeks Plan for N   nWeeks ahead
+     * @return Available timeslots for multiple days starting from fromDate
+     */
+    private List<TimeSlot> getAvailableTimeSlots(UUID accountId, Jwt jwt, List<WorkingTimeEntity> workingTimes, LocalDate fromDate, int nWeeks) {
+        List<TimeSlot> availableSlots = new ArrayList<>();
 
-        // TODO: Map result to ScheduleResponse and return
-        return null;
+        List<Appointment> allAppointments = appointmentService.listAppointments(accountId, jwt).getAppointments();
+
+        if (workingTimes.isEmpty()) {
+            log.warn("No working times defined for account {}", accountId);
+            return availableSlots;
+        }
+
+        // Get the Monday of the week for the fromDate
+        int weekDayInt = fromDate.getDayOfWeek().getValue();
+        int daysToMonday = (weekDayInt + 6) % 7; // Calculate how many days to go back to reach Monday
+        LocalDate currentDate = fromDate.minusDays(daysToMonday);
+
+
+        // Create map (weekday -> working hour) for easier processing
+        Map<DayOfWeek, TimeSlot> mapping = workingTimes.stream()
+                .flatMap(wt -> wt.getDays().stream()
+                        .map(day -> Map.entry(
+                                day,
+                                new TimeSlot(null, wt.getStartTime(), wt.getEndTime())
+                        ))
+                )
+                .collect(Collectors.toMap(
+                        Map.Entry::getKey,
+                        Map.Entry::getValue
+                ));
+
+
+        // Run for nWeeks
+        /*
+         * Planning logic for n weeks starting from a specific weekday:
+         * Example: Start on Tuesday, plan for 4 weeks
+         *
+         * Week 0: Tue - Sun (skip days before start date)
+         * Week 1: Mon - Sun
+         * Week 2: Mon - Sun
+         * Week 3: Mon - Sun
+         * Week 4: Mon - Tue (stop on the same weekday after n weeks)
+         */
+        for (int i = 0; i <= nWeeks; i++) {
+            // Always go from Mon - Sun
+            for (DayOfWeek weekday : DayOfWeek.values()) {
+
+                if (i == 0 && currentDate.isBefore(fromDate)) {
+                    // Skip days before fromDate in the first week
+                    currentDate = currentDate.plusDays(1);
+                    continue;
+                }
+
+                if (i == nWeeks && (currentDate.isAfter(fromDate.plusWeeks(nWeeks)) || currentDate.isEqual(fromDate.plusWeeks(nWeeks)))) {
+                    // Stop if we have reached the weekday on which the schedule was started after planning for nWeeks
+                    break;
+                }
+
+                // Check if there are working times for this weekday
+                if (mapping.containsKey(weekday)) {
+
+                    // Get appointments for this specific date
+                    List<Appointment> dayAppointments = getAppointmentsForDay(allAppointments, currentDate);
+
+                    TimeSlot workingHours = mapping.get(weekday);
+
+                    // Calculate free slots between appointments
+                    LocalTime currentTime = workingHours.startTime();
+                    LocalTime workEndTime = workingHours.endTime();
+
+                    for (Appointment appointment : dayAppointments) {
+                        LocalTime appointmentStart = LocalTime.parse(appointment.getStartTime());
+                        LocalTime appointmentEnd = LocalTime.parse(appointment.getEndTime());
+
+                        // If there's a gap before the appointment
+                        if (currentTime.isBefore(appointmentStart)) {
+                            availableSlots.add(new TimeSlot(currentDate, currentTime, appointmentStart));
+                        }
+
+                        // Move current time past this appointment
+                        if (appointmentEnd.isAfter(currentTime)) {
+                            currentTime = appointmentEnd;
+                        }
+                    }
+
+                    // Add remaining time after last appointment until work end time
+                    if (currentTime.isBefore(workEndTime)) {
+                        availableSlots.add(new TimeSlot(currentDate, currentTime, workEndTime));
+                    }
+                }
+                // Update current
+                currentDate = currentDate.plusDays(1);
+            }
+        }
+
+        log.debug("Found {} available time slots for account {} from {} for {} nWeeks",
+                availableSlots.size(), accountId, fromDate, nWeeks);
+        return availableSlots;
     }
 
     /**
@@ -165,41 +314,14 @@ public class ScheduleService {
 
     /**
      *
-     * @param accountId Specific account
-     * @return Available timeslots between appointments
+     * @param allAppointments All appointments for a specific account
+     * @param target The date for which the appointments are listed
+     * @return List of appointments for a given day
      */
-    private List<TimeSlot> getAvailableTimeSlots(UUID accountId) {
-        Jwt jwt = currentUserResolver.extractJwt();
-        List<Appointment> allAppointments = appointmentService.listAppointments(accountId, jwt).getAppointments();
-
-        //TODO: calculate free time slots based on appointments and working hours
-
-        List<TimeSlot> availableSlots = null;
-        return availableSlots;
+    private List<Appointment> getAppointmentsForDay(List<Appointment> allAppointments, LocalDate target) {
+        return allAppointments.stream()
+                .filter(apt -> apt.getDate().equals(target))
+                .sorted(Comparator.comparing(Appointment::getStartTime))
+                .toList();
     }
-
-    private void validateRequest(Jwt jwt, UUID accountId, GenerateScheduleRequest generateScheduleRequest) {
-
-        // Check if account exists
-        Optional<UserAccountEntity> accountOpt = userAccountRepository.findById(accountId);
-        if (accountOpt.isEmpty()) {
-            throw new IllegalArgumentException("Account not found: " + accountId);
-        }
-
-        // Checks permissions
-        if (!userIdentityService.hasUserAccessToAccount(jwt, accountId)) {
-            throw new SecurityException("User " + jwt.getSubject() + " does not have access to account " + accountId);
-        }
-
-        // Validate fromDate (e.g. cannot be in the past)
-        if (generateScheduleRequest.getFrom().isBefore(LocalDate.now())) {
-            throw new IllegalArgumentException("From date cannot be in the past");
-        }
-    }
-
-    public ScheduleResponse getSchedule() {
-        return null; //TODO
-    }
-
-
 }

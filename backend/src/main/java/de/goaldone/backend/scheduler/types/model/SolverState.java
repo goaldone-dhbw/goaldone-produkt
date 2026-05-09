@@ -1,5 +1,7 @@
 package de.goaldone.backend.scheduler.types.model;
 
+import de.goaldone.backend.model.UnscheduledTask;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -10,7 +12,8 @@ import java.util.List;
  */
 public record SolverState(
         List<ScheduledChunk> scheduledChunks,
-        List<TimeSlot> freeSlots
+        List<TimeSlot> freeSlots,
+        List<UnscheduledTask> unscheduledChunks
 ) {
 
     /**
@@ -21,7 +24,10 @@ public record SolverState(
     public SolverState deepCopy() {
         return new SolverState(
                 new ArrayList<>(scheduledChunks),
-                new ArrayList<>(freeSlots)
+                new ArrayList<>(freeSlots),
+                unscheduledChunks == null
+                        ? null
+                        : new ArrayList<>(unscheduledChunks)
         );
     }
 }

@@ -2,7 +2,6 @@ package de.goaldone.backend.scheduler;
 
 import de.goaldone.backend.scheduler.types.model.MoveEvent;
 import de.goaldone.backend.scheduler.types.model.MoveHistory;
-import de.goaldone.backend.scheduler.types.model.SolverState;
 import de.goaldone.backend.scheduler.types.moves.MoveType;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -13,45 +12,37 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class TabuAlgorithmusTest {
 
     @Mock
-    private ConstraintHandler constraintHandler;
-
-    @Mock
     private MoveHistory moveHistory;
 
-    @Mock
-    private SolverState currentBest;
-
-    @Mock
-    private SolverState newState;
 
     @Mock
     private MoveEvent moveEvent;
 
     @Test
     void validateMove_DetectTabuMove() {
-        TabuAlgorithm algorithm = new TabuAlgorithm(constraintHandler);
+        TabuAlgorithm algorithm = new TabuAlgorithm();
 
         when(moveHistory.contains(moveEvent)).thenReturn(true);
-        when(constraintHandler.calculateScore(any())).thenReturn(10);
 
-        boolean result = algorithm.validateMove(currentBest, newState, moveHistory, moveEvent);
+        // Same score → aspiration fails → tabu move rejected
+        boolean result = algorithm.validateMove(10, 10, moveHistory, moveEvent);
 
         assertFalse(result);
     }
 
     @Test
     void validateMove_AcceptNonTabuMove() {
-        TabuAlgorithm algorithm = new TabuAlgorithm(constraintHandler);
+        TabuAlgorithm algorithm = new TabuAlgorithm();
 
         when(moveHistory.contains(moveEvent)).thenReturn(false);
 
-        boolean result = algorithm.validateMove(currentBest, newState, moveHistory, moveEvent);
+        boolean result = algorithm.validateMove(10, 5, moveHistory, moveEvent);
 
         assertTrue(result);
     }
@@ -59,7 +50,7 @@ class TabuAlgorithmusTest {
 
     @Test
     void moveHistory_NotContainOldMove_WhenMoreThanFiveMovesAdded() {
-        TabuAlgorithm algorithm = new TabuAlgorithm(constraintHandler);
+        TabuAlgorithm algorithm = new TabuAlgorithm();
 
         MoveHistory moveHistory = new MoveHistory();
 
@@ -85,40 +76,29 @@ class TabuAlgorithmusTest {
 
         assertFalse(moveHistory.contains(firstMove));
 
-        boolean result = algorithm.validateMove(
-                currentBest,
-                newState,
-                moveHistory,
-                firstMove
-        );
+        boolean result = algorithm.validateMove(10, 10, moveHistory, firstMove);
 
         assertTrue(result);
     }
 
     @Test
     void validateMove_AcceptTabuMove_WhenAspirationCriteriaMet() {
-        TabuAlgorithm algorithm = new TabuAlgorithm(constraintHandler);
+        TabuAlgorithm algorithm = new TabuAlgorithm();
 
         when(moveHistory.contains(moveEvent)).thenReturn(true);
 
-        when(constraintHandler.calculateScore(currentBest)).thenReturn(10);
-        when(constraintHandler.calculateScore(newState)).thenReturn(20);
-
-        boolean result = algorithm.validateMove(currentBest, newState, moveHistory, moveEvent);
+        boolean result = algorithm.validateMove(10, 20, moveHistory, moveEvent);
 
         assertTrue(result);
     }
 
     @Test
     void validateMove_RejectTabuMove_WhenAspirationFails() {
-        TabuAlgorithm algorithm = new TabuAlgorithm(constraintHandler);
+        TabuAlgorithm algorithm = new TabuAlgorithm();
 
         when(moveHistory.contains(moveEvent)).thenReturn(true);
 
-        when(constraintHandler.calculateScore(currentBest)).thenReturn(20);
-        when(constraintHandler.calculateScore(newState)).thenReturn(10);
-
-        boolean result = algorithm.validateMove(currentBest, newState, moveHistory, moveEvent);
+        boolean result = algorithm.validateMove(20, 10, moveHistory, moveEvent);
 
         assertFalse(result);
     }

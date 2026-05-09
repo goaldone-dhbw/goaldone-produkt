@@ -2,7 +2,6 @@ package de.goaldone.backend.scheduler.types.constraints;
 
 import de.goaldone.backend.model.ScheduleWarning;
 import de.goaldone.backend.scheduler.types.SoftConstraint;
-import de.goaldone.backend.scheduler.types.model.Schedule;
 import de.goaldone.backend.scheduler.types.model.SolverState;
 
 public class PauseAfterReachedCognitiveLoadConstraint extends SoftConstraint {
