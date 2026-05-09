@@ -1,0 +1,46 @@
+info:
+  name: Get tasks with invalid deadline (Negative)
+  type: http
+  seq: 7
+  tags:
+    - tasks
+
+http:
+  method: GET
+  url: "{{baseUrl}}/tasks?deadlineFrom=invalid-date"
+  params:
+    - name: deadlineFrom
+      value: invalid-date
+      type: query
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+examples:
+  - name: 400 Response
+    description: Bad Request
+    request:
+      url: "{{baseUrl}}/tasks?deadlineFrom=invalid-date"
+      method: GET
+      params:
+        - name: deadlineFrom
+          value: invalid-date
+          type: query
+    response:
+      status: 400
+      statusText: Bad Request
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "status": 400,
+            "title": "Bad Request",
+            "detail": "Failed to convert property value of type 'java.lang.String' to required type 'java.time.OffsetDateTime' for property 'deadlineFrom'"
+          }

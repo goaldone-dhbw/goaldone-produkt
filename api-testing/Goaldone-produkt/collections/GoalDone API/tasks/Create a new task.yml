@@ -6,6 +6,17 @@ info:
 http:
   method: POST
   url: "{{baseUrl}}/tasks"
+  body:
+    type: json
+    data: |
+      {
+        "accountId": "299005ff-d3c5-4bdd-814b-abde5191b4ab",
+        "title": "Komplexe Datenbank-Migration",
+        "description": "Schwierige Aufgabe, die lange dauert.",
+        "duration": 180,
+        "status": "OPEN",
+        "cognitiveLoad": "HIGH"
+      }
   auth: inherit
 
 settings:
