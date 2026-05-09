@@ -12,10 +12,16 @@ tags:
     description: Health check operations
   - name: tasks
     description: Task management operations
-  - name: user-accounts
-    description: User Account operations
   - name: working-times
     description: Working time management
+  - name: appointments
+    description: Appointment management operations
+  - name: schedules
+    description: Schedule management operations
+  - name: user-accounts
+    description: User Account operations
+  - name: member-management
+    description: Organization member management operations
   - name: org-management
     description: Organization management operations
   - name: super-admin-management
@@ -28,7 +34,7 @@ paths:
         - health
       summary: Health Check
       operationId: getHealth
-      security: []
+      security: [ ]
       responses:
         '200':
           description: OK
@@ -48,7 +54,7 @@ paths:
       summary: Request an account link token
       operationId: requestAccountLink
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       responses:
         '201':
           description: Link token created
@@ -64,7 +70,7 @@ paths:
       summary: Confirm an account link
       operationId: confirmAccountLink
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       requestBody:
         required: true
         content:
@@ -90,7 +96,7 @@ paths:
       summary: Unlink an account
       operationId: unlinkAccount
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       parameters:
         - name: accountId
           in: path
@@ -113,7 +119,7 @@ paths:
       summary: Get all accounts for current user identity
       operationId: getMyAccounts
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       responses:
         '200':
           description: OK
@@ -121,6 +127,92 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AccountListResponse'
+  /users/accounts/{accountId}:
+    delete:
+      tags:
+        - user-accounts
+      summary: Delete an account
+      operationId: deleteAccount
+      security:
+        - bearerAuth: [ ]
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Account deleted successfully
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Account not found
+        '409':
+          description: Account is last remaining admin account and cannot be deleted
+    patch:
+      tags:
+        - user-accounts
+      summary: Update an account (e.g. name, email)
+      operationId: updateAccount
+      security:
+        - bearerAuth: [ ]
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccountUpdateRequest'
+      responses:
+        '200':
+          description: Account updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountResponse'
+        '400':
+          description: Bad Request
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Account not found
+  /users/accounts/password:
+    put:
+      tags:
+        - user-accounts
+      summary: Update the password of the account the user is currently logged in with
+      operationId: updateAccountPassword
+      security:
+        - bearerAuth: [ ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordUpdateRequest'
+      responses:
+        '200':
+          description: Password updated successfully
+        '400':
+          description: Bad Request
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Account not found
   # ============================================================
   # APPOINTMENTS
   # ============================================================
@@ -176,6 +268,42 @@ paths:
           description: Account not found
 
   /appointments/{accountId}/{appointmentId}:
+    put:
+      tags: [ appointments ]
+      summary: Update an existing appointment (full replace)
+      operationId: updateAppointment
+      security:
+        - bearerAuth: [ ]
+      parameters:
+        - $ref: '#/components/parameters/AccountIdPath'
+        - name: appointmentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AppointmentCreate'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Appointment'
+        '400':
+          description: Validation error
+        '401':
+          description: Unauthorized
+        '403':
+          description: Account not owned by user
+        '404':
+          description: Appointment not found
+
     get:
       tags: [ appointments ]
       summary: Get an appointment by ID
@@ -371,7 +499,7 @@ paths:
       summary: Get all working time slots for current user
       operationId: getWorkingTimes
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       responses:
         '200':
           description: OK
@@ -388,7 +516,7 @@ paths:
       summary: Create a working time slot
       operationId: createWorkingTime
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       requestBody:
         required: true
         content:
@@ -485,7 +613,7 @@ paths:
         aus Zitadel.
       operationId: listOrganizations
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       responses:
         '200':
           description: OK
@@ -504,7 +632,7 @@ paths:
       summary: Neues Unternehmen mit erstem Unternehmens-Admin anlegen
       operationId: createOrganization
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       requestBody:
         required: true
         content:
@@ -541,7 +669,7 @@ paths:
         gelöscht und der lokale organizations-Record entfernt.
       operationId: deleteOrganization
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       parameters:
         - name: zitadelOrgId
           in: path
@@ -560,14 +688,14 @@ paths:
         '502':
           description: Upstream Error (Zitadel)
 
-  /admins/super-admins :
+  /admins/super-admins:
     get:
       tags:
         - super-admin-management
       summary: Liste aller Super-Admins
       operationId: listSuperAdmins
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       responses:
         '200':
           description: OK
@@ -588,7 +716,7 @@ paths:
       summary: Neuen Super-Admin einladen
       operationId: inviteSuperAdmin
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       requestBody:
         required: true
         content:
@@ -616,7 +744,7 @@ paths:
       summary: Super-Admin löschen
       operationId: deleteSuperAdmin
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       parameters:
         - name: userId
           in: path
@@ -634,6 +762,168 @@ paths:
           description: User not found
         '409':
           description: Conflict (Last Super-Admin)
+
+  # ============================================================
+  # MEMBER MANAGEMENT – Invite
+  # ============================================================
+  /organizations/{orgId}/members/invite:
+    post:
+      tags:
+        - member-management
+      summary: Neuen Nutzer in die Organisation einladen
+      description: |
+        Legt einen neuen Zitadel-User in der Org an, vergibt die gewünschte
+        Projektrolle und löst den Versand einer gebrandeten Einladungs-E-Mail aus.
+        Ein lokaler Shadow-Record wird nicht angelegt – das geschieht über
+        JIT-Provisioning beim ersten Login des eingeladenen Nutzers.
+      operationId: inviteMember
+      security:
+        - bearerAuth: [ ]
+      parameters:
+        - $ref: '#/components/parameters/OrgIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InviteMemberRequest'
+      responses:
+        '201':
+          description: Einladung versendet
+        '400':
+          description: Bad Request (Validation)
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden – nicht COMPANY_ADMIN oder nicht Mitglied dieser Org
+        '409':
+          description: Conflict (EMAIL_ALREADY_IN_USE)
+        '502':
+          description: Upstream Error (Zitadel)
+
+  /organizations/{orgId}/members/{zitadelUserId}/reinvite:
+    post:
+      tags:
+        - member-management
+      summary: Einladung erneut versenden
+      description: |
+        Generiert einen neuen Einladungscode für einen noch nicht aktiven
+        Nutzer und versendet erneut eine gebrandete Einladungs-E-Mail.
+        Der vorherige Einladungslink wird dabei invalidiert.
+        Nur für Nutzer mit Status INVITED aufrufbar.
+      operationId: reinviteMember
+      security:
+        - bearerAuth: [ ]
+      parameters:
+        - $ref: '#/components/parameters/OrgIdPath'
+        - $ref: '#/components/parameters/ZitadelUserIdPath'
+      responses:
+        '204':
+          description: Einladung erneut versendet
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '409':
+          description: Conflict (USER_ALREADY_ACTIVE)
+        '404':
+          description: Nutzer nicht gefunden
+        '502':
+          description: Upstream Error (Zitadel)
+
+  # ============================================================
+  # MEMBER MANAGEMENT – List, Role, Remove
+  # ============================================================
+  /organizations/{orgId}/members:
+    get:
+      tags:
+        - member-management
+      summary: Alle Mitglieder einer Organisation auflisten
+      description: |
+        Listet alle Mitglieder der Organisation auf, inklusive eingeladener
+        aber noch nicht aktiver Nutzer. Status INVITED bedeutet, die Einladung
+        wurde noch nicht angenommen (kein JIT-Record vorhanden).
+      operationId: listMembers
+      security:
+        - bearerAuth: [ ]
+      parameters:
+        - $ref: '#/components/parameters/OrgIdPath'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemberListResponse'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden – nicht COMPANY_ADMIN oder nicht Mitglied dieser Org
+
+  /organizations/{orgId}/members/{zitadelUserId}/role:
+    put:
+      tags:
+        - member-management
+      summary: Rolle eines Mitglieds ändern
+      description: |
+        Ändert die Projektrolle eines Mitglieds auf dem Goaldone-Projekt
+        über Zitadels ManagementService.UpdateUserGrant. Die Änderung wird
+        nicht lokal in der DB gespeichert – die neue Rolle ist ab dem
+        nächsten Token-Refresh des betroffenen Nutzers wirksam.
+        Degradierung des letzten COMPANY_ADMIN wird verhindert.
+      operationId: changeMemberRole
+      security:
+        - bearerAuth: [ ]
+      parameters:
+        - $ref: '#/components/parameters/OrgIdPath'
+        - $ref: '#/components/parameters/ZitadelUserIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangeRoleRequest'
+      responses:
+        '200':
+          description: Rolle geändert
+        '400':
+          description: Bad Request (ROLE_UNCHANGED)
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '409':
+          description: Conflict (LAST_ADMIN_CANNOT_BE_DEMOTED)
+        '502':
+          description: Upstream Error (Zitadel)
+
+  /organizations/{orgId}/members/{zitadelUserId}:
+    delete:
+      tags:
+        - member-management
+      summary: Mitglied aus der Organisation entfernen
+      description: |
+        Entfernt den Nutzer aus Zitadel und löscht den lokalen Account
+        inklusive aller verknüpften Daten (Tasks, Appointments, Working-Times).
+        Bei eingeladenen, noch nicht aktiven Nutzern wird nur der Zitadel-User
+        gelöscht. Selbst-Entfernung ist nicht erlaubt.
+      operationId: removeMember
+      security:
+        - bearerAuth: [ ]
+      parameters:
+        - $ref: '#/components/parameters/OrgIdPath'
+        - $ref: '#/components/parameters/ZitadelUserIdPath'
+      responses:
+        '204':
+          description: Nutzer entfernt
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (CANNOT_REMOVE_SELF / nicht Mitglied der Org)
+        '409':
+          description: Conflict (LAST_ADMIN_CANNOT_BE_REMOVED)
+        '502':
+          description: Upstream Error (Zitadel)
 
   /tasks/all:
     get:
@@ -701,7 +991,7 @@ paths:
       summary: Update an existing task
       operationId: updateTask
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       parameters:
         - name: taskId
           in: path
@@ -732,7 +1022,7 @@ paths:
       summary: Delete a task
       operationId: deleteTask
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       parameters:
         - name: taskId
           in: path
@@ -785,6 +1075,23 @@ components:
         type: string
         format: date
         example: "2026-04-11"
+
+    OrgIdPath:
+      name: orgId
+      in: path
+      required: true
+      description: Interne UUID der Organisation
+      schema:
+        type: string
+        format: uuid
+
+    ZitadelUserIdPath:
+      name: zitadelUserId
+      in: path
+      required: true
+      description: Zitadel User ID
+      schema:
+        type: string
 
   # ============================================================
   # SCHEMAS
@@ -965,11 +1272,11 @@ components:
     # ----------------------------------------------------------
     AppointmentType:
       type: string
-      enum: [ONE_TIME, RECURRING]
+      enum: [ ONE_TIME, RECURRING ]
 
     Appointment:
       type: object
-      required: [id, accountId, title, isBreak, appointmentType, startTime, endTime, createdAt]
+      required: [ id, accountId, title, isBreak, appointmentType, startTime, endTime, createdAt ]
       properties:
         id:
           type: string
@@ -1007,7 +1314,7 @@ components:
 
     AppointmentCreate:
       type: object
-      required: [title, isBreak, appointmentType, startTime, endTime]
+      required: [ title, isBreak, appointmentType, startTime, endTime ]
       properties:
         title:
           type: string
@@ -1031,7 +1338,7 @@ components:
 
     AppointmentListResponse:
       type: object
-      required: [appointments]
+      required: [ appointments ]
       properties:
         appointments:
           type: array
@@ -1341,11 +1648,131 @@ components:
           maxLength: 50
 
     # ----------------------------------------------------------
+    # Member Management
+    # ----------------------------------------------------------
+    MemberRole:
+      type: string
+      enum:
+        - USER
+        - COMPANY_ADMIN
+
+    InviteMemberRequest:
+      type: object
+      required:
+        - email
+        - firstName
+        - lastName
+      properties:
+        email:
+          type: string
+          format: email
+        firstName:
+          type: string
+          minLength: 1
+          maxLength: 200
+        lastName:
+          type: string
+          minLength: 1
+          maxLength: 200
+        role:
+          $ref: '#/components/schemas/MemberRole'
+
+
+    MemberStatus:
+      type: string
+      enum:
+        - INVITED
+        - INACTIVE
+        - ACTIVE
+
+    ChangeRoleRequest:
+      type: object
+      required:
+        - role
+      properties:
+        role:
+          $ref: '#/components/schemas/MemberRole'
+
+    AccountUpdateRequest:
+      type: object
+      properties:
+        firstName:
+          type: string
+          minLength: 1
+          maxLength: 50
+        lastName:
+          type: string
+          minLength: 1
+          maxLength: 50
+        email:
+          type: string
+          format: email
+
+    PasswordUpdateRequest:
+      type: object
+      properties:
+        newPassword:
+          type: string
+          minLength: 8
+          maxLength: 128
+        currentPassword:
+          type: string
+          minLength: 8
+          maxLength: 128
+
+
+    MemberResponse:
+      type: object
+      required:
+        - zitadelUserId
+        - email
+        - role
+        - status
+        - createdAt
+      properties:
+        accountId:
+          type: string
+          format: uuid
+          nullable: true
+          description: |
+            Lokale Account-ID aus user_accounts.
+            null wenn der Nutzer die Einladung noch nicht angenommen hat.
+        zitadelUserId:
+          type: string
+          description: Zitadel-User-ID
+        email:
+          type: string
+          format: email
+        firstName:
+          type: string
+          nullable: true
+        lastName:
+          type: string
+          nullable: true
+        role:
+          $ref: '#/components/schemas/MemberRole'
+        status:
+          $ref: '#/components/schemas/MemberStatus'
+        createdAt:
+          type: string
+          format: date-time
+
+    MemberListResponse:
+      type: object
+      required:
+        - members
+      properties:
+        members:
+          type: array
+          items:
+            $ref: '#/components/schemas/MemberResponse'
+
+    # ----------------------------------------------------------
     # Schedule – Request
     # ----------------------------------------------------------
     GenerateScheduleRequest:
       type: object
-      required: [from]
+      required: [ from ]
       properties:
         from:
           type: string
@@ -1362,7 +1789,7 @@ components:
     # ----------------------------------------------------------
     ScheduleResponse:
       type: object
-      required: [accountId, generatedAt, from, to, totalWorkMinutes, score, warnings, entries, unscheduledTasks]
+      required: [ accountId, generatedAt, from, to, totalWorkMinutes, score, warnings, entries, unscheduledTasks ]
       properties:
         accountId:
           type: string
@@ -1387,7 +1814,9 @@ components:
           description: Summe aller eingeplanten Task-Minuten im Zeitraum
           example: 1920
         score:
-          $ref: '#/components/schemas/ScheduleScore'
+          type: integer
+          description: Score zur Bewertung des Plans
+          example: 16
         warnings:
           type: array
           description: Warnungen des Planungsalgorithmus. Leer wenn keine Probleme.
@@ -1411,7 +1840,7 @@ components:
     # ----------------------------------------------------------
     MultiAccountScheduleResponse:
       type: object
-      required: [schedules]
+      required: [ schedules ]
       properties:
         schedules:
           type: array
@@ -1424,7 +1853,7 @@ components:
     # ----------------------------------------------------------
     ScheduleEntry:
       type: object
-      required: [source, date, startTime, endTime, type, isCompleted, isPinned]
+      required: [ source, date, startTime, endTime, type, isCompleted, isPinned ]
       description: |
         Ein Zeitblock im Kalender. Kann ein persistierter DB-Eintrag
         (`source: ONE_TIME`) oder ein virtuell berechnetes Vorkommen
@@ -1433,7 +1862,7 @@ components:
         # --- Diskriminator ---
         source:
           type: string
-          enum: [ONE_TIME, RECURRING]
+          enum: [ ONE_TIME, RECURRING ]
           description: |
             - `ONE_TIME`: persistierter Eintrag. `entryId` ist gesetzt.
             - `RECURRING`: virtuelles Vorkommen. `templateId` + `occurrenceDate` sind gesetzt.
@@ -1464,7 +1893,7 @@ components:
         # --- Typ ---
         type:
           type: string
-          enum: [TASK, APPOINTMENT]
+          enum: [ TASK, APPOINTMENT ]
           description: |
             - `TASK`: Dynamisch eingeplanter Aufgaben-Chunk.
             - `APPOINTMENT`: Fester Termin oder Pause. Siehe `isBreak`.
@@ -1517,46 +1946,33 @@ components:
     # ----------------------------------------------------------
     UnscheduledTask:
       type: object
-      required: [taskId, taskTitle, durationMinutes, reason, shortfallMinutes]
+      required: [taskId, taskTitle, reason]
       properties:
         taskId:
           type: string
           format: uuid
         taskTitle:
           type: string
-        durationMinutes:
-          type: integer
-          description: Gesamtdauer des Tasks in Minuten
-          example: 480
-        deadline:
-          type: string
-          format: date-time
-          nullable: true
-          description: Deadline des Tasks (null = keine Deadline)
         reason:
           type: string
-          enum: [DEADLINE_IMPOSSIBLE, CAPACITY_EXCEEDED, DEPENDENCY_BLOCKED]
+          enum: [NO_TIMESLOTS_AFTER_NOTBEFORE, DEADLINE_IMPOSSIBLE, CAPACITY_EXCEEDED, DEPENDENCY_BLOCKED, OTHER]
           description: |
+            - `NO_TIMESLOTS_AFTER_NOTBEFORE`: Es gibt keine freie Arbeitszeit nach "not before"
             - `DEADLINE_IMPOSSIBLE`: Zu wenig Arbeitszeit bis zur Deadline.
             - `CAPACITY_EXCEEDED`: Gesamtkapazität im Planungshorizont reicht nicht.
             - `DEPENDENCY_BLOCKED`: Abhängiger Task ist selbst nicht planbar.
-        shortfallMinutes:
-          type: integer
-          description: |
-            Fehlende Minuten. Bei `DEADLINE_IMPOSSIBLE`: wie viel Zeit
-            bis zur Deadline fehlt. Bei `CAPACITY_EXCEEDED`: Gesamtüberlauf.
-          example: 120
+            - `OTHER`: Ein anderer Fehler ist aufgetreten
 
     # ----------------------------------------------------------
     # Schedule Warning
     # ----------------------------------------------------------
     ScheduleWarning:
       type: object
-      required: [type, message]
+      required: [ type, message ]
       properties:
         type:
           type: string
-          enum: [DEADLINE_TIGHT, OVERLOADED_DAY, PIN_CONFLICT, OTHER]
+          enum: [ DEADLINE_TIGHT, OVERLOADED_DAY, PIN_CONFLICT, OTHER ]
           description: |
             - `DEADLINE_TIGHT`: Task eingeplant, aber < 30 min Puffer bis Deadline.
             - `OVERLOADED_DAY`: Ein Tag übersteigt die verfügbare Arbeitszeit.
@@ -1578,57 +1994,21 @@ components:
           description: Betroffenes Datum (wenn zutreffend)
 
     # ----------------------------------------------------------
-    # Schedule Score (Debug)
-    # ----------------------------------------------------------
-    ScheduleScore:
-      type: object
-      description: |
-        Score des Planungsalgorithmus zur Einschätzung der Planungsqualität.
-        TODO: In Zukunft entfernen oder hinter ein Feature-Flag setzen.
-        Nur für Entwicklung und Debugging vorgesehen.
-      required: [hard, medium, soft, feasible]
-      properties:
-        hard:
-          type: integer
-          format: int64
-          description: |
-            Hard-Score. Muss 0 sein für einen gültigen Plan.
-            < 0 bedeutet: harte Constraints verletzt.
-          example: 0
-        medium:
-          type: integer
-          format: int64
-          description: |
-            Medium-Score. < 0 bedeutet: Deadlines nicht alle einhaltbar
-            oder Tasks nicht vollständig eingeplant.
-          example: -120
-        soft:
-          type: integer
-          format: int64
-          description: |
-            Soft-Score. Optimierungsqualität. Je näher an 0, desto besser.
-          example: -45
-        feasible:
-          type: boolean
-          description: "`true` wenn hard == 0 (Plan ist gültig)."
-          example: true
-
-    # ----------------------------------------------------------
     # Schedule Validation Error (422)
     # ----------------------------------------------------------
     ScheduleValidationError:
       type: object
-      required: [errors]
+      required: [ errors ]
       properties:
         errors:
           type: array
           items:
             type: object
-            required: [type, message]
+            required: [ type, message ]
             properties:
               type:
                 type: string
-                enum: [CIRCULAR_DEPENDENCY, CHUNK_EXCEEDS_DURATION, NOT_BEFORE_AFTER_DEADLINE, WORKING_HOURS_OVERLAP]
+                enum: [ CIRCULAR_DEPENDENCY, CHUNK_EXCEEDS_DURATION, NOT_BEFORE_AFTER_DEADLINE, WORKING_HOURS_OVERLAP ]
                 description: |
                   - `CIRCULAR_DEPENDENCY`: Zirkuläre Abhängigkeit zwischen Tasks.
                   - `CHUNK_EXCEEDS_DURATION`: customChunkSize ist größer als Aufgabendauer.
@@ -1645,4 +2025,4 @@ components:
                 description: Betroffene Task-IDs
 
 security:
-  - bearerAuth: []
+  - bearerAuth: [ ]

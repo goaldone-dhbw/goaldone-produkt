@@ -21,8 +21,14 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import de.goaldone.backend.model.AccountUpdateRequest;
+import de.goaldone.backend.model.PasswordUpdateRequest;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
+
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -214,6 +220,187 @@ class UserIdentityServiceTest {
         assertEquals(accountId2, accountResponse2.getAccountId());
         assertEquals(orgId2, accountResponse2.getOrganizationId());
         assertEquals(orgName2, accountResponse2.getOrganizationName());
+    }
+
+    @Test
+    void updateAccount_accountNotFound_throws404() {
+        UUID accountId = UUID.randomUUID();
+        AccountUpdateRequest request = new AccountUpdateRequest();
+
+        when(userAccountRepository.findById(accountId))
+            .thenReturn(Optional.empty());
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class, () ->
+            userIdentityService.updateAccount(accountId, request)
+        );
+
+        assertEquals(HttpStatus.NOT_FOUND, ex.getStatusCode());
+    }
+
+    @Test
+    void updateAccount_existingAccount_callsZitadelAndReturnsMappedResponse() {
+        UUID accountId = UUID.randomUUID();
+        UUID identityId = UUID.randomUUID();
+        UUID orgId = UUID.randomUUID();
+        String sub = "account-sub";
+        String orgName = "Test Org";
+
+        UserAccountEntity account = new UserAccountEntity();
+        account.setId(accountId);
+        account.setZitadelSub(sub);
+        account.setUserIdentityId(identityId);
+        account.setOrganizationId(orgId);
+
+        OrganizationEntity org = new OrganizationEntity();
+        org.setId(orgId);
+        org.setName(orgName);
+
+        AccountUpdateRequest request = new AccountUpdateRequest();
+
+        when(userAccountRepository.findById(accountId))
+            .thenReturn(Optional.of(account));
+        when(organizationRepository.findById(orgId))
+            .thenReturn(Optional.of(org));
+        // updateUser returns void, so just mock the call without return expectation
+        when(zitadelManagementClient.getUserGrantRoles(any(), any(), any()))
+            .thenReturn(List.of("COMPANY_ADMIN"));
+        when(zitadelManagementClient.getUser(sub))
+            .thenReturn(Optional.empty());
+        when(workingTimeRepository.hasConflictsForIdentity(identityId))
+            .thenReturn(false);
+
+        AccountResponse response = userIdentityService.updateAccount(accountId, request);
+
+        assertNotNull(response);
+        assertEquals(accountId, response.getAccountId());
+        assertEquals(orgId, response.getOrganizationId());
+        assertEquals(orgName, response.getOrganizationName());
+        verify(zitadelManagementClient).updateUser(sub, request);
+    }
+
+    @Test
+    void updateAccountPassword_accountNotFound_throws404() {
+        UUID accountId = UUID.randomUUID();
+        PasswordUpdateRequest request = new PasswordUpdateRequest();
+
+        when(userAccountRepository.findById(accountId))
+            .thenReturn(Optional.empty());
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class, () ->
+            userIdentityService.updateAccountPassword(accountId, request)
+        );
+
+        assertEquals(HttpStatus.NOT_FOUND, ex.getStatusCode());
+    }
+
+    @Test
+    void updateAccountPassword_existingAccount_callsZitadelUpdatePassword() {
+        UUID accountId = UUID.randomUUID();
+        String sub = "account-sub";
+        String currentPassword = "oldPassword123";
+        String newPassword = "newPassword456";
+
+        UserAccountEntity account = new UserAccountEntity();
+        account.setId(accountId);
+        account.setZitadelSub(sub);
+
+        PasswordUpdateRequest request = new PasswordUpdateRequest();
+        request.setCurrentPassword(currentPassword);
+        request.setNewPassword(newPassword);
+
+        when(userAccountRepository.findById(accountId))
+            .thenReturn(Optional.of(account));
+
+        userIdentityService.updateAccountPassword(accountId, request);
+
+        verify(zitadelManagementClient).updateUserPassword(sub, currentPassword, newPassword);
+    }
+
+    @Test
+    void hasUserAccessToAccount_accountBelongsToUser_returnsTrue() {
+        String sub = "user-sub";
+        UUID identityId = UUID.randomUUID();
+        UUID accountId = UUID.randomUUID();
+        UUID orgId = UUID.randomUUID();
+        Jwt jwt = buildJwt(sub);
+
+        UserAccountEntity account = new UserAccountEntity();
+        account.setId(accountId);
+        account.setZitadelSub(sub);
+        account.setUserIdentityId(identityId);
+        account.setOrganizationId(orgId);
+
+        OrganizationEntity org = new OrganizationEntity();
+        org.setId(orgId);
+        org.setName("Org");
+
+        when(userAccountRepository.findByZitadelSub(sub))
+            .thenReturn(Optional.of(account));
+        when(userAccountRepository.findAllByUserIdentityId(identityId))
+            .thenReturn(List.of(account));
+        when(organizationRepository.findById(orgId))
+            .thenReturn(Optional.of(org));
+        when(zitadelManagementClient.getUserGrantRoles(any(), any(), any()))
+            .thenReturn(List.of());
+        when(zitadelManagementClient.getUser(sub))
+            .thenReturn(Optional.empty());
+        when(workingTimeRepository.hasConflictsForIdentity(identityId))
+            .thenReturn(false);
+
+        boolean hasAccess = userIdentityService.hasUserAccessToAccount(jwt, accountId);
+
+        assertTrue(hasAccess);
+    }
+
+    @Test
+    void hasUserAccessToAccount_accountNotInIdentity_returnsFalse() {
+        String sub = "user-sub";
+        UUID identityId = UUID.randomUUID();
+        UUID accountId = UUID.randomUUID();
+        UUID differentAccountId = UUID.randomUUID();
+        UUID orgId = UUID.randomUUID();
+        Jwt jwt = buildJwt(sub);
+
+        UserAccountEntity account = new UserAccountEntity();
+        account.setId(accountId);
+        account.setZitadelSub(sub);
+        account.setUserIdentityId(identityId);
+        account.setOrganizationId(orgId);
+
+        OrganizationEntity org = new OrganizationEntity();
+        org.setId(orgId);
+        org.setName("Org");
+
+        when(userAccountRepository.findByZitadelSub(sub))
+            .thenReturn(Optional.of(account));
+        when(userAccountRepository.findAllByUserIdentityId(identityId))
+            .thenReturn(List.of(account));
+        when(organizationRepository.findById(orgId))
+            .thenReturn(Optional.of(org));
+        when(zitadelManagementClient.getUserGrantRoles(any(), any(), any()))
+            .thenReturn(List.of());
+        when(zitadelManagementClient.getUser(sub))
+            .thenReturn(Optional.empty());
+        when(workingTimeRepository.hasConflictsForIdentity(identityId))
+            .thenReturn(false);
+
+        boolean hasAccess = userIdentityService.hasUserAccessToAccount(jwt, differentAccountId);
+
+        assertFalse(hasAccess);
+    }
+
+    @Test
+    void hasUserAccessToAccount_noAccountForSub_throwsIllegalStateException() {
+        String sub = "missing-sub";
+        UUID accountId = UUID.randomUUID();
+        Jwt jwt = buildJwt(sub);
+
+        when(userAccountRepository.findByZitadelSub(sub))
+            .thenReturn(Optional.empty());
+
+        assertThrows(IllegalStateException.class, () ->
+            userIdentityService.hasUserAccessToAccount(jwt, accountId)
+        );
     }
 
     private Jwt buildJwt(String sub) {

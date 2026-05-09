@@ -1,15 +1,14 @@
 package de.goaldone.backend.scheduler;
 
 import de.goaldone.backend.entity.WorkingTimeEntity;
+import de.goaldone.backend.model.CognitiveLoad;
 import de.goaldone.backend.model.TaskResponse;
 import de.goaldone.backend.scheduler.types.model.TaskChunk;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 
 public class Chunker {
 
@@ -24,49 +23,59 @@ public class Chunker {
      *
      * @param tasks        List of tasks to chunk
      * @param workingTimes List of working time definitions for the account
-     * @return List of task chunks ready for the solver
+     * @return Map of UUID -> [TaskChunk] where the key is the original task ID and the value is the list of chunks for that task
      */
-    public List<TaskChunk> chunkTasks(List<TaskResponse> tasks, List<WorkingTimeEntity> workingTimes) {
+    public Map<UUID, List<TaskChunk>> chunkTasks(List<TaskResponse> tasks, List<WorkingTimeEntity> workingTimes) {
         int maxWorkingDayMinutes = computeMaxWorkingDayMinutes(workingTimes);
-        List<TaskChunk> result = new ArrayList<>();
+        Map<UUID, List<TaskChunk>> result = new HashMap<>();
 
         for (TaskResponse task : tasks) {
-            int chunkSize = resolveChunkSize(task, maxWorkingDayMinutes);
-            List<Integer> chunkDurations = splitIntoChunks(task.getDuration(), chunkSize);
-            int totalChunks = chunkDurations.size();
-
-            LocalDateTime notBefore = task.getDontScheduleBefore() != null
-                    ? task.getDontScheduleBefore().atZoneSameInstant(ZoneOffset.UTC).toLocalDateTime()
-                    : null;
-            LocalDateTime deadline = task.getDeadline() != null
-                    ? task.getDeadline().atZoneSameInstant(ZoneOffset.UTC).toLocalDateTime()
-                    : null;
-
-            List<UUID> dependsOnTaskIds = task.getDependencyIds() != null
-                    ? task.getDependencyIds()
-                    : List.of();
-
-            for (int i = 0; i < totalChunks; i++) {
-                result.add(TaskChunk.builder()
-                                    .chunkId(UUID.randomUUID())
-                                    .taskId(task.getId())
-                                    .chunkIndex(i)
-                                    .totalChunks(totalChunks)
-                                    .durationMinutes(chunkDurations.get(i))
-                                    .topologicalLevel(0)
-                                    .slackMinutes(0)
-                                    .cognitiveLoad(task.getCognitiveLoad())
-                                    .notBefore(notBefore)
-                                    .deadline(deadline)
-                                    .isPinned(false)
-                                    .dependsOnTaskIds(dependsOnTaskIds)
-                                    .build()
-                );
-            }
+            List<TaskChunk> chunks = chunkSingleTask(task, maxWorkingDayMinutes);
+            result.put(task.getId(), chunks);
         }
 
         return result;
     }
+
+
+    private List<TaskChunk> chunkSingleTask(TaskResponse task, int maxWorkingDayMinutes) {
+
+        int chunkSize = resolveChunkSize(task, maxWorkingDayMinutes);
+        List<Integer> chunkDurations = splitIntoChunks(task.getDuration(), chunkSize);
+        int totalChunks = chunkDurations.size();
+
+        LocalDateTime notBefore = task.getDontScheduleBefore() != null
+                ? task.getDontScheduleBefore().atZoneSameInstant(ZoneOffset.UTC).toLocalDateTime()
+                : null;
+        LocalDateTime deadline = task.getDeadline() != null
+                ? task.getDeadline().atZoneSameInstant(ZoneOffset.UTC).toLocalDateTime()
+                : null;
+
+        List<UUID> dependsOnTaskIds = task.getDependencyIds() != null
+                ? task.getDependencyIds()
+                : List.of();
+
+        List<TaskChunk> chunks = new ArrayList<>();
+        for (int i = 0; i < totalChunks; i++) {
+            chunks.add(TaskChunk.builder()
+                    .chunkId(UUID.randomUUID())
+                    .taskId(task.getId())
+                    .chunkIndex(i)
+                    .totalChunks(totalChunks)
+                    .durationMinutes(chunkDurations.get(i))
+                    .topologicalLevel(0)
+                    .slackMinutes(0)
+                    .cognitiveLoad(task.getCognitiveLoad())
+                    .notBefore(notBefore)
+                    .deadline(deadline)
+                    .isPinned(false)
+                    .dependsOnTaskIds(dependsOnTaskIds)
+                    .build());
+        }
+        return chunks;
+    }
+
+
 
     /**
      * Computes the maximum working day length in minutes across all working time definitions.

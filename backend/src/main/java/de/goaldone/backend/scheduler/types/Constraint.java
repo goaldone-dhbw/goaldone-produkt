@@ -1,7 +1,6 @@
 package de.goaldone.backend.scheduler.types;
 
 import de.goaldone.backend.model.ScheduleWarning;
-import de.goaldone.backend.scheduler.types.model.Schedule;
 import de.goaldone.backend.scheduler.types.model.SolverState;
 
 public interface Constraint {

@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import java.time.LocalTime;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -45,7 +46,8 @@ class ChunkerTest {
     void positive_high_300min_results_in_3_chunks() {
         // 300 / 120 -> 120 + 120 + 60
         TaskResponse t = task(300, CognitiveLoad.HIGH, null);
-        List<TaskChunk> chunks = chunker.chunkTasks(List.of(t), workingTimes);
+        Map<UUID, List<TaskChunk>> result = chunker.chunkTasks(List.of(t), workingTimes);
+        List<TaskChunk> chunks = result.get(t.getId());
 
         assertThat(chunks).hasSize(3);
         assertThat(chunks.get(0).durationMinutes()).isEqualTo(120);
@@ -58,7 +60,8 @@ class ChunkerTest {
     void edge_case_high_250min_last_remainder_below_threshold_gets_merged() {
         // 250 / 120 -> 120 + 120 + 10 -> 10 < 15 -> gets appended -> 120 + 130
         TaskResponse t = task(250, CognitiveLoad.HIGH, null);
-        List<TaskChunk> chunks = chunker.chunkTasks(List.of(t), workingTimes);
+        Map<UUID, List<TaskChunk>> result = chunker.chunkTasks(List.of(t), workingTimes);
+        List<TaskChunk> chunks = result.get(t.getId());
 
         assertThat(chunks).hasSize(2);
         assertThat(chunks.get(0).durationMinutes()).isEqualTo(120);
@@ -69,7 +72,8 @@ class ChunkerTest {
     void negative_duration_less_than_customChunkSize_no_splitting() {
         // 10 min task, customChunkSize 30 -> stays as 1 chunk with 10 min
         TaskResponse t = task(10, CognitiveLoad.HIGH, 30);
-        List<TaskChunk> chunks = chunker.chunkTasks(List.of(t), workingTimes);
+        Map<UUID, List<TaskChunk>> result = chunker.chunkTasks(List.of(t), workingTimes);
+        List<TaskChunk> chunks = result.get(t.getId());
 
         assertThat(chunks).hasSize(1);
         assertThat(chunks.getFirst().durationMinutes()).isEqualTo(10);
@@ -80,7 +84,8 @@ class ChunkerTest {
         // LOW -> chunkSize = 480 min (working day)
         // task has 600 min -> 480 + 120
         TaskResponse t = task(600, CognitiveLoad.LOW, null);
-        List<TaskChunk> chunks = chunker.chunkTasks(List.of(t), workingTimes);
+        Map<UUID, List<TaskChunk>> result = chunker.chunkTasks(List.of(t), workingTimes);
+        List<TaskChunk> chunks = result.get(t.getId());
 
         assertThat(chunks).hasSize(2);
         assertThat(chunks.get(0).durationMinutes()).isEqualTo(480);
@@ -90,7 +95,8 @@ class ChunkerTest {
     @Test
     void chunkIndex_and_totalChunks_are_set_correctly() {
         TaskResponse t = task(300, CognitiveLoad.HIGH, null);
-        List<TaskChunk> chunks = chunker.chunkTasks(List.of(t), workingTimes);
+        Map<UUID, List<TaskChunk>> result = chunker.chunkTasks(List.of(t), workingTimes);
+        List<TaskChunk> chunks = result.get(t.getId());
 
         for (int i = 0; i < chunks.size(); i++) {
             assertThat(chunks.get(i).chunkIndex()).isEqualTo(i);
@@ -104,7 +110,8 @@ class ChunkerTest {
         TaskResponse t = task(60, CognitiveLoad.MODERATE, null);
         t.setDependencyIds(List.of(depId));
 
-        List<TaskChunk> chunks = chunker.chunkTasks(List.of(t), workingTimes);
+        Map<UUID, List<TaskChunk>> result = chunker.chunkTasks(List.of(t), workingTimes);
+        List<TaskChunk> chunks = result.get(t.getId());
 
         assertThat(chunks.getFirst().dependsOnTaskIds()).containsExactly(depId);
     }
@@ -113,7 +120,8 @@ class ChunkerTest {
     void edge_case_high_240min_exact_multiple_of_chunk_size_no_zero_chunk() {
         // 240 / 120 -> exactly 2 chunks of 120, no 0-min remainder
         TaskResponse t = task(240, CognitiveLoad.HIGH, null);
-        List<TaskChunk> chunks = chunker.chunkTasks(List.of(t), workingTimes);
+        Map<UUID, List<TaskChunk>> result = chunker.chunkTasks(List.of(t), workingTimes);
+        List<TaskChunk> chunks = result.get(t.getId());
 
         assertThat(chunks).hasSize(2);
         assertThat(chunks.get(0).durationMinutes()).isEqualTo(120);

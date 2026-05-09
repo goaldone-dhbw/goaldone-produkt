@@ -1,5 +1,7 @@
 import { Routes } from '@angular/router';
 import { authGuard } from './core/auth/auth.guard';
+import { adminGuard } from './core/auth/admin.guard';
+import { superAdminGuard } from './core/auth/super-admin.guard';
 import { StartPageComponent } from './features/startpage/start-page.component';
 import { TasksPageComponent } from './features/tasks/tasks-page.component';
 import { CallbackPageComponent } from './features/callback/callback-page.component';
@@ -33,11 +35,13 @@ export const routes: Routes = [
       },
       {
         path: 'organization',
+        canActivate: [adminGuard],
         loadComponent: () =>
           import('./features/org-settings/org-settings.page').then((m) => m.OrgSettingsPage),
       },
       {
         path: 'super-admin',
+        canActivate: [superAdminGuard],
         component: SuperAdminsPageComponent
       },
       {

@@ -33,7 +33,7 @@ class SwapMoveTest {
     }
 
     private static SolverState state(List<ScheduledChunk> scheduled, List<TimeSlot> free) {
-        return new SolverState(new ArrayList<>(scheduled), new ArrayList<>(free));
+        return new SolverState(new ArrayList<>(scheduled), new ArrayList<>(free), null);
     }
 
     private static Random fixed(Integer... ints) {

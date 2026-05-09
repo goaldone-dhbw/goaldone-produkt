@@ -12,4 +12,8 @@ public record TimeSlot(
     public int durationMinutes() {
         return (int) ChronoUnit.MINUTES.between(startTime, endTime);
     }
+
+    public boolean canFit(int requestedDurationMinutes) {
+        return requestedDurationMinutes <= durationMinutes();
+    }
 }
