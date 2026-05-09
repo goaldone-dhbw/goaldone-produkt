@@ -9,7 +9,6 @@ import de.goaldone.backend.model.TaskStatus;
 import de.goaldone.backend.model.TaskUpdateRequest;
 import de.goaldone.backend.service.CurrentUserResolver;
 import de.goaldone.backend.service.TasksService;
-import de.goaldone.backend.service.UserIdentityService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -30,7 +29,6 @@ import java.util.UUID;
 public class TasksController implements TasksApi {
 
     private final TasksService tasksService;
-    private final UserIdentityService userIdentityService;
     private final CurrentUserResolver currentUserResolver;
 
     /**

@@ -144,7 +144,7 @@ class TasksServiceTest {
         );
 
         assertEquals(1, results.size());
-        assertEquals("Task 1", results.get(0).getTitle());
+        assertEquals("Task 1", results.getFirst().getTitle());
     }
 
     @Test
