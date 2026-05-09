@@ -39,7 +39,7 @@ public class ScheduleMapper {
                 getSchedule(schedule.schedule())
         );
 
-        // TODO: scheduledTasks, unscheduledTasks
+        response.unscheduledTasks(schedule.schedule().unscheduledChunks());
 
         return response;
     }

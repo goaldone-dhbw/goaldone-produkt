@@ -1590,7 +1590,7 @@ components:
           maxLength: 200
         role:
           $ref: '#/components/schemas/MemberRole'
-          default: USER
+
 
     MemberStatus:
       type: string

@@ -2,7 +2,6 @@ package de.goaldone.backend.scheduler.types.model;
 
 import de.goaldone.backend.model.UnscheduledTask;
 
-import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.List;
 
