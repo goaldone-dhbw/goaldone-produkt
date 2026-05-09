@@ -63,6 +63,7 @@ public class Solver {
                 currentScore = newScore;
                 moveHistory.addMoveEvent(latestMove);
             }
+        }
 
         return new SchedulingResult(
                 constraintHandler.calculateScore(currentBest),
