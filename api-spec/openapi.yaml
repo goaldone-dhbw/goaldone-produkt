@@ -34,7 +34,7 @@ paths:
         - health
       summary: Health Check
       operationId: getHealth
-      security: []
+      security: [ ]
       responses:
         '200':
           description: OK
@@ -54,7 +54,7 @@ paths:
       summary: Request an account link token
       operationId: requestAccountLink
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       responses:
         '201':
           description: Link token created
@@ -70,7 +70,7 @@ paths:
       summary: Confirm an account link
       operationId: confirmAccountLink
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       requestBody:
         required: true
         content:
@@ -96,7 +96,7 @@ paths:
       summary: Unlink an account
       operationId: unlinkAccount
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       parameters:
         - name: accountId
           in: path
@@ -119,7 +119,7 @@ paths:
       summary: Get all accounts for current user identity
       operationId: getMyAccounts
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       responses:
         '200':
           description: OK
@@ -127,6 +127,92 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AccountListResponse'
+  /users/accounts/{accountId}:
+    delete:
+      tags:
+        - user-accounts
+      summary: Delete an account
+      operationId: deleteAccount
+      security:
+        - bearerAuth: [ ]
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Account deleted successfully
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Account not found
+        '409':
+          description: Account is last remaining admin account and cannot be deleted
+    patch:
+      tags:
+        - user-accounts
+      summary: Update an account (e.g. name, email)
+      operationId: updateAccount
+      security:
+        - bearerAuth: [ ]
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccountUpdateRequest'
+      responses:
+        '200':
+          description: Account updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountResponse'
+        '400':
+          description: Bad Request
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Account not found
+  /users/accounts/password:
+    put:
+      tags:
+        - user-accounts
+      summary: Update the password of the account the user is currently logged in with
+      operationId: updateAccountPassword
+      security:
+        - bearerAuth: [ ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordUpdateRequest'
+      responses:
+        '200':
+          description: Password updated successfully
+        '400':
+          description: Bad Request
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Account not found
   # ============================================================
   # APPOINTMENTS
   # ============================================================
@@ -413,7 +499,7 @@ paths:
       summary: Get all working time slots for current user
       operationId: getWorkingTimes
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       responses:
         '200':
           description: OK
@@ -430,7 +516,7 @@ paths:
       summary: Create a working time slot
       operationId: createWorkingTime
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       requestBody:
         required: true
         content:
@@ -527,7 +613,7 @@ paths:
         aus Zitadel.
       operationId: listOrganizations
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       responses:
         '200':
           description: OK
@@ -546,7 +632,7 @@ paths:
       summary: Neues Unternehmen mit erstem Unternehmens-Admin anlegen
       operationId: createOrganization
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       requestBody:
         required: true
         content:
@@ -583,7 +669,7 @@ paths:
         gelöscht und der lokale organizations-Record entfernt.
       operationId: deleteOrganization
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       parameters:
         - name: zitadelOrgId
           in: path
@@ -602,14 +688,14 @@ paths:
         '502':
           description: Upstream Error (Zitadel)
 
-  /admins/super-admins :
+  /admins/super-admins:
     get:
       tags:
         - super-admin-management
       summary: Liste aller Super-Admins
       operationId: listSuperAdmins
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       responses:
         '200':
           description: OK
@@ -630,7 +716,7 @@ paths:
       summary: Neuen Super-Admin einladen
       operationId: inviteSuperAdmin
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       requestBody:
         required: true
         content:
@@ -658,7 +744,7 @@ paths:
       summary: Super-Admin löschen
       operationId: deleteSuperAdmin
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       parameters:
         - name: userId
           in: path
@@ -692,7 +778,7 @@ paths:
         JIT-Provisioning beim ersten Login des eingeladenen Nutzers.
       operationId: inviteMember
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       parameters:
         - $ref: '#/components/parameters/OrgIdPath'
       requestBody:
@@ -727,7 +813,7 @@ paths:
         Nur für Nutzer mit Status INVITED aufrufbar.
       operationId: reinviteMember
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       parameters:
         - $ref: '#/components/parameters/OrgIdPath'
         - $ref: '#/components/parameters/ZitadelUserIdPath'
@@ -759,7 +845,7 @@ paths:
         wurde noch nicht angenommen (kein JIT-Record vorhanden).
       operationId: listMembers
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       parameters:
         - $ref: '#/components/parameters/OrgIdPath'
       responses:
@@ -787,7 +873,7 @@ paths:
         Degradierung des letzten COMPANY_ADMIN wird verhindert.
       operationId: changeMemberRole
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       parameters:
         - $ref: '#/components/parameters/OrgIdPath'
         - $ref: '#/components/parameters/ZitadelUserIdPath'
@@ -823,7 +909,7 @@ paths:
         gelöscht. Selbst-Entfernung ist nicht erlaubt.
       operationId: removeMember
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       parameters:
         - $ref: '#/components/parameters/OrgIdPath'
         - $ref: '#/components/parameters/ZitadelUserIdPath'
@@ -905,7 +991,7 @@ paths:
       summary: Update an existing task
       operationId: updateTask
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       parameters:
         - name: taskId
           in: path
@@ -936,7 +1022,7 @@ paths:
       summary: Delete a task
       operationId: deleteTask
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       parameters:
         - name: taskId
           in: path
@@ -1186,11 +1272,11 @@ components:
     # ----------------------------------------------------------
     AppointmentType:
       type: string
-      enum: [ONE_TIME, RECURRING]
+      enum: [ ONE_TIME, RECURRING ]
 
     Appointment:
       type: object
-      required: [id, accountId, title, isBreak, appointmentType, startTime, endTime, createdAt]
+      required: [ id, accountId, title, isBreak, appointmentType, startTime, endTime, createdAt ]
       properties:
         id:
           type: string
@@ -1228,7 +1314,7 @@ components:
 
     AppointmentCreate:
       type: object
-      required: [title, isBreak, appointmentType, startTime, endTime]
+      required: [ title, isBreak, appointmentType, startTime, endTime ]
       properties:
         title:
           type: string
@@ -1252,7 +1338,7 @@ components:
 
     AppointmentListResponse:
       type: object
-      required: [appointments]
+      required: [ appointments ]
       properties:
         appointments:
           type: array
@@ -1607,6 +1693,34 @@ components:
         role:
           $ref: '#/components/schemas/MemberRole'
 
+    AccountUpdateRequest:
+      type: object
+      properties:
+        firstName:
+          type: string
+          minLength: 1
+          maxLength: 50
+        lastName:
+          type: string
+          minLength: 1
+          maxLength: 50
+        email:
+          type: string
+          format: email
+
+    PasswordUpdateRequest:
+      type: object
+      properties:
+        newPassword:
+          type: string
+          minLength: 8
+          maxLength: 128
+        currentPassword:
+          type: string
+          minLength: 8
+          maxLength: 128
+
+
     MemberResponse:
       type: object
       required:
@@ -1658,7 +1772,7 @@ components:
     # ----------------------------------------------------------
     GenerateScheduleRequest:
       type: object
-      required: [from]
+      required: [ from ]
       properties:
         from:
           type: string
@@ -1675,7 +1789,7 @@ components:
     # ----------------------------------------------------------
     ScheduleResponse:
       type: object
-      required: [accountId, generatedAt, from, to, totalWorkMinutes, score, warnings, entries, unscheduledTasks]
+      required: [ accountId, generatedAt, from, to, totalWorkMinutes, score, warnings, entries, unscheduledTasks ]
       properties:
         accountId:
           type: string
@@ -1726,7 +1840,7 @@ components:
     # ----------------------------------------------------------
     MultiAccountScheduleResponse:
       type: object
-      required: [schedules]
+      required: [ schedules ]
       properties:
         schedules:
           type: array
@@ -1739,7 +1853,7 @@ components:
     # ----------------------------------------------------------
     ScheduleEntry:
       type: object
-      required: [source, date, startTime, endTime, type, isCompleted, isPinned]
+      required: [ source, date, startTime, endTime, type, isCompleted, isPinned ]
       description: |
         Ein Zeitblock im Kalender. Kann ein persistierter DB-Eintrag
         (`source: ONE_TIME`) oder ein virtuell berechnetes Vorkommen
@@ -1748,7 +1862,7 @@ components:
         # --- Diskriminator ---
         source:
           type: string
-          enum: [ONE_TIME, RECURRING]
+          enum: [ ONE_TIME, RECURRING ]
           description: |
             - `ONE_TIME`: persistierter Eintrag. `entryId` ist gesetzt.
             - `RECURRING`: virtuelles Vorkommen. `templateId` + `occurrenceDate` sind gesetzt.
@@ -1779,7 +1893,7 @@ components:
         # --- Typ ---
         type:
           type: string
-          enum: [TASK, APPOINTMENT]
+          enum: [ TASK, APPOINTMENT ]
           description: |
             - `TASK`: Dynamisch eingeplanter Aufgaben-Chunk.
             - `APPOINTMENT`: Fester Termin oder Pause. Siehe `isBreak`.
@@ -1854,11 +1968,11 @@ components:
     # ----------------------------------------------------------
     ScheduleWarning:
       type: object
-      required: [type, message]
+      required: [ type, message ]
       properties:
         type:
           type: string
-          enum: [DEADLINE_TIGHT, OVERLOADED_DAY, PIN_CONFLICT, OTHER]
+          enum: [ DEADLINE_TIGHT, OVERLOADED_DAY, PIN_CONFLICT, OTHER ]
           description: |
             - `DEADLINE_TIGHT`: Task eingeplant, aber < 30 min Puffer bis Deadline.
             - `OVERLOADED_DAY`: Ein Tag übersteigt die verfügbare Arbeitszeit.
@@ -1884,17 +1998,17 @@ components:
     # ----------------------------------------------------------
     ScheduleValidationError:
       type: object
-      required: [errors]
+      required: [ errors ]
       properties:
         errors:
           type: array
           items:
             type: object
-            required: [type, message]
+            required: [ type, message ]
             properties:
               type:
                 type: string
-                enum: [CIRCULAR_DEPENDENCY, CHUNK_EXCEEDS_DURATION, NOT_BEFORE_AFTER_DEADLINE, WORKING_HOURS_OVERLAP]
+                enum: [ CIRCULAR_DEPENDENCY, CHUNK_EXCEEDS_DURATION, NOT_BEFORE_AFTER_DEADLINE, WORKING_HOURS_OVERLAP ]
                 description: |
                   - `CIRCULAR_DEPENDENCY`: Zirkuläre Abhängigkeit zwischen Tasks.
                   - `CHUNK_EXCEEDS_DURATION`: customChunkSize ist größer als Aufgabendauer.
@@ -1911,4 +2025,4 @@ components:
                 description: Betroffene Task-IDs
 
 security:
-  - bearerAuth: []
+  - bearerAuth: [ ]
