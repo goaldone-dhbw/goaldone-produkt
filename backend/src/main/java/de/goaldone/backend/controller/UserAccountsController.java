@@ -1,16 +1,16 @@
 package de.goaldone.backend.controller;
 
 import de.goaldone.backend.api.UserAccountsApi;
-import de.goaldone.backend.model.AccountListResponse;
-import de.goaldone.backend.model.LinkConfirmRequest;
-import de.goaldone.backend.model.LinkConfirmResponse;
-import de.goaldone.backend.model.LinkTokenResponse;
+import de.goaldone.backend.model.*;
 import de.goaldone.backend.service.AccountLinkingService;
 import de.goaldone.backend.service.CurrentUserResolver;
+import de.goaldone.backend.service.DeletionService;
 import de.goaldone.backend.service.UserIdentityService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.UUID;
 
@@ -25,6 +25,7 @@ public class UserAccountsController implements UserAccountsApi {
     private final UserIdentityService userIdentityService;
     private final CurrentUserResolver currentUserResolver;
     private final AccountLinkingService accountLinkingService;
+    private final DeletionService deletionService;
 
     /**
      * Retrieves a list of all accounts associated with the currently authenticated user identity.
@@ -76,5 +77,55 @@ public class UserAccountsController implements UserAccountsApi {
         var currentAccount = currentUserResolver.resolveCurrentAccount();
         accountLinkingService.unlink(currentAccount.getId(), accountId);
         return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Deletes an account by its ID.
+     * @param accountId  (required) The unique identifier (UUID) of the account to delete
+     * @return a {@link ResponseEntity} with HTTP status 204 (No Content)
+     * @throws Exception if the account deletion fails or if the user does not have access to the account
+     */
+    @Override
+    public ResponseEntity<Void> deleteAccount(UUID accountId) throws Exception {
+        hasAccess(accountId);
+        deletionService.deleteUser(accountId);
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Updates an account's details.
+     * @param accountId  (required) The unique identifier (UUID) of the account to update
+     * @param accountUpdateRequest  (required) The request body containing the updated account details
+     * @return a {@link ResponseEntity} containing the updated {@link AccountResponse}
+     * @throws Exception if the account update fails or if the user does not have access to the account
+     */
+    @Override
+    public ResponseEntity<AccountResponse> updateAccount(UUID accountId, AccountUpdateRequest accountUpdateRequest) throws Exception {
+        hasAccess(accountId);
+        AccountResponse response = userIdentityService.updateAccount(accountId, accountUpdateRequest);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Update the password of the current user account.
+     * @param passwordUpdateRequest  (required) The request body containing the current password and the new password
+     * @return a {@link ResponseEntity} with HTTP status 204 (No Content)
+     * @throws Exception if the password update fails
+     */
+    @Override
+    public ResponseEntity<Void> updateAccountPassword(PasswordUpdateRequest passwordUpdateRequest) throws Exception {
+        UUID accountId = currentUserResolver.resolveCurrentAccount().getId();
+        userIdentityService.updateAccountPassword(accountId, passwordUpdateRequest);
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Checks if the current user has access to the specified account.
+     * @param accountId local AccountId of the account to check access for
+     */
+    private void hasAccess(UUID accountId) {
+        if(!userIdentityService.hasUserAccessToAccount(currentUserResolver.extractJwt(), accountId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You do not have access to this account");
+        }
     }
 }
