@@ -6,6 +6,7 @@ import de.goaldone.backend.exception.ScheduleException;
 import de.goaldone.backend.model.*;
 import de.goaldone.backend.repository.UserAccountRepository;
 import de.goaldone.backend.scheduler.Solver;
+import de.goaldone.backend.scheduler.types.model.ScheduleMapper;
 import de.goaldone.backend.scheduler.types.model.SchedulingContext;
 import de.goaldone.backend.scheduler.types.model.SchedulingResult;
 import de.goaldone.backend.scheduler.types.model.TimeSlot;
@@ -36,6 +37,7 @@ public class ScheduleService {
     private final CurrentUserResolver currentUserResolver;
     private final UserAccountRepository userAccountRepository;
     private final @Lazy UserIdentityService userIdentityService;
+    private final ScheduleMapper scheduleMapper = new ScheduleMapper();
 
     /**
      * Generates schedules for multiple accounts asynchronously
@@ -125,8 +127,9 @@ public class ScheduleService {
         SchedulingContext schedulingContext = createSchedulingContext(jwt, accountId, fromDate, 1);
         SchedulingResult bestResult = solver.createSchedule(schedulingContext, timeoutMs);
 
-        // TODO: Map result to ScheduleResponse and return
-        return null;
+        return this.scheduleMapper.mapToScheduleResult(
+                accountId, schedulingContext, bestResult
+        );
     }
 
 
@@ -173,7 +176,7 @@ public class ScheduleService {
 
 
         // Get available timeslots
-        List<TimeSlot> availableSlots = getAvailableTimeSlots(accountId, workingTimes, fromDate, weeks);
+        List<TimeSlot> availableSlots = getAvailableTimeSlots(accountId, jwt, workingTimes, fromDate, weeks);
 
         // Create schedule context
         return new SchedulingContext(
@@ -189,10 +192,10 @@ public class ScheduleService {
      * @param nWeeks Plan for N   nWeeks ahead
      * @return Available timeslots for multiple days starting from fromDate
      */
-    private List<TimeSlot> getAvailableTimeSlots(UUID accountId, List<WorkingTimeEntity> workingTimes, LocalDate fromDate, int nWeeks) {
+    private List<TimeSlot> getAvailableTimeSlots(UUID accountId, Jwt jwt, List<WorkingTimeEntity> workingTimes, LocalDate fromDate, int nWeeks) {
         List<TimeSlot> availableSlots = new ArrayList<>();
 
-        List<Appointment> allAppointments = appointmentService.listAppointments(accountId).getAppointments();
+        List<Appointment> allAppointments = appointmentService.listAppointments(accountId, jwt).getAppointments();
 
         if (workingTimes.isEmpty()) {
             log.warn("No working times defined for account {}", accountId);
@@ -302,20 +305,16 @@ public class ScheduleService {
         return response;
     }
 
-
     /**
      *
      * @param allAppointments All appointments for a specific account
      * @param target The date for which the appointments are listed
      * @return List of appointments for a given day
      */
-    private List<TimeSlot> getAvailableTimeSlots(UUID accountId) {
-        Jwt jwt = currentUserResolver.extractJwt();
-        List<Appointment> allAppointments = appointmentService.listAppointments(accountId, jwt).getAppointments();
-
-        //TODO: calculate free time slots based on appointments and working hours
-
-        List<TimeSlot> availableSlots = null;
-        return availableSlots;
+    private List<Appointment> getAppointmentsForDay(List<Appointment> allAppointments, LocalDate target) {
+        return allAppointments.stream()
+                .filter(apt -> apt.getDate().equals(target))
+                .sorted(Comparator.comparing(Appointment::getStartTime))
+                .toList();
     }
 }
