@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -41,6 +42,13 @@ public interface UserAccountRepository extends JpaRepository<UserAccountEntity, 
     List<UserAccountEntity> findAllByUserIdentityId(UUID userIdentityId);
 
     /**
+     * Finds all user accounts by their IDs.
+     * @param ids
+     * @return A list of {@link UserAccountEntity} objects.
+     */
+    List<UserAccountEntity> findAllByIdIn(Collection<UUID> ids);
+
+    /**
      * Finds a user account by its ID and the associated user identity ID.
      *
      * @param id             The UUID of the user account.
@@ -56,6 +64,13 @@ public interface UserAccountRepository extends JpaRepository<UserAccountEntity, 
      * @return A list of {@link UserAccountEntity} objects in the given organization.
      */
     List<UserAccountEntity> findAllByOrganizationId(UUID organizationId);
+
+    /**
+     * Finds all user accounts by their Zitadel sub (subject) IDs.
+     * @param zitadelSubs List of zitadelUserIds
+     * @return A list of {@link UserAccountEntity} objects.
+     */
+    List<UserAccountEntity> findAllByZitadelSubIn(List<String> zitadelSubs);
 
     /**
      * Finds organization IDs where both specified user identities have accounts.

@@ -30,6 +30,7 @@ public class ScheduleService {
 
     private final TasksService taskService;
     private final AppointmentService appointmentService;
+    private final CurrentUserResolver currentUserResolver;
     private final UserAccountRepository userAccountRepository;
     private final @Lazy UserIdentityService userIdentityService;
 

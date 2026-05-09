@@ -46,7 +46,7 @@ class UserAccountDeletionServiceIntegrationTest {
     private WebApplicationContext webApplicationContext;
 
     @Autowired
-    private UserAccountDeletionService userAccountDeletionService;
+    private DeletionService deletionService;
 
     @Autowired
     private UserAccountRepository userAccountRepository;
@@ -100,7 +100,7 @@ class UserAccountDeletionServiceIntegrationTest {
         stubDeleteUser("test-user-1");
 
         // Delete the account
-        userAccountDeletionService.deleteUserAccount(account.getId());
+        deletionService.deleteUserAccount(account.getId());
 
         // Assert account is deleted
         assertFalse(userAccountRepository.existsById(account.getId()));
@@ -141,7 +141,7 @@ class UserAccountDeletionServiceIntegrationTest {
         stubDeleteUser("test-user-1");
 
         // Delete one account
-        userAccountDeletionService.deleteUserAccount(account1.getId());
+        deletionService.deleteUserAccount(account1.getId());
 
         // Assert deleted account is gone
         assertFalse(userAccountRepository.existsById(account1.getId()));
@@ -156,7 +156,7 @@ class UserAccountDeletionServiceIntegrationTest {
     @Test
     void deleteNonExistentAccount_throwsIllegalStateException() {
         UUID randomId = UUID.randomUUID();
-        assertThrows(IllegalStateException.class, () -> userAccountDeletionService.deleteUserAccount(randomId));
+        assertThrows(IllegalStateException.class, () -> deletionService.deleteUserAccount(randomId));
     }
 
     private void stubDeleteUser(String userId) {
