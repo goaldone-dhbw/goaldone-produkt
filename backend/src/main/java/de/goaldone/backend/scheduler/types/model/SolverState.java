@@ -1,5 +1,7 @@
 package de.goaldone.backend.scheduler.types.model;
 
+import de.goaldone.backend.model.UnscheduledTask;
+
 import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.List;
@@ -12,7 +14,7 @@ import java.util.List;
 public record SolverState(
         List<ScheduledChunk> scheduledChunks,
         List<TimeSlot> freeSlots,
-        List<TaskChunk> unscheduledChunks
+        List<UnscheduledTask> unscheduledChunks
 ) {
 
     /**

@@ -43,8 +43,6 @@ class CPMAlgorithmTest {
         assertThat(result).isNotNull();
         assertThat(result.scheduledChunks()).hasSize(1);
         assertThat(result.freeSlots()).isEmpty();
-
-        verify(algorithm, never()).updateChunks(any());
     }
 
     @Test
@@ -173,7 +171,6 @@ class CPMAlgorithmTest {
         TimeSlot freeSlot = slot(date.plusDays(0), 9, 10);
         TimeSlot occupiedSlot = slot(date.plusDays(1), 9, 10);
         List<TimeSlot> availableSlots = List.of(freeSlot, occupiedSlot);
-
 
         TaskResponse task = task(60, List.of(), LocalDateTime.of(date, LocalTime.of(15, 0)), null);
         List<TaskResponse> tasks = List.of(task);

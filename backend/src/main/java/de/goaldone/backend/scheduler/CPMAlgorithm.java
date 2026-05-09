@@ -1,6 +1,7 @@
 package de.goaldone.backend.scheduler;
 
 import de.goaldone.backend.model.TaskResponse;
+import de.goaldone.backend.model.UnscheduledTask;
 import de.goaldone.backend.scheduler.types.model.*;
 
 import java.time.LocalDateTime;
@@ -14,14 +15,16 @@ public class CPMAlgorithm {
     private final Chunker chunker;
 
     private ArrayList<TimeSlot> availableTimeSlots;
-    private ArrayList<TaskChunk> unscheduledChunks;
+    private ArrayList<TimeSlot> tempAvailableTimeSlots;
 
+    private UnscheduledTask.ReasonEnum unscheduledReason;
+
+    private final int maxBuffer = 15;
 
     public CPMAlgorithm() {
         this.chunker = new Chunker();
         this.taskSorter = new TaskSorter();
     }
-
 
     /**
      * Creates initial schedule
@@ -30,78 +33,54 @@ public class CPMAlgorithm {
      */
     public SolverState generateInitialSchedule(SchedulingContext context) {
         this.availableTimeSlots = new ArrayList<>(context.availableSlots());
-        this.unscheduledChunks = new ArrayList<>();
+        ArrayList<UnscheduledTask> unscheduledTask = new ArrayList<>();
 
         List<TaskResponse> tasks = context.tasks();
-        // Assumption: There is more available time than needed to schedule all tasks
-
+        Map<UUID,TaskResponse> taskMap = tasks.stream().collect(Collectors.toMap(TaskResponse::getId, t -> t));
+        Map<UUID, List<TaskChunk>> chunkMap = chunker.chunkTasks(tasks, context.workingTimes());
 
         // Sort chunks based on dependencies, slackTime and kognitive load
         List<TaskSlack> taskSlacks = calculateSlack(context);
         List<UUID> sortedTasks = taskSorter.sort(tasks, taskSlacks);
 
-        Map<UUID, List<TaskChunk>> chunkMap = chunker.chunkTasks(tasks, context.workingTimes());
-
-        // Container for result
         List<ScheduledChunk> resultChunks = new ArrayList<>();
 
+        boolean totalTaskFit;
         for (UUID taskId : sortedTasks) {
+            // Create snapshot of available times to later either
+            // - accept if the complete task fits in the plan
+            // - or revert if it doesn't
+            this.tempAvailableTimeSlots = new ArrayList<>(this.availableTimeSlots);
+            totalTaskFit = true; //default true, is set to false if task doesn't fit
 
+
+            // Try fitting all chunks
             List<TaskChunk> chunks = chunkMap.get(taskId);
-
             List<ScheduledChunk> tempResults = new ArrayList<>();
-            boolean splitChunks = false;
             for (TaskChunk chunk : chunks) {
                 List<ScheduledChunk> scheduledChunk = findTimeSlotForChunk(chunk);
-                splitChunks = scheduledChunk.size() > 1; // True if the chunk was further split in "findTimeSlotForChunk"
+
+                if (scheduledChunk.isEmpty()) {
+                    totalTaskFit = false;
+                    break;
+                }
                 tempResults.addAll(scheduledChunk);
             }
+            tempResults = updateChunks(tempResults);
 
-            if (splitChunks) {
-                resultChunks.addAll(updateChunks(tempResults));
-            } else {
+            if (totalTaskFit) {
                 resultChunks.addAll(tempResults);
+                this.availableTimeSlots = this.tempAvailableTimeSlots;
+            } else {
+                unscheduledTask.add(new UnscheduledTask(
+                        taskId, taskMap.get(taskId).getTitle(), this.unscheduledReason
+                ));
+                this.unscheduledReason = null;
             }
+
         }
-        return new SolverState (resultChunks, this.availableTimeSlots, this.unscheduledChunks);
+        return new SolverState (resultChunks, this.availableTimeSlots, unscheduledTask);
     }
-
-    /**
-     * @param chunk The chunk to fit in a slot
-     * @param slot The time slot in question
-     * @return True, if the chunk fits within the times slot and the date is suitable
-     */
-    private boolean isSuitableSlot(TaskChunk chunk, TimeSlot slot) {
-        boolean canFit = slot.canFit(chunk.durationMinutes());
-        boolean isSuitableDate = isSuitableDate(chunk, slot);
-        return canFit && isSuitableDate;
-    }
-
-    /**
-     * @param chunk The chunk to fit in a slot
-     * @param slot The time slot in question
-     * @return True, if the time slot is before the deadline and after dontScheduleBefore.
-     */
-    private boolean isSuitableDate(TaskChunk chunk, TimeSlot slot) {
-        LocalDateTime slotDateTime = LocalDateTime.of(slot.date(), slot.startTime());
-
-        boolean isNotBefore;
-        if (chunk.notBefore() != null) {
-            isNotBefore = !slotDateTime.isBefore(chunk.notBefore());
-        } else {
-            isNotBefore = true;
-        }
-
-        boolean isBeforeDeadline;
-        if (chunk.deadline() != null) {
-            isBeforeDeadline = !slotDateTime.isAfter(chunk.deadline());
-        } else {
-            isBeforeDeadline = true;
-        }
-        return isNotBefore && isBeforeDeadline;
-
-    }
-
 
     /**
      * Finds suitable time slots for the given task chunk. If no single slot is large
@@ -111,9 +90,23 @@ public class CPMAlgorithm {
      * @throws IllegalStateException if there is not enough free time available
      */
     private List<ScheduledChunk> findTimeSlotForChunk(TaskChunk chunk) {
-        // Find the earliest available slot that can accommodate this chunk
-        Optional<TimeSlot> suitableSlot = this.availableTimeSlots.stream()
-                .filter(slot -> isSuitableSlot(chunk, slot))
+
+        List<List<TimeSlot>> suitableSlots = getSuitableTimeSlots(chunk);
+        if (suitableSlots.isEmpty()) {
+            return List.of();
+        }
+
+        List<TimeSlot> slotsBetween = suitableSlots.getLast();
+
+        if (slotsBetween.isEmpty()) {
+            this.unscheduledReason = UnscheduledTask.ReasonEnum.CAPACITY_EXCEEDED;
+            return List.of();
+        }
+
+        // At this point, at least one timeslot was found in between notBefore and deadline
+
+        Optional<TimeSlot> suitableSlot = slotsBetween.stream()
+                .filter(slot -> slot.canFit(chunk.durationMinutes()))
                 .findFirst();
 
         if (suitableSlot.isPresent()) {
@@ -131,16 +124,18 @@ public class CPMAlgorithm {
         }
 
         // At this point, no slot was large enough to accommodate this chunk
-        // -> further splitting
+        // -> try further splitting
 
-        List<TimeSlot> nextAvailableSlots = this.availableTimeSlots.stream()
-                .filter(slot -> isSuitableDate(chunk, slot))
-                .collect(Collectors.toCollection(ArrayList::new));
+        // Check if there is enough time in all the slots
+        if (!enoughTimeLeftWithBuffer(suitableSlots, chunk)) {
+            return List.of();
+        }
 
+        // Enough time left -> Split chunk further down
         List<ScheduledChunk> result = new ArrayList<>();
         int remainingMinutes = chunk.durationMinutes();
 
-        for (TimeSlot slot : nextAvailableSlots) {
+        for (TimeSlot slot : slotsBetween) {
 
             if (remainingMinutes <= 0) {
                 break;
@@ -151,7 +146,7 @@ public class CPMAlgorithm {
             // Only split if remainder is at least 15 minutes
             int remainder = remainingMinutes - usableMinutes;
 
-            if (remainder > 0 && remainder < 15) {
+            if (remainder > 0 && remainder < this.maxBuffer) {
                 usableMinutes = remainingMinutes;
             }
 
@@ -165,7 +160,7 @@ public class CPMAlgorithm {
                     .chunkId(chunk.chunkId())
                     .taskId(chunk.taskId())
                     .chunkIndex(chunk.chunkIndex())
-                    .totalChunks(chunk.totalChunks() + 1)
+                    .totalChunks(chunk.totalChunks())
                     .durationMinutes(usableMinutes)
                     .topologicalLevel(chunk.topologicalLevel())
                     .slackMinutes(chunk.slackMinutes())
@@ -184,13 +179,87 @@ public class CPMAlgorithm {
         }
 
         if (remainingMinutes > 0) {
-            this.unscheduledChunks.add(chunk);
+            this.unscheduledReason = UnscheduledTask.ReasonEnum.OTHER;
             return List.of();
         }
 
         return result;
     }
 
+    /**
+     * @param chunk The chunk to fit in a slot
+     * @param slot The time slot in question
+     * @return True, if the start time of the time slot after dontScheduleBefore.
+     */
+    private boolean isAfterNotBefore(TaskChunk chunk, TimeSlot slot) {
+        LocalDateTime slotStartDateTime = LocalDateTime.of(slot.date(), slot.startTime());
+
+        return chunk.notBefore() == null // Either true, because there is no "not before"
+                ||  !slotStartDateTime.isBefore(chunk.notBefore()); // Or check notBefore
+    }
+
+    /**
+     * @param chunk The chunk to fit in a slot
+     * @param slot The time slot in question
+     * @return True, if the end time of the time slot is before the deadline.
+     */
+    private boolean isBeforeDeadline(TaskChunk chunk, TimeSlot slot) {
+        LocalDateTime slotEndDateTime = LocalDateTime.of(slot.date(), slot.endTime());
+        return chunk.deadline() == null  // Either true because there is no deadline
+                || !slotEndDateTime.isAfter(chunk.deadline()); // Or check deadline
+    }
+
+    /**
+     * @param suitableSlots List of suitable slots for this chunk
+     * @param chunk The chunk to fit in the slots
+     * @return True, if the total duration of all suitable slots is bigger
+     *          than the duration of the chunk
+     */
+    private boolean enoughTimeLeftWithBuffer(List<List<TimeSlot>> suitableSlots, TaskChunk chunk) {
+        List<TimeSlot> slotsAfterNotBefore = suitableSlots.getFirst();
+        List<TimeSlot> slotsBetween = suitableSlots.getLast();
+
+        int totalMinAvailable = slotsBetween.stream().mapToInt(TimeSlot::durationMinutes).sum();
+
+        if (totalMinAvailable + this.maxBuffer-1 < chunk.durationMinutes()) {
+
+            // Not enough time left. Find reason
+            int totalMinAfterNotBefore = slotsAfterNotBefore.stream().mapToInt(TimeSlot::durationMinutes).sum();
+            if (totalMinAfterNotBefore < chunk.durationMinutes()) {
+                this.unscheduledReason = UnscheduledTask.ReasonEnum.CAPACITY_EXCEEDED;
+            } else {
+                this.unscheduledReason = UnscheduledTask.ReasonEnum.DEADLINE_IMPOSSIBLE;
+            }
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * @param chunk The chunk to fit containing notBefore and the deadline
+     * @return Two lists:
+     *      1. List of time slots after the date "notBefore"
+     *      2. List of time slots in between notBefore and the deadline
+     */
+    private List<List<TimeSlot>> getSuitableTimeSlots(TaskChunk chunk) {
+        List<TimeSlot> slotsAfterNotBefore = this.availableTimeSlots.stream()
+                .filter(slot -> isAfterNotBefore(chunk, slot))
+                .toList();
+
+        if (slotsAfterNotBefore.isEmpty()) {
+            this.unscheduledReason = UnscheduledTask.ReasonEnum.NO_TIMESLOTS_AFTER_NOTBEFORE;
+            return List.of();
+        }
+
+        List<TimeSlot> slotsBetween = slotsAfterNotBefore.stream()
+                .filter(slot -> isBeforeDeadline(chunk, slot))
+                .toList();
+        if (slotsBetween.isEmpty()) {
+            this.unscheduledReason = UnscheduledTask.ReasonEnum.DEADLINE_IMPOSSIBLE;
+            return List.of();
+        }
+        return List.of(slotsAfterNotBefore, slotsBetween);
+    }
 
     /**
      * Updates the attributes totalChunks and chunkIndex for each chunk
@@ -230,7 +299,6 @@ public class CPMAlgorithm {
     }
 
 
-
     /**
      * Removes the time occupied by a scheduled chunk from the list of available time slots, potentially splitting
      * existing slots if the chunk occupies only part of a slot.
@@ -244,28 +312,22 @@ public class CPMAlgorithm {
         }
 
         // Case 1: TimeSlot is more than 15 minutes bigger than the chunk -> split it into two separate slots
-        if (target.durationMinutes() > chunk.durationMinutes() + 15) {
+        if (target.durationMinutes() > chunk.durationMinutes() + this.maxBuffer) {
 
             LocalTime newStartTime = target.startTime().plusMinutes(chunk.durationMinutes());
 
             TimeSlot newTimeSlot = new TimeSlot(
-                    target.date(),
-                    newStartTime,
-                    target.endTime()
+                    target.date(), newStartTime, target.endTime()
             );
-
-            this.availableTimeSlots.remove(target);
-            this.availableTimeSlots.add(newTimeSlot);
-
-
+            this.tempAvailableTimeSlots.remove(target);
+            this.tempAvailableTimeSlots.add(newTimeSlot);
         }
         // Case 2: TimeSlot is equal to or only lightly bigger than the chunk
         else  {
             //this.globalAvailableTimeSlots.contains(target);
-            this.availableTimeSlots.remove(target);
+            this.tempAvailableTimeSlots.remove(target);
         }
     }
-
 
     /**
      * Forward pass: compute Earliest Start (ES) and Earliest End (EF) for each task.
@@ -315,6 +377,6 @@ public class CPMAlgorithm {
         }
         return results;
     }
+
+
 }
-
-
