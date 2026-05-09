@@ -175,8 +175,9 @@ public class TasksService {
             direction = Sort.Direction.DESC;
         }
 
+        Set<String> allowedSortProperties = Set.of("id", "deadline", "duration", "status", "cognitiveLoad", "title", "accountId");
         String sortProperty = "id";
-        if (sortBy != null && !sortBy.isBlank()) {
+        if (sortBy != null && allowedSortProperties.contains(sortBy)) {
             sortProperty = sortBy;
         }
         Sort sort = Sort.by(direction, sortProperty);
