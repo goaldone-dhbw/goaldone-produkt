@@ -15,8 +15,17 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 
 public class CPMAlgorithm {
+
+    private List<TimeSlot> availableTimeSlots;
+    private List<TimeSlot> tempAvailableTimeSlots;
+    private UnscheduledTask.ReasonEnum unscheduledReason;
+    private final int maxBuffer = 15;
+    private final Chunker chunker = new Chunker();
+    private final TaskSorter taskSorter = new TaskSorter();
 
     /**
      * Creates initial schedule
