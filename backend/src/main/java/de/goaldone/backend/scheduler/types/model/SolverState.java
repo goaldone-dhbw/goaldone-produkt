@@ -1,5 +1,6 @@
 package de.goaldone.backend.scheduler.types.model;
 
+import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -23,7 +24,9 @@ public record SolverState(
         return new SolverState(
                 new ArrayList<>(scheduledChunks),
                 new ArrayList<>(freeSlots),
-                new ArrayList<>(unscheduledChunks)
+                unscheduledChunks == null
+                        ? null
+                        : new ArrayList<>(unscheduledChunks)
         );
     }
 }
