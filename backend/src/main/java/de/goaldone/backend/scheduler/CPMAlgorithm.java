@@ -277,6 +277,7 @@ public class CPMAlgorithm {
             TimeSlot timeSlot = scheduledChunk.slot();
 
             chunk = TaskChunk.builder()
+                    .taskTitle(chunk.taskTitle())
                     .chunkId(chunk.chunkId())
                     .taskId(chunk.taskId())
                     .chunkIndex(currentIndex)

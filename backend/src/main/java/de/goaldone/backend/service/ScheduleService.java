@@ -177,6 +177,13 @@ public class ScheduleService {
                 .map(UserAccountEntity::getWorkingTimes)
                 .orElse(List.of());
 
+        if (workingTimes.isEmpty()) {
+            WorkingTimeEntity defaultWorkingTimes = new WorkingTimeEntity();
+            defaultWorkingTimes.setDays(Set.of(DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY, DayOfWeek.FRIDAY));
+            defaultWorkingTimes.setStartTime(LocalTime.of(8, 0));
+            defaultWorkingTimes.setEndTime(LocalTime.of(17, 0));
+            workingTimes.add(defaultWorkingTimes);
+        }
 
         // Get available timeslots
         List<TimeSlot> availableSlots = getAvailableTimeSlots(accountId, jwt, workingTimes, fromDate, weeks);
@@ -198,12 +205,12 @@ public class ScheduleService {
     private List<TimeSlot> getAvailableTimeSlots(UUID accountId, Jwt jwt, List<WorkingTimeEntity> workingTimes, LocalDate fromDate, int nWeeks) {
         List<TimeSlot> availableSlots = new ArrayList<>();
 
-        List<Appointment> allAppointments = appointmentService.listAppointments(accountId, jwt).getAppointments();
-
         if (workingTimes.isEmpty()) {
             log.warn("No working times defined for account {}", accountId);
             return availableSlots;
         }
+
+        List<Appointment> allAppointments = appointmentService.listAppointments(accountId, jwt).getAppointments();
 
         // Get the Monday of the week for the fromDate
         int weekDayInt = fromDate.getDayOfWeek().getValue();
