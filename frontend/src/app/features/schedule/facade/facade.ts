@@ -60,6 +60,7 @@ export class ScheduleFacadeService {
   );
 
   async initialize(): Promise<void> {
+    this.selectedAccountId.set('');
     await this.loadAccounts();
 
     if (this.selectedAccountId()) {
@@ -78,10 +79,6 @@ export class ScheduleFacadeService {
       const accounts = this.normalizeAccountResponse(response.accounts);
 
       this.accounts.set(accounts);
-
-      if (accounts.length === 1) {
-        this.selectedAccountId.set(accounts[0].id);
-      }
     } catch (error) {
       this.accounts.set([]);
       this.errorMessage.set(
