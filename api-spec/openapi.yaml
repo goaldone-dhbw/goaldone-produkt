@@ -63,6 +63,32 @@ paths:
               schema:
                 $ref: '#/components/schemas/LinkTokenResponse'
 
+  /users/accounts/links/{linkingToken}/info:
+    get:
+      tags:
+        - user-accounts
+      summary: Get initiator accountInfo from linking token
+      operationId: getAccountLinkInfo
+      security:
+        - bearerAuth: [ ]
+      parameters:
+        - name: linkingToken
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LinkInfoResponse'
+        '404':
+          description: Link not found
+        '410':
+          description: Token expired
   /users/accounts/links/confirm:
     post:
       tags:
@@ -1421,6 +1447,28 @@ components:
           type: string
           format: date-time
 
+    LinkInfoResponse:
+      type: object
+      required:
+        - initiatorEmails
+        - initiatorAccountId
+        - currentEmail
+        - inConflict
+      properties:
+        initiatorAccountId:
+          type: string
+          format: uuid
+        initiatorEmails:
+          type: array
+          items:
+            type: string
+            format: email
+        currentEmail:
+          type: string
+          format: email
+        inConflict:
+          type: boolean
+
     LinkConfirmRequest:
       type: object
       required:
@@ -2005,7 +2053,7 @@ components:
     # ----------------------------------------------------------
     UnscheduledTask:
       type: object
-      required: [taskId, taskTitle, reason]
+      required: [ taskId, taskTitle, reason ]
       properties:
         taskId:
           type: string
@@ -2014,7 +2062,7 @@ components:
           type: string
         reason:
           type: string
-          enum: [NO_TIMESLOTS_AFTER_NOTBEFORE, DEADLINE_IMPOSSIBLE, CAPACITY_EXCEEDED, DEPENDENCY_BLOCKED, OTHER]
+          enum: [ NO_TIMESLOTS_AFTER_NOTBEFORE, DEADLINE_IMPOSSIBLE, CAPACITY_EXCEEDED, DEPENDENCY_BLOCKED, OTHER ]
           description: |
             - `NO_TIMESLOTS_AFTER_NOTBEFORE`: Es gibt keine freie Arbeitszeit nach "not before"
             - `DEADLINE_IMPOSSIBLE`: Zu wenig Arbeitszeit bis zur Deadline.

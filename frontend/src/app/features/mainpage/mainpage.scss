@@ -1,0 +1,35 @@
+.greeting-card {
+  :deep(.p-card) {
+    border-left: 4px solid var(--primary-color);
+  }
+}
+
+.next-task-card {
+  :deep(.p-card) {
+    border: 1px solid var(--surface-border);
+
+    .p-card-header {
+      border-bottom: 1px solid var(--surface-border);
+      padding: 1.25rem 1.5rem;
+    }
+  }
+}
+
+.progress-card,
+.work-time-card {
+  :deep(.p-card) {
+    .p-card-header {
+      border-bottom: 1px solid var(--surface-border);
+      padding: 1.25rem 1.5rem;
+    }
+  }
+}
+
+.upcoming-tasks-card {
+  :deep(.p-card) {
+    .p-card-header {
+      border-bottom: 1px solid var(--surface-border);
+      padding: 1.25rem 1.5rem;
+    }
+  }
+}

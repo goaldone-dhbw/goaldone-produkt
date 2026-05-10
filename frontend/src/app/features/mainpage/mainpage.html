@@ -1,3 +1,281 @@
-<div class="p-5">
-  <h1>Mainpage works!</h1>
+<div class="p-6 bg-slate-50 min-h-screen">
+  <!-- Loading State -->
+  @if (loading()) {
+    <div class="space-y-4">
+      <p-skeleton height="3rem" class="mb-4"></p-skeleton>
+      <p-skeleton height="12rem"></p-skeleton>
+      <p-skeleton height="12rem"></p-skeleton>
+      <p-skeleton height="15rem"></p-skeleton>
+    </div>
+  }
+
+  <!-- Main Content -->
+  @if (!loading()) {
+    <div class="space-y-6">
+    <!-- Greeting Card -->
+    <p-card class="greeting-card">
+      <div class="text-2xl font-semibold">
+        Guten Tag,
+        <span class="text-primary">{{ firstName() + " " + lastName() || 'Nutzer' }}</span
+        >!
+      </div>
+    </p-card>
+
+    <!-- Next Task & Progress Section -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <!-- Next Task -->
+      <div class="lg:col-span-2">
+        <p-card class="next-task-card h-full">
+          <ng-template pTemplate="header">
+            <div class="text-lg font-semibold px-6 py-4">Nächste Aufgabe</div>
+          </ng-template>
+
+          @if (nextTask(); as task) {
+            <div class="space-y-4">
+              <div class="flex items-start justify-between">
+                <h3 class="text-xl font-semibold text-primary">{{ task.title }}</h3>
+                @if (task.status) {
+                  <p-tag
+                    [value]="formatStatus(task.status)"
+                    [severity]="getTaskStatusSeverity(task.status)"
+                  ></p-tag>
+                }
+              </div>
+
+              @if (task.description) {
+                <p class="text-sm text-gray-700">
+                  {{ task.description }}
+                </p>
+              }
+
+              <div class="grid grid-cols-1 gap-3 text-sm text-gray-600 sm:grid-cols-2 lg:grid-cols-3">
+                <div>
+                  <span class="mb-1 flex items-center gap-1 text-xs font-semibold uppercase tracking-wide">
+                    <i class="pi pi-clock text-xs"></i> Dauer
+                  </span>
+                  <div class="font-medium text-gray-900">{{ formatDuration(task.duration ?? 0) }}</div>
+                </div>
+
+                <div>
+                  <span class="mb-1 flex items-center gap-1 text-xs font-semibold uppercase tracking-wide">
+                    <i class="pi pi-calendar text-xs"></i> Deadline
+                  </span>
+                  <div class="font-medium text-gray-900">{{ formatDate(task.deadline) }}</div>
+                </div>
+
+                @if (task.dontScheduleBefore) {
+                  <div>
+                    <span class="mb-1 flex items-center gap-1 text-xs font-semibold uppercase tracking-wide">
+                      <i class="pi pi-calendar-plus text-xs"></i> Nicht planen vor
+                    </span>
+                    <div class="font-medium text-gray-900">{{ formatDate(task.dontScheduleBefore) }}</div>
+                  </div>
+                }
+
+                @if (task.cognitiveLoad) {
+                  <div>
+                    <span class="mb-1 flex items-center gap-1 text-xs font-semibold uppercase tracking-wide">
+                      <i class="pi pi-bolt text-xs"></i> Anforderungsgrad
+                    </span>
+                    <div class="font-medium text-gray-900">{{ formatCognitiveLoad(task.cognitiveLoad) }}</div>
+                  </div>
+                }
+
+                @if (task.customChunkSize) {
+                  <div>
+                    <span class="mb-1 flex items-center gap-1 text-xs font-semibold uppercase tracking-wide">
+                      <i class="pi pi-box text-xs"></i> Chunk-Größe
+                    </span>
+                    <div class="font-medium text-gray-900">{{ formatDuration(task.customChunkSize) }}</div>
+                  </div>
+                }
+
+                @if (task.dependencyIds && task.dependencyIds.length > 0) {
+                  <div>
+                    <span class="mb-1 flex items-center gap-1 text-xs font-semibold uppercase tracking-wide">
+                      <i class="pi pi-link text-xs"></i> Abhängigkeiten
+                    </span>
+                    <div class="font-medium text-gray-900">{{ task.dependencyIds.length }} Task(s)</div>
+                  </div>
+                }
+              </div>
+
+              <div class="flex gap-2 pt-4">
+                <p-button
+                  icon="pi pi-pencil"
+                  [rounded]="true"
+                  [text]="true"
+                  severity="info"
+                  (onClick)="editTask(task.id)"
+                  pTooltip="Bearbeiten"
+                  tooltipPosition="top"
+                ></p-button>
+                <p-button
+                  icon="pi pi-check"
+                  [rounded]="true"
+                  [text]="true"
+                  severity="success"
+                  (onClick)="markTaskDone(task)"
+                  pTooltip="Abhaken"
+                  tooltipPosition="top"
+                ></p-button>
+              </div>
+            </div>
+          } @else {
+            <p class="text-gray-600">Keine anstehenden Aufgaben!</p>
+          }
+        </p-card>
+      </div>
+
+      <!-- Progress & Work Time (Right Column) -->
+      <div class="space-y-6">
+        <!-- Progress Card -->
+        <p-card class="progress-card">
+          <ng-template pTemplate="header">
+            <div class="text-lg font-semibold px-6 py-4">Fortschritt</div>
+          </ng-template>
+
+          <p-progressBar [value]="progressPercent()" [showValue]="true"></p-progressBar>
+
+          <div class="mt-4 text-sm text-gray-600">
+            {{ completedTasksCount() }} von {{ totalTasksCount() }} abgeschlossen
+          </div>
+        </p-card>
+
+        <!-- Work Time Card -->
+        <p-card class="work-time-card">
+          <ng-template pTemplate="header">
+            <div class="text-lg font-semibold px-6 py-4">Geleistete Arbeitszeit</div>
+          </ng-template>
+
+          <div class="text-3xl font-bold text-primary">
+            {{ formatDuration(completedMinutes()) }}
+          </div>
+        </p-card>
+      </div>
+    </div>
+
+    <!-- Upcoming Tasks List -->
+    <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div class="border-b border-slate-200 px-6 py-4">
+        <h2 class="text-lg font-semibold text-slate-900">Anstehende Aufgaben</h2>
+      </div>
+
+      @for (task of upcomingTasks(); track task.id) {
+        <div class="divide-y divide-slate-200 px-6 py-5">
+          <div class="flex flex-col gap-4">
+              <!-- Title, Badges, and Buttons -->
+              <div class="flex items-center justify-between gap-4">
+                <div class="flex flex-wrap items-center gap-2">
+                  <h3 class="text-lg font-semibold text-slate-900">{{ task.title }}</h3>
+
+                  <span
+                    class="inline-flex rounded-full border px-2.5 py-1 text-xs font-medium"
+                    [class]="getStatusBadgeClass(task.status)"
+                  >
+                    {{ formatStatus(task.status ?? TaskStatus.Open) }}
+                  </span>
+
+                  @if (task.cognitiveLoad) {
+                    <span
+                      class="inline-flex rounded-full border px-2.5 py-1 text-xs font-medium"
+                      [class]="getCognitiveLoadBadgeClass(task.cognitiveLoad)"
+                    >
+                      {{ formatCognitiveLoad(task.cognitiveLoad) }}
+                    </span>
+                  }
+                </div>
+
+                <div class="flex shrink-0 items-center gap-2">
+                  <p-button
+                    icon="pi pi-pencil"
+                    [text]="true"
+                    severity="secondary"
+                    (onClick)="editTask(task.id)"
+                    pTooltip="Bearbeiten"
+                  ></p-button>
+
+                  <p-button
+                    icon="pi pi-check"
+                    [text]="true"
+                    severity="success"
+                    (onClick)="markTaskDone(task)"
+                    pTooltip="Abhaken"
+                  ></p-button>
+                </div>
+              </div>
+
+              <!-- Description and Details -->
+              <div>
+                @if (task.description) {
+                  <p class="mb-3 text-sm leading-6 text-slate-600">
+                    {{ task.description }}
+                  </p>
+                }
+
+                <div class="grid grid-cols-2 gap-2 text-sm text-slate-600 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                  <div>
+                    <span class="mb-1 flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      <i class="pi pi-clock text-xs"></i> Dauer
+                    </span>
+                    <span class="text-slate-900">{{ formatDuration(task.duration ?? 0) }}</span>
+                  </div>
+
+                  <div>
+                    <span class="mb-1 flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      <i class="pi pi-calendar text-xs"></i> Deadline
+                    </span>
+                    <span class="text-slate-900">{{ formatDate(task.deadline) }}</span>
+                  </div>
+
+                  @if (task.dontScheduleBefore) {
+                    <div>
+                      <span class="mb-1 flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        <i class="pi pi-calendar-plus text-xs"></i> Nicht planen vor
+                      </span>
+                      <span class="text-slate-900">{{ formatDate(task.dontScheduleBefore) }}</span>
+                    </div>
+                  }
+
+                  @if (task.customChunkSize) {
+                    <div>
+                      <span class="mb-1 flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        <i class="pi pi-box text-xs"></i> Chunk-Größe
+                      </span>
+                      <span class="text-slate-900">{{ formatDuration(task.customChunkSize) }}</span>
+                    </div>
+                  }
+                </div>
+              </div>
+            </div>
+        </div>
+      } @empty {
+        <div class="px-6 py-8 text-sm text-slate-600">
+          Keine anstehenden Aufgaben. Alle Aufgaben sind erledigt!
+        </div>
+      }
+
+      <!-- View All Button -->
+      @if (allUpcomingTasks().length > 3) {
+        <div class="border-t border-slate-200 px-6 py-4">
+          <p-button
+            label="Alle Aufgaben anzeigen"
+            icon="pi pi-arrow-right"
+            iconPos="right"
+            [text]="true"
+            routerLink="/app/tasks"
+          ></p-button>
+        </div>
+      }
+    </div>  <!-- closes .overflow-hidden -->
+    </div>  <!-- closes .space-y-6 -->
+  }
 </div>
+
+<app-task-edit-dialog
+  [isOpen]="isEditDialogOpen()"
+  [task]="editingTask()"
+  [allTasks]="allTasksAsItems()"
+  (isOpenChange)="isEditDialogOpen.set($event)"
+  (taskSaved)="onTaskSaved()"
+></app-task-edit-dialog>
