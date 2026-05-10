@@ -1,5 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { CardModule } from 'primeng/card';
 import { ProgressBarModule } from 'primeng/progressbar';
 import { TagModule } from 'primeng/tag';
@@ -19,6 +20,7 @@ import { TaskEditDialogComponent, TaskItem } from '../../shared/task-edit-dialog
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CommonModule,
+    RouterLink,
     CardModule,
     ProgressBarModule,
     TagModule,
@@ -42,26 +44,23 @@ export class MainPage implements OnInit {
   isEditDialogOpen = signal(false);
   editingTask = signal<TaskItem | null>(null);
 
-  allTasksAsItems = computed(() =>
-    this.allTasks().map((t) => this.toTaskItem(t))
-  );
+  allTasksAsItems = computed(() => this.allTasks().map((t) => this.toTaskItem(t)));
 
-  upcomingTasks = computed(() =>
+  allUpcomingTasks = computed(() =>
     this.allTasks()
       .filter((t) => t.status !== TaskStatus.Done)
       .sort((a, b) => {
         if (!a.deadline) return 1;
         if (!b.deadline) return -1;
         return a.deadline.localeCompare(b.deadline);
-      })
-      .slice(0, 3)
+      }),
   );
+
+  upcomingTasks = computed(() => this.allUpcomingTasks().slice(0, 3));
 
   nextTask = computed(() => this.upcomingTasks()[0] ?? null);
 
-  completedTasks = computed(() =>
-    this.allTasks().filter((t) => t.status === TaskStatus.Done)
-  );
+  completedTasks = computed(() => this.allTasks().filter((t) => t.status === TaskStatus.Done));
 
   progressPercent = computed(() => {
     const total = this.allTasks().length;
@@ -69,7 +68,7 @@ export class MainPage implements OnInit {
   });
 
   completedMinutes = computed(() =>
-    this.completedTasks().reduce((sum, t) => sum + (t.duration ?? 0), 0)
+    this.completedTasks().reduce((sum, t) => sum + (t.duration ?? 0), 0),
   );
 
   completedTasksCount = computed(() => this.completedTasks().length);
@@ -97,7 +96,9 @@ export class MainPage implements OnInit {
     }
   }
 
-  getTaskStatusSeverity(status: TaskStatus | undefined): 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contrast' {
+  getTaskStatusSeverity(
+    status: TaskStatus | undefined,
+  ): 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contrast' {
     switch (status) {
       case TaskStatus.Open:
         return 'warn';
@@ -154,6 +155,58 @@ export class MainPage implements OnInit {
     });
   }
 
+  formatStatus(status: TaskStatus): string {
+    switch (status) {
+      case 'OPEN':
+        return 'Offen';
+      case 'IN_PROGRESS':
+        return 'In Bearbeitung';
+      case 'DONE':
+        return 'Erledigt';
+      default:
+        return status;
+    }
+  }
+
+  formatCognitiveLoad(load: string | null | undefined): string {
+    switch (load) {
+      case 'LOW':
+        return 'Niedrig';
+      case 'MODERATE':
+        return 'Mittel';
+      case 'HIGH':
+        return 'Hoch';
+      default:
+        return load ?? '-';
+    }
+  }
+
+  getStatusBadgeClass(status: TaskStatus | null | undefined): string {
+    switch (status) {
+      case 'OPEN':
+        return 'bg-amber-100 text-amber-800 border-amber-200';
+      case 'IN_PROGRESS':
+        return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'DONE':
+        return 'bg-emerald-100 text-emerald-800 border-emerald-200';
+      default:
+        return 'bg-slate-100 text-slate-800 border-slate-200';
+    }
+  }
+
+  getCognitiveLoadBadgeClass(load: string | null | undefined): string {
+    switch (load) {
+      case 'LOW':
+        return 'bg-emerald-100 text-emerald-800 border-emerald-200';
+      case 'MODERATE':
+        return 'bg-amber-100 text-amber-800 border-amber-200';
+      case 'HIGH':
+        return 'bg-rose-100 text-rose-800 border-rose-200';
+      default:
+        return 'bg-slate-100 text-slate-800 border-slate-200';
+    }
+  }
+
   ngOnInit(): void {
     forkJoin({
       accounts: this.userAccountsService.getMyAccounts(),
@@ -165,4 +218,6 @@ export class MainPage implements OnInit {
       this.loading.set(false);
     });
   }
+
+  protected readonly TaskStatus = TaskStatus;
 }
