@@ -233,7 +233,7 @@ public class CPMAlgorithm {
      *      2. List of time slots in between notBefore and the deadline
      */
     private List<List<TimeSlot>> getSuitableTimeSlots(TaskChunk chunk) {
-        List<TimeSlot> slotsAfterNotBefore = this.availableTimeSlots.stream()
+        List<TimeSlot> slotsAfterNotBefore = this.tempAvailableTimeSlots.stream()
                 .filter(slot -> isAfterNotBefore(chunk, slot))
                 .toList();
 
