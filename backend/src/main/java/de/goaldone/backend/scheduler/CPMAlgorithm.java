@@ -150,6 +150,7 @@ public class CPMAlgorithm {
             );
 
             TaskChunk partialChunk = TaskChunk.builder()
+                    .taskTitle(chunk.taskTitle())
                     .chunkId(chunk.chunkId())
                     .taskId(chunk.taskId())
                     .chunkIndex(chunk.chunkIndex())
