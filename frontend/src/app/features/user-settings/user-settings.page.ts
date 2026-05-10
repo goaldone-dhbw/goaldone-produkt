@@ -6,10 +6,15 @@ import { Password } from 'primeng/password';
 import { Message } from 'primeng/message';
 import { Tooltip } from 'primeng/tooltip';
 import { InputTextModule } from 'primeng/inputtext';
+import { ActivatedRoute, Router } from '@angular/router';
+import { timeout } from 'rxjs';
+
 import { UserAccountsService, AccountResponse } from '../../api';
 import { AuthService } from '../../core/auth/auth.service';
 import { BasePopupComponent } from '../../shared/base-popup/base-popup.component';
 import { UserSettingsAccountService } from '../../core/services/user-settings-account.service';
+import { AccountLinkingStorageService } from '../../core/services/account-linking-storage.service';
+import { AccountLinkConfirmService } from '../../core/services/account-link-confirm.service';
 
 /**
  * Page component for managing the currently authenticated user's account settings.
@@ -36,16 +41,25 @@ import { UserSettingsAccountService } from '../../core/services/user-settings-ac
 export class UserSettingsPage implements OnInit {
   private userAccountsService = inject(UserAccountsService);
   private accountService = inject(UserSettingsAccountService);
+  private accountLinkApi = inject(AccountLinkConfirmService);
   private authService = inject(AuthService);
+  private accountLinkingStorage = inject(AccountLinkingStorageService);
+  private route = inject(ActivatedRoute);
+  private router = inject(Router);
   private cdr = inject(ChangeDetectorRef);
 
   /** Indicates whether the linked accounts are currently being loaded. */
   loading = false;
 
   /** Error message shown when loading the linked accounts fails. */
+  linking = false;
+  unlinkingAccountId: string | null = null;
+
   error: string | null = null;
 
   /** Accounts linked to the currently authenticated user identity. */
+  success: string | null = null;
+
   accounts: AccountResponse[] = [];
 
   /** Current password entered by the user. */
@@ -137,7 +151,154 @@ export class UserSettingsPage implements OnInit {
 
   /** Loads all linked accounts after the component has been initialized. */
   ngOnInit(): void {
+    this.handleAccountLinkingResult();
     this.fetchAccounts();
+  }
+
+  startAccountLinking(): void {
+    console.log('Account linking button clicked.');
+
+    this.linking = true;
+    this.error = null;
+    this.success = null;
+
+    const accountAToken = this.authService.getAccessToken();
+
+    if (!accountAToken) {
+      this.error = 'Für den aktuellen Account konnte kein gültiges Token gelesen werden.';
+      this.linking = false;
+      this.cdr.detectChanges();
+      return;
+    }
+
+    const initiatorEmail = this.getCurrentAccountEmail();
+
+    console.log('Sending link request to backend...');
+
+    this.accountLinkApi
+      .requestAccountLinkWithToken(accountAToken)
+      .pipe(timeout(15000))
+      .subscribe({
+        next: async (response) => {
+          console.log('Link request response:', response);
+
+          if (!response.linkToken) {
+            this.error =
+              'Die Link-Anfrage konnte nicht gestartet werden, weil kein Link-Token zurückgegeben wurde.';
+            this.linking = false;
+            this.cdr.detectChanges();
+            return;
+          }
+
+          this.accountLinkingStorage.savePendingLink(
+            response.linkToken,
+            initiatorEmail,
+            accountAToken,
+          );
+
+          console.log('Pending link saved. Starting second OIDC login...');
+
+          try {
+            await this.authService.startAccountLinkingLogin();
+          } catch (err) {
+            console.error('Second OIDC login could not be started:', err);
+
+            this.error =
+              'Der zweite Login konnte nicht gestartet werden. Bitte prüfe die OIDC-Konfiguration.';
+            this.linking = false;
+            this.cdr.detectChanges();
+          }
+        },
+        error: (err) => {
+          console.error('Link request failed:', err);
+
+          this.error =
+            err?.name === 'TimeoutError'
+              ? 'Die Link-Anfrage dauert zu lange. Bitte prüfe, ob der Backend-Endpunkt /api/v1/users/accounts/links/request antwortet.'
+              : this.mapLinkRequestError(err);
+
+          this.linking = false;
+          this.cdr.detectChanges();
+        },
+      });
+  }
+
+  unlinkAccount(account: AccountResponse): void {
+    if (this.accounts.length <= 1 || this.unlinkingAccountId) {
+      return;
+    }
+
+    const confirmed = confirm(
+      `Account ${account.email ?? account.organizationName} von dieser Identität trennen? Sie müssen sich danach separat einloggen.`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    const accountAToken = this.authService.getAccessToken();
+
+    if (!accountAToken) {
+      this.error = 'Für den aktuellen Account konnte kein gültiges Token gelesen werden.';
+      return;
+    }
+
+    this.unlinkingAccountId = account.accountId;
+    this.error = null;
+    this.success = null;
+
+    this.accountLinkApi.unlinkAccountWithToken(account.accountId, accountAToken).subscribe({
+      next: () => {
+        this.unlinkingAccountId = null;
+        this.success = 'Verknüpfung aufgehoben.';
+        this.fetchAccounts();
+      },
+      error: (err) => {
+        this.unlinkingAccountId = null;
+        this.error = this.mapUnlinkError(err);
+        this.cdr.detectChanges();
+      },
+    });
+  }
+
+  logout(): void {
+    this.accountLinkingStorage.clearPendingLink();
+    this.authService.logout();
+  }
+
+  private handleAccountLinkingResult(): void {
+    const result = this.route.snapshot.queryParamMap.get('accountLinked');
+    const reason = this.route.snapshot.queryParamMap.get('reason');
+
+    if (result === 'success') {
+      this.success = 'Accounts erfolgreich verknüpft.';
+      this.error = null;
+      this.clearAccountLinkingQueryParams();
+      return;
+    }
+
+    if (result === 'error') {
+      this.error = reason ?? 'Verknüpfung fehlgeschlagen.';
+      this.success = null;
+      this.clearAccountLinkingQueryParams();
+      return;
+    }
+
+    if (this.accountLinkingStorage.hasPendingLink()) {
+      this.accountLinkingStorage.clearPendingLink();
+    }
+  }
+
+  private clearAccountLinkingQueryParams(): void {
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: {
+        accountLinked: null,
+        reason: null,
+      },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
   }
 
   /**
@@ -240,14 +401,20 @@ export class UserSettingsPage implements OnInit {
     this.loading = true;
     this.error = null;
 
+
     this.userAccountsService.getMyAccounts().subscribe({
       next: (data) => {
+        console.log('Accounts loaded:', data.accounts);
+
         this.accounts = data.accounts ?? [];
         this.loading = false;
         this.cdr.detectChanges();
       },
       error: (err) => {
         this.error = this.getErrorMessage(err, 'Konten konnten nicht geladen werden.');
+        console.error('Accounts could not be loaded:', err);
+
+        this.error = err?.message || 'Die Accounts konnten nicht geladen werden.';
         this.loading = false;
         this.cdr.detectChanges();
       },
@@ -494,5 +661,50 @@ export class UserSettingsPage implements OnInit {
         this.cdr.detectChanges();
       },
     });
+
+  private getCurrentAccountEmail(): string {
+    return this.authService.getCurrentUserEmail() || this.accounts[0]?.email || '';
+  }
+
+  private mapLinkRequestError(error: any): string {
+    const code =
+      error?.error?.code || error?.error?.errorCode || error?.error?.message || error?.message;
+
+    if (error?.status === 401) {
+      return 'Sie sind nicht mehr gültig angemeldet. Bitte erneut einloggen.';
+    }
+
+    if (error?.status === 403) {
+      return 'Sie dürfen diese Link-Anfrage nicht starten.';
+    }
+
+    if (error?.status === 404) {
+      return 'Der Backend-Endpunkt /api/v1/accounts/links/request wurde nicht gefunden.';
+    }
+
+    if (code) {
+      return `Die Link-Anfrage konnte nicht gestartet werden: ${code}`;
+    }
+
+    return 'Die Link-Anfrage konnte nicht gestartet werden.';
+  }
+
+  private mapUnlinkError(error: any): string {
+    const code =
+      error?.error?.code || error?.error?.errorCode || error?.error?.message || error?.message;
+
+    if (error?.status === 400 || code === 'NOT_LINKED') {
+      return 'Diese Aktion ist nicht möglich.';
+    }
+
+    if (error?.status === 403) {
+      return 'Sie dürfen diesen Account nicht entkoppeln.';
+    }
+
+    if (error?.status === 404) {
+      return 'Der Account wurde nicht gefunden.';
+    }
+
+    return 'Die Verknüpfung konnte nicht aufgehoben werden.';
   }
 }

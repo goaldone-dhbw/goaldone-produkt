@@ -6,6 +6,7 @@ import { StartPageComponent } from './features/startpage/start-page.component';
 import { TasksPageComponent } from './features/tasks/tasks-page.component';
 import { CallbackPageComponent } from './features/callback/callback-page.component';
 import { SuperAdminsPageComponent } from './features/super-admins/super-admins-page.component';
+import { AccountLinkCallbackPage } from './features/callback/account-link-callback/account-link-callback.page';
 
 export const routes: Routes = [
   {
@@ -21,7 +22,7 @@ export const routes: Routes = [
       },
       {
         path: 'tasks',
-        component: TasksPageComponent
+        component: TasksPageComponent,
       },
       {
         path: 'schedule',
@@ -53,11 +54,15 @@ export const routes: Routes = [
   },
   {
     path: '',
-    component: StartPageComponent
+    component: StartPageComponent,
   },
   {
     path: 'callback',
     component: CallbackPageComponent,
+  },
+  {
+    path: 'link-callback',
+    component: AccountLinkCallbackPage,
   },
   {
     path: '**',

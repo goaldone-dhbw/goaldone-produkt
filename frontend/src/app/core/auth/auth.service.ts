@@ -11,30 +11,12 @@ export class AuthService {
   private logger = inject(LoggerService);
 
   initialize(): Promise<boolean> {
-    // Read from window.__env at runtime (injected via env.js before app boot)
-    // Fallback to defaults if not set (for development)
-    const windowEnv = (window as any).__env || {};
-    const issuerUri = windowEnv['issuerUri'] || 'https://sso.dev.goaldone.de';
-    const clientId = windowEnv['clientId'] || 'YOUR_ZITADEL_CLIENT_ID';
-    const isProd =
-      window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+    this.configureOAuth('/callback');
 
-    this.oauthService.configure({
-      issuer: issuerUri,
-      clientId: clientId,
-      responseType: 'code',
-      redirectUri: window.location.origin + '/callback',
-      postLogoutRedirectUri: window.location.origin,
-      scope: 'openid profile email offline_access urn:zitadel:iam:user:resourceowner',
-      useSilentRefresh: false,
-      showDebugInformation: !isProd,
-    });
-
-    // Handle refresh token errors: clear storage + redirect to login
     this.oauthService.events
       .pipe(filter((e) => e.type === 'token_refresh_error' || e.type === 'token_error'))
       .subscribe(() => {
-        this.oauthService.logOut(true); // noRedirectToLogoutUrl=true → just clears storage
+        this.oauthService.logOut(true);
         this.router.navigateByUrl('/');
         this.oauthService.initLoginFlow();
       });
@@ -60,25 +42,56 @@ export class AuthService {
     return this.oauthService.getAccessToken();
   }
 
-  private decodeJwtToken(token: string): any {
-    try {
-      if (!token) {
-        return null;
-      }
-      const parts = token.split('.');
-      if (parts.length !== 3) {
-        return null; // Not a valid JWT format (header.payload.signature)
-      }
-      const payload = parts[1];
-      // Robust URL-safe Base64 decoding
-      const decodedPayload = decodeURIComponent(atob(payload).split('').map(function(c) {
-        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-      }).join(''));
-      return JSON.parse(decodedPayload);
-    } catch (e) {
-      this.logger.error("Error decoding JWT token:", e);
-      return null;
+  async startAccountLinkingLogin(): Promise<void> {
+    this.configureOAuth('/link-callback');
+
+    console.log(
+      'Starting account linking OIDC login with redirect URI:',
+      window.location.origin + '/link-callback',
+    );
+
+    await this.oauthService.loadDiscoveryDocument();
+
+    this.oauthService.initCodeFlow('accountLinking=true', {
+      prompt: 'login',
+    });
+  }
+
+  async handleAccountLinkingCallback(): Promise<void> {
+    this.configureOAuth('/link-callback');
+
+    await this.oauthService.loadDiscoveryDocumentAndTryLogin();
+
+    if (!this.oauthService.hasValidAccessToken()) {
+      throw new Error('No valid access token after account linking callback.');
     }
+  }
+
+  restoreAccessToken(token: string): void {
+    if (!token) {
+      return;
+    }
+
+    this.configureOAuth('/callback');
+
+    const decodedToken = this.decodeJwtToken(token);
+    const expiresAt = decodedToken?.exp ? decodedToken.exp * 1000 : Date.now() + 60 * 60 * 1000;
+    const storedAt = Date.now();
+
+    this.setOAuthStorageItem('access_token', token);
+    this.setOAuthStorageItem('expires_at', String(expiresAt));
+    this.setOAuthStorageItem('access_token_stored_at', String(storedAt));
+  }
+
+  getCurrentUserEmail(): string {
+    const decodedToken = this.getDecodedAccessToken();
+
+    return (
+      decodedToken?.email ||
+      decodedToken?.preferred_username ||
+      decodedToken?.['urn:zitadel:iam:user:human:email'] ||
+      ''
+    );
   }
 
   getDecodedAccessToken(): any {
@@ -88,18 +101,16 @@ export class AuthService {
 
   getUserRoles(): string[] {
     const decodedToken = this.getDecodedAccessToken();
+
     if (!decodedToken) {
       return [];
     }
 
-    // Search for roles in common claims
-    // 1. Generic 'roles'
-    // 2. Generic Zitadel project roles 'urn:zitadel:iam:org:project:roles'
-    // 3. Project-specific Zitadel roles 'urn:zitadel:iam:org:project:{projectId}:roles'
-    const rolesKey = Object.keys(decodedToken).find(key =>
-      key === 'roles' ||
-      key === 'urn:zitadel:iam:org:project:roles' ||
-      (key.startsWith('urn:zitadel:iam:org:project:') && key.endsWith(':roles'))
+    const rolesKey = Object.keys(decodedToken).find(
+      (key) =>
+        key === 'roles' ||
+        key === 'urn:zitadel:iam:org:project:roles' ||
+        (key.startsWith('urn:zitadel:iam:org:project:') && key.endsWith(':roles')),
     );
 
     const rolesObj = rolesKey ? decodedToken[rolesKey] : {};
@@ -113,11 +124,72 @@ export class AuthService {
 
   getUserOrganizationId(): string | null {
     const decodedToken = this.getDecodedAccessToken();
+
     return (
       decodedToken?.['org_id'] ||
       decodedToken?.['organisation_id'] ||
       decodedToken?.['urn:zitadel:iam:user:resourceowner:id'] ||
       null
     );
+  }
+
+  private configureOAuth(redirectPath: string): void {
+    const windowEnv = (window as any).__env || {};
+    const issuerUri = windowEnv['issuerUri'] || 'https://sso.dev.goaldone.de';
+    const clientId = windowEnv['clientId'] || 'YOUR_ZITADEL_CLIENT_ID';
+    const isProd =
+      window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+
+    this.oauthService.configure({
+      issuer: issuerUri,
+      clientId: clientId,
+      responseType: 'code',
+      redirectUri: window.location.origin + redirectPath,
+      postLogoutRedirectUri: window.location.origin,
+      scope: 'openid profile email offline_access urn:zitadel:iam:user:resourceowner',
+      useSilentRefresh: false,
+      showDebugInformation: !isProd,
+    });
+  }
+
+  private setOAuthStorageItem(key: string, value: string): void {
+    localStorage.setItem(key, value);
+    sessionStorage.setItem(key, value);
+
+    const oauthStorage = (this.oauthService as any)._storage;
+
+    if (oauthStorage?.setItem) {
+      oauthStorage.setItem(key, value);
+    }
+  }
+
+  private decodeJwtToken(token: string): any {
+    try {
+      if (!token) {
+        return null;
+      }
+
+      const parts = token.split('.');
+
+      if (parts.length !== 3) {
+        return null;
+      }
+
+      const payload = parts[1];
+      const base64 = payload.replace(/-/g, '+').replace(/_/g, '/');
+      const paddedBase64 = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '=');
+
+      const decodedPayload = decodeURIComponent(
+        atob(paddedBase64)
+          .split('')
+          .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+          .join(''),
+      );
+
+      return JSON.parse(decodedPayload);
+    } catch (e) {
+      this.logger.error('Error decoding JWT token:', e);
+      return null;
+    }
   }
 }
