@@ -1453,6 +1453,7 @@ components:
         - initiatorEmails
         - initiatorAccountId
         - currentEmail
+        - inConflict
       properties:
         initiatorAccountId:
           type: string
@@ -1465,6 +1466,8 @@ components:
         currentEmail:
           type: string
           format: email
+        inConflict:
+          type: boolean
 
     LinkConfirmRequest:
       type: object

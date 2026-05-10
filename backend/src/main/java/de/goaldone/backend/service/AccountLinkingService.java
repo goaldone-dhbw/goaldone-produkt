@@ -1,10 +1,10 @@
 package de.goaldone.backend.service;
 
-import com.zitadel.model.UserServiceHuman;
 import com.zitadel.model.UserServiceHumanUser;
 import com.zitadel.model.UserServiceUser;
 import de.goaldone.backend.client.ZitadelManagementClient;
 import de.goaldone.backend.entity.LinkTokenEntity;
+import de.goaldone.backend.entity.OrganizationEntity;
 import de.goaldone.backend.entity.UserAccountEntity;
 import de.goaldone.backend.entity.UserIdentityEntity;
 import de.goaldone.backend.exception.AlreadyLinkedException;
@@ -13,10 +13,7 @@ import de.goaldone.backend.exception.NotLinkedException;
 import de.goaldone.backend.exception.SameOrganizationLinkNotAllowedException;
 import de.goaldone.backend.model.LinkInfoResponse;
 import de.goaldone.backend.model.LinkTokenResponse;
-import de.goaldone.backend.repository.LinkTokenRepository;
-import de.goaldone.backend.repository.UserAccountRepository;
-import de.goaldone.backend.repository.UserIdentityRepository;
-import de.goaldone.backend.repository.WorkingTimeRepository;
+import de.goaldone.backend.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -31,6 +28,7 @@ import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Service for managing the linking and unlinking of user accounts across different organizations.
@@ -49,6 +47,7 @@ public class AccountLinkingService {
     private final WorkingTimeRepository workingTimeRepository;
     private final ZitadelManagementClient zitadelManagementClient;
     private final CurrentUserResolver currentUserResolver;
+    private final OrganizationRepository organizationRepository;
 
     /**
      * Requests a new link token for the specified initiator account.
@@ -98,7 +97,17 @@ public class AccountLinkingService {
         accounts.addAll(intiatorAccounts);
 
         Map<UUID, String> emails = new HashMap<>();
+        List<UUID> orgs = new ArrayList<>();
+        AtomicBoolean hasConflicts = new AtomicBoolean(false);
         accounts.forEach(account -> {
+            Optional<OrganizationEntity> org = organizationRepository.findById(account.getOrganizationId());
+            if (org.isEmpty()) {
+                if(orgs.contains(account.getOrganizationId())){
+                   hasConflicts.set(true);
+                } else {
+                    orgs.add(account.getOrganizationId());
+                }
+            }
             Optional<UserServiceUser> user = zitadelManagementClient.getUser(account.getZitadelSub());
             if (user.isEmpty() || user.get().getHuman() == null) {
                 throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to fetch user from Zitadel");
@@ -113,7 +122,7 @@ public class AccountLinkingService {
         ArrayList<String> initiatorEmails = new ArrayList<>();
         intiatorAccounts.forEach(account -> initiatorEmails.add(emails.get(account.getId())));
 
-        return new LinkInfoResponse(initiatorAccount.getId(), initiatorEmails, emails.get(currentAccount.getId()));
+        return new LinkInfoResponse(initiatorAccount.getId(), initiatorEmails, emails.get(currentAccount.getId()), hasConflicts.get());
     }
     /**
      * Confirms a link request using a provided token and a confirming account.
