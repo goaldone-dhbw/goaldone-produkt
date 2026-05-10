@@ -2,7 +2,6 @@ package de.goaldone.backend.service;
 
 import de.goaldone.backend.entity.UserAccountEntity;
 import de.goaldone.backend.entity.WorkingTimeEntity;
-import de.goaldone.backend.exception.ScheduleException;
 import de.goaldone.backend.model.*;
 import de.goaldone.backend.repository.UserAccountRepository;
 import de.goaldone.backend.scheduler.Solver;
@@ -12,7 +11,6 @@ import de.goaldone.backend.scheduler.types.model.SchedulingResult;
 import de.goaldone.backend.scheduler.types.model.TimeSlot;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.coyote.Response;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -37,7 +35,6 @@ public class ScheduleService {
 
     private final TasksService taskService;
     private final AppointmentService appointmentService;
-    private final CurrentUserResolver currentUserResolver;
     private final UserAccountRepository userAccountRepository;
     private final @Lazy UserIdentityService userIdentityService;
     private final ScheduleMapper scheduleMapper = new ScheduleMapper();

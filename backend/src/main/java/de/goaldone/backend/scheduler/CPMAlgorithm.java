@@ -5,7 +5,6 @@ import de.goaldone.backend.model.UnscheduledTask;
 import de.goaldone.backend.scheduler.types.model.*;
 
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -52,7 +51,6 @@ public class CPMAlgorithm {
             // - or revert if it doesn't
             this.tempAvailableTimeSlots = new ArrayList<>(this.availableTimeSlots);
             totalTaskFit = true; //default true, is set to false if task doesn't fit
-
 
             // Try fitting all chunks
             List<TaskChunk> chunks = chunkMap.get(taskId);
@@ -107,20 +105,13 @@ public class CPMAlgorithm {
 
         Optional<TimeSlot> suitableSlot = slotsBetween.stream()
                 .filter(slot -> slot.canFit(chunk.durationMinutes()))
-                .findFirst();
+                .min(Comparator.comparing(TimeSlot::date).thenComparing(TimeSlot::startTime));
 
         if (suitableSlot.isPresent()) {
             TimeSlot slot = suitableSlot.get();
 
-            // Create the scheduled slot only for the needed duration
-            TimeSlot scheduledSlot = new TimeSlot(
-                    slot.date(),
-                    slot.startTime(),
-                    slot.startTime().plusMinutes(chunk.durationMinutes())
-            );
-
-            removeTimeSlot(slot, chunk);
-            return List.of(new ScheduledChunk(chunk, scheduledSlot));
+            TimeSlot occupiedSlot = updateTimeSlots(slot, chunk);
+            return List.of(new ScheduledChunk(chunk, occupiedSlot));
         }
 
         // At this point, no slot was large enough to accommodate this chunk
@@ -175,7 +166,7 @@ public class CPMAlgorithm {
 
             remainingMinutes -= usableMinutes;
 
-            removeTimeSlot(slot, partialChunk);
+            updateTimeSlots(slot, partialChunk);
         }
 
         if (remainingMinutes > 0) {
@@ -305,28 +296,39 @@ public class CPMAlgorithm {
      * existing slots if the chunk occupies only part of a slot.
      * @param target The time slot we want to remove from the available slots
      * @param chunk The chunk which occupies the target time slot
+     * @return The time slot which is now occupied by the chunk
      */
-    private void removeTimeSlot(TimeSlot target, TaskChunk chunk) {
+    private TimeSlot updateTimeSlots(TimeSlot target, TaskChunk chunk) {
 
         if (target == null || chunk == null) {
-            return;
+            throw new IllegalArgumentException("There was a problem in updating the available time slots");
         }
 
         // Case 1: TimeSlot is more than 15 minutes bigger than the chunk -> split it into two separate slots
         if (target.durationMinutes() > chunk.durationMinutes() + this.maxBuffer) {
 
-            LocalTime newStartTime = target.startTime().plusMinutes(chunk.durationMinutes());
+            TimeSlot occupiedSlot = new TimeSlot(
+                    target.date(), target.startTime(), target.startTime().plusMinutes(chunk.durationMinutes())
+            );
 
             TimeSlot newTimeSlot = new TimeSlot(
-                    target.date(), newStartTime, target.endTime()
+                    target.date(), occupiedSlot.endTime(), target.endTime()
             );
+
             this.tempAvailableTimeSlots.remove(target);
             this.tempAvailableTimeSlots.add(newTimeSlot);
+            return occupiedSlot;
         }
         // Case 2: TimeSlot is equal to or only lightly bigger than the chunk
         else  {
-            //this.globalAvailableTimeSlots.contains(target);
             this.tempAvailableTimeSlots.remove(target);
+
+            // Set end time because of overlapping time (up to 14 minutes)
+            return new TimeSlot(
+                    target.date(),
+                    target.startTime(),
+                    target.startTime().plusMinutes(chunk.durationMinutes())
+            );
         }
     }
 

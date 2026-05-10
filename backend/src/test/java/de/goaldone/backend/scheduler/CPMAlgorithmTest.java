@@ -29,7 +29,7 @@ class CPMAlgorithmTest {
     @Test
     void shouldGenerate_singleTaskInSingleSlot() {
 
-        LocalDate date = LocalDate.of(2026, 5, 10); // Monday
+        LocalDate date = LocalDate.of(2026, 5, 11); // Monday
         List<TimeSlot> availableSlots = List.of(slot(date, 9, 10));
         List<TaskResponse> tasks = List.of(task(60));
         List<WorkingTimeEntity> workingTime = List.of(working(List.of(DayOfWeek.MONDAY), 16));
@@ -48,7 +48,7 @@ class CPMAlgorithmTest {
     @Test
     void shouldSplitInChunks_whenNoTimeSlotBigEnough() {
 
-        LocalDate date = LocalDate.of(2026, 5, 10); // Monday
+        LocalDate date = LocalDate.of(2026, 5, 11); // Monday
         List<TimeSlot> availableSlots = List.of(
                 slot(date, 9, 0,  9,  30),
                 slot(date, 10,30, 11, 0));
@@ -71,7 +71,7 @@ class CPMAlgorithmTest {
     @Test
     void shouldSplitTimeSlot_whenTaskDoesntFillSlot() {
 
-        LocalDate date = LocalDate.of(2026, 5, 10); // Monday
+        LocalDate date = LocalDate.of(2026, 5, 11); // Monday
         List<TimeSlot> availableSlots = List.of(slot(date, 9, 10));
         List<TaskResponse> tasks = List.of(
                 task(30),
@@ -90,7 +90,7 @@ class CPMAlgorithmTest {
 
     @Test
     void shouldGenerateInOrder_byDependencies() {
-        LocalDate date = LocalDate.of(2026, 5, 10); // Monday
+        LocalDate date = LocalDate.of(2026, 5, 11); // Monday
         List<TimeSlot> availableSlots = List.of(
                 slot(date, 9, 10),
                 slot(date, 13, 14));
@@ -115,7 +115,7 @@ class CPMAlgorithmTest {
 
     @Test
     void shouldGenerateInOrder_bySlack() {
-        LocalDate date = LocalDate.of(2026, 5, 10); // Monday
+        LocalDate date = LocalDate.of(2026, 5, 11); // Monday
         List<TimeSlot> availableSlots = List.of(
                 slot(date, 9, 10),
                 slot(date, 13, 14));
@@ -140,7 +140,7 @@ class CPMAlgorithmTest {
 
     @Test
     void shouldGenerateInOrder_byCognitiveLoad() {
-        LocalDate date = LocalDate.of(2026, 5, 10); // Monday
+        LocalDate date = LocalDate.of(2026, 5, 11); // Monday
         List<TimeSlot> availableSlots = List.of(
                 slot(date, 9, 10),
                 slot(date, 13, 14));
@@ -166,7 +166,7 @@ class CPMAlgorithmTest {
 
     @Test
     void shouldNotScheduleBefore() {
-        LocalDate date = LocalDate.of(2026, 5, 10); // Monday
+        LocalDate date = LocalDate.of(2026, 5, 11); // Monday
 
         TimeSlot freeSlot = slot(date.plusDays(0), 9, 10);
         TimeSlot occupiedSlot = slot(date.plusDays(1), 9, 10);
@@ -193,7 +193,7 @@ class CPMAlgorithmTest {
 
     @Test
     void shouldScheduleBeforeDeadline() {
-        LocalDate date = LocalDate.of(2026, 5, 10); // Monday
+        LocalDate date = LocalDate.of(2026, 5, 11); // Monday
 
         List<TimeSlot> availableSlots = List.of(
                 slot(date.plusDays(0), 9, 10),
@@ -221,7 +221,7 @@ class CPMAlgorithmTest {
     void shouldNotSplit_whenLittleTimeLeft() {
         // Should append the 5 minutes to the time slot
 
-        LocalDate date = LocalDate.of(2026, 5, 10); // Monday
+        LocalDate date = LocalDate.of(2026, 5, 11); // Monday
         List<TimeSlot> availableSlots = List.of(slot(date, 9, 10));
         TaskResponse task = task(65);
         List<TaskResponse> tasks = List.of(task);
@@ -243,7 +243,7 @@ class CPMAlgorithmTest {
 
     @Test
     void shouldWarnFromUnscheduledTasks() {
-        LocalDate date = LocalDate.of(2026, 5, 10); // Monday
+        LocalDate date = LocalDate.of(2026, 5, 11); // Monday
 
         TimeSlot slot1 = slot(date.plusDays(0), 15, 16);
         TimeSlot slot2 = slot(date.plusDays(1), 8, 9);
@@ -264,6 +264,34 @@ class CPMAlgorithmTest {
         assertThat(result).isNotNull();
         assertThat(result.unscheduledChunks().size()).isEqualTo(1);
         assertThat(result.scheduledChunks().getFirst().chunk().taskId()).isEqualTo(task1.getId());
+    }
+
+    @Test
+    void shouldScheduleOnOneDay() {
+        LocalDate date = LocalDate.of(2026, 5, 11); // Monday
+
+        TimeSlot slot1 = slot(date.plusDays(0), 8, 17);
+        TimeSlot slot2 = slot(date.plusDays(1), 8, 17);
+        List<TimeSlot> availableSlots = List.of(slot1, slot2);
+
+        TaskResponse task1 = task(120);
+        TaskResponse task2 = task(60, List.of(task1.getId()));
+        List<TaskResponse> tasks = List.of(task1, task2);
+
+        List<WorkingTimeEntity> workingTime = List.of(working(List.of(DayOfWeek.MONDAY, DayOfWeek.TUESDAY), 17));
+
+        SchedulingContext context = new SchedulingContext(
+                date, availableSlots, tasks, workingTime
+        );
+
+        SolverState result = algorithm.generateInitialSchedule(context);
+
+        TimeSlot task1TimeSlot = new TimeSlot(date, LocalTime.of(8,  0), LocalTime.of(10, 0));
+        TimeSlot task2TimeSlot = new TimeSlot(date, LocalTime.of(10, 0), LocalTime.of(11, 0));
+
+        assertThat(result.scheduledChunks().getFirst().slot()).isEqualTo(task1TimeSlot);
+        assertThat(result.scheduledChunks().getLast().slot()).isEqualTo(task2TimeSlot);
+
     }
 
     private TaskResponse task(int taskDuration) {
