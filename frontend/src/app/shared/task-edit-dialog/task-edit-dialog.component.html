@@ -76,7 +76,7 @@
           <label for="duration" class="block text-sm font-medium text-slate-800">
             Dauer in Minuten <span class="text-rose-600">*</span>
           </label>
-          <input id="duration" type="number" min="1" formControlName="duration"
+          <input id="duration" type="number" min="1" max="2147483647" formControlName="duration"
             class="w-full h-12 rounded-xl border border-slate-300 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
             placeholder="z. B. 120" />
           @if (showFieldError('duration')) {
