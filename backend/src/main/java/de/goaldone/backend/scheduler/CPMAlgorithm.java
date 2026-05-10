@@ -17,12 +17,8 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.stream.Collectors;
 
 public class CPMAlgorithm {
-
-    private final TaskSorter taskSorter;
-    private final Chunker chunker;
 
     private ArrayList<TimeSlot> tempAvailableTimeSlots;
 
