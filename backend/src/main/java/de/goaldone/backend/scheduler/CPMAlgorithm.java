@@ -2,8 +2,19 @@ package de.goaldone.backend.scheduler;
 
 import de.goaldone.backend.model.TaskResponse;
 import de.goaldone.backend.model.UnscheduledTask;
-import de.goaldone.backend.scheduler.types.model.*;
+import de.goaldone.backend.scheduler.types.model.ScheduledChunk;
+import de.goaldone.backend.scheduler.types.model.SchedulingContext;
+import de.goaldone.backend.scheduler.types.model.SolverState;
+import de.goaldone.backend.scheduler.types.model.TaskChunk;
+import de.goaldone.backend.scheduler.types.model.TaskSlack;
+import de.goaldone.backend.scheduler.types.model.TimeSlot;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
+import java.util.stream.Collectors;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -16,13 +27,9 @@ public class CPMAlgorithm {
     private ArrayList<TimeSlot> tempAvailableTimeSlots;
 
     private UnscheduledTask.ReasonEnum unscheduledReason;
-
     private final int maxBuffer = 15;
-
-    public CPMAlgorithm() {
-        this.chunker = new Chunker();
-        this.taskSorter = new TaskSorter();
-    }
+    private final Chunker chunker = new Chunker();
+    private final TaskSorter taskSorter = new TaskSorter();
 
     /**
      * Creates initial schedule

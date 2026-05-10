@@ -3,6 +3,7 @@ package de.goaldone.backend.repository;
 import de.goaldone.backend.entity.TaskEntity;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.stereotype.Repository;
 
 import java.util.Collection;
@@ -16,7 +17,7 @@ import java.util.UUID;
  * often including eager loading of task dependencies.
  */
 @Repository
-public interface TaskRepository extends JpaRepository<TaskEntity, UUID> {
+public interface TaskRepository extends JpaRepository<TaskEntity, UUID>, JpaSpecificationExecutor<TaskEntity> {
 
     /**
      * Finds all tasks associated with a specific account ID, ordered by ID ascending.

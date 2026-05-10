@@ -64,6 +64,16 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * Handles IncorrectPasswordException and returns HTTP 400 (Bad Request).
+     */
+    @ExceptionHandler(IncorrectPasswordException.class)
+    public ProblemDetail handleIncorrectPassword(IncorrectPasswordException ex) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
+        pd.setType(URI.create("https://goaldone.de/errors/incorrect-password"));
+        return pd;
+    }
+
+    /**
      * Handles ZitadelApiException and returns HTTP 502 (Bad Gateway).
      */
     @ExceptionHandler(ZitadelApiException.class)

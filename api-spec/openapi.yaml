@@ -984,6 +984,66 @@ paths:
         '400':
           description: Bad Request
 
+    get:
+      tags:
+        - tasks
+      summary: Get tasks with optional filters
+      operationId: getTasks
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/TaskStatus'
+        - name: cognitiveLoad
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/CognitiveLoad'
+        - name: deadlineFrom
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: deadlineTo
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: minDuration
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: maxDuration
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: sortBy
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: sortDirection
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TaskResponse'
+        '400':
+          description: Bad Request
+
   /tasks/{taskId}:
     put:
       tags:
@@ -1717,7 +1777,6 @@ components:
           maxLength: 128
         currentPassword:
           type: string
-          minLength: 8
           maxLength: 128
 
 
@@ -1974,7 +2033,7 @@ components:
           type: string
           enum: [ DEADLINE_TIGHT, OVERLOADED_DAY, PIN_CONFLICT, OTHER ]
           description: |
-            - `DEADLINE_TIGHT`: Task eingeplant, aber < 30 min Puffer bis Deadline.
+            - `DEADLINE_TIGHT`: Task eingeplant, aber < 30 min Puffer bis zur Deadline.
             - `OVERLOADED_DAY`: Ein Tag übersteigt die verfügbare Arbeitszeit.
             - `PIN_CONFLICT`: Gepinnter Eintrag überlappt mit einem anderen.
             - `OTHER`: Sonstige Warnung, z.B. aus unerwarteten Fehlern oder Randfällen.
