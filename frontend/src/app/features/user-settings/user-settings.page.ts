@@ -149,10 +149,69 @@ export class UserSettingsPage implements OnInit {
   /** Indicates that a deletion attempt failed because the user is the last admin. */
   lastAdminAttempted = false;
 
+  /** Controls visibility of the account linking info dialog. */
+  linkInfoDialogOpen = false;
+
+  /** Controls visibility of the unlink confirmation dialog. */
+  unlinkDialogOpen = false;
+
+  /** Currently selected account for unlinking. */
+  accountToUnlink: AccountResponse | null = null;
+
   /** Loads all linked accounts after the component has been initialized. */
   ngOnInit(): void {
     this.handleAccountLinkingResult();
     this.fetchAccounts();
+  }
+
+  /** Opens the account linking info dialog. */
+  openLinkInfoDialog(): void {
+    this.linkInfoDialogOpen = true;
+  }
+
+  /** Opens the unlink confirmation dialog for the specified account. */
+  openUnlinkDialog(account: AccountResponse): void {
+    if (this.accounts.length <= 1 || this.unlinkingAccountId) {
+      return;
+    }
+
+    this.accountToUnlink = account;
+    this.unlinkDialogOpen = true;
+  }
+
+  /** Confirms the unlink action and executes the API call. */
+  confirmUnlink(): void {
+    if (!this.accountToUnlink) {
+      return;
+    }
+
+    const account = this.accountToUnlink;
+    this.unlinkDialogOpen = false;
+    this.accountToUnlink = null;
+
+    const accountAToken = this.authService.getAccessToken();
+
+    if (!accountAToken) {
+      this.error = 'Für den aktuellen Account konnte kein gültiges Token gelesen werden.';
+      return;
+    }
+
+    this.unlinkingAccountId = account.accountId;
+    this.error = null;
+    this.success = null;
+
+    this.accountLinkApi.unlinkAccountWithToken(account.accountId, accountAToken).subscribe({
+      next: () => {
+        this.unlinkingAccountId = null;
+        this.success = 'Verknüpfung aufgehoben.';
+        this.fetchAccounts();
+      },
+      error: (err) => {
+        this.unlinkingAccountId = null;
+        this.error = this.mapUnlinkError(err);
+        this.cdr.detectChanges();
+      },
+    });
   }
 
   startAccountLinking(): void {
@@ -223,43 +282,6 @@ export class UserSettingsPage implements OnInit {
       });
   }
 
-  unlinkAccount(account: AccountResponse): void {
-    if (this.accounts.length <= 1 || this.unlinkingAccountId) {
-      return;
-    }
-
-    const confirmed = confirm(
-      `Account ${account.email ?? account.organizationName} von dieser Identität trennen? Sie müssen sich danach separat einloggen.`,
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
-    const accountAToken = this.authService.getAccessToken();
-
-    if (!accountAToken) {
-      this.error = 'Für den aktuellen Account konnte kein gültiges Token gelesen werden.';
-      return;
-    }
-
-    this.unlinkingAccountId = account.accountId;
-    this.error = null;
-    this.success = null;
-
-    this.accountLinkApi.unlinkAccountWithToken(account.accountId, accountAToken).subscribe({
-      next: () => {
-        this.unlinkingAccountId = null;
-        this.success = 'Verknüpfung aufgehoben.';
-        this.fetchAccounts();
-      },
-      error: (err) => {
-        this.unlinkingAccountId = null;
-        this.error = this.mapUnlinkError(err);
-        this.cdr.detectChanges();
-      },
-    });
-  }
 
   logout(): void {
     this.accountLinkingStorage.clearPendingLink();
@@ -661,6 +683,7 @@ export class UserSettingsPage implements OnInit {
         this.cdr.detectChanges();
       },
     });
+  }
 
   private getCurrentAccountEmail(): string {
     return this.authService.getCurrentUserEmail() || this.accounts[0]?.email || '';

@@ -1,5 +1,9 @@
 package de.goaldone.backend.service;
 
+import com.zitadel.model.UserServiceHuman;
+import com.zitadel.model.UserServiceHumanUser;
+import com.zitadel.model.UserServiceUser;
+import de.goaldone.backend.client.ZitadelManagementClient;
 import de.goaldone.backend.entity.LinkTokenEntity;
 import de.goaldone.backend.entity.UserAccountEntity;
 import de.goaldone.backend.entity.UserIdentityEntity;
@@ -7,6 +11,7 @@ import de.goaldone.backend.exception.AlreadyLinkedException;
 import de.goaldone.backend.exception.LinkTokenExpiredException;
 import de.goaldone.backend.exception.NotLinkedException;
 import de.goaldone.backend.exception.SameOrganizationLinkNotAllowedException;
+import de.goaldone.backend.model.LinkInfoResponse;
 import de.goaldone.backend.model.LinkTokenResponse;
 import de.goaldone.backend.repository.LinkTokenRepository;
 import de.goaldone.backend.repository.UserAccountRepository;
@@ -16,6 +21,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -24,7 +30,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
-import java.util.UUID;
+import java.util.*;
 
 /**
  * Service for managing the linking and unlinking of user accounts across different organizations.
@@ -41,6 +47,8 @@ public class AccountLinkingService {
     private final UserAccountRepository userAccountRepository;
     private final UserIdentityRepository userIdentityRepository;
     private final WorkingTimeRepository workingTimeRepository;
+    private final ZitadelManagementClient zitadelManagementClient;
+    private final CurrentUserResolver currentUserResolver;
 
     /**
      * Requests a new link token for the specified initiator account.
@@ -62,6 +70,51 @@ public class AccountLinkingService {
         return response;
     }
 
+    /**
+     * Retrieves information about a link token, including the account ID of the initiator.
+     * @param linkToken the link token to check
+     * @return the account ID of the initiator
+     */
+    public LinkInfoResponse getLinkInfo(UUID linkToken, Jwt jwt) {
+
+        LinkTokenEntity tokenEntity = linkTokenRepository.findById(linkToken)
+                .orElseThrow(() -> new LinkTokenExpiredException(linkToken));
+
+        if (tokenEntity.getExpiresAt().isBefore(Instant.now())) {
+            linkTokenRepository.delete(tokenEntity);
+            throw new LinkTokenExpiredException(linkToken);
+        } else if (tokenEntity.getInitiatorAccountId() == null) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Initiator account ID is missing in token");
+        }
+
+        // Get current User info from token
+        UserAccountEntity currentAccount = currentUserResolver.resolveCurrentAccount(jwt);
+        UserAccountEntity initiatorAccount = userAccountRepository.findById(tokenEntity.getInitiatorAccountId())
+                .orElseThrow(() -> new IllegalStateException("Initiator account not found"));
+        List<UserAccountEntity> intiatorAccounts = userAccountRepository.findAllByUserIdentityId(initiatorAccount.getUserIdentityId());
+
+        List<UserAccountEntity> accounts = new ArrayList<>();
+        accounts.add(currentAccount);
+        accounts.addAll(intiatorAccounts);
+
+        Map<UUID, String> emails = new HashMap<>();
+        accounts.forEach(account -> {
+            Optional<UserServiceUser> user = zitadelManagementClient.getUser(account.getZitadelSub());
+            if (user.isEmpty() || user.get().getHuman() == null) {
+                throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to fetch user from Zitadel");
+            }
+            UserServiceHumanUser human = user.get().getHuman();
+            if (human.getEmail() == null || human.getEmail().getEmail() == null) {
+                throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "User email not found");
+            }
+            emails.put(account.getId(), Objects.requireNonNull(user.get().getHuman().getEmail()).getEmail());
+        });
+
+        ArrayList<String> initiatorEmails = new ArrayList<>();
+        intiatorAccounts.forEach(account -> initiatorEmails.add(emails.get(account.getId())));
+
+        return new LinkInfoResponse(initiatorAccount.getId(), initiatorEmails, emails.get(currentAccount.getId()));
+    }
     /**
      * Confirms a link request using a provided token and a confirming account.
      * Merges the identities of the two accounts if they are not already linked and do not belong to the same organization.

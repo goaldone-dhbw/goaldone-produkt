@@ -9,6 +9,7 @@ import de.goaldone.backend.service.UserIdentityService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -90,6 +91,13 @@ public class UserAccountsController implements UserAccountsApi {
         hasAccess(accountId);
         deletionService.deleteUser(accountId);
         return ResponseEntity.noContent().build();
+    }
+
+    @Override
+    public ResponseEntity<LinkInfoResponse> getAccountLinkInfo(UUID linkingToken) throws Exception {
+        Jwt jwt = currentUserResolver.extractJwt();
+        LinkInfoResponse response = accountLinkingService.getLinkInfo(linkingToken, jwt);
+        return ResponseEntity.ok(response);
     }
 
     /**
