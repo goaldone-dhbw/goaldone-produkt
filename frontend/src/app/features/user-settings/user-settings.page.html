@@ -1,27 +1,30 @@
-<div class="p-4 sm:p-8 max-w-4xl mx-auto">
+<div class="p-4 sm:p-8 max-w-5xl mx-auto">
   <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
     <h1 class="text-2xl sm:text-3xl font-bold text-slate-900 flex items-center gap-3">
-      <i class="pi pi-user text-primary-icon"></i> Benutzereinstellungen
+      <i class="pi pi-user text-primary-icon"></i>
+      Benutzereinstellungen
     </h1>
+
     <p-button
       label="Abmelden"
       icon="pi pi-sign-out"
       severity="danger"
       [outlined]="true"
-      (onClick)="logout()"
-      class="w-full sm:w-auto"
-      styleClass="w-full sm:w-auto"
+      [loading]="logoutLoading"
+      [disabled]="logoutLoading"
+      (onClick)="openLogoutDialog()"
     ></p-button>
   </div>
 
   @if (loading) {
-    <div class="flex items-center gap-2 text-lg text-slate-600">
-      <i class="pi pi-spin pi-spinner"></i> Wird geladen...
+    <div class="flex items-center gap-2 text-lg text-slate-600 mb-6">
+      <i class="pi pi-spin pi-spinner"></i>
+      Wird geladen...
     </div>
   }
 
   @if (error) {
-    <div class="p-4 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl flex items-center gap-3">
+    <div class="p-4 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl flex items-center gap-3 mb-6">
       <i class="pi pi-exclamation-triangle"></i>
       <div>
         <p class="font-bold">Fehler</p>
@@ -30,60 +33,488 @@
     </div>
   }
 
-  @if (accounts.length > 0 && !loading) {
-    <div>
-      <h2 class="text-xl font-bold mb-6 text-slate-800 flex items-center gap-2">
-        <i class="pi pi-list text-primary-icon"></i> Meine Konten
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+    <!-- Password Change Card -->
+    <section class="p-6 bg-white border border-slate-200 rounded-2xl shadow-sm flex flex-col">
+      <h2 class="text-xl font-bold mb-2 text-slate-800 flex items-center gap-2">
+        <i class="pi pi-lock text-primary-icon"></i>
+        Passwort ändern
       </h2>
+
+      <p class="text-slate-600 mb-6">
+        Ändere dein Passwort, um dein Konto zu schützen.
+      </p>
+
+      @if (passwordError) {
+        <div class="mb-4">
+          <p-message severity="error" [text]="passwordError"></p-message>
+        </div>
+      }
+
+      @if (passwordSuccess) {
+        <div class="mb-4">
+          <p-message severity="success" [text]="passwordSuccess"></p-message>
+        </div>
+      }
+
+      <div class="mt-auto">
+        <p-button
+          label="Passwort ändern"
+          icon="pi pi-lock"
+          severity="secondary"
+          [outlined]="true"
+          (onClick)="openPasswordDialog()"
+        ></p-button>
+      </div>
+    </section>
+
+    <!-- Delete Account Card -->
+    <section class="p-6 bg-white border border-slate-200 rounded-2xl shadow-sm flex flex-col">
+      <h2 class="text-xl font-bold mb-2 text-slate-800 flex items-center gap-2">
+        <i class="pi pi-trash text-primary-icon"></i>
+        Account löschen
+      </h2>
+
+      <p class="text-slate-600 mb-4">
+        Löscht dein eigenes Benutzerkonto dauerhaft.
+      </p>
+
+      @if (deleteError) {
+        <div class="mb-4">
+          <p-message severity="error" [text]="deleteError"></p-message>
+        </div>
+      }
+
+      <div class="mt-auto">
+        <p-button
+          label="Account löschen"
+          icon="pi pi-trash"
+          severity="danger"
+          [outlined]="true"
+          [loading]="deleteLoading"
+          [disabled]="lastAdminAttempted || deleteLoading"
+          (onClick)="openDeleteDialog()"
+        ></p-button>
+      </div>
+    </section>
+  </div>
+
+  <!-- My Accounts Section -->
+  @if (accounts.length > 0 && !loading) {
+    <div class="mb-8">
+      <h2 class="text-xl font-bold mb-6 text-slate-800 flex items-center gap-2">
+        <i class="pi pi-list text-primary-icon"></i>
+        Meine Konten
+      </h2>
+
       <div class="space-y-4">
         @for (account of accounts; track account.accountId) {
-          <div class="p-6 bg-white border border-slate-200 rounded-2xl shadow-sm">
-            <h3 class="text-lg font-bold mb-4 text-slate-800 flex items-center gap-2">
-              <i class="pi pi-building text-primary-icon"></i> {{ account.organizationName }}
-            </h3>
-            <dl class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+          <section class="p-6 bg-white border border-slate-200 rounded-2xl shadow-sm">
+            <div class="flex items-start justify-between gap-2 mb-4">
+              <div class="flex-1">
+                <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2 mb-3">
+                  <i class="pi pi-building text-primary-icon"></i>
+                  {{ account.organizationName }}
+                </h3>
+
+                @if (account.roles && account.roles.length > 0) {
+                  <div class="flex flex-wrap gap-2 mb-4">
+                    @for (role of account.roles; track role) {
+                      <span class="px-2 py-1 bg-slate-100 text-slate-700 rounded text-xs font-bold border border-slate-200">
+                        {{ role }}
+                      </span>
+                    }
+                  </div>
+                }
+              </div>
+
+              <p-button
+                icon="pi pi-pencil"
+                [rounded]="true"
+                [text]="true"
+                severity="secondary"
+                pTooltip="Bearbeiten"
+                tooltipPosition="top"
+                (onClick)="openEditAccountDialog(account)"
+              ></p-button>
+            </div>
+
+            <dl class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3">
               @if (account.email) {
                 <div>
-                  <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1 flex items-center gap-1">
-                    <i class="pi pi-envelope text-xs text-primary-icon"></i> E-Mail
+                  <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">
+                    E-Mail
                   </dt>
                   <dd class="text-slate-900 font-medium">{{ account.email }}</dd>
                 </div>
               }
-              @if (account.firstName) {
+
+              @if (account.firstName || account.lastName) {
                 <div>
-                  <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1 flex items-center gap-1">
-                    <i class="pi pi-user text-xs text-primary-icon"></i> Vorname
+                  <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">
+                    Name
                   </dt>
-                  <dd class="text-slate-900 font-medium">{{ account.firstName }}</dd>
-                </div>
-              }
-              @if (account.lastName) {
-                <div>
-                  <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1 flex items-center gap-1">
-                    <i class="pi pi-user text-xs text-primary-icon"></i> Nachname
-                  </dt>
-                  <dd class="text-slate-900 font-medium">{{ account.lastName }}</dd>
-                </div>
-              }
-              @if (account.roles && account.roles.length > 0) {
-                <div class="md:col-span-2">
-                  <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1 flex items-center gap-1">
-                    <i class="pi pi-shield text-xs text-primary-icon"></i> Rollen
-                  </dt>
-                  <dd class="flex flex-wrap gap-2 mt-2">
-                    @for (role of account.roles; track role) {
-                      <span class="px-2.5 py-1 bg-slate-100 text-slate-700 rounded-lg text-xs font-bold border border-slate-200">
-                        {{ role }}
-                      </span>
-                    }
-                  </dd>
+                  <dd class="text-slate-900 font-medium">{{ account.firstName }} {{ account.lastName }}</dd>
                 </div>
               }
             </dl>
-          </div>
+          </section>
         }
       </div>
     </div>
   }
 </div>
+
+<!-- Password Change Dialog -->
+<app-base-popup
+  [(isOpen)]="passwordDialogOpen"
+  title="Passwort ändern"
+  confirmLabel="Ändern"
+  cancelLabel="Abbrechen"
+  [confirmDisabled]="passwordFormInvalid"
+  [autoCloseOnConfirm]="false"
+  (confirm)="submitPasswordChange()"
+>
+  <div popup-content class="space-y-4">
+    <div>
+      <label for="currentPassword" class="block text-sm font-semibold text-slate-700 mb-2">
+        Aktuelles Passwort
+      </label>
+
+      <p-password
+        inputId="currentPassword"
+        [(ngModel)]="currentPassword"
+        name="currentPassword"
+        [feedback]="false"
+        [toggleMask]="true"
+        [disabled]="passwordLoading"
+        inputStyleClass="w-full"
+        styleClass="w-full"
+        (onBlur)="currentPasswordTouched = true"
+      ></p-password>
+
+      @if (currentPasswordMissing) {
+        <small class="block mt-2 text-rose-600">
+          Aktuelles Passwort ist erforderlich
+        </small>
+      }
+    </div>
+
+    <div>
+      <label for="newPassword" class="block text-sm font-semibold text-slate-700 mb-2">
+        Neues Passwort
+      </label>
+
+      <p-password
+        inputId="newPassword"
+        [(ngModel)]="newPassword"
+        name="newPassword"
+        [feedback]="false"
+        [toggleMask]="true"
+        [disabled]="passwordLoading"
+        inputStyleClass="w-full"
+        styleClass="w-full"
+        (onBlur)="passwordTouched = true"
+      ></p-password>
+
+      @if (passwordTouched && passwordSameAsCurrent) {
+        <small class="block mt-2 text-rose-600">
+          Das neue Passwort darf nicht mit dem aktuellen Passwort übereinstimmen
+        </small>
+      }
+
+      @if (newPassword.length > 0 || passwordTouched) {
+        <div class="mt-4 grid grid-cols-2 gap-3 text-sm font-semibold">
+          <div class="flex items-center gap-2">
+            <i
+              class="pi"
+              [ngClass]="passwordHasMinimumLength ? 'pi-check text-emerald-600' : 'pi-times text-rose-600'"
+            ></i>
+            <span>Mindestens 8 Zeichen</span>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <i
+              class="pi"
+              [ngClass]="passwordHasUppercaseLetter ? 'pi-check text-emerald-600' : 'pi-times text-rose-600'"
+            ></i>
+            <span>Großbuchstabe</span>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <i
+              class="pi"
+              [ngClass]="passwordHasLowercaseLetter ? 'pi-check text-emerald-600' : 'pi-times text-rose-600'"
+            ></i>
+            <span>Kleinbuchstabe</span>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <i
+              class="pi"
+              [ngClass]="passwordHasNumber ? 'pi-check text-emerald-600' : 'pi-times text-rose-600'"
+            ></i>
+            <span>Zahl</span>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <i
+              class="pi"
+              [ngClass]="passwordHasSymbol ? 'pi-check text-emerald-600' : 'pi-times text-rose-600'"
+            ></i>
+            <span>Sonderzeichen</span>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <i
+              class="pi"
+              [ngClass]="passwordConfirmationMatches ? 'pi-check text-emerald-600' : 'pi-times text-rose-600'"
+            ></i>
+            <span>Passwörter stimmen</span>
+          </div>
+        </div>
+      }
+    </div>
+
+    <div>
+      <label for="confirmPassword" class="block text-sm font-semibold text-slate-700 mb-2">
+        Passwort bestätigen
+      </label>
+
+      <p-password
+        inputId="confirmPassword"
+        [(ngModel)]="confirmPassword"
+        name="confirmPassword"
+        [feedback]="false"
+        [toggleMask]="true"
+        [disabled]="passwordLoading"
+        inputStyleClass="w-full"
+        styleClass="w-full"
+        (onBlur)="confirmPasswordTouched = true"
+      ></p-password>
+
+      @if (confirmPasswordTouched && passwordsDoNotMatch) {
+        <small class="block mt-2 text-rose-600">
+          Passwörter stimmen nicht überein
+        </small>
+      }
+    </div>
+
+    @if (passwordError) {
+      <div>
+        <p-message severity="error" [text]="passwordError"></p-message>
+      </div>
+    }
+
+    @if (passwordSuccess) {
+      <div>
+        <p-message severity="success" [text]="passwordSuccess"></p-message>
+      </div>
+    }
+
+    @if (passwordLoading) {
+      <div class="flex items-center gap-2 text-slate-600">
+        <i class="pi pi-spin pi-spinner"></i>
+        Passwort wird geändert...
+      </div>
+    }
+  </div>
+</app-base-popup>
+
+<!-- Edit Account Dialog -->
+<app-base-popup
+  [(isOpen)]="editAccountDialogOpen"
+  [title]="'Konto bearbeiten: ' + (selectedAccount?.organizationName || '')"
+  confirmLabel="Weiter"
+  cancelLabel="Abbrechen"
+  [autoCloseOnConfirm]="false"
+  (confirm)="submitEditAccount()"
+>
+  <div popup-content>
+    <div class="space-y-4">
+      <div>
+        <label for="editFirstName" class="block text-sm font-semibold text-slate-700 mb-2">
+          Vorname
+        </label>
+        <input
+          id="editFirstName"
+          pInputText
+          type="text"
+          [(ngModel)]="editFirstName"
+          [disabled]="editAccountLoading"
+          placeholder="z.B. Hans"
+          class="w-full"
+        />
+      </div>
+
+      <div>
+        <label for="editLastName" class="block text-sm font-semibold text-slate-700 mb-2">
+          Nachname
+        </label>
+        <input
+          id="editLastName"
+          pInputText
+          type="text"
+          [(ngModel)]="editLastName"
+          [disabled]="editAccountLoading"
+          placeholder="z.B. Müller"
+          class="w-full"
+        />
+      </div>
+
+      <div>
+        <label for="editEmail" class="block text-sm font-semibold text-slate-700 mb-2">
+          E-Mail
+        </label>
+        <input
+          id="editEmail"
+          pInputText
+          type="email"
+          [(ngModel)]="editEmail"
+          [disabled]="editAccountLoading"
+          placeholder="z.B. hans@example.com"
+          class="w-full"
+        />
+      </div>
+
+      @if (editAccountError) {
+        <p-message severity="error" [text]="editAccountError"></p-message>
+      }
+    </div>
+  </div>
+</app-base-popup>
+
+<!-- Edit Account Confirmation Dialog -->
+<app-base-popup
+  [(isOpen)]="editConfirmDialogOpen"
+  title="Änderungen bestätigen"
+  confirmLabel="Bestätigen"
+  cancelLabel="Abbrechen"
+  [autoCloseOnConfirm]="false"
+  (confirm)="confirmEditAccount()"
+>
+  <div popup-content>
+    <div class="space-y-4">
+      <p class="text-slate-600">
+        Bitte überprüfe deine Änderungen:
+      </p>
+
+      <div class="space-y-3">
+        @if (editConfirmOriginal?.firstName !== editConfirmNew?.firstName) {
+          <div class="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <p class="text-xs font-semibold uppercase tracking-wide text-blue-800 mb-2">Vorname</p>
+            <div class="flex items-center gap-2">
+              <span class="line-through text-slate-500">{{ editConfirmOriginal?.firstName || '(leer)' }}</span>
+              <i class="pi pi-arrow-right text-blue-600 text-xs"></i>
+              <span class="font-semibold text-slate-900">{{ editConfirmNew?.firstName || '(leer)' }}</span>
+            </div>
+          </div>
+        }
+
+        @if (editConfirmOriginal?.lastName !== editConfirmNew?.lastName) {
+          <div class="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <p class="text-xs font-semibold uppercase tracking-wide text-blue-800 mb-2">Nachname</p>
+            <div class="flex items-center gap-2">
+              <span class="line-through text-slate-500">{{ editConfirmOriginal?.lastName || '(leer)' }}</span>
+              <i class="pi pi-arrow-right text-blue-600 text-xs"></i>
+              <span class="font-semibold text-slate-900">{{ editConfirmNew?.lastName || '(leer)' }}</span>
+            </div>
+          </div>
+        }
+
+        @if (editConfirmOriginal?.email !== editConfirmNew?.email) {
+          <div class="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <p class="text-xs font-semibold uppercase tracking-wide text-blue-800 mb-2">E-Mail</p>
+            <div class="flex items-center gap-2">
+              <span class="line-through text-slate-500">{{ editConfirmOriginal?.email || '(leer)' }}</span>
+              <i class="pi pi-arrow-right text-blue-600 text-xs"></i>
+              <span class="font-semibold text-slate-900">{{ editConfirmNew?.email || '(leer)' }}</span>
+            </div>
+          </div>
+        }
+      </div>
+
+      @if (editAccountLoading) {
+        <div class="flex items-center gap-2 text-slate-600">
+          <i class="pi pi-spin pi-spinner"></i>
+          Wird aktualisiert...
+        </div>
+      }
+
+      @if (editAccountError) {
+        <div>
+          <p-message severity="error" [text]="editAccountError"></p-message>
+        </div>
+      }
+    </div>
+  </div>
+</app-base-popup>
+
+<!-- Logout Dialog -->
+<app-base-popup
+  [(isOpen)]="logoutDialogOpen"
+  title="Abmelden bestätigen"
+  content="Möchtest du dich wirklich abmelden?"
+  confirmLabel="Abmelden"
+  cancelLabel="Abbrechen"
+  [autoCloseOnConfirm]="false"
+  (confirm)="confirmLogout()"
+>
+  <div popup-content>
+    @if (logoutLoading) {
+      <div class="flex items-center gap-2 text-slate-600">
+        <i class="pi pi-spin pi-spinner"></i>
+        Sitzung wird beendet...
+      </div>
+    }
+
+    @if (logoutError) {
+      <div class="mt-4">
+        <p-message severity="error" [text]="logoutError"></p-message>
+      </div>
+    }
+  </div>
+</app-base-popup>
+
+<!-- Delete Dialog -->
+<app-base-popup
+  [(isOpen)]="deleteDialogOpen"
+  title="Account löschen"
+  confirmLabel="Account löschen"
+  cancelLabel="Abbrechen"
+  [confirmDisabled]="!deleteConfirmValid"
+  [autoCloseOnConfirm]="false"
+  (confirm)="confirmDeleteAccount()"
+>
+  <div popup-content class="space-y-4">
+    <p class="text-rose-700 font-semibold">
+      Diese Aktion kann nicht rückgängig gemacht werden.
+    </p>
+
+    <div class="p-4 bg-rose-50 border border-rose-200 rounded-lg text-sm text-slate-600">
+      Um das Löschen zu bestätigen, gib bitte <strong>LÖSCHEN</strong> ein:
+    </div>
+
+    <input
+      type="text"
+      pInputText
+      [(ngModel)]="deleteConfirmText"
+      [disabled]="deleteLoading"
+      placeholder="LÖSCHEN"
+      class="w-full uppercase tracking-widest"
+    />
+
+    @if (deleteLoading) {
+      <div class="flex items-center gap-2 text-slate-600">
+        <i class="pi pi-spin pi-spinner"></i>
+        Account wird gelöscht...
+      </div>
+    }
+
+    @if (deleteError) {
+      <div>
+        <p-message severity="error" [text]="deleteError"></p-message>
+      </div>
+    }
+  </div>
+</app-base-popup>

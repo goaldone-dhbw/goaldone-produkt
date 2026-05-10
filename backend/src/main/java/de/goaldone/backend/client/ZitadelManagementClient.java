@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zitadel.ApiException;
 import com.zitadel.Zitadel;
 import com.zitadel.model.*;
+import de.goaldone.backend.exception.IncorrectPasswordException;
 import de.goaldone.backend.exception.ZitadelApiException;
 import de.goaldone.backend.model.AccountUpdateRequest;
 import de.goaldone.backend.model.MemberRole;
@@ -499,6 +500,9 @@ public class ZitadelManagementClient {
             zitadel.getUsers().updateUser(request);
         } catch (ApiException e) {
             log.error("Failed to update user password: HTTP {}", e.getCode());
+            if (e.getCode() == 400) {
+                throw new IncorrectPasswordException();
+            }
             throw new ZitadelApiException("Failed to update user password: HTTP " + e.getCode(), e);
         } catch (Exception e) {
             throw new ZitadelApiException("Failed to update user password: " + e.getMessage(), e);
