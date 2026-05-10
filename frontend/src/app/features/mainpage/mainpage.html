@@ -1,3 +1,139 @@
-<div class="p-5">
-  <h1>Mainpage works!</h1>
+<div class="p-6">
+  <!-- Loading State -->
+  <div *ngIf="loading()" class="space-y-4">
+    <p-skeleton height="3rem" class="mb-4"></p-skeleton>
+    <p-skeleton height="12rem"></p-skeleton>
+    <p-skeleton height="12rem"></p-skeleton>
+    <p-skeleton height="15rem"></p-skeleton>
+  </div>
+
+  <!-- Main Content -->
+  <div *ngIf="!loading()" class="space-y-6">
+    <!-- Greeting Card -->
+    <p-card class="greeting-card">
+      <div class="text-2xl font-semibold">
+        Guten Tag,
+        <span class="text-primary">{{ firstName() + " " + lastName() || 'Nutzer' }}</span
+        >!
+      </div>
+    </p-card>
+
+    <!-- Next Task & Progress Section -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <!-- Next Task -->
+      <div class="lg:col-span-2">
+        <p-card class="next-task-card h-full">
+          <ng-template pTemplate="header">
+            <div class="text-lg font-semibold">Nächste Aufgabe</div>
+          </ng-template>
+
+          <div *ngIf="nextTask() as task; else noNextTask" class="space-y-3">
+            <h3 class="text-xl font-semibold text-primary">{{ task.title }}</h3>
+
+            <div class="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <div class="text-gray-600 mb-1">Deadline</div>
+                <div class="font-medium">{{ formatDate(task.deadline) }}</div>
+              </div>
+              <div>
+                <div class="text-gray-600 mb-1">Dauer</div>
+                <div class="font-medium">{{ formatDuration(task.duration ?? 0) }}</div>
+              </div>
+            </div>
+
+            <p-tag
+              *ngIf="task.status"
+              [value]="task.status"
+              [severity]="getTaskStatusSeverity(task.status)"
+              class="w-fit"
+            ></p-tag>
+
+            <p *ngIf="task.description" class="text-sm text-gray-700">
+              {{ task.description }}
+            </p>
+          </div>
+
+          <ng-template #noNextTask>
+            <p class="text-gray-600">Keine anstehenden Aufgaben!</p>
+          </ng-template>
+        </p-card>
+      </div>
+
+      <!-- Progress & Work Time (Right Column) -->
+      <div class="space-y-6">
+        <!-- Progress Card -->
+        <p-card class="progress-card">
+          <ng-template pTemplate="header">
+            <div class="text-lg font-semibold">Fortschritt</div>
+          </ng-template>
+
+          <p-progressBar [value]="progressPercent()" [showValue]="true"></p-progressBar>
+
+          <div class="mt-4 text-sm text-gray-600">
+            {{ completedTasksCount() }} von {{ totalTasksCount() }} abgeschlossen
+          </div>
+        </p-card>
+
+        <!-- Work Time Card -->
+        <p-card class="work-time-card">
+          <ng-template pTemplate="header">
+            <div class="text-lg font-semibold">Geleistete Arbeitszeit</div>
+          </ng-template>
+
+          <div class="text-3xl font-bold text-primary">
+            {{ formatDuration(completedMinutes()) }}
+          </div>
+        </p-card>
+      </div>
+    </div>
+
+    <!-- Upcoming Tasks List -->
+    <p-card class="upcoming-tasks-card">
+      <ng-template pTemplate="header">
+        <div class="text-lg font-semibold">Anstehende Aufgaben</div>
+      </ng-template>
+
+      <div *ngIf="upcomingTasks().length > 0; else noUpcomingTasks" class="space-y-4">
+        <div
+          *ngFor="let task of upcomingTasks()"
+          class="border-l-4 border-primary p-4 bg-gray-50 rounded"
+        >
+          <div class="flex items-start justify-between mb-2">
+            <h4 class="font-semibold text-base">{{ task.title }}</h4>
+            <p-tag
+              [value]="task.status"
+              [severity]="getTaskStatusSeverity(task.status)"
+              class="ml-2"
+            ></p-tag>
+          </div>
+
+          <div class="grid grid-cols-3 gap-4 text-sm mb-3">
+            <div>
+              <div class="text-gray-600">Datum</div>
+              <div class="font-medium">{{ formatDate(task.deadline) }}</div>
+            </div>
+            <div>
+              <div class="text-gray-600">Dauer</div>
+              <div class="font-medium">{{ formatDuration(task.duration ?? 0) }}</div>
+            </div>
+            <div *ngIf="task.cognitiveLoad">
+              <div class="text-gray-600">Aufwand</div>
+              <div class="font-medium capitalize">{{ task.cognitiveLoad }}</div>
+            </div>
+          </div>
+
+          <p *ngIf="task.description" class="text-sm text-gray-700 line-clamp-2">
+            {{ task.description }}
+          </p>
+        </div>
+      </div>
+
+      <ng-template #noUpcomingTasks>
+        <p-message
+          severity="info"
+          text="Keine anstehenden Aufgaben. Alle Aufgaben sind erledigt!"
+        ></p-message>
+      </ng-template>
+    </p-card>
+  </div>
 </div>
