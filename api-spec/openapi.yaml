@@ -1777,7 +1777,6 @@ components:
           maxLength: 128
         currentPassword:
           type: string
-          minLength: 8
           maxLength: 128
 
 
