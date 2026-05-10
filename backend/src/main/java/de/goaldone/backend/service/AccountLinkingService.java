@@ -101,7 +101,7 @@ public class AccountLinkingService {
         AtomicBoolean hasConflicts = new AtomicBoolean(false);
         accounts.forEach(account -> {
             Optional<OrganizationEntity> org = organizationRepository.findById(account.getOrganizationId());
-            if (org.isEmpty()) {
+            if (org.isPresent()) {
                 if(orgs.contains(account.getOrganizationId())){
                    hasConflicts.set(true);
                 } else {

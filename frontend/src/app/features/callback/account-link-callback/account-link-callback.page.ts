@@ -82,8 +82,19 @@ import { UserAccountsService } from '../../../api';
 
         <!-- Error state -->
         @if (error) {
-          <div class="p-4 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl">
-            {{ error }}
+          <div class="space-y-4">
+            <div class="p-4 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl">
+              {{ error }}
+            </div>
+
+            @if (inConflict) {
+              <button
+                class="w-full px-4 py-2 bg-slate-900 text-white rounded-lg font-semibold hover:bg-slate-800 transition"
+                (click)="returnToApp()"
+              >
+                Zurück zur Startseite
+              </button>
+            }
           </div>
         }
       </div>
@@ -99,6 +110,7 @@ export class AccountLinkCallbackPage implements OnInit {
   private cdr = inject(ChangeDetectorRef);
 
   error: string | null = null;
+  inConflict = false;
   confirmationData: { currentEmail: string; initiatorEmails: string[] } | null = null;
   confirming = false;
 
@@ -147,6 +159,17 @@ export class AccountLinkCallbackPage implements OnInit {
       const linkInfo = await firstValueFrom(this.userAccountsService.getAccountLinkInfo(linkToken));
 
       console.log('LinkInfo Response:', linkInfo);
+
+      if (linkInfo.inConflict) {
+        this.inConflict = true;
+        this.error = 'Sie können nicht zwei Accounts aus derselben Organisation verknüpfen. Sie haben bereits einen Account in dieser Organisation.';
+        this.accountLinkingStorage.clearPendingLink();
+        if (accountAToken) {
+          this.authService.restoreAccessToken(accountAToken);
+        }
+        this.cdr.markForCheck();
+        return;
+      }
 
       this.pendingLinkToken = linkToken;
       this.pendingAccountAToken = accountAToken;
@@ -216,6 +239,10 @@ export class AccountLinkCallbackPage implements OnInit {
         reason: 'Die Account-Verknüpfung wurde abgebrochen.',
       },
     });
+  }
+
+  async returnToApp(): Promise<void> {
+    await this.router.navigate(['/app']);
   }
 
   private extractEmailFromToken(token: string): string {
