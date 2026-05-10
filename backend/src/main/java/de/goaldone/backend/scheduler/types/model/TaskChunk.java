@@ -12,6 +12,7 @@ import java.util.UUID;
 public record TaskChunk(
     UUID chunkId,
     UUID taskId,
+    String taskTitle,
     int chunkIndex,
     int totalChunks,
     int durationMinutes,

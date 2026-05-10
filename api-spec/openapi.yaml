@@ -1853,13 +1853,15 @@ components:
     # ----------------------------------------------------------
     ScheduleEntry:
       type: object
-      required: [ source, date, startTime, endTime, type, isCompleted, isPinned ]
+      required: [taskTitle, source, date, startTime, endTime, type, isCompleted, isPinned ]
       description: |
         Ein Zeitblock im Kalender. Kann ein persistierter DB-Eintrag
         (`source: ONE_TIME`) oder ein virtuell berechnetes Vorkommen
         einer Recurrence-Rule (`source: RECURRING`) sein.
       properties:
         # --- Diskriminator ---
+        taskTitle:
+          type: string
         source:
           type: string
           enum: [ ONE_TIME, RECURRING ]
@@ -1876,7 +1878,7 @@ components:
             Nur bei `source: ONE_TIME`.
             Für PATCH-Aktionen (complete, pin, unpin).
         # --- Zeitdaten ---
-        occurenceDate:
+        occurrenceDate:
           type: string
           format: date
           description: Datum des Eintrags

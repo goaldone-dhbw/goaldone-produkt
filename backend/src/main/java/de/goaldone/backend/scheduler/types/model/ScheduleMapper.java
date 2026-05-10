@@ -95,8 +95,9 @@ public class ScheduleMapper {
      */
     private ScheduleEntry toScheduleEntry(ScheduledChunk scheduledChunk) {
         return new ScheduleEntry()
+                .taskTitle(scheduledChunk.chunk().taskTitle())
                 .source(ScheduleEntry.SourceEnum.ONE_TIME)
-                .occurenceDate(scheduledChunk.date())
+                .occurrenceDate(scheduledChunk.date())
                 .startTime(scheduledChunk.startTime().format(TIME_FORMATTER))
                 .endTime(scheduledChunk.endTime().format(TIME_FORMATTER))
                 .type(ScheduleEntry.TypeEnum.TASK)

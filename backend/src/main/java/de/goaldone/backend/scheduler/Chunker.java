@@ -1,7 +1,6 @@
 package de.goaldone.backend.scheduler;
 
 import de.goaldone.backend.entity.WorkingTimeEntity;
-import de.goaldone.backend.model.CognitiveLoad;
 import de.goaldone.backend.model.TaskResponse;
 import de.goaldone.backend.scheduler.types.model.TaskChunk;
 
@@ -58,6 +57,7 @@ public class Chunker {
         List<TaskChunk> chunks = new ArrayList<>();
         for (int i = 0; i < totalChunks; i++) {
             chunks.add(TaskChunk.builder()
+                    .taskTitle(task.getTitle())
                     .chunkId(UUID.randomUUID())
                     .taskId(task.getId())
                     .chunkIndex(i)
