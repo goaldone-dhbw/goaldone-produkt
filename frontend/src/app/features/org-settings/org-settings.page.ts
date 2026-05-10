@@ -1,6 +1,7 @@
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Button } from 'primeng/button';
+import { Card } from 'primeng/card';
 import { InputText } from 'primeng/inputtext';
 import { Message } from 'primeng/message';
 import { TableModule } from 'primeng/table';
@@ -17,7 +18,7 @@ import { AccountStore } from '../../core/accounts/account.store';
 @Component({
   selector: 'app-org-settings',
   standalone: true,
-  imports: [FormsModule, Button, InputText, Message, TableModule, Tag, Tooltip, ConfirmDialog, Toast],
+  imports: [FormsModule, Button, Card, InputText, Message, TableModule, Tag, Tooltip, ConfirmDialog, Toast],
   providers: [ConfirmationService, MessageService],
   templateUrl: './org-settings.page.html',
   styleUrl: './org-settings.page.scss',
@@ -46,12 +47,16 @@ export class OrgSettingsPage {
   readonly deletingUserId = signal<string | null>(null);
   readonly deleteError = signal<string | null>(null);
 
-  readonly orgId = computed(() => {
-    const adminAccount = this.accountStore
-      .accounts()
-      .find((account) => account.roles.includes('COMPANY_ADMIN'));
+  readonly selectedOrgId = signal<string | null>(null);
 
-    return adminAccount?.organizationId ?? null;
+  readonly adminAccounts = computed(() =>
+    this.accountStore.accounts().filter((a) => a.roles.includes('COMPANY_ADMIN')),
+  );
+
+  readonly orgId = computed(() => {
+    const admins = this.adminAccounts();
+    if (admins.length === 1) return admins[0].organizationId ?? null;
+    return this.selectedOrgId();
   });
 
   readonly isInviteEmailValid = computed(() =>
@@ -315,5 +320,9 @@ export class OrgSettingsPage {
 
   getRoleSeverity(role: MemberRole): 'success' | 'secondary' {
     return role === 'COMPANY_ADMIN' ? 'success' : 'secondary';
+  }
+
+  selectOrg(orgId: string): void {
+    this.selectedOrgId.set(orgId);
   }
 }
