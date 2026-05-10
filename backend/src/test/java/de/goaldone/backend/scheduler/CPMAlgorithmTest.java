@@ -291,7 +291,39 @@ class CPMAlgorithmTest {
 
         assertThat(result.scheduledChunks().getFirst().slot()).isEqualTo(task1TimeSlot);
         assertThat(result.scheduledChunks().getLast().slot()).isEqualTo(task2TimeSlot);
+    }
 
+    @Test
+    void shouldChunkAndScheduleOneByOne_whenLargeTask() {
+        LocalDate date = LocalDate.of(2026, 5, 11); // Monday
+
+        TimeSlot slot1 = slot(date.plusDays(0), 8, 17);
+        TimeSlot slot2 = slot(date.plusDays(1), 8, 17);
+        List<TimeSlot> availableSlots = List.of(slot1, slot2);
+
+        List<TaskResponse> tasks = List.of(task(600, List.of(),null, null, CognitiveLoad.MODERATE));
+
+        List<WorkingTimeEntity> workingTime = List.of(working(List.of(DayOfWeek.MONDAY, DayOfWeek.TUESDAY), 17));
+
+        SchedulingContext context = new SchedulingContext(
+                date, availableSlots, tasks, workingTime
+        );
+
+        SolverState result = algorithm.generateInitialSchedule(context);
+
+        assertThat(result).isNotNull();
+        assertThat(result.unscheduledChunks().size()).isEqualTo(0);
+
+
+        List<TimeSlot> expected = List.of(
+                new TimeSlot(date, LocalTime.of(8, 0), LocalTime.of(12,0)),
+                new TimeSlot(date, LocalTime.of(12, 0), LocalTime.of(16,0)),
+                new TimeSlot(date.plusDays(1), LocalTime.of(8, 0), LocalTime.of(10,0))
+        );
+
+        for (int i = 0; i < expected.size(); i++) {
+            assertThat(result.scheduledChunks().get(i).slot()).isEqualTo(expected.get(i));
+        }
     }
 
     private TaskResponse task(int taskDuration) {
@@ -321,7 +353,6 @@ class CPMAlgorithmTest {
         } else {
             convertedNotBefore = null;
         }
-
 
         return new TaskResponse()
                 .id(UUID.randomUUID())

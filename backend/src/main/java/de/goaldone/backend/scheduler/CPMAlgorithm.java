@@ -13,7 +13,6 @@ public class CPMAlgorithm {
     private final TaskSorter taskSorter;
     private final Chunker chunker;
 
-    private ArrayList<TimeSlot> availableTimeSlots;
     private ArrayList<TimeSlot> tempAvailableTimeSlots;
 
     private UnscheduledTask.ReasonEnum unscheduledReason;
@@ -31,7 +30,7 @@ public class CPMAlgorithm {
      * @return A first, heuristic generated schedule
      */
     public SolverState generateInitialSchedule(SchedulingContext context) {
-        this.availableTimeSlots = new ArrayList<>(context.availableSlots());
+        ArrayList<TimeSlot> availableTimeSlots = new ArrayList<>(context.availableSlots());
         ArrayList<UnscheduledTask> unscheduledTask = new ArrayList<>();
 
         List<TaskResponse> tasks = context.tasks();
@@ -49,7 +48,7 @@ public class CPMAlgorithm {
             // Create snapshot of available times to later either
             // - accept if the complete task fits in the plan
             // - or revert if it doesn't
-            this.tempAvailableTimeSlots = new ArrayList<>(this.availableTimeSlots);
+            this.tempAvailableTimeSlots = new ArrayList<>(availableTimeSlots);
             totalTaskFit = true; //default true, is set to false if task doesn't fit
 
             // Try fitting all chunks
@@ -68,7 +67,7 @@ public class CPMAlgorithm {
 
             if (totalTaskFit) {
                 resultChunks.addAll(tempResults);
-                this.availableTimeSlots = this.tempAvailableTimeSlots;
+                availableTimeSlots = this.tempAvailableTimeSlots;
             } else {
                 unscheduledTask.add(new UnscheduledTask(
                         taskId, taskMap.get(taskId).getTitle(), this.unscheduledReason
@@ -77,7 +76,7 @@ public class CPMAlgorithm {
             }
 
         }
-        return new SolverState (resultChunks, this.availableTimeSlots, unscheduledTask);
+        return new SolverState (resultChunks, availableTimeSlots, unscheduledTask);
     }
 
     /**

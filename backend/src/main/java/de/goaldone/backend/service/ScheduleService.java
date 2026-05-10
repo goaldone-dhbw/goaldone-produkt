@@ -179,7 +179,7 @@ public class ScheduleService {
             defaultWorkingTimes.setDays(Set.of(DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY, DayOfWeek.FRIDAY));
             defaultWorkingTimes.setStartTime(LocalTime.of(8, 0));
             defaultWorkingTimes.setEndTime(LocalTime.of(17, 0));
-            workingTimes.add(defaultWorkingTimes);
+            workingTimes = List.of(defaultWorkingTimes);
         }
 
         // Get available timeslots
