@@ -78,10 +78,10 @@ export class CalenderComponent {
     const colors = this.getEventColors(entry);
 
     return {
-      id: entry.entryId ?? `${entry.occurenceDate}-${entry.startTime}-${entry.endTime}-${index}`,
+      id: entry.entryId ?? `${entry.occurrenceDate}-${entry.startTime}-${entry.endTime}-${index}`,
       title: this.getEntryTitle(entry),
-      start: `${entry.occurenceDate}T${entry.startTime}`,
-      end: `${entry.occurenceDate}T${entry.endTime}`,
+      start: `${entry.occurrenceDate}T${entry.startTime}`,
+      end: `${entry.occurrenceDate}T${entry.endTime}`,
       backgroundColor: colors.backgroundColor,
       borderColor: colors.borderColor,
       textColor: colors.textColor,
@@ -162,12 +162,12 @@ export class CalenderComponent {
   }
 
   private isValidEntry(entry: ScheduleEntry): boolean {
-    if (!entry.occurenceDate || !entry.startTime || !entry.endTime) {
+    if (!entry.occurrenceDate || !entry.startTime || !entry.endTime) {
       return false;
     }
 
-    const start = new Date(`${entry.occurenceDate}T${entry.startTime}`);
-    const end = new Date(`${entry.occurenceDate}T${entry.endTime}`);
+    const start = new Date(`${entry.occurrenceDate}T${entry.startTime}`);
+    const end = new Date(`${entry.occurrenceDate}T${entry.endTime}`);
 
     return !Number.isNaN(start.getTime()) && !Number.isNaN(end.getTime()) && end > start;
   }
