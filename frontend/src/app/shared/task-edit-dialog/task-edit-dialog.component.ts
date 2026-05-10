@@ -1,6 +1,19 @@
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChanges, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  EventEmitter,
+  Input,
+  OnChanges,
+  OnInit,
+  Output,
+  SimpleChanges,
+  computed,
+  inject,
+  signal,
+  input,
+} from '@angular/core';
 import {
   AbstractControl,
   FormBuilder,
@@ -12,7 +25,6 @@ import { firstValueFrom } from 'rxjs';
 import {
   CognitiveLoad,
   TaskCreateRequest,
-  TaskResponse,
   TaskStatus,
   TaskUpdateRequest,
 } from '../../api';
@@ -69,7 +81,7 @@ type TaskFormValue = {
 export class TaskEditDialogComponent implements OnInit, OnChanges {
   @Input() isOpen = false;
   @Input() task: TaskItem | null = null;
-  @Input() allTasks: TaskItem[] = [];
+  readonly allTasks = input<TaskItem[]>([]);
 
   @Output() isOpenChange = new EventEmitter<boolean>();
   @Output() taskSaved = new EventEmitter<void>();
@@ -95,9 +107,7 @@ export class TaskEditDialogComponent implements OnInit, OnChanges {
 
   readonly currentAccountLabel = computed(() => this.currentAccount()?.label ?? null);
 
-  readonly popupTitle = computed(() =>
-    this.task ? 'Aufgabe bearbeiten' : 'Aufgabe erstellen',
-  );
+  readonly popupTitle = computed(() => (this.task ? 'Aufgabe bearbeiten' : 'Aufgabe erstellen'));
 
   readonly popupConfirmLabel = computed(() =>
     this.task ? 'Änderungen speichern' : 'Aufgabe speichern',
@@ -125,8 +135,8 @@ export class TaskEditDialogComponent implements OnInit, OnChanges {
   readonly availableDependencyOptions = computed<DependencyOption[]>(() => {
     const currentId = this.task?.id;
 
-    return this.allTasks
-      .filter((task) => task.id !== currentId)
+    return this.allTasks()
+      .filter((task) => task.id != currentId)
       .map((task) => ({
         id: task.id,
         title: this.buildDependencyOptionLabel(task),
@@ -304,7 +314,9 @@ export class TaskEditDialogComponent implements OnInit, OnChanges {
       deadline: value.deadline ? new Date(value.deadline).toISOString() : undefined,
       status: value.status,
       cognitiveLoad: (value.cognitiveLoad || 'MODERATE') as CognitiveLoad,
-      dontScheduleBefore: value.dontScheduleBefore ? new Date(value.dontScheduleBefore).toISOString() : undefined,
+      dontScheduleBefore: value.dontScheduleBefore
+        ? new Date(value.dontScheduleBefore).toISOString()
+        : undefined,
       customChunkSize: value.customChunkSize ? Number(value.customChunkSize) : undefined,
       dependencyIds: value.dependencyIds ?? [],
     };
@@ -318,7 +330,9 @@ export class TaskEditDialogComponent implements OnInit, OnChanges {
       deadline: value.deadline ? new Date(value.deadline).toISOString() : undefined,
       status: value.status,
       cognitiveLoad: (value.cognitiveLoad || 'MODERATE') as CognitiveLoad,
-      dontScheduleBefore: value.dontScheduleBefore ? new Date(value.dontScheduleBefore).toISOString() : undefined,
+      dontScheduleBefore: value.dontScheduleBefore
+        ? new Date(value.dontScheduleBefore).toISOString()
+        : undefined,
       customChunkSize: value.customChunkSize ? Number(value.customChunkSize) : undefined,
       dependencyIds: value.dependencyIds ?? [],
     };
@@ -330,7 +344,8 @@ export class TaskEditDialogComponent implements OnInit, OnChanges {
     return accounts
       .map((account: any) => {
         const id = account.accountId ?? account.id;
-        const label = account.organizationName ?? account.label ?? account.name ?? account.displayName;
+        const label =
+          account.organizationName ?? account.label ?? account.name ?? account.displayName;
 
         if (!id || !label) return null;
 
