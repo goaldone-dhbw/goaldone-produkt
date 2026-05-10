@@ -1,4 +1,4 @@
-<div class="p-6">
+<div class="p-6 bg-slate-50 min-h-screen">
   <!-- Loading State -->
   <div *ngIf="loading()" class="space-y-4">
     <p-skeleton height="3rem" class="mb-4"></p-skeleton>
@@ -24,7 +24,7 @@
       <div class="lg:col-span-2">
         <p-card class="next-task-card h-full">
           <ng-template pTemplate="header">
-            <div class="text-lg font-semibold">Nächste Aufgabe</div>
+            <div class="text-lg font-semibold px-6 py-4">Nächste Aufgabe</div>
           </ng-template>
 
           <div *ngIf="nextTask() as task; else noNextTask" class="space-y-3">
@@ -51,6 +51,23 @@
             <p *ngIf="task.description" class="text-sm text-gray-700">
               {{ task.description }}
             </p>
+
+            <div class="flex gap-2 pt-4">
+              <p-button
+                icon="pi pi-pencil"
+                [rounded]="true"
+                [text]="true"
+                severity="info"
+                (onClick)="editTask(task.id)"
+              ></p-button>
+              <p-button
+                icon="pi pi-check"
+                [rounded]="true"
+                [text]="true"
+                severity="success"
+                (onClick)="markTaskDone(task)"
+              ></p-button>
+            </div>
           </div>
 
           <ng-template #noNextTask>
@@ -64,7 +81,7 @@
         <!-- Progress Card -->
         <p-card class="progress-card">
           <ng-template pTemplate="header">
-            <div class="text-lg font-semibold">Fortschritt</div>
+            <div class="text-lg font-semibold px-6 py-4">Fortschritt</div>
           </ng-template>
 
           <p-progressBar [value]="progressPercent()" [showValue]="true"></p-progressBar>
@@ -77,7 +94,7 @@
         <!-- Work Time Card -->
         <p-card class="work-time-card">
           <ng-template pTemplate="header">
-            <div class="text-lg font-semibold">Geleistete Arbeitszeit</div>
+            <div class="text-lg font-semibold px-6 py-4">Geleistete Arbeitszeit</div>
           </ng-template>
 
           <div class="text-3xl font-bold text-primary">
@@ -90,7 +107,7 @@
     <!-- Upcoming Tasks List -->
     <p-card class="upcoming-tasks-card">
       <ng-template pTemplate="header">
-        <div class="text-lg font-semibold">Anstehende Aufgaben</div>
+        <div class="text-lg font-semibold px-6 py-4">Anstehende Aufgaben</div>
       </ng-template>
 
       <div *ngIf="upcomingTasks().length > 0; else noUpcomingTasks" class="space-y-4">
@@ -100,11 +117,30 @@
         >
           <div class="flex items-start justify-between mb-2">
             <h4 class="font-semibold text-base">{{ task.title }}</h4>
-            <p-tag
-              [value]="task.status"
-              [severity]="getTaskStatusSeverity(task.status)"
-              class="ml-2"
-            ></p-tag>
+            <div class="flex items-center gap-2">
+              <p-tag
+                [value]="task.status"
+                [severity]="getTaskStatusSeverity(task.status)"
+              ></p-tag>
+              <p-button
+                icon="pi pi-pencil"
+                [rounded]="true"
+                [text]="true"
+                severity="info"
+                [pTooltip]="'Bearbeiten'"
+                tooltipPosition="top"
+                (onClick)="editTask(task.id)"
+              ></p-button>
+              <p-button
+                icon="pi pi-check"
+                [rounded]="true"
+                [text]="true"
+                severity="success"
+                [pTooltip]="'Abhaken'"
+                tooltipPosition="top"
+                (onClick)="markTaskDone(task)"
+              ></p-button>
+            </div>
           </div>
 
           <div class="grid grid-cols-3 gap-4 text-sm mb-3">
@@ -137,3 +173,11 @@
     </p-card>
   </div>
 </div>
+
+<app-task-edit-dialog
+  [isOpen]="isEditDialogOpen()"
+  [task]="editingTask()"
+  [allTasks]="allTasksAsItems()"
+  (isOpenChange)="isEditDialogOpen.set($event)"
+  (taskSaved)="onTaskSaved()"
+></app-task-edit-dialog>

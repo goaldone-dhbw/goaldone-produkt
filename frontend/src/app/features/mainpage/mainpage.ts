@@ -5,10 +5,13 @@ import { ProgressBarModule } from 'primeng/progressbar';
 import { TagModule } from 'primeng/tag';
 import { SkeletonModule } from 'primeng/skeleton';
 import { MessageModule } from 'primeng/message';
+import { ButtonModule } from 'primeng/button';
+import { TooltipModule } from 'primeng/tooltip';
 import { forkJoin } from 'rxjs';
 import { TaskResponse, TaskStatus } from '../../api';
 import { TasksService } from '../../api';
 import { UserAccountsService } from '../../api';
+import { TaskEditDialogComponent, TaskItem } from '../../shared/task-edit-dialog/task-edit-dialog.component';
 
 @Component({
   selector: 'app-mainpage',
@@ -21,6 +24,9 @@ import { UserAccountsService } from '../../api';
     TagModule,
     SkeletonModule,
     MessageModule,
+    ButtonModule,
+    TooltipModule,
+    TaskEditDialogComponent,
   ],
   templateUrl: './mainpage.html',
   styleUrl: './mainpage.scss',
@@ -29,10 +35,16 @@ export class MainPage implements OnInit {
   private tasksService = inject(TasksService);
   private userAccountsService = inject(UserAccountsService);
 
-  loading = signal(true);
-  firstName = signal<string>('');
-  lastName = signal<string>('');
-  allTasks = signal<TaskResponse[]>([]);
+  readonly loading = signal(true);
+  readonly firstName = signal<string>('');
+  readonly lastName = signal<string>('');
+  readonly allTasks = signal<TaskResponse[]>([]);
+  isEditDialogOpen = signal(false);
+  editingTask = signal<TaskItem | null>(null);
+
+  allTasksAsItems = computed(() =>
+    this.allTasks().map((t) => this.toTaskItem(t))
+  );
 
   upcomingTasks = computed(() =>
     this.allTasks()
@@ -42,6 +54,7 @@ export class MainPage implements OnInit {
         if (!b.deadline) return -1;
         return a.deadline.localeCompare(b.deadline);
       })
+      .slice(0, 3)
   );
 
   nextTask = computed(() => this.upcomingTasks()[0] ?? null);
@@ -95,6 +108,50 @@ export class MainPage implements OnInit {
       default:
         return 'secondary';
     }
+  }
+
+  editTask(taskId: string | undefined): void {
+    if (!taskId) return;
+    const task = this.allTasks().find((t) => t.id === taskId);
+    if (!task) return;
+    this.editingTask.set(this.toTaskItem(task));
+    this.isEditDialogOpen.set(true);
+  }
+
+  onTaskSaved(): void {
+    void this.loadTasks();
+  }
+
+  private loadTasks(): void {
+    this.tasksService.getTasksForAllAccounts().subscribe((result) => {
+      this.allTasks.set(result.flatMap((tl) => tl.tasks ?? []));
+    });
+  }
+
+  private toTaskItem(t: TaskResponse): TaskItem {
+    return {
+      id: t.id!,
+      title: t.title!,
+      description: t.description ?? null,
+      duration: t.duration ?? 0,
+      deadline: t.deadline ?? null,
+      status: t.status!,
+      accountId: null,
+      accountLabel: null,
+      dependencyIds: t.dependencyIds ?? [],
+      cognitiveLoad: t.cognitiveLoad ?? null,
+      dontScheduleBefore: t.dontScheduleBefore ?? null,
+      customChunkSize: t.customChunkSize ?? null,
+    };
+  }
+
+  markTaskDone(task: TaskResponse | null): void {
+    if (!task || !task.id) return;
+    const updatedTask = { ...task, status: TaskStatus.Done };
+    this.tasksService.updateTask(task.id, updatedTask).subscribe(() => {
+      const updated = this.allTasks().map((t) => (t.id === task.id ? updatedTask : t));
+      this.allTasks.set(updated);
+    });
   }
 
   ngOnInit(): void {
