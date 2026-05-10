@@ -43,7 +43,9 @@ public class Solver {
         int currentScore = constraintHandler.calculateScore(currentBest);
         lateAcceptance.initialize(currentScore);
 
+        boolean skip = true;
         while (System.currentTimeMillis() < endTime) {
+            if (skip) break; //TODO: Demo release only
 
             SolverState newState = moveSelector.selectAndApply(currentBest);
             int newScore = constraintHandler.calculateScore(newState);

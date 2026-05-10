@@ -25,10 +25,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
-import java.time.LocalTime;
 import java.util.*;
 import java.util.concurrent.*;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -110,8 +108,8 @@ public class ScheduleService {
 
         try  {
             return generateSchedule(jwt, accountId, generateScheduleRequest.getFrom(), timeoutMilliseconds);
-        } catch (Exception e) {
-            return createErrorResponse("Schedule generation failed: " + e.getMessage());
+        } catch (Exception ex) {
+            return createErrorResponse("Schedule generation failed: " + ex.getMessage());
         }
     }
 

@@ -1,10 +1,8 @@
 package de.goaldone.backend.scheduler;
 
 import de.goaldone.backend.entity.WorkingTimeEntity;
-import de.goaldone.backend.model.CognitiveLoad;
+import de.goaldone.backend.model.*;
 import de.goaldone.backend.model.DayOfWeek;
-import de.goaldone.backend.model.TaskResponse;
-import de.goaldone.backend.model.TaskStatus;
 import de.goaldone.backend.scheduler.types.model.*;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -325,6 +323,35 @@ class CPMAlgorithmTest {
             assertThat(result.scheduledChunks().get(i).slot()).isEqualTo(expected.get(i));
         }
     }
+
+    @Test
+    void shouldScheduleTasks_whenTasksAreExtremelyLarge() {
+
+        LocalDate date = LocalDate.of(2026, 5, 11);
+
+        List<WorkingTimeEntity> workingTimeEntities = List.of(working(
+                List.of(DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY, DayOfWeek.FRIDAY),
+                18));
+
+        TaskResponse task1 = task(900);
+        TaskResponse task2 = task(180);
+        List<TaskResponse> tasks = List.of(task1, task2);
+
+        List<TimeSlot> availableSlots = new ArrayList<>(List.of());
+        for (int i = 0; i < 5; i++) {
+            availableSlots.add(slot(date.plusDays(i), 8, 18));
+        }
+
+
+        SchedulingContext context = new SchedulingContext(
+            date, availableSlots, tasks, workingTimeEntities
+        );
+
+        SolverState result = algorithm.generateInitialSchedule(context);
+
+        assertThat(result.unscheduledChunks()).isEmpty();
+    }
+
 
     private TaskResponse task(int taskDuration) {
         return task(taskDuration, List.of());
