@@ -1,6 +1,20 @@
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChanges, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  EventEmitter,
+  Input,
+  OnChanges,
+  OnInit,
+  Output,
+  SimpleChanges,
+  computed,
+  effect,
+  inject,
+  signal,
+  input,
+} from '@angular/core';
 import {
   AbstractControl,
   FormBuilder,
@@ -12,7 +26,6 @@ import { firstValueFrom } from 'rxjs';
 import {
   CognitiveLoad,
   TaskCreateRequest,
-  TaskResponse,
   TaskStatus,
   TaskUpdateRequest,
 } from '../../api';
@@ -69,7 +82,7 @@ type TaskFormValue = {
 export class TaskEditDialogComponent implements OnInit, OnChanges {
   @Input() isOpen = false;
   @Input() task: TaskItem | null = null;
-  @Input() allTasks: TaskItem[] = [];
+  readonly allTasks = input<TaskItem[]>([]);
 
   @Output() isOpenChange = new EventEmitter<boolean>();
   @Output() taskSaved = new EventEmitter<void>();
@@ -81,6 +94,8 @@ export class TaskEditDialogComponent implements OnInit, OnChanges {
   readonly isSaving = signal(false);
   readonly formErrorMessage = signal('');
   readonly accounts = signal<AccountOption[]>([]);
+  readonly currentTaskId = signal<string | undefined>(undefined);
+  readonly selectedAccountId = signal<string | null>(null);
 
   readonly statuses: TaskStatus[] = ['OPEN', 'IN_PROGRESS', 'DONE'];
   readonly cognitiveLoads: CognitiveLoad[] = ['LOW', 'MODERATE', 'HIGH'];
@@ -95,9 +110,7 @@ export class TaskEditDialogComponent implements OnInit, OnChanges {
 
   readonly currentAccountLabel = computed(() => this.currentAccount()?.label ?? null);
 
-  readonly popupTitle = computed(() =>
-    this.task ? 'Aufgabe bearbeiten' : 'Aufgabe erstellen',
-  );
+  readonly popupTitle = computed(() => (this.task ? 'Aufgabe bearbeiten' : 'Aufgabe erstellen'));
 
   readonly popupConfirmLabel = computed(() =>
     this.task ? 'Änderungen speichern' : 'Aufgabe speichern',
@@ -123,10 +136,11 @@ export class TaskEditDialogComponent implements OnInit, OnChanges {
   );
 
   readonly availableDependencyOptions = computed<DependencyOption[]>(() => {
-    const currentId = this.task?.id;
+    const currentId = this.currentTaskId();
+    const selectedAccountId = this.selectedAccountId();
 
-    return this.allTasks
-      .filter((task) => task.id !== currentId)
+    return this.allTasks()
+      .filter((task) => task.id != currentId && task.accountId === selectedAccountId)
       .map((task) => ({
         id: task.id,
         title: this.buildDependencyOptionLabel(task),
@@ -138,10 +152,15 @@ export class TaskEditDialogComponent implements OnInit, OnChanges {
   }
 
   ngOnInit(): void {
-    // Additional initialization if needed
+    this.taskForm.get('accountId')?.valueChanges.subscribe((accountId) => {
+      this.selectedAccountId.set(accountId);
+    });
   }
 
   ngOnChanges(changes: SimpleChanges): void {
+    if (changes['task']) {
+      this.currentTaskId.set(this.task?.id);
+    }
     // Reset form wenn task sich ändert
     if (changes['task'] && !changes['task'].firstChange) {
       this.resetFormForTask();
@@ -159,7 +178,9 @@ export class TaskEditDialogComponent implements OnInit, OnChanges {
       this.accounts.set(normalized);
 
       if (normalized.length === 1) {
-        this.taskForm.patchValue({ accountId: normalized[0].id });
+        const accountId = normalized[0].id;
+        this.taskForm.patchValue({ accountId });
+        this.selectedAccountId.set(accountId);
       }
     } catch {
       this.accounts.set([]);
@@ -170,6 +191,7 @@ export class TaskEditDialogComponent implements OnInit, OnChanges {
     this.formErrorMessage.set('');
 
     if (this.task) {
+      const accountId = this.task.accountId ?? this.getDefaultAccountId();
       this.taskForm.reset({
         id: this.task.id,
         title: this.task.title,
@@ -177,13 +199,15 @@ export class TaskEditDialogComponent implements OnInit, OnChanges {
         duration: this.task.duration,
         deadline: this.toDateTimeLocalValue(this.task.deadline),
         status: this.task.status,
-        accountId: this.task.accountId ?? this.getDefaultAccountId(),
+        accountId,
         dependencyIds: this.task.dependencyIds ?? [],
         cognitiveLoad: this.task.cognitiveLoad ?? '',
         dontScheduleBefore: this.toDateTimeLocalValue(this.task.dontScheduleBefore),
         customChunkSize: this.task.customChunkSize,
       });
+      this.selectedAccountId.set(accountId);
     } else {
+      const accountId = this.getDefaultAccountId();
       this.taskForm.reset({
         id: null,
         title: '',
@@ -191,12 +215,13 @@ export class TaskEditDialogComponent implements OnInit, OnChanges {
         duration: null,
         deadline: '',
         status: 'OPEN',
-        accountId: this.getDefaultAccountId(),
+        accountId,
         dependencyIds: [],
         cognitiveLoad: '',
         dontScheduleBefore: '',
         customChunkSize: null,
       });
+      this.selectedAccountId.set(accountId);
     }
   }
 
@@ -304,7 +329,9 @@ export class TaskEditDialogComponent implements OnInit, OnChanges {
       deadline: value.deadline ? new Date(value.deadline).toISOString() : undefined,
       status: value.status,
       cognitiveLoad: (value.cognitiveLoad || 'MODERATE') as CognitiveLoad,
-      dontScheduleBefore: value.dontScheduleBefore ? new Date(value.dontScheduleBefore).toISOString() : undefined,
+      dontScheduleBefore: value.dontScheduleBefore
+        ? new Date(value.dontScheduleBefore).toISOString()
+        : undefined,
       customChunkSize: value.customChunkSize ? Number(value.customChunkSize) : undefined,
       dependencyIds: value.dependencyIds ?? [],
     };
@@ -318,7 +345,9 @@ export class TaskEditDialogComponent implements OnInit, OnChanges {
       deadline: value.deadline ? new Date(value.deadline).toISOString() : undefined,
       status: value.status,
       cognitiveLoad: (value.cognitiveLoad || 'MODERATE') as CognitiveLoad,
-      dontScheduleBefore: value.dontScheduleBefore ? new Date(value.dontScheduleBefore).toISOString() : undefined,
+      dontScheduleBefore: value.dontScheduleBefore
+        ? new Date(value.dontScheduleBefore).toISOString()
+        : undefined,
       customChunkSize: value.customChunkSize ? Number(value.customChunkSize) : undefined,
       dependencyIds: value.dependencyIds ?? [],
     };
@@ -330,7 +359,8 @@ export class TaskEditDialogComponent implements OnInit, OnChanges {
     return accounts
       .map((account: any) => {
         const id = account.accountId ?? account.id;
-        const label = account.organizationName ?? account.label ?? account.name ?? account.displayName;
+        const label =
+          account.organizationName ?? account.label ?? account.name ?? account.displayName;
 
         if (!id || !label) return null;
 

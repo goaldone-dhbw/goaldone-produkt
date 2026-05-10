@@ -119,6 +119,7 @@ class MoveSelectorTest {
         return new TaskChunk(
                 UUID.randomUUID(),
                 taskId,
+                "Task",
                 0,
                 1,
                 60,

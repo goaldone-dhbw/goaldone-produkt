@@ -1960,7 +1960,7 @@ components:
     # ----------------------------------------------------------
     ScheduleEntry:
       type: object
-      required: [ source, date, startTime, endTime, type, isCompleted, isPinned ]
+      required: [ source, date, startTime, endTime, type, isCompleted, isPinned, originalItemTitle ]
       description: |
         Ein Zeitblock im Kalender. Kann ein persistierter DB-Eintrag
         (`source: ONE_TIME`) oder ein virtuell berechnetes Vorkommen
@@ -1983,7 +1983,7 @@ components:
             Nur bei `source: ONE_TIME`.
             Für PATCH-Aktionen (complete, pin, unpin).
         # --- Zeitdaten ---
-        occurenceDate:
+        occurrenceDate:
           type: string
           format: date
           description: Datum des Eintrags

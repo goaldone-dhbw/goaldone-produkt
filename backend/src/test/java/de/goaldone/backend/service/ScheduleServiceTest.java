@@ -16,10 +16,7 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -208,7 +205,7 @@ public class ScheduleServiceTest {
     // ================================
 
     @Test
-    void createSchedulingContext_noWorkingTimes_returnsContextWithoutSlots() {
+    void createSchedulingContext_noWorkingTimes_returnsContextWithoutDefaultWorkingTimes() {
         UUID accountId = UUID.randomUUID();
         Jwt jwt = mockJwt();
         LocalDate fromDate = LocalDate.now().plusDays(1);
@@ -226,7 +223,13 @@ public class ScheduleServiceTest {
 
         assertNotNull(context);
         assertEquals(fromDate, context.fromDate());
-        assertTrue(context.availableSlots().isEmpty(), "Should have empty slots when no working times defined");
+
+        WorkingTimeEntity defaultWorkingTimes = new WorkingTimeEntity();
+        defaultWorkingTimes.setDays(Set.of(DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY, DayOfWeek.FRIDAY));
+        defaultWorkingTimes.setStartTime(LocalTime.of(8, 0));
+        defaultWorkingTimes.setEndTime(LocalTime.of(17, 0));
+
+        assertEquals(context.workingTimes(), List.of(defaultWorkingTimes));
     }
 
     @Test

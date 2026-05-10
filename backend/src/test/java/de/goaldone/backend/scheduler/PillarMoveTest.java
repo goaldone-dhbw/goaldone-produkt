@@ -27,7 +27,7 @@ class PillarMoveTest {
     private static TaskChunk chunk(UUID taskId, int chunkIndex,
                                    boolean pinned, LocalDateTime notBefore, LocalDateTime deadline) {
         return new TaskChunk(
-                UUID.randomUUID(), taskId,
+                UUID.randomUUID(), taskId, "Task",
                 chunkIndex, 3, 60,
                 0, 0, null,
                 notBefore, deadline, pinned, null

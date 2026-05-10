@@ -25,7 +25,7 @@ class SwapMoveTest {
 
     private static TaskChunk chunk(UUID taskId, int durationMinutes, boolean pinned) {
         return new TaskChunk(
-                UUID.randomUUID(), taskId,
+                UUID.randomUUID(), taskId, "Task",
                 0, 1, durationMinutes,
                 0, 0, null,
                 null, null, pinned, null

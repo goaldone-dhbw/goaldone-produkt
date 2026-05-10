@@ -26,7 +26,7 @@ class ChangeMoveTest {
 
     private static TaskChunk chunk(UUID taskId, boolean pinned) {
         return new TaskChunk(
-                UUID.randomUUID(), taskId,
+                UUID.randomUUID(), taskId, "Task",
                 0, 1, 60,
                 0, 0, null,
                 null, null, pinned, null

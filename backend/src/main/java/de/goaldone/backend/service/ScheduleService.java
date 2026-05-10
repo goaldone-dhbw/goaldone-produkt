@@ -2,7 +2,6 @@ package de.goaldone.backend.service;
 
 import de.goaldone.backend.entity.UserAccountEntity;
 import de.goaldone.backend.entity.WorkingTimeEntity;
-import de.goaldone.backend.exception.ScheduleException;
 import de.goaldone.backend.model.*;
 import de.goaldone.backend.repository.UserAccountRepository;
 import de.goaldone.backend.scheduler.Solver;
@@ -12,7 +11,6 @@ import de.goaldone.backend.scheduler.types.model.SchedulingResult;
 import de.goaldone.backend.scheduler.types.model.TimeSlot;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.coyote.Response;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -27,10 +25,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
-import java.time.LocalTime;
 import java.util.*;
 import java.util.concurrent.*;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -41,7 +37,6 @@ public class ScheduleService {
 
     private final TasksService taskService;
     private final AppointmentService appointmentService;
-    private final CurrentUserResolver currentUserResolver;
     private final UserAccountRepository userAccountRepository;
     private final @Lazy UserIdentityService userIdentityService;
     private final ScheduleMapper scheduleMapper = new ScheduleMapper();
@@ -113,8 +108,8 @@ public class ScheduleService {
 
         try  {
             return generateSchedule(jwt, accountId, generateScheduleRequest.getFrom(), timeoutMilliseconds);
-        } catch (Exception e) {
-            return createErrorResponse("Schedule generation failed: " + e.getMessage());
+        } catch (Exception ex) {
+            return createErrorResponse("Schedule generation failed: " + ex.getMessage());
         }
     }
 
@@ -181,6 +176,13 @@ public class ScheduleService {
                 .map(UserAccountEntity::getWorkingTimes)
                 .orElse(List.of());
 
+        if (workingTimes.isEmpty()) {
+            WorkingTimeEntity defaultWorkingTimes = new WorkingTimeEntity();
+            defaultWorkingTimes.setDays(Set.of(DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY, DayOfWeek.FRIDAY));
+            defaultWorkingTimes.setStartTime(LocalTime.of(8, 0));
+            defaultWorkingTimes.setEndTime(LocalTime.of(17, 0));
+            workingTimes = List.of(defaultWorkingTimes);
+        }
 
         // Get available timeslots
         List<TimeSlot> availableSlots = getAvailableTimeSlots(accountId, jwt, workingTimes, fromDate, weeks);
@@ -202,12 +204,12 @@ public class ScheduleService {
     private List<TimeSlot> getAvailableTimeSlots(UUID accountId, Jwt jwt, List<WorkingTimeEntity> workingTimes, LocalDate fromDate, int nWeeks) {
         List<TimeSlot> availableSlots = new ArrayList<>();
 
-        List<Appointment> allAppointments = appointmentService.listAppointments(accountId, jwt).getAppointments();
-
         if (workingTimes.isEmpty()) {
             log.warn("No working times defined for account {}", accountId);
             return availableSlots;
         }
+
+        List<Appointment> allAppointments = appointmentService.listAppointments(accountId, jwt).getAppointments();
 
         // Get the Monday of the week for the fromDate
         int weekDayInt = fromDate.getDayOfWeek().getValue();

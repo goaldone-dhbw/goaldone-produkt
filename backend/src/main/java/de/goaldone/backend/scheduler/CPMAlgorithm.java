@@ -16,12 +16,12 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
+import java.util.*;
 
 public class CPMAlgorithm {
 
-    private List<TimeSlot> availableTimeSlots;
-    private List<TimeSlot> tempAvailableTimeSlots;
+    private ArrayList<TimeSlot> tempAvailableTimeSlots;
+
     private UnscheduledTask.ReasonEnum unscheduledReason;
     private final int maxBuffer = 15;
     private final Chunker chunker = new Chunker();
@@ -33,7 +33,7 @@ public class CPMAlgorithm {
      * @return A first, heuristic generated schedule
      */
     public SolverState generateInitialSchedule(SchedulingContext context) {
-        this.availableTimeSlots = new ArrayList<>(context.availableSlots());
+        ArrayList<TimeSlot> availableTimeSlots = new ArrayList<>(context.availableSlots());
         ArrayList<UnscheduledTask> unscheduledTask = new ArrayList<>();
 
         List<TaskResponse> tasks = context.tasks();
@@ -51,9 +51,8 @@ public class CPMAlgorithm {
             // Create snapshot of available times to later either
             // - accept if the complete task fits in the plan
             // - or revert if it doesn't
-            this.tempAvailableTimeSlots = new ArrayList<>(this.availableTimeSlots);
+            this.tempAvailableTimeSlots = new ArrayList<>(availableTimeSlots);
             totalTaskFit = true; //default true, is set to false if task doesn't fit
-
 
             // Try fitting all chunks
             List<TaskChunk> chunks = chunkMap.get(taskId);
@@ -71,7 +70,7 @@ public class CPMAlgorithm {
 
             if (totalTaskFit) {
                 resultChunks.addAll(tempResults);
-                this.availableTimeSlots = this.tempAvailableTimeSlots;
+                availableTimeSlots = this.tempAvailableTimeSlots;
             } else {
                 unscheduledTask.add(new UnscheduledTask(
                         taskId, taskMap.get(taskId).getTitle(), this.unscheduledReason
@@ -80,7 +79,7 @@ public class CPMAlgorithm {
             }
 
         }
-        return new SolverState (resultChunks, this.availableTimeSlots, unscheduledTask);
+        return new SolverState (resultChunks, availableTimeSlots, unscheduledTask);
     }
 
     /**
@@ -108,20 +107,13 @@ public class CPMAlgorithm {
 
         Optional<TimeSlot> suitableSlot = slotsBetween.stream()
                 .filter(slot -> slot.canFit(chunk.durationMinutes()))
-                .findFirst();
+                .min(Comparator.comparing(TimeSlot::date).thenComparing(TimeSlot::startTime));
 
         if (suitableSlot.isPresent()) {
             TimeSlot slot = suitableSlot.get();
 
-            // Create the scheduled slot only for the needed duration
-            TimeSlot scheduledSlot = new TimeSlot(
-                    slot.date(),
-                    slot.startTime(),
-                    slot.startTime().plusMinutes(chunk.durationMinutes())
-            );
-
-            removeTimeSlot(slot, chunk);
-            return List.of(new ScheduledChunk(chunk, scheduledSlot));
+            TimeSlot occupiedSlot = updateTimeSlots(slot, chunk);
+            return List.of(new ScheduledChunk(chunk, occupiedSlot));
         }
 
         // At this point, no slot was large enough to accommodate this chunk
@@ -158,6 +150,7 @@ public class CPMAlgorithm {
             );
 
             TaskChunk partialChunk = TaskChunk.builder()
+                    .taskTitle(chunk.taskTitle())
                     .chunkId(chunk.chunkId())
                     .taskId(chunk.taskId())
                     .chunkIndex(chunk.chunkIndex())
@@ -176,7 +169,7 @@ public class CPMAlgorithm {
 
             remainingMinutes -= usableMinutes;
 
-            removeTimeSlot(slot, partialChunk);
+            updateTimeSlots(slot, partialChunk);
         }
 
         if (remainingMinutes > 0) {
@@ -243,7 +236,7 @@ public class CPMAlgorithm {
      *      2. List of time slots in between notBefore and the deadline
      */
     private List<List<TimeSlot>> getSuitableTimeSlots(TaskChunk chunk) {
-        List<TimeSlot> slotsAfterNotBefore = this.availableTimeSlots.stream()
+        List<TimeSlot> slotsAfterNotBefore = this.tempAvailableTimeSlots.stream()
                 .filter(slot -> isAfterNotBefore(chunk, slot))
                 .toList();
 
@@ -278,6 +271,7 @@ public class CPMAlgorithm {
             TimeSlot timeSlot = scheduledChunk.slot();
 
             chunk = TaskChunk.builder()
+                    .taskTitle(chunk.taskTitle())
                     .chunkId(chunk.chunkId())
                     .taskId(chunk.taskId())
                     .chunkIndex(currentIndex)
@@ -305,28 +299,39 @@ public class CPMAlgorithm {
      * existing slots if the chunk occupies only part of a slot.
      * @param target The time slot we want to remove from the available slots
      * @param chunk The chunk which occupies the target time slot
+     * @return The time slot which is now occupied by the chunk
      */
-    private void removeTimeSlot(TimeSlot target, TaskChunk chunk) {
+    private TimeSlot updateTimeSlots(TimeSlot target, TaskChunk chunk) {
 
         if (target == null || chunk == null) {
-            return;
+            throw new IllegalArgumentException("There was a problem in updating the available time slots");
         }
 
         // Case 1: TimeSlot is more than 15 minutes bigger than the chunk -> split it into two separate slots
         if (target.durationMinutes() > chunk.durationMinutes() + this.maxBuffer) {
 
-            LocalTime newStartTime = target.startTime().plusMinutes(chunk.durationMinutes());
+            TimeSlot occupiedSlot = new TimeSlot(
+                    target.date(), target.startTime(), target.startTime().plusMinutes(chunk.durationMinutes())
+            );
 
             TimeSlot newTimeSlot = new TimeSlot(
-                    target.date(), newStartTime, target.endTime()
+                    target.date(), occupiedSlot.endTime(), target.endTime()
             );
+
             this.tempAvailableTimeSlots.remove(target);
             this.tempAvailableTimeSlots.add(newTimeSlot);
+            return occupiedSlot;
         }
         // Case 2: TimeSlot is equal to or only lightly bigger than the chunk
         else  {
-            //this.globalAvailableTimeSlots.contains(target);
             this.tempAvailableTimeSlots.remove(target);
+
+            // Set end time because of overlapping time (up to 14 minutes)
+            return new TimeSlot(
+                    target.date(),
+                    target.startTime(),
+                    target.startTime().plusMinutes(chunk.durationMinutes())
+            );
         }
     }
 
