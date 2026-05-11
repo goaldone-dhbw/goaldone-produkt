@@ -16,12 +16,9 @@ public record TaskChunk(
     int chunkIndex,
     int totalChunks,
     int durationMinutes,
-    int topologicalLevel,
-    long slackMinutes,
     CognitiveLoad cognitiveLoad,
     LocalDateTime notBefore,
     LocalDateTime deadline,
-    boolean isPinned,
     List<UUID> dependsOnTaskIds
 ) {
 }

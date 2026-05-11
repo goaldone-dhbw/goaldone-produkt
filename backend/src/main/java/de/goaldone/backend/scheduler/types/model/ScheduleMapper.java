@@ -103,7 +103,6 @@ public class ScheduleMapper {
                 .type(ScheduleEntry.TypeEnum.TASK)
                 .isBreak(false)
                 .isCompleted(false)
-                .isPinned(scheduledChunk.chunk().isPinned())
                 .originalItemId(scheduledChunk.chunk().taskId())
                 .chunkIndex(scheduledChunk.chunk().chunkIndex())
                 .totalChunks(scheduledChunk.chunk().totalChunks());
