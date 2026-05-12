@@ -311,15 +311,68 @@ public class ScheduleService {
         return response;
     }
 
+
     /**
-     *
+     * This method checks whether the appointment is scheduled for this day or not.
+     * In case the appointment type is ONE_TIME, the method checks the appointment date
+     * In case the appointment type is RECURRING, the method uses the RRule to check if the
+     *      targetDate is influenced by the recurring task.
+     * @param targetDate The date to check
+     * @param appointment The appointment to check
+     * @return True, if the appointment is on that day, false otherwise
+     */
+    private boolean isAppointmentOnDate(LocalDate targetDate, Appointment appointment) {
+
+        // One time appointment
+        if (appointment.getAppointmentType() == AppointmentType.ONE_TIME) {
+            return appointment.getDate().equals(targetDate);
+        }
+
+        // Recurring appointment
+        String rrule = appointment.getRrule();
+        if (rrule == null || rrule.isBlank()) return false;
+
+        // Example:
+        // FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR
+        String[] ruleParts = rrule.split(";");
+        String byDayPart = null;
+
+        for (String part : ruleParts) {
+            if (part.startsWith("BYDAY=")) {
+                byDayPart = part.substring("BYDAY=".length());
+                break;
+            }
+        }
+
+        if (byDayPart == null || byDayPart.isBlank()) return false;
+
+        String targetDay = switch (targetDate.getDayOfWeek()) {
+            case MONDAY -> "MO";
+            case TUESDAY -> "TU";
+            case WEDNESDAY -> "WE";
+            case THURSDAY -> "TH";
+            case FRIDAY -> "FR";
+            case SATURDAY -> "SA";
+            case SUNDAY -> "SU";
+        };
+
+        String[] allowedDays = byDayPart.split(",");
+        for (String day : allowedDays) {
+            if (day.equals(targetDay)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * @param allAppointments All appointments for a specific account
      * @param target The date for which the appointments are listed
      * @return List of appointments for a given day
      */
     private List<Appointment> getAppointmentsForDay(List<Appointment> allAppointments, LocalDate target) {
         return allAppointments.stream()
-                .filter(apt -> apt.getDate().equals(target))
+                .filter(apt -> isAppointmentOnDate(target, apt))
                 .sorted(Comparator.comparing(Appointment::getStartTime))
                 .toList();
     }
