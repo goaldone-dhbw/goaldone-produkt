@@ -4,6 +4,7 @@ import { firstValueFrom } from 'rxjs';
 
 import {
   GenerateScheduleRequest,
+  MultiAccountScheduleResponse,
   ScheduleEntry,
   ScheduleResponse,
   ScheduleWarning,
@@ -23,9 +24,10 @@ type AccountOption = {
 export class ScheduleFacadeService {
   private readonly schedulesService = inject(SchedulesService);
   private readonly userAccountsService = inject(UserAccountsService);
+  private readonly ALL_ACCOUNTS_ID = 'ALL';
 
   readonly accounts = signal<AccountOption[]>([]);
-  readonly selectedAccountId = signal<string>('');
+  readonly selectedAccountId = signal<string>(this.ALL_ACCOUNTS_ID);
 
   readonly scheduleResponse = signal<ScheduleResponse | null>(null);
   readonly scheduleEntries = signal<ScheduleEntry[]>([]);
@@ -41,13 +43,10 @@ export class ScheduleFacadeService {
   readonly lastRange = signal<{ from: string; to: string } | null>(null);
 
   private readonly canLoadExistingSchedule = signal(true);
+  private readonly skipNextLoad = signal(false);
 
   readonly hasAccounts = computed(() => this.accounts().length > 0);
   readonly hasSchedule = computed(() => this.scheduleEntries().length > 0);
-
-  readonly selectedAccount = computed(
-    () => this.accounts().find((account) => account.id === this.selectedAccountId()) ?? null,
-  );
 
   readonly warnings = computed<ScheduleWarning[]>(() => this.scheduleResponse()?.warnings ?? []);
 
@@ -60,10 +59,12 @@ export class ScheduleFacadeService {
   );
 
   async initialize(): Promise<void> {
-    this.selectedAccountId.set('');
+    this.selectedAccountId.set(this.ALL_ACCOUNTS_ID);
+    this.canLoadExistingSchedule.set(true);
+    this.skipNextLoad.set(false);
     await this.loadAccounts();
 
-    if (this.selectedAccountId()) {
+    if (this.hasAccounts()) {
       const range = this.getCurrentWeekRange();
       await this.loadSchedule(range.from, range.to);
     }
@@ -99,6 +100,8 @@ export class ScheduleFacadeService {
     this.errorMessage.set('');
     this.infoMessage.set('');
     this.successMessage.set('');
+    this.canLoadExistingSchedule.set(true);
+    this.skipNextLoad.set(false);
 
     if (!accountId) {
       return;
@@ -111,29 +114,41 @@ export class ScheduleFacadeService {
   async loadSchedule(from: string, to: string): Promise<void> {
     this.lastRange.set({ from, to });
 
-    const accountId = this.selectedAccountId();
-
-    if (!accountId || !this.canLoadExistingSchedule()) {
+    // Wenn gerade generiert wurde, diesen Load überspringen
+    if (this.skipNextLoad()) {
+      this.skipNextLoad.set(false);
       return;
     }
+
+    const accountId = this.selectedAccountId();
+
+    if (!accountId) return;
+    if (accountId !== this.ALL_ACCOUNTS_ID && !this.canLoadExistingSchedule()) return;
 
     this.isLoadingSchedule.set(true);
     this.errorMessage.set('');
 
     try {
-      const response = await firstValueFrom(
-        this.schedulesService.getSingleAccountSchedule(accountId, from, to),
-      );
+      const response =
+        accountId === this.ALL_ACCOUNTS_ID
+          ? await firstValueFrom(this.schedulesService.getAllAccountsSchedule(from, to))
+          : await firstValueFrom(
+            this.schedulesService.getSingleAccountSchedule(accountId, from, to),
+          );
 
       this.applyScheduleResponse(response);
       this.infoMessage.set('');
     } catch (error) {
       if (error instanceof HttpErrorResponse && error.status === 501) {
-        this.canLoadExistingSchedule.set(false);
+        if (accountId !== this.ALL_ACCOUNTS_ID) {
+          this.canLoadExistingSchedule.set(false);
+        }
 
         if (!this.hasSchedule()) {
           this.infoMessage.set(
-            'Vorhandene Planungen können aktuell noch nicht geladen werden, da der Backend-Endpunkt noch nicht implementiert ist. Du kannst aber eine neue Planung starten.',
+            accountId === this.ALL_ACCOUNTS_ID
+              ? ''
+              : 'Vorhandene Planungen können aktuell noch nicht geladen werden. Du kannst aber eine neue Planung starten.',
           );
         }
 
@@ -154,9 +169,6 @@ export class ScheduleFacadeService {
   async generateSchedule(): Promise<void> {
     const accountId = this.selectedAccountId();
 
-    console.log('Ausgewählte Account-ID für Planung:', accountId);
-    console.log('Ausgewählter Account:', this.selectedAccount());
-
     if (!accountId) {
       this.errorMessage.set('Bitte wähle zuerst ein Unternehmen oder einen Verein aus.');
       return;
@@ -171,28 +183,31 @@ export class ScheduleFacadeService {
       from: this.getGenerationStartDate(),
     };
 
-    console.log('GenerateScheduleRequest:', request);
-
     try {
-      const response = await firstValueFrom(
-        this.schedulesService.generateSingleAccountSchedule(accountId, request),
-      );
-
-      console.log('ScheduleResponse:', response);
+      const response =
+        accountId === this.ALL_ACCOUNTS_ID
+          ? await firstValueFrom(this.schedulesService.generateAllAccountsSchedule(request))
+          : await firstValueFrom(
+            this.schedulesService.generateSingleAccountSchedule(accountId, request),
+          );
 
       this.applyScheduleResponse(response);
 
-      if ((response.entries?.length ?? 0) > 0) {
+      // Verhindert dass rangeChanged-Event danach die Daten überschreibt
+      this.skipNextLoad.set(true);
+
+      if (this.scheduleEntries().length > 0) {
         this.successMessage.set('Die Planung wurde erfolgreich erstellt.');
       } else {
-        this.successMessage.set('');
         this.infoMessage.set(
           'Die Planung wurde verarbeitet, aber es wurden keine Einträge erzeugt.',
         );
       }
     } catch (error) {
       console.error('Fehler bei generateSchedule:', error);
-
+      if (error instanceof HttpErrorResponse) {
+        console.error('Status:', error.status, 'Body:', error.error);
+      }
       this.successMessage.set('');
       this.errorMessage.set(
         this.getReadableErrorMessage(error, 'Die Planung konnte nicht gestartet werden.'),
@@ -215,7 +230,40 @@ export class ScheduleFacadeService {
     );
   }
 
-  private applyScheduleResponse(response: ScheduleResponse): void {
+  private applyScheduleResponse(response: ScheduleResponse | MultiAccountScheduleResponse): void {
+    if ('schedules' in response) {
+      const mergedEntries = response.schedules.flatMap((schedule) => schedule.entries ?? []);
+      const mergedWarnings = response.schedules.flatMap((schedule) => schedule.warnings ?? []);
+      const mergedUnscheduledTasks = response.schedules.flatMap(
+        (schedule) => schedule.unscheduledTasks ?? [],
+      );
+
+      const firstSchedule = response.schedules[0];
+      const currentRange = this.lastRange() ?? this.getCurrentWeekRange();
+
+      const mergedResponse: ScheduleResponse = {
+        accountId: 'ALL',
+        generatedAt: firstSchedule?.generatedAt ?? new Date().toISOString(),
+        from: firstSchedule?.from ?? currentRange.from,
+        to: firstSchedule?.to ?? currentRange.to,
+        totalWorkMinutes: response.schedules.reduce(
+          (sum, schedule) => sum + (schedule.totalWorkMinutes ?? 0),
+          0,
+        ),
+        score: response.schedules.reduce(
+          (sum, schedule) => sum + (schedule.score ?? 0),
+          0,
+        ),
+        warnings: mergedWarnings,
+        entries: mergedEntries,
+        unscheduledTasks: mergedUnscheduledTasks,
+      };
+
+      this.scheduleResponse.set(mergedResponse);
+      this.scheduleEntries.set(mergedEntries);
+      return;
+    }
+
     this.scheduleResponse.set(response);
     this.scheduleEntries.set(response.entries ?? []);
   }
