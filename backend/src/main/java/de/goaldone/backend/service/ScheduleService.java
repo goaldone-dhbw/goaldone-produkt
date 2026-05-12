@@ -20,6 +20,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.temporal.ChronoUnit;
+import java.time.temporal.TemporalAdjusters;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -186,13 +187,48 @@ public class ScheduleService {
         }
 
         // Get available timeslots
-        List<Appointment> allAppointments = appointmentService.listAppointments(accountId, jwt).getAppointments();
-        List<TimeSlot> availableSlots = getAvailableTimeSlots(allAppointments, workingTimes, fromDate);
+        List<Appointment> appointments = appointmentService.listAppointments(accountId, jwt).getAppointments();
+        int nWeeks = getNWeeksAhead(fromDate, appointments);
+        List<Appointment> allAppointments = resolveRecurringAppointments(appointments, fromDate, nWeeks);
+        List<TimeSlot> availableSlots = getAvailableTimeSlots(appointments, workingTimes, fromDate, nWeeks);
 
         // Create schedule context
         return new SchedulingContext(
                 fromDate, availableSlots, allTasks, allAppointments, workingTimes
         );
+    }
+
+    /**
+     * TODO: Remove method -> solved in frontend
+     * @param allAppointments All appointments including ONE_TIME and RECURRING
+     * @param fromDate The date from which on the schedule is generated
+     * @param nWeeks The number of weeks to generate the plan for
+     * @return An updated list of appointments, where recurring appointments are resolved for the nWeeks
+     */
+    private List<Appointment> resolveRecurringAppointments(List<Appointment> allAppointments, LocalDate fromDate, int nWeeks) {
+
+        List<Appointment> result = new ArrayList<>(allAppointments.stream()
+                .filter(apt -> apt.getDate() != null)
+                .toList());
+
+        List<Appointment> recurring = allAppointments.stream().filter(apt -> apt.getDate() == null).toList();
+
+        LocalDate toDate = fromDate
+                .plusWeeks(nWeeks)
+                .with(TemporalAdjusters.nextOrSame(java.time.DayOfWeek.SUNDAY));
+
+        LocalDate currentDate = fromDate.with(TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY));
+        while (currentDate.isBefore(toDate) || currentDate.equals(toDate)) {
+
+            for (Appointment appointment : recurring) {
+                if (isAppointmentOnDate(currentDate, appointment)) {
+                    appointment.setDate(currentDate);
+                    result.add(appointment);
+                }
+            }
+            currentDate = currentDate.plusDays(1);
+        }
+        return result;
     }
 
     /**
@@ -202,9 +238,8 @@ public class ScheduleService {
      * @param fromDate Start date for calculating available slots
      * @return Available timeslots for multiple days starting from fromDate
      */
-    private List<TimeSlot> getAvailableTimeSlots(List<Appointment> allAppointments, List<WorkingTimeEntity> workingTimes, LocalDate fromDate) {
+    private List<TimeSlot> getAvailableTimeSlots(List<Appointment> allAppointments, List<WorkingTimeEntity> workingTimes, LocalDate fromDate, int nWeeks) {
 
-        int nWeeks = getNWeeksAhead(fromDate, allAppointments);
 
         List<TimeSlot> availableSlots = new ArrayList<>();
 
