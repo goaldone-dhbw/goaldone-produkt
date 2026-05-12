@@ -106,16 +106,17 @@
   </div>
 </div>
 
-<p-dialog
-  [visible]="isDialogOpen()"
-  (visibleChange)="isDialogOpen.set($event)"
-  header="Neuer Termin"
-  [modal]="true"
-  [draggable]="false"
-  [resizable]="false"
-  [style]="{ width: '90vw', maxWidth: '520px' }"
+<app-base-popup
+  [isOpen]="isDialogOpen()"
+  title="Neuer Termin"
+  confirmLabel="Speichern"
+  cancelLabel="Abbrechen"
+  [autoCloseOnConfirm]="false"
+  [confirmLoading]="isSaving()"
+  (isOpenChange)="isDialogOpen.set($event)"
+  (confirm)="saveAppointment()"
 >
-  <div class="flex flex-col gap-4 py-4">
+  <div popup-content class="flex flex-col gap-4 py-4">
     @if (validationMessage()) {
       <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
         {{ validationMessage() }}
@@ -191,21 +192,4 @@
       </div>
     </div>
   </div>
-
-  <ng-template pTemplate="footer">
-    <div class="flex justify-end gap-2 border-t border-slate-100 pt-4">
-      <p-button
-        label="Abbrechen"
-        [text]="true"
-        severity="secondary"
-        (onClick)="isDialogOpen.set(false)"
-      ></p-button>
-      <p-button
-        label="Speichern"
-        icon="pi pi-check"
-        [loading]="isSaving()"
-        (onClick)="saveAppointment()"
-      ></p-button>
-    </div>
-  </ng-template>
-</p-dialog>
+</app-base-popup>

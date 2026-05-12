@@ -3,7 +3,6 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ButtonModule } from 'primeng/button';
-import { DialogModule } from 'primeng/dialog';
 import { InputTextModule } from 'primeng/inputtext';
 import { SelectModule } from 'primeng/select';
 import { forkJoin, firstValueFrom } from 'rxjs';
@@ -16,6 +15,7 @@ import {
   AppointmentsService,
   UserAccountsService,
 } from '../../api';
+import { BasePopupComponent } from '../../shared/base-popup/base-popup.component';
 
 type AppointmentItem = Appointment & {
   accountLabel: string;
@@ -29,7 +29,14 @@ type AccountOption = {
 @Component({
   selector: 'app-appointments-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, ButtonModule, DialogModule, InputTextModule, SelectModule],
+  imports: [
+    CommonModule,
+    FormsModule,
+    ButtonModule,
+    InputTextModule,
+    SelectModule,
+    BasePopupComponent,
+  ],
   templateUrl: './appointments.page.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
