@@ -82,6 +82,13 @@ services:
       ZITADEL_OIDC_DEFAULTLOGOUTURLV2: https://${ZITADEL_DOMAIN}/ui/v2/login/logout?post_logout_redirect=
       ZITADEL_SAML_DEFAULTLOGINURLV2: https://${ZITADEL_DOMAIN}/ui/v2/login/login?samlRequest=
 
+      # Machine User für den Terraform Provider
+      ZITADEL_FIRSTINSTANCE_ORG_MACHINE_MACHINE_USERNAME: ${TERRAFORM_SA_USERNAME:-terraform-sa}
+      ZITADEL_FIRSTINSTANCE_ORG_MACHINE_MACHINE_NAME: Terraform Service Account
+      # JWT Machine Key → wird als JSON-Datei gespeichert
+      ZITADEL_FIRSTINSTANCE_ORG_MACHINE_MACHINEKEY_TYPE: 1
+      ZITADEL_FIRSTINSTANCE_MACHINEKEYPATH: /zitadel/machinekey/terraform-sa.json
+
       # --- Access logs ---
       ZITADEL_LOGSTORE_ACCESS_STDOUT_ENABLED: ${ZITADEL_ACCESS_LOG_STDOUT_ENABLED}
 
@@ -96,6 +103,7 @@ services:
       start_period: 20s
     volumes:
       - zitadel-bootstrap:/zitadel/bootstrap:rw
+      - ./machinekey:/zitadel/machinekey:rw
     networks:
       - zitadel
     depends_on:
