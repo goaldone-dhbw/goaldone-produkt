@@ -4,6 +4,7 @@ import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@a
 import { Button } from 'primeng/button';
 import { Tooltip } from 'primeng/tooltip';
 import { firstValueFrom } from 'rxjs';
+import { ActivatedRoute, Router } from '@angular/router';
 import {
   CognitiveLoad,
   TaskResponse,
@@ -30,6 +31,8 @@ type AccountOption = {
 export class TasksPageComponent {
   private readonly tasksService = inject(TasksService);
   private readonly userAccountsService = inject(UserAccountsService);
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
 
   readonly tasks = signal<TaskItem[]>([]);
   readonly accounts = signal<AccountOption[]>([]);
@@ -63,6 +66,7 @@ export class TasksPageComponent {
   private async initializePage(): Promise<void> {
     await this.loadAccounts();
     await this.loadTasks();
+    this.openCreateDialogFromQueryParam();
   }
 
   async loadAccounts(): Promise<void> {
@@ -339,5 +343,22 @@ export class TasksPageComponent {
     }
 
     return error.error?.message || error.error?.detail || error.error?.error || fallback;
+  }
+
+  private openCreateDialogFromQueryParam(): void {
+    const shouldOpenCreateDialog = this.route.snapshot.queryParamMap.get('create') === 'true';
+
+    if (!shouldOpenCreateDialog) {
+      return;
+    }
+
+    this.openCreateDialog();
+
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { create: null },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
   }
 }

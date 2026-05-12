@@ -25,3 +25,14 @@
 * {
   font-family: var(--font-family), sans-serif;
 }
+
+.p-tooltip {
+  max-width: none;
+  white-space: nowrap;
+}
+
+.p-tooltip .p-tooltip-text {
+  white-space: nowrap;
+  width: max-content;
+  max-width: none;
+}
