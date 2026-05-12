@@ -19,6 +19,7 @@ import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
+import java.util.Comparator;
 import java.util.UUID;
 
 /**
@@ -59,7 +60,7 @@ public class AppointmentService {
     }
 
     /**
-     * Lists all appointments for the given account.
+     * Lists all appointments for the given account sorted by date and start time.
      *
      * @param accountId The UUID of the account.
      * @param jwt       The authenticated user's JWT.
@@ -72,6 +73,7 @@ public class AppointmentService {
         var appointments = appointmentRepository.findByAccountId(accountId)
                 .stream()
                 .map(this::toModel)
+                .sorted(Comparator.comparing(Appointment::getDate).thenComparing(Appointment::getStartTime))
                 .toList();
 
         return new AppointmentListResponse().appointments(appointments);
