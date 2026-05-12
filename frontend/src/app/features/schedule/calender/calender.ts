@@ -1,6 +1,13 @@
 import { ChangeDetectionStrategy, Component, computed, input, output, signal } from '@angular/core';
 import { FullCalendarModule } from '@fullcalendar/angular';
-import { CalendarOptions, DatesSetArg, EventClickArg, EventInput } from '@fullcalendar/core';
+import {
+  CalendarOptions,
+  DatesSetArg,
+  EventClickArg,
+  EventContentArg,
+  EventInput,
+  EventMountArg,
+} from '@fullcalendar/core';
 import deLocale from '@fullcalendar/core/locales/de';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin from '@fullcalendar/interaction';
@@ -30,6 +37,9 @@ type CalendarDayName =
 
 const SLOT_MIN_TIME = '06:00:00';
 const SLOT_MAX_TIME = '22:00:00';
+
+const COMPACT_EVENT_MAX_MINUTES = 30;
+const TINY_EVENT_MAX_MINUTES = 10;
 
 const DAY_ORDER: CalendarDayName[] = [
   'SUNDAY',
@@ -135,7 +145,15 @@ export class CalenderComponent {
     slotMinTime: SLOT_MIN_TIME,
     slotMaxTime: SLOT_MAX_TIME,
 
+    slotDuration: '00:15:00',
+    slotLabelInterval: '01:00:00',
+    snapDuration: '00:05:00',
+
     eventDisplay: 'block',
+    displayEventEnd: true,
+    eventMinHeight: 28,
+    eventShortHeight: 34,
+    slotEventOverlap: false,
 
     eventTimeFormat: {
       hour: '2-digit',
@@ -151,6 +169,8 @@ export class CalenderComponent {
 
     datesSet: (arg) => this.handleDatesSet(arg),
     eventClick: (arg) => this.handleEventClick(arg),
+    eventContent: (arg) => this.renderEventContent(arg),
+    eventDidMount: (arg) => this.handleEventDidMount(arg),
   };
 
   private mapScheduleEntryToEvent(entry: ScheduleEntry, index: number): EventInput {
@@ -168,6 +188,81 @@ export class CalenderComponent {
         isBlocking: this.isBlockingEntry(entry),
       },
     };
+  }
+
+  private renderEventContent(arg: EventContentArg): { domNodes: Node[] } {
+    const isNonWorkingTime = arg.event.extendedProps['isNonWorkingTime'] === true;
+
+    if (arg.event.display === 'background' || isNonWorkingTime) {
+      return {
+        domNodes: [],
+      };
+    }
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'schedule-event-content';
+
+    const time = document.createElement('span');
+    time.className = 'schedule-event-time';
+    time.textContent = this.getEventTimeText(arg);
+
+    const separator = document.createElement('span');
+    separator.className = 'schedule-event-separator';
+    separator.textContent = '·';
+
+    const title = document.createElement('span');
+    title.className = 'schedule-event-title';
+    title.textContent = arg.event.title || '';
+
+    wrapper.append(time, separator, title);
+
+    return {
+      domNodes: [wrapper],
+    };
+  }
+
+  private handleEventDidMount(arg: EventMountArg): void {
+    if (arg.event.display === 'background') {
+      return;
+    }
+
+    const timeText = this.getEventTimeTextFromDates(arg.event.start, arg.event.end);
+    const title = arg.event.title || 'Eintrag';
+    const tooltip = timeText ? `${timeText} · ${title}` : title;
+
+    arg.el.setAttribute('title', tooltip);
+    arg.el.setAttribute('aria-label', tooltip);
+    arg.el.setAttribute('tabindex', '0');
+  }
+
+  private getEventTimeText(arg: EventContentArg): string {
+    if (arg.timeText) {
+      return arg.timeText.replace(/\s*-\s*/g, ' – ');
+    }
+
+    return this.getEventTimeTextFromDates(arg.event.start, arg.event.end);
+  }
+
+  private getEventTimeTextFromDates(start: Date | null, end: Date | null): string {
+    const startText = this.formatClockTime(start);
+    const endText = this.formatClockTime(end);
+
+    if (startText && endText) {
+      return `${startText} – ${endText}`;
+    }
+
+    return startText || endText;
+  }
+
+  private formatClockTime(date: Date | null): string {
+    if (!date) {
+      return '';
+    }
+
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+
+    return `${hours}:${minutes}`;
   }
 
   private mapNonWorkingTimesToBackgroundEvents(): EventInput[] {
@@ -223,23 +318,38 @@ export class CalenderComponent {
   }
 
   private getEventClassNames(entry: ScheduleEntry): string[] {
+    const classNames: string[] = [];
+
     if (this.isBreakEntry(entry)) {
-      return ['schedule-event--break'];
+      classNames.push('schedule-event--break');
+    } else if (this.isAppointmentEntry(entry)) {
+      classNames.push('schedule-event--appointment');
+    } else if (entry.isCompleted) {
+      classNames.push('schedule-event--completed');
+    } else if (entry.isPinned) {
+      classNames.push('schedule-event--pinned');
+    } else {
+      classNames.push('schedule-event--task');
     }
 
-    if (this.isAppointmentEntry(entry)) {
-      return ['schedule-event--appointment'];
+    const durationInMinutes = this.getEntryDurationInMinutes(entry);
+
+    if (durationInMinutes <= COMPACT_EVENT_MAX_MINUTES) {
+      classNames.push('schedule-event--compact');
     }
 
-    if (entry.isCompleted) {
-      return ['schedule-event--completed'];
+    if (durationInMinutes <= TINY_EVENT_MAX_MINUTES) {
+      classNames.push('schedule-event--tiny');
     }
 
-    if (entry.isPinned) {
-      return ['schedule-event--pinned'];
-    }
+    return classNames;
+  }
 
-    return ['schedule-event--task'];
+  private getEntryDurationInMinutes(entry: ScheduleEntry): number {
+    const start = this.timeToMinutes(entry.startTime);
+    const end = this.timeToMinutes(entry.endTime);
+
+    return Math.max(end - start, 0);
   }
 
   private getWorkingIntervalsForDate(date: string): TimeInterval[] {
@@ -479,7 +589,7 @@ export class CalenderComponent {
     return DAY_ORDER[dayIndex];
   }
 
-  private timeToMinutes(time: string): number {
+  private timeToMinutes(time: string | null | undefined): number {
     const [hours, minutes] = this.normalizeTime(time)
       .split(':')
       .map((part) => Number(part));
