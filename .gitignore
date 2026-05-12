@@ -7,6 +7,9 @@ mprocs.log
 .idea/workspace.xml
 .DS_STORE
 .env.old
+infra/deploy.log
+.deploy-state
+deploy.log
 
 # Local .terraform directories
 .terraform/
