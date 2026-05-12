@@ -28,6 +28,7 @@ export class CalenderComponent {
   readonly entries = input<ScheduleEntry[]>([]);
 
   readonly rangeChanged = output<ScheduleCalendarRange>();
+  readonly taskSaved = output<void>();
 
   readonly selectedTask = signal<TaskItem | null>(null);
   readonly isTaskDialogOpen = signal(false);
@@ -100,6 +101,7 @@ export class CalenderComponent {
 
   onTaskSaved(): void {
     this.closeTaskDialog();
+    this.taskSaved.emit();
   }
 
   private mapScheduleEntryToEvent(entry: ScheduleEntry, index: number): EventInput {
