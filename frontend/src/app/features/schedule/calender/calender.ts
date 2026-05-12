@@ -1,12 +1,12 @@
-import { ChangeDetectionStrategy, Component, computed, input, output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input, output, signal } from '@angular/core';
 import { FullCalendarModule } from '@fullcalendar/angular';
 import { CalendarOptions, DatesSetArg, EventClickArg, EventInput } from '@fullcalendar/core';
 import deLocale from '@fullcalendar/core/locales/de';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import timeGridPlugin from '@fullcalendar/timegrid';
-
-import { ScheduleEntry, TaskStatus } from '../../../api';
+import { firstValueFrom } from 'rxjs';
+import { ScheduleEntry, TaskAccountListResponse, TaskResponse, TasksService, TaskStatus } from '../../../api';
 import {
   TaskEditDialogComponent,
   TaskItem,
@@ -25,6 +25,8 @@ export type ScheduleCalendarRange = {
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class CalenderComponent {
+  private readonly tasksService = inject(TasksService);
+
   readonly entries = input<ScheduleEntry[]>([]);
 
   readonly rangeChanged = output<ScheduleCalendarRange>();
@@ -120,7 +122,58 @@ export class CalenderComponent {
       },
     };
   }
+  private findTaskById(
+    accountLists: TaskAccountListResponse[],
+    taskId: string,
+  ): TaskResponse | null {
+    for (const accountList of accountLists) {
+      const task = accountList.tasks?.find((candidate) => candidate.id === taskId);
 
+      if (task) {
+        return task;
+      }
+    }
+
+    return null;
+  }
+
+  private findAccountIdForTask(
+    accountLists: TaskAccountListResponse[],
+    taskId: string,
+  ): string | null {
+    for (const accountList of accountLists) {
+      const taskExists = accountList.tasks?.some((candidate) => candidate.id === taskId);
+
+      if (taskExists) {
+        return accountList.accountId;
+      }
+    }
+
+    return null;
+  }
+
+  private mapTaskResponseToTaskItem(
+    task: TaskResponse,
+    entry: ScheduleEntry,
+    accountLists: TaskAccountListResponse[],
+  ): TaskItem {
+    const taskId = task.id ?? this.getTaskId(entry);
+
+    return {
+      id: taskId,
+      title: task.title?.trim() || entry.originalItemTitle?.trim() || 'Unbenannte Aufgabe',
+      description: task.description ?? null,
+      duration: task.duration ?? this.calculateDurationInMinutes(entry),
+      deadline: task.deadline ?? null,
+      status: task.status ?? this.getTaskStatus(entry),
+      accountId: this.findAccountIdForTask(accountLists, taskId),
+      accountLabel: null,
+      dependencyIds: task.dependencyIds ?? [],
+      cognitiveLoad: task.cognitiveLoad ?? null,
+      dontScheduleBefore: task.dontScheduleBefore ?? null,
+      customChunkSize: task.customChunkSize ?? null,
+    };
+  }
   private getEntryTitle(entry: ScheduleEntry): string {
     const fallback =
       entry.type === 'TASK' ? 'Unbenannte Aufgabe' : entry.isBreak ? 'Pause' : 'Termin';
@@ -294,7 +347,7 @@ export class CalenderComponent {
     });
   }
 
-  private handleEventClick(arg: EventClickArg): void {
+  private async handleEventClick(arg: EventClickArg): Promise<void> {
     arg.jsEvent.preventDefault();
 
     const entry = arg.event.extendedProps['entry'] as ScheduleEntry | undefined;
@@ -303,8 +356,30 @@ export class CalenderComponent {
       return;
     }
 
-    this.selectedTask.set(this.mapScheduleEntryToTaskItem(entry));
-    this.isTaskDialogOpen.set(true);
+    const taskId = this.getTaskId(entry);
+
+    if (!taskId) {
+      this.selectedTask.set(this.mapScheduleEntryToTaskItem(entry));
+      this.isTaskDialogOpen.set(true);
+      return;
+    }
+
+    try {
+      const accountLists = await firstValueFrom(this.tasksService.getTasksForAllAccounts());
+      const task = this.findTaskById(accountLists, taskId);
+
+      if (!task) {
+        this.selectedTask.set(this.mapScheduleEntryToTaskItem(entry));
+        this.isTaskDialogOpen.set(true);
+        return;
+      }
+
+      this.selectedTask.set(this.mapTaskResponseToTaskItem(task, entry, accountLists));
+      this.isTaskDialogOpen.set(true);
+    } catch {
+      this.selectedTask.set(this.mapScheduleEntryToTaskItem(entry));
+      this.isTaskDialogOpen.set(true);
+    }
   }
 
   private isValidEntry(entry: ScheduleEntry): boolean {

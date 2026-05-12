@@ -63,8 +63,8 @@ type TaskFormValue = {
   id: string | null;
   title: string;
   description: string;
-  duration: number | null;
-  deadline: string;
+  durationHours: number | null;
+  durationMinutes: number | null;  deadline: string;
   status: TaskStatus;
   accountId: string;
   dependencyIds: string[];
@@ -141,7 +141,15 @@ export class TaskEditDialogComponent implements OnInit, OnChanges {
       id: this.fb.control<string | null>(null),
       title: this.fb.control('', [Validators.required, Validators.maxLength(150)]),
       description: this.fb.control(''),
-      duration: this.fb.control<number | null>(null, [Validators.required, Validators.min(1)]),
+      durationHours: this.fb.control<number | null>(0, [
+        Validators.required,
+        Validators.min(0),
+      ]),
+      durationMinutes: this.fb.control<number | null>(0, [
+        Validators.required,
+        Validators.min(0),
+        Validators.max(59),
+      ]),
       deadline: this.fb.control(''),
       status: this.fb.control<TaskStatus>('OPEN', [Validators.required]),
       accountId: this.fb.control('', [Validators.required]),
@@ -238,6 +246,13 @@ export class TaskEditDialogComponent implements OnInit, OnChanges {
     }
 
     const value = this.taskForm.getRawValue() as TaskFormValue;
+    const duration = this.getDurationInMinutes(value);
+
+    if (duration <= 0) {
+      this.formErrorMessage.set('Bitte gib eine Dauer von mindestens einer Minute an.');
+      return;
+    }
+
     this.isSaving.set(true);
 
     void this.saveTaskInternal(value);
@@ -247,8 +262,8 @@ export class TaskEditDialogComponent implements OnInit, OnChanges {
     this.isOpenChange.emit(false);
   }
 
-  showFieldError(fieldName: 'title' | 'duration' | 'accountId' | 'customChunkSize'): boolean {
-    const control = this.taskForm.get(fieldName);
+  showFieldError(
+    fieldName: 'title' | 'durationHours' | 'durationMinutes' | 'accountId' | 'customChunkSize',): boolean {    const control = this.taskForm.get(fieldName);
     const hasFormLevelChunkError =
       fieldName === 'customChunkSize' && !!this.taskForm.errors?.['chunkSizeInvalid'];
 
@@ -345,7 +360,8 @@ export class TaskEditDialogComponent implements OnInit, OnChanges {
         id: this.task.id,
         title: this.task.title,
         description: this.task.description ?? '',
-        duration: this.task.duration,
+        durationHours: Math.floor(this.task.duration / 60),
+        durationMinutes: this.task.duration % 60,
         deadline: this.toDateTimeLocalValue(this.task.deadline),
         status: this.task.status,
         accountId,
@@ -361,7 +377,8 @@ export class TaskEditDialogComponent implements OnInit, OnChanges {
         id: null,
         title: '',
         description: '',
-        duration: null,
+        durationHours: 0,
+        durationMinutes: 0,
         deadline: '',
         status: 'OPEN',
         accountId,
@@ -419,7 +436,7 @@ export class TaskEditDialogComponent implements OnInit, OnChanges {
       accountId: value.accountId,
       title: value.title.trim(),
       description: value.description?.trim() || undefined,
-      duration: Number(value.duration),
+      duration: this.getDurationInMinutes(value),
       deadline: value.deadline ? new Date(value.deadline).toISOString() : undefined,
       status: value.status,
       cognitiveLoad: (value.cognitiveLoad || 'MODERATE') as CognitiveLoad,
@@ -435,7 +452,7 @@ export class TaskEditDialogComponent implements OnInit, OnChanges {
     return {
       title: value.title.trim(),
       description: value.description?.trim() || undefined,
-      duration: Number(value.duration),
+      duration: this.getDurationInMinutes(value),
       deadline: value.deadline ? new Date(value.deadline).toISOString() : undefined,
       status: value.status,
       cognitiveLoad: (value.cognitiveLoad || 'MODERATE') as CognitiveLoad,
@@ -516,7 +533,9 @@ export class TaskEditDialogComponent implements OnInit, OnChanges {
   }
 
   private chunkSizeValidator(control: AbstractControl): ValidationErrors | null {
-    const duration = Number(control.get('duration')?.value);
+    const durationHours = Number(control.get('durationHours')?.value ?? 0);
+    const durationMinutes = Number(control.get('durationMinutes')?.value ?? 0);
+    const duration = durationHours * 60 + durationMinutes;
     const customChunkSize = Number(control.get('customChunkSize')?.value);
 
     if (!customChunkSize) {
@@ -536,5 +555,11 @@ export class TaskEditDialogComponent implements OnInit, OnChanges {
     }
 
     return this.task ? 'edit' : 'create';
+  }
+  private getDurationInMinutes(value: TaskFormValue): number {
+    const hours = Number(value.durationHours ?? 0);
+    const minutes = Number(value.durationMinutes ?? 0);
+
+    return hours * 60 + minutes;
   }
 }
