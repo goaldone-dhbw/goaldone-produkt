@@ -1,0 +1,211 @@
+<div class="min-h-screen bg-slate-50">
+  <div class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+    <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div>
+        <h1 class="text-3xl font-bold tracking-tight text-slate-900">Termine</h1>
+        <p class="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+          Erfasse feste Zeitblocker, damit die automatische Planung in diesen Zeiträumen keine
+          flexiblen Aufgaben einplant.
+        </p>
+      </div>
+
+      <p-button
+        label="Termin hinzufügen"
+        icon="pi pi-plus"
+        (onClick)="openCreateDialog()"
+        [disabled]="!hasAccounts()"
+      ></p-button>
+    </div>
+
+    @if (successMessage()) {
+      <div
+        class="mb-4 flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700"
+      >
+        <i class="pi pi-check-circle"></i>
+        {{ successMessage() }}
+      </div>
+    }
+
+    @if (errorMessage()) {
+      <div
+        class="mb-4 flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"
+      >
+        <i class="pi pi-exclamation-circle"></i>
+        {{ errorMessage() }}
+      </div>
+    }
+
+    <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div class="border-b border-slate-200 px-6 py-4">
+        <h2 class="text-lg font-semibold text-slate-900">Feste Termine</h2>
+      </div>
+
+      @if (isLoading()) {
+        <div class="px-6 py-8 text-sm text-slate-600">Termine werden geladen...</div>
+      } @else if (!hasAccounts()) {
+        <div class="px-6 py-8 text-sm text-slate-600">
+          Es wurde kein Unternehmen oder Verein gefunden.
+        </div>
+      } @else if (appointments().length === 0) {
+        <div class="px-6 py-8 text-sm text-slate-600">
+          Es sind noch keine festen Termine hinterlegt.
+        </div>
+      } @else {
+        <div class="divide-y divide-slate-200">
+          @for (appointment of appointments(); track appointment.id) {
+            <div class="px-6 py-5">
+              <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div class="min-w-0">
+                  <div class="mb-2 flex flex-wrap items-center gap-2">
+                    <h3 class="text-lg font-semibold text-slate-900">{{ appointment.title }}</h3>
+                    <span
+                      class="inline-flex rounded-full border border-slate-200 bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700"
+                    >
+                      Fixer Blocker
+                    </span>
+                  </div>
+
+                  <div
+                    class="flex flex-col gap-2 text-sm text-slate-600 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-6"
+                  >
+                    <div class="flex items-center gap-2">
+                      <span
+                        class="flex items-center gap-1 text-xs font-semibold uppercase text-slate-500"
+                      >
+                        <i class="pi pi-calendar text-xs text-primary-icon"></i> Datum
+                      </span>
+                      <span>{{ formatDate(appointment.date) }}</span>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                      <span
+                        class="flex items-center gap-1 text-xs font-semibold uppercase text-slate-500"
+                      >
+                        <i class="pi pi-clock text-xs text-primary-icon"></i> Zeit
+                      </span>
+                      <span>{{ appointment.startTime }} - {{ appointment.endTime }}</span>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                      <span
+                        class="flex items-center gap-1 text-xs font-semibold uppercase text-slate-500"
+                      >
+                        <i class="pi pi-building text-xs text-primary-icon"></i> Unternehmen /
+                        Verein
+                      </span>
+                      <span>{{ appointment.accountLabel }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          }
+        </div>
+      }
+    </div>
+  </div>
+</div>
+
+<p-dialog
+  [visible]="isDialogOpen()"
+  (visibleChange)="isDialogOpen.set($event)"
+  header="Neuer Termin"
+  [modal]="true"
+  [draggable]="false"
+  [resizable]="false"
+  [style]="{ width: '90vw', maxWidth: '520px' }"
+>
+  <div class="flex flex-col gap-4 py-4">
+    @if (validationMessage()) {
+      <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+        {{ validationMessage() }}
+      </div>
+    }
+
+    <div class="flex flex-col gap-2">
+      <label for="appointmentAccount" class="text-sm font-semibold text-slate-700"
+        >Unternehmen / Verein</label
+      >
+
+      @if (hasMultipleAccounts()) {
+        <p-select
+          inputId="appointmentAccount"
+          styleClass="w-full"
+          appendTo="body"
+          [options]="accounts()"
+          [(ngModel)]="selectedAccountId"
+          optionLabel="label"
+          optionValue="id"
+          placeholder="Bitte auswählen"
+        ></p-select>
+      } @else {
+        <div
+          class="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600"
+        >
+          {{ getAccountLabel(selectedAccountId) }}
+        </div>
+      }
+    </div>
+
+    <div class="flex flex-col gap-2">
+      <label for="appointmentTitle" class="text-sm font-semibold text-slate-700">Titel</label>
+      <input
+        id="appointmentTitle"
+        type="text"
+        pInputText
+        [(ngModel)]="title"
+        placeholder="z.B. Arzttermin"
+        class="w-full"
+      />
+    </div>
+
+    <div class="flex flex-col gap-2">
+      <label for="appointmentDate" class="text-sm font-semibold text-slate-700">Datum</label>
+      <input
+        id="appointmentDate"
+        type="date"
+        [(ngModel)]="date"
+        class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+      />
+    </div>
+
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div class="flex flex-col gap-2">
+        <label for="appointmentStart" class="text-sm font-semibold text-slate-700">Startzeit</label>
+        <input
+          id="appointmentStart"
+          type="time"
+          [(ngModel)]="startTime"
+          class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+        />
+      </div>
+
+      <div class="flex flex-col gap-2">
+        <label for="appointmentEnd" class="text-sm font-semibold text-slate-700">Endzeit</label>
+        <input
+          id="appointmentEnd"
+          type="time"
+          [(ngModel)]="endTime"
+          class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+        />
+      </div>
+    </div>
+  </div>
+
+  <ng-template pTemplate="footer">
+    <div class="flex justify-end gap-2 border-t border-slate-100 pt-4">
+      <p-button
+        label="Abbrechen"
+        [text]="true"
+        severity="secondary"
+        (onClick)="isDialogOpen.set(false)"
+      ></p-button>
+      <p-button
+        label="Speichern"
+        icon="pi pi-check"
+        [loading]="isSaving()"
+        (onClick)="saveAppointment()"
+      ></p-button>
+    </div>
+  </ng-template>
+</p-dialog>
