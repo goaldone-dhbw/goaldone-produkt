@@ -246,6 +246,28 @@ describe('TasksPageComponent', () => {
     expect(component.tasks().map((task) => task.id)).toEqual(['t-progress-high']);
   });
 
+  it('soll eine passende Meldung anzeigen, wenn keine Aufgaben vorhanden sind', async () => {
+    await flushInitialRequests([], { accounts: [] });
+
+    expect(component.tasks()).toEqual([]);
+    expect(component.totalTaskCount()).toBe(0);
+    expect(component.getEmptyTasksMessage()).toBe('Es sind noch keine Aufgaben vorhanden.');
+  });
+
+  it('soll eine passende Meldung anzeigen, wenn keine Aufgaben zum Filter passen', async () => {
+    await flushInitialRequests([], { accounts: [] });
+
+    component.filters.status = 'DONE';
+    component.filters.difficulty = 'HIGH';
+    await reloadTasksWithResponse(filterTestTasks);
+
+    expect(component.tasks()).toEqual([]);
+    expect(component.totalTaskCount()).toBe(3);
+    expect(component.getEmptyTasksMessage()).toBe(
+      'Zu diesem Filter sind keine Aufgaben vorhanden.',
+    );
+  });
+
   it('soll Aufgaben nach Anforderungsgrad filtern', async () => {
     await flushInitialRequests([], { accounts: [] });
 

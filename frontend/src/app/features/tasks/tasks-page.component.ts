@@ -54,6 +54,7 @@ export class TasksPageComponent {
   private readonly userAccountsService = inject(UserAccountsService);
 
   readonly tasks = signal<TaskItem[]>([]);
+  readonly totalTaskCount = signal(0);
   readonly accounts = signal<AccountOption[]>([]);
 
   readonly isLoading = signal(false);
@@ -114,9 +115,11 @@ export class TasksPageComponent {
         }
       }
 
+      this.totalTaskCount.set(allTasks.length);
       this.tasks.set(this.applyFilters(allTasks));
     } catch (error) {
       this.tasks.set([]);
+      this.totalTaskCount.set(0);
       this.listErrorMessage.set(
         this.getReadableErrorMessage(
           error,
@@ -126,6 +129,24 @@ export class TasksPageComponent {
     } finally {
       this.isLoading.set(false);
     }
+  }
+
+  getEmptyTasksMessage(): string {
+    if (this.totalTaskCount() > 0 && this.hasActiveFilters()) {
+      return 'Zu diesem Filter sind keine Aufgaben vorhanden.';
+    }
+
+    return 'Es sind noch keine Aufgaben vorhanden.';
+  }
+
+  private hasActiveFilters(): boolean {
+    return (
+      this.filters.status !== null ||
+      this.filters.difficulty !== null ||
+      this.filters.deadlineFrom !== null ||
+      this.filters.deadlineTo !== null ||
+      this.filters.duration !== null
+    );
   }
 
   private applyFilters(tasks: TaskItem[]): TaskItem[] {

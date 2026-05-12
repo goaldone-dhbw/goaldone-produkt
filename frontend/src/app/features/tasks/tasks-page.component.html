@@ -96,7 +96,7 @@
         </div>
       } @else if (tasks().length === 0) {
         <div class="px-6 py-8 text-sm text-slate-600">
-          Es sind noch keine Aufgaben vorhanden.
+          {{ getEmptyTasksMessage() }}
         </div>
       } @else {
         <div class="divide-y divide-slate-200">
