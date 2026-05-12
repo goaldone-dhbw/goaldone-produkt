@@ -1,6 +1,8 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { ActivatedRoute, Router } from '@angular/router';
+
 import { BASE_PATH } from '../../api';
 import { TasksPageComponent } from './tasks-page.component';
 
@@ -21,7 +23,24 @@ describe('TasksPageComponent', () => {
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
-        { provide: BASE_PATH, useValue: API_BASE }
+        { provide: BASE_PATH, useValue: API_BASE },
+
+        {
+          provide: ActivatedRoute,
+          useValue: {
+            snapshot: {
+              queryParamMap: {
+                get: () => null,
+              },
+            },
+          },
+        },
+        {
+          provide: Router,
+          useValue: {
+            navigate: vi.fn(),
+          },
+        },
       ],
     }).compileComponents();
 
