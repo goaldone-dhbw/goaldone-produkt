@@ -300,7 +300,9 @@ public class ScheduleService {
     }
 
     /**
-     * Determines the date of the last planed appointment and
+     * Determine the date of the last planed appointment and plans n weeks ahead where n is the number of weeks
+     *  between "fromDate" and the date of the last appointment.
+     *  A minimum of weeks ahead is set to 4.
      * @param fromDate The date from which on the schedule is calculated
      * @param allAppointments All appointments for this account
      * @return Minimal 4 or the number of weeks between fromDate and the date of the last appointment
