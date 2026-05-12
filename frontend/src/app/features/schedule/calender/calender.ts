@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input, output, signal } from '@angular/core';
 import { FullCalendarModule } from '@fullcalendar/angular';
 import { CalendarOptions, DatesSetArg, EventClickArg, EventInput } from '@fullcalendar/core';
 import deLocale from '@fullcalendar/core/locales/de';
@@ -6,7 +6,11 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import timeGridPlugin from '@fullcalendar/timegrid';
 
-import { ScheduleEntry } from '../../../api';
+import { ScheduleEntry, TaskStatus } from '../../../api';
+import {
+  TaskEditDialogComponent,
+  TaskItem,
+} from '../../../shared/task-edit-dialog/task-edit-dialog.component';
 
 export type ScheduleCalendarRange = {
   from: string;
@@ -16,7 +20,7 @@ export type ScheduleCalendarRange = {
 @Component({
   selector: 'app-schedule-calendar',
   standalone: true,
-  imports: [FullCalendarModule],
+  imports: [FullCalendarModule, TaskEditDialogComponent],
   templateUrl: './calender.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -25,10 +29,19 @@ export class CalenderComponent {
 
   readonly rangeChanged = output<ScheduleCalendarRange>();
 
+  readonly selectedTask = signal<TaskItem | null>(null);
+  readonly isTaskDialogOpen = signal(false);
+
   readonly calendarEvents = computed<EventInput[]>(() =>
     this.entries()
       .filter((entry) => this.isValidEntry(entry))
       .map((entry, index) => this.mapScheduleEntryToEvent(entry, index)),
+  );
+
+  readonly allTaskItems = computed<TaskItem[]>(() =>
+    this.entries()
+      .filter((entry) => entry.type === 'TASK')
+      .map((entry) => this.mapScheduleEntryToTaskItem(entry)),
   );
 
   readonly calendarOptions: CalendarOptions = {
@@ -70,9 +83,24 @@ export class CalenderComponent {
       hour12: false,
     },
 
+    eventClassNames: (arg) => {
+      const entry = arg.event.extendedProps['entry'] as ScheduleEntry | undefined;
+
+      return entry?.type === 'TASK' ? ['cursor-pointer'] : [];
+    },
+
     datesSet: (arg) => this.handleDatesSet(arg),
     eventClick: (arg) => this.handleEventClick(arg),
   };
+
+  closeTaskDialog(): void {
+    this.isTaskDialogOpen.set(false);
+    this.selectedTask.set(null);
+  }
+
+  onTaskSaved(): void {
+    this.closeTaskDialog();
+  }
 
   private mapScheduleEntryToEvent(entry: ScheduleEntry, index: number): EventInput {
     const colors = this.getEventColors(entry);
@@ -112,6 +140,105 @@ export class CalenderComponent {
     }
 
     return title;
+  }
+
+  private mapScheduleEntryToTaskItem(entry: ScheduleEntry): TaskItem {
+    const duration = this.calculateDurationInMinutes(entry);
+
+    return {
+      id: this.getTaskId(entry),
+      title: entry.originalItemTitle?.trim() || 'Unbenannte Aufgabe',
+      description: this.getOptionalString(entry, 'description'),
+      duration,
+      deadline: this.getOptionalString(entry, 'deadline'),
+      status: this.getTaskStatus(entry),
+      accountId: this.getOptionalString(entry, 'accountId'),
+      accountLabel:
+        this.getOptionalString(entry, 'accountLabel') ||
+        this.getOptionalString(entry, 'organizationName') ||
+        this.getOptionalString(entry, 'organizationLabel'),
+      dependencyIds: this.getDependencyIds(entry),
+      cognitiveLoad: this.getOptionalCognitiveLoad(entry),
+      dontScheduleBefore:
+        this.getOptionalString(entry, 'dontScheduleBefore') ||
+        this.getOptionalString(entry, 'notBefore'),
+      customChunkSize: this.getOptionalNumber(entry, 'customChunkSize'),
+    };
+  }
+
+  private getTaskId(entry: ScheduleEntry): string {
+    const rawEntry = entry as any;
+
+    return (
+      rawEntry.originalItemId ??
+      rawEntry.taskId ??
+      rawEntry.originalTaskId ??
+      entry.entryId ??
+      ''
+    );
+  }
+
+  private getTaskStatus(entry: ScheduleEntry): TaskStatus {
+    const rawEntry = entry as any;
+
+    if (rawEntry.status === 'OPEN' || rawEntry.status === 'IN_PROGRESS' || rawEntry.status === 'DONE') {
+      return rawEntry.status;
+    }
+
+    return entry.isCompleted ? 'DONE' : 'OPEN';
+  }
+
+  private getOptionalCognitiveLoad(entry: ScheduleEntry): TaskItem['cognitiveLoad'] {
+    const rawEntry = entry as any;
+    const value = rawEntry.cognitiveLoad;
+
+    if (value === 'LOW' || value === 'MODERATE' || value === 'HIGH') {
+      return value;
+    }
+
+    return null;
+  }
+
+  private getDependencyIds(entry: ScheduleEntry): string[] {
+    const rawEntry = entry as any;
+    const value = rawEntry.dependencyIds;
+
+    return Array.isArray(value) ? value : [];
+  }
+
+  private getOptionalString(entry: ScheduleEntry, fieldName: string): string | null {
+    const value = (entry as any)[fieldName];
+
+    if (typeof value !== 'string' || value.trim() === '') {
+      return null;
+    }
+
+    return value;
+  }
+
+  private getOptionalNumber(entry: ScheduleEntry, fieldName: string): number | null {
+    const value = (entry as any)[fieldName];
+
+    if (typeof value !== 'number') {
+      return null;
+    }
+
+    return value;
+  }
+
+  private calculateDurationInMinutes(entry: ScheduleEntry): number {
+    if (!entry.occurrenceDate || !entry.startTime || !entry.endTime) {
+      return 0;
+    }
+
+    const start = new Date(`${entry.occurrenceDate}T${entry.startTime}`);
+    const end = new Date(`${entry.occurrenceDate}T${entry.endTime}`);
+
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+      return 0;
+    }
+
+    return Math.round((end.getTime() - start.getTime()) / 60000);
   }
 
   private getEventColors(entry: ScheduleEntry): {
@@ -167,6 +294,15 @@ export class CalenderComponent {
 
   private handleEventClick(arg: EventClickArg): void {
     arg.jsEvent.preventDefault();
+
+    const entry = arg.event.extendedProps['entry'] as ScheduleEntry | undefined;
+
+    if (!entry || entry.type !== 'TASK') {
+      return;
+    }
+
+    this.selectedTask.set(this.mapScheduleEntryToTaskItem(entry));
+    this.isTaskDialogOpen.set(true);
   }
 
   private isValidEntry(entry: ScheduleEntry): boolean {

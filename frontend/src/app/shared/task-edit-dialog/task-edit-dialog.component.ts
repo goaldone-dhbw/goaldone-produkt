@@ -10,7 +10,6 @@ import {
   Output,
   SimpleChanges,
   computed,
-  effect,
   inject,
   signal,
   input,
@@ -58,6 +57,8 @@ export type TaskItem = {
   customChunkSize: number | null;
 };
 
+export type TaskDialogMode = 'create' | 'edit' | 'view';
+
 type TaskFormValue = {
   id: string | null;
   title: string;
@@ -82,6 +83,10 @@ type TaskFormValue = {
 export class TaskEditDialogComponent implements OnInit, OnChanges {
   @Input() isOpen = false;
   @Input() task: TaskItem | null = null;
+  @Input() mode: TaskDialogMode | null = null;
+
+  readonly currentMode = signal<TaskDialogMode>('create');
+
   readonly allTasks = input<TaskItem[]>([]);
 
   @Output() isOpenChange = new EventEmitter<boolean>();
@@ -110,10 +115,25 @@ export class TaskEditDialogComponent implements OnInit, OnChanges {
 
   readonly currentAccountLabel = computed(() => this.currentAccount()?.label ?? null);
 
-  readonly popupTitle = computed(() => (this.task ? 'Aufgabe bearbeiten' : 'Aufgabe erstellen'));
+  readonly effectiveMode = computed<TaskDialogMode>(() => this.currentMode());
+
+  readonly isViewMode = computed(() => this.effectiveMode() === 'view');
+  readonly isEditMode = computed(() => this.effectiveMode() === 'edit');
+
+  readonly popupTitle = computed(() => {
+    if (this.isViewMode()) {
+      return this.task?.title || 'Aufgabendetails';
+    }
+
+    if (this.isEditMode()) {
+      return 'Aufgabe bearbeiten';
+    }
+
+    return 'Aufgabe erstellen';
+  });
 
   readonly popupConfirmLabel = computed(() =>
-    this.task ? 'Änderungen speichern' : 'Aufgabe speichern',
+    this.isEditMode() ? 'Änderungen speichern' : 'Aufgabe speichern',
   );
 
   readonly taskForm = this.fb.group(
@@ -140,7 +160,7 @@ export class TaskEditDialogComponent implements OnInit, OnChanges {
     const selectedAccountId = this.selectedAccountId();
 
     return this.allTasks()
-      .filter((task) => task.id != currentId && task.accountId === selectedAccountId)
+      .filter((task) => task.id !== currentId && task.accountId === selectedAccountId)
       .map((task) => ({
         id: task.id,
         title: this.buildDependencyOptionLabel(task),
@@ -161,7 +181,16 @@ export class TaskEditDialogComponent implements OnInit, OnChanges {
     if (changes['task']) {
       this.currentTaskId.set(this.task?.id);
     }
+
     // Reset form wenn task sich ändert
+    if (
+      changes['task'] ||
+      changes['mode'] ||
+      (changes['isOpen'] && this.isOpen)
+    ) {
+      this.currentMode.set(this.resolveInitialMode());
+    }
+
     if (changes['task'] && !changes['task'].firstChange) {
       this.resetFormForTask();
     }
@@ -185,6 +214,126 @@ export class TaskEditDialogComponent implements OnInit, OnChanges {
     } catch {
       this.accounts.set([]);
     }
+  }
+
+  enableEditMode(): void {
+    if (!this.task) {
+      return;
+    }
+
+    this.currentMode.set('edit');
+  }
+
+  save(): void {
+    if (this.isViewMode()) {
+      return;
+    }
+
+    this.formErrorMessage.set('');
+    this.taskForm.markAllAsTouched();
+
+    if (this.taskForm.invalid) {
+      this.formErrorMessage.set('Bitte fülle alle Pflichtfelder korrekt aus.');
+      return;
+    }
+
+    const value = this.taskForm.getRawValue() as TaskFormValue;
+    this.isSaving.set(true);
+
+    void this.saveTaskInternal(value);
+  }
+
+  cancel(): void {
+    this.isOpenChange.emit(false);
+  }
+
+  showFieldError(fieldName: 'title' | 'duration' | 'accountId' | 'customChunkSize'): boolean {
+    const control = this.taskForm.get(fieldName);
+    const hasFormLevelChunkError =
+      fieldName === 'customChunkSize' && !!this.taskForm.errors?.['chunkSizeInvalid'];
+
+    return (
+      (!!control && control.invalid && (control.touched || control.dirty)) || hasFormLevelChunkError
+    );
+  }
+
+  formatStatus(status: TaskStatus): string {
+    switch (status) {
+      case 'OPEN':
+        return 'Offen';
+      case 'IN_PROGRESS':
+        return 'In Bearbeitung';
+      case 'DONE':
+        return 'Erledigt';
+      default:
+        return status;
+    }
+  }
+
+  formatCognitiveLoad(load: CognitiveLoad): string {
+    switch (load) {
+      case 'LOW':
+        return 'Niedrig';
+      case 'MODERATE':
+        return 'Mittel';
+      case 'HIGH':
+        return 'Hoch';
+      default:
+        return load;
+    }
+  }
+
+  formatDurationForView(minutes: number | null): string {
+    if (!minutes || minutes <= 0) {
+      return '-';
+    }
+
+    const hours = Math.floor(minutes / 60);
+    const restMinutes = minutes % 60;
+
+    if (hours > 0 && restMinutes > 0) {
+      return `${hours} h ${restMinutes} min`;
+    }
+
+    if (hours > 0) {
+      return `${hours} h`;
+    }
+
+    return `${restMinutes} min`;
+  }
+
+  formatDependencyTitlesForView(task: TaskItem): string {
+    if (!task.dependencyIds?.length) {
+      return '-';
+    }
+
+    const titleMap = new Map(this.allTasks().map((item) => [item.id, item.title]));
+
+    const titles = task.dependencyIds
+      .map((id) => titleMap.get(id))
+      .filter((title): title is string => !!title);
+
+    return titles.length ? titles.join(', ') : `${task.dependencyIds.length} ausgewählt`;
+  }
+
+  formatDateTime(value: string | null): string {
+    if (!value) {
+      return '-';
+    }
+
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+      return value;
+    }
+
+    return new Intl.DateTimeFormat('de-DE', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(date);
   }
 
   private resetFormForTask(): void {
@@ -225,21 +374,6 @@ export class TaskEditDialogComponent implements OnInit, OnChanges {
     }
   }
 
-  save(): void {
-    this.formErrorMessage.set('');
-    this.taskForm.markAllAsTouched();
-
-    if (this.taskForm.invalid) {
-      this.formErrorMessage.set('Bitte fülle alle Pflichtfelder korrekt aus.');
-      return;
-    }
-
-    const value = this.taskForm.getRawValue() as TaskFormValue;
-    this.isSaving.set(true);
-
-    void this.saveTaskInternal(value);
-  }
-
   private async saveTaskInternal(value: TaskFormValue): Promise<void> {
     try {
       if (this.task) {
@@ -259,46 +393,6 @@ export class TaskEditDialogComponent implements OnInit, OnChanges {
       );
     } finally {
       this.isSaving.set(false);
-    }
-  }
-
-  cancel(): void {
-    this.isOpenChange.emit(false);
-  }
-
-  showFieldError(fieldName: 'title' | 'duration' | 'accountId' | 'customChunkSize'): boolean {
-    const control = this.taskForm.get(fieldName);
-    const hasFormLevelChunkError =
-      fieldName === 'customChunkSize' && !!this.taskForm.errors?.['chunkSizeInvalid'];
-
-    return (
-      (!!control && control.invalid && (control.touched || control.dirty)) || hasFormLevelChunkError
-    );
-  }
-
-  formatStatus(status: TaskStatus): string {
-    switch (status) {
-      case 'OPEN':
-        return 'Offen';
-      case 'IN_PROGRESS':
-        return 'In Bearbeitung';
-      case 'DONE':
-        return 'Erledigt';
-      default:
-        return status;
-    }
-  }
-
-  formatCognitiveLoad(load: CognitiveLoad): string {
-    switch (load) {
-      case 'LOW':
-        return 'Niedrig';
-      case 'MODERATE':
-        return 'Mittel';
-      case 'HIGH':
-        return 'Hoch';
-      default:
-        return load;
     }
   }
 
@@ -391,26 +485,6 @@ export class TaskEditDialogComponent implements OnInit, OnChanges {
     return `${year}-${month}-${day}T${hour}:${minute}`;
   }
 
-  private formatDateTime(value: string | null): string {
-    if (!value) {
-      return '-';
-    }
-
-    const date = new Date(value);
-
-    if (Number.isNaN(date.getTime())) {
-      return value;
-    }
-
-    return new Intl.DateTimeFormat('de-DE', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    }).format(date);
-  }
-
   private getReadableErrorMessage(error: unknown, fallback: string): string {
     if (!(error instanceof HttpErrorResponse)) {
       return fallback;
@@ -454,5 +528,13 @@ export class TaskEditDialogComponent implements OnInit, OnChanges {
     }
 
     return null;
+  }
+
+  private resolveInitialMode(): TaskDialogMode {
+    if (this.mode) {
+      return this.mode;
+    }
+
+    return this.task ? 'edit' : 'create';
   }
 }

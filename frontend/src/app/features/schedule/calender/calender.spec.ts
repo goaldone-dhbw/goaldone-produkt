@@ -1,10 +1,16 @@
+import { provideHttpClient } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
+import { BASE_PATH } from '../../../api';
 import { CalenderComponent } from './calender';
 
 describe('CalenderComponent', () => {
   let component: CalenderComponent;
   let fixture: ComponentFixture<CalenderComponent>;
+  let httpMock: HttpTestingController;
+
+  const API_BASE = 'http://localhost:8080/api/v1';
 
   beforeEach(async () => {
     class ResizeObserverMock {
@@ -17,11 +23,25 @@ describe('CalenderComponent', () => {
 
     await TestBed.configureTestingModule({
       imports: [CalenderComponent],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: BASE_PATH, useValue: API_BASE },
+      ],
     }).compileComponents();
 
     fixture = TestBed.createComponent(CalenderComponent);
     component = fixture.componentInstance;
+    httpMock = TestBed.inject(HttpTestingController);
+
     fixture.detectChanges();
+
+    const accountsRequest = httpMock.expectOne(`${API_BASE}/users/accounts`);
+    accountsRequest.flush({ accounts: [] });
+  });
+
+  afterEach(() => {
+    httpMock.verify();
   });
 
   it('should create', () => {
@@ -70,5 +90,21 @@ describe('CalenderComponent', () => {
 
     expect(events.length).toBe(1);
     expect(events[0].title).toBe('Dokumentation schreiben (1/3)');
+  });
+
+  it('should add pointer cursor class for task events', () => {
+    const eventClassNames = component.calendarOptions.eventClassNames as any;
+
+    const classes = eventClassNames({
+      event: {
+        extendedProps: {
+          entry: {
+            type: 'TASK',
+          },
+        },
+      },
+    });
+
+    expect(classes).toContain('cursor-pointer');
   });
 });

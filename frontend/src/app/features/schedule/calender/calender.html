@@ -6,3 +6,12 @@
     ></full-calendar>
   </div>
 </div>
+
+<app-task-edit-dialog
+  [isOpen]="isTaskDialogOpen()"
+  [task]="selectedTask()"
+  [allTasks]="allTaskItems()"
+  mode="view"
+  (isOpenChange)="isTaskDialogOpen.set($event)"
+  (taskSaved)="onTaskSaved()"
+></app-task-edit-dialog>
