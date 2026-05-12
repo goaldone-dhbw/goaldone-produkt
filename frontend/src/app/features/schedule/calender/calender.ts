@@ -58,6 +58,8 @@ export class CalenderComponent {
     slotMinTime: '06:00:00',
     slotMaxTime: '22:00:00',
 
+    eventDisplay: 'block',
+
     eventTimeFormat: {
       hour: '2-digit',
       minute: '2-digit',
@@ -85,15 +87,20 @@ export class CalenderComponent {
       backgroundColor: colors.backgroundColor,
       borderColor: colors.borderColor,
       textColor: colors.textColor,
+      display: 'block',
       extendedProps: {
         entry,
+        isBreak: this.isBreakEntry(entry),
       },
     };
   }
 
   private getEntryTitle(entry: ScheduleEntry): string {
-    const fallback =
-      entry.type === 'TASK' ? 'Unbenannte Aufgabe' : entry.isBreak ? 'Pause' : 'Termin';
+    if (this.isBreakEntry(entry)) {
+      return entry.originalItemTitle?.trim() || 'Pause';
+    }
+
+    const fallback = entry.type === 'TASK' ? 'Unbenannte Aufgabe' : 'Termin';
 
     const chunkSuffix =
       entry.type === 'TASK' &&
@@ -111,6 +118,14 @@ export class CalenderComponent {
     borderColor: string;
     textColor: string;
   } {
+    if (this.isBreakEntry(entry)) {
+      return {
+        backgroundColor: '#06b6d4',
+        borderColor: '#0891b2',
+        textColor: '#ffffff',
+      };
+    }
+
     if (entry.isCompleted) {
       return {
         backgroundColor: '#16a34a',
@@ -123,14 +138,6 @@ export class CalenderComponent {
       return {
         backgroundColor: '#d97706',
         borderColor: '#b45309',
-        textColor: '#ffffff',
-      };
-    }
-
-    if (entry.type === 'APPOINTMENT' && entry.isBreak) {
-      return {
-        backgroundColor: '#059669',
-        borderColor: '#047857',
         textColor: '#ffffff',
       };
     }
@@ -170,6 +177,10 @@ export class CalenderComponent {
     const end = new Date(`${entry.occurrenceDate}T${entry.endTime}`);
 
     return !Number.isNaN(start.getTime()) && !Number.isNaN(end.getTime()) && end > start;
+  }
+
+  private isBreakEntry(entry: ScheduleEntry): boolean {
+    return entry.isBreak === true;
   }
 
   private toIsoDate(date: Date): string {

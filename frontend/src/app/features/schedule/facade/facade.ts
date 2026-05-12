@@ -216,8 +216,40 @@ export class ScheduleFacadeService {
   }
 
   private applyScheduleResponse(response: ScheduleResponse): void {
+    const scheduleEntries = response.entries ?? [];
+
+    const appointmentEntries = this.mapAppointmentsToScheduleEntries(response);
+
     this.scheduleResponse.set(response);
-    this.scheduleEntries.set(response.entries ?? []);
+    this.scheduleEntries.set([...scheduleEntries, ...appointmentEntries]);
+  }
+
+  private mapAppointmentsToScheduleEntries(response: ScheduleResponse): ScheduleEntry[] {
+    const appointments = (response as any).appointments ?? [];
+
+    return appointments
+      .filter((appointment: any) => this.isValidAppointmentForCalendar(appointment))
+      .map((appointment: any): ScheduleEntry => {
+        return {
+          source: appointment.appointmentType ?? 'ONE_TIME',
+          startTime: appointment.startTime,
+          endTime: appointment.endTime,
+          type: 'APPOINTMENT',
+          isCompleted: false,
+          isPinned: false,
+          originalItemTitle: appointment.title ?? 'Termin',
+          chunkIndex: null,
+          entryId: appointment.id ?? null,
+          isBreak: appointment.isBreak === true,
+          occurrenceDate: appointment.date,
+          originalItemId: appointment.id ?? null,
+          totalChunks: null,
+        } as ScheduleEntry;
+      });
+  }
+
+  private isValidAppointmentForCalendar(appointment: any): boolean {
+    return Boolean(appointment && appointment.date && appointment.startTime && appointment.endTime);
   }
 
   private getGenerationStartDate(): string {

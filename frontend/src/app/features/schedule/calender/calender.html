@@ -1,5 +1,32 @@
 <div class="w-full overflow-x-auto">
   <div class="min-w-[760px] rounded-2xl bg-white">
+    <div class="flex flex-wrap items-center gap-4 border-b border-slate-200 px-4 py-3 text-xs text-slate-600">
+      <div class="flex items-center gap-2">
+        <span class="h-3 w-3 rounded-full bg-indigo-600"></span>
+        <span>Aufgabe</span>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <span class="h-3 w-3 rounded-full bg-slate-500"></span>
+        <span>Termin</span>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <span class="h-3 w-3 rounded-full bg-cyan-500"></span>
+        <span>Pause</span>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <span class="h-3 w-3 rounded-full bg-amber-600"></span>
+        <span>Fixiert</span>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <span class="h-3 w-3 rounded-full bg-green-600"></span>
+        <span>Erledigt</span>
+      </div>
+    </div>
+
     <full-calendar
       [options]="calendarOptions"
       [events]="calendarEvents()"
