@@ -27,4 +27,48 @@ describe('CalenderComponent', () => {
   it('should create', () => {
     expect(component).toBeTruthy();
   });
+
+  it('should not show chunk numbering for single-chunk tasks', () => {
+    fixture.componentRef.setInput('entries', [
+      {
+        entryId: 'entry-1',
+        type: 'TASK',
+        originalItemTitle: 'Dokumentation schreiben',
+        occurrenceDate: '2026-05-25',
+        startTime: '10:00:00',
+        endTime: '11:00:00',
+        chunkIndex: 0,
+        totalChunks: 1,
+      },
+    ]);
+
+    fixture.detectChanges();
+
+    const events = component.calendarEvents();
+
+    expect(events.length).toBe(1);
+    expect(events[0].title).toBe('Dokumentation schreiben');
+  });
+
+  it('should show chunk numbering for tasks with multiple chunks', () => {
+    fixture.componentRef.setInput('entries', [
+      {
+        entryId: 'entry-1',
+        type: 'TASK',
+        originalItemTitle: 'Dokumentation schreiben',
+        occurrenceDate: '2026-05-25',
+        startTime: '10:00:00',
+        endTime: '11:00:00',
+        chunkIndex: 0,
+        totalChunks: 3,
+      },
+    ]);
+
+    fixture.detectChanges();
+
+    const events = component.calendarEvents();
+
+    expect(events.length).toBe(1);
+    expect(events[0].title).toBe('Dokumentation schreiben (1/3)');
+  });
 });

@@ -95,15 +95,23 @@ export class CalenderComponent {
     const fallback =
       entry.type === 'TASK' ? 'Unbenannte Aufgabe' : entry.isBreak ? 'Pause' : 'Termin';
 
-    const chunkSuffix =
-      entry.type === 'TASK' &&
-      entry.chunkIndex !== null &&
-      entry.chunkIndex !== undefined &&
-      entry.totalChunks
-        ? ` (${entry.chunkIndex + 1}/${entry.totalChunks})`
-        : '';
+    const title = entry.originalItemTitle?.trim() || fallback;
 
-    return `${entry.originalItemTitle?.trim() || fallback}${chunkSuffix}`;
+    const chunkIndex = entry.chunkIndex;
+    const totalChunks = entry.totalChunks;
+
+    if (
+      entry.type === 'TASK' &&
+      chunkIndex !== null &&
+      chunkIndex !== undefined &&
+      totalChunks !== null &&
+      totalChunks !== undefined &&
+      totalChunks > 1
+    ) {
+      return `${title} (${chunkIndex + 1}/${totalChunks})`;
+    }
+
+    return title;
   }
 
   private getEventColors(entry: ScheduleEntry): {
