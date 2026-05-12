@@ -185,31 +185,31 @@ public class ScheduleService {
         }
 
         // Get available timeslots
-        List<TimeSlot> availableSlots = getAvailableTimeSlots(accountId, jwt, workingTimes, fromDate, weeks);
+        List<Appointment> allAppointments = appointmentService.listAppointments(accountId, jwt).getAppointments();
+        List<TimeSlot> availableSlots = getAvailableTimeSlots(allAppointments, workingTimes, fromDate, weeks);
 
         // Create schedule context
         return new SchedulingContext(
-                fromDate, availableSlots, allTasks, workingTimes
+                fromDate, availableSlots, allTasks, allAppointments, workingTimes
         );
     }
 
     /**
      * Calculate a list of available time slots to plan the task chunks into
-     * @param accountId Specific account
+     * @param allAppointments All appointments scheduled for this account>
      * @param workingTimes List of working time definitions for the account
      * @param fromDate Start date for calculating available slots
      * @param nWeeks Plan for N   nWeeks ahead
      * @return Available timeslots for multiple days starting from fromDate
      */
-    private List<TimeSlot> getAvailableTimeSlots(UUID accountId, Jwt jwt, List<WorkingTimeEntity> workingTimes, LocalDate fromDate, int nWeeks) {
+    private List<TimeSlot> getAvailableTimeSlots(List<Appointment> allAppointments, List<WorkingTimeEntity> workingTimes, LocalDate fromDate, int nWeeks) {
         List<TimeSlot> availableSlots = new ArrayList<>();
 
         if (workingTimes.isEmpty()) {
-            log.warn("No working times defined for account {}", accountId);
+            log.warn("No working times defined for this account");
             return availableSlots;
         }
 
-        List<Appointment> allAppointments = appointmentService.listAppointments(accountId, jwt).getAppointments();
 
         // Get the Monday of the week for the fromDate
         int weekDayInt = fromDate.getDayOfWeek().getValue();
@@ -293,9 +293,6 @@ public class ScheduleService {
                 currentDate = currentDate.plusDays(1);
             }
         }
-
-        log.debug("Found {} available time slots for account {} from {} for {} nWeeks",
-                availableSlots.size(), accountId, fromDate, nWeeks);
         return availableSlots;
     }
 
