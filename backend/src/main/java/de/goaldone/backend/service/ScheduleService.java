@@ -186,13 +186,12 @@ public class ScheduleService {
         }
 
         // Get available timeslots
-        List<Appointment> appointments = appointmentService.listAppointments(accountId, jwt).getAppointments();
-        int nWeeks = getNWeeksAhead(fromDate, appointments);
-        List<TimeSlot> availableSlots = getAvailableTimeSlots(appointments, workingTimes, fromDate, nWeeks);
+        List<Appointment> allAppointments = appointmentService.listAppointments(accountId, jwt).getAppointments();
+        List<TimeSlot> availableSlots = getAvailableTimeSlots(allAppointments, workingTimes, fromDate);
 
         // Create schedule context
         return new SchedulingContext(
-                fromDate, availableSlots, allTasks, appointments, workingTimes
+                fromDate, availableSlots, allTasks, allAppointments, workingTimes
         );
     }
 
@@ -203,7 +202,9 @@ public class ScheduleService {
      * @param fromDate Start date for calculating available slots
      * @return Available timeslots for multiple days starting from fromDate
      */
-    private List<TimeSlot> getAvailableTimeSlots(List<Appointment> allAppointments, List<WorkingTimeEntity> workingTimes, LocalDate fromDate, int nWeeks) {
+    private List<TimeSlot> getAvailableTimeSlots(List<Appointment> allAppointments, List<WorkingTimeEntity> workingTimes, LocalDate fromDate) {
+
+        int nWeeks = getNWeeksAhead(fromDate, allAppointments);
 
         List<TimeSlot> availableSlots = new ArrayList<>();
 
@@ -211,6 +212,7 @@ public class ScheduleService {
             log.warn("No working times defined for this account");
             return availableSlots;
         }
+
 
         // Get the Monday of the week for the fromDate
         int weekDayInt = fromDate.getDayOfWeek().getValue();

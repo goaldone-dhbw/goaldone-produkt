@@ -76,6 +76,7 @@ export class WorkingHoursPage implements OnInit {
   breakStartTime = '';
   breakEndTime = '';
   breakType: BreakFormType = 'ONCE';
+  breakSelectedDays: DayOfWeek[] = [];
   breakSelectedAccountId: string | null = null;
 
   readonly breakTypeOptions = [
@@ -363,6 +364,7 @@ export class WorkingHoursPage implements OnInit {
     this.breakStartTime = '12:00';
     this.breakEndTime = '13:00';
     this.breakType = 'ONCE';
+    this.breakSelectedDays = [];
     this.breakSelectedAccountId =
       this.accounts().length > 0 ? this.accounts()[0].accountId?.toString() || null : null;
 
@@ -384,9 +386,6 @@ export class WorkingHoursPage implements OnInit {
     this.breakStartTime = this.getBreakStart(item) || '12:00';
     this.breakEndTime = this.getBreakEnd(item) || '13:00';
 
-    const breakDate = this.getBreakDate(item);
-    this.breakDate = breakDate !== 'Wiederkehrend' ? breakDate : '';
-
     const appointmentType =
       (item as any).appointmentType || (item as any).type || (item as any).breakType || '';
 
@@ -394,6 +393,10 @@ export class WorkingHoursPage implements OnInit {
       appointmentType === 'RECURRING' || appointmentType === 'WEEKDAYS' || !!(item as any).rrule
         ? 'RECURRING'
         : 'ONCE';
+    const breakDate = this.getBreakDate(item);
+    this.breakDate = this.breakType === 'ONCE' ? breakDate : '';
+    this.breakSelectedDays =
+      this.breakType === 'RECURRING' ? this.parseDaysFromRrule((item as any).rrule) : [];
 
     this.showBreakDialog.set(true);
   }
@@ -419,6 +422,11 @@ export class WorkingHoursPage implements OnInit {
       return;
     }
 
+    if (this.breakType === 'RECURRING' && this.breakSelectedDays.length === 0) {
+      this.showWarn('Bitte wählen Sie mindestens einen Wochentag aus.');
+      return;
+    }
+
     if (!this.breakStartTime) {
       this.showWarn('Bitte geben Sie eine Startzeit ein.');
       return;
@@ -441,7 +449,7 @@ export class WorkingHoursPage implements OnInit {
       date: this.breakType === 'ONCE' ? this.breakDate : null,
       startTime: this.breakStartTime,
       endTime: this.breakEndTime,
-      rrule: this.breakType === 'RECURRING' ? 'FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR' : null,
+      rrule: this.breakType === 'RECURRING' ? this.buildWeeklyRrule(this.breakSelectedDays) : null,
     };
 
     if (this.isBreakEditMode()) {
@@ -563,6 +571,11 @@ export class WorkingHoursPage implements OnInit {
   }
 
   getBreakDate(item: Appointment): string {
+    if ((item as any).appointmentType === 'RECURRING' || (item as any).rrule) {
+      const days = this.parseDaysFromRrule((item as any).rrule);
+      return days.length ? this.formatDays(days) : 'Wiederkehrend';
+    }
+
     return (
       (item as any).date ||
       this.extractDate((item as any).startAt) ||
@@ -630,6 +643,59 @@ export class WorkingHoursPage implements OnInit {
       .sort((a, b) => order.indexOf(a.toUpperCase()) - order.indexOf(b.toUpperCase()))
       .map((d) => labels[d.toUpperCase()] ?? d)
       .join(', ');
+  }
+
+  private buildWeeklyRrule(days: DayOfWeek[]): string {
+    const dayCodes: Record<string, string> = {
+      MONDAY: 'MO',
+      TUESDAY: 'TU',
+      WEDNESDAY: 'WE',
+      THURSDAY: 'TH',
+      FRIDAY: 'FR',
+      SATURDAY: 'SA',
+      SUNDAY: 'SU',
+    };
+
+    const order = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
+    const byDay = days
+      .slice()
+      .sort((a, b) => order.indexOf(a.toUpperCase()) - order.indexOf(b.toUpperCase()))
+      .map((day) => dayCodes[day.toUpperCase()])
+      .filter(Boolean)
+      .join(',');
+
+    return `FREQ=WEEKLY;BYDAY=${byDay}`;
+  }
+
+  private parseDaysFromRrule(rrule?: string | null): DayOfWeek[] {
+    if (!rrule) {
+      return [];
+    }
+
+    const codeToDay: Record<string, DayOfWeek> = {
+      MO: DayOfWeek.Monday,
+      TU: DayOfWeek.Tuesday,
+      WE: DayOfWeek.Wednesday,
+      TH: DayOfWeek.Thursday,
+      FR: DayOfWeek.Friday,
+      SA: DayOfWeek.Saturday,
+      SU: DayOfWeek.Sunday,
+    };
+
+    const byDay = rrule
+      .toUpperCase()
+      .split(';')
+      .find((part) => part.startsWith('BYDAY='))
+      ?.substring('BYDAY='.length);
+
+    if (!byDay) {
+      return [];
+    }
+
+    return byDay
+      .split(',')
+      .map((code) => codeToDay[code])
+      .filter((day): day is DayOfWeek => !!day);
   }
 
   calculateDuration(startTime: string | undefined, endTime: string | undefined): string {

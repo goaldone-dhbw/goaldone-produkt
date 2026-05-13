@@ -354,6 +354,18 @@
           class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
         />
       </div>
+    } @else {
+      <div class="flex flex-col gap-2">
+        <label class="text-sm font-semibold text-slate-700">Wochentage</label>
+        <p-select-button
+          [(ngModel)]="breakSelectedDays"
+          [options]="dayOptions"
+          optionLabel="label"
+          optionValue="value"
+          [multiple]="true"
+          class="custom-selectbutton"
+        />
+      </div>
     }
 
     <div class="grid grid-cols-2 gap-4">
