@@ -24,12 +24,11 @@ class ChangeMoveTest {
         return new TimeSlot(DAY, LocalTime.of(startHour, 0), LocalTime.of(endHour, 0));
     }
 
-    private static TaskChunk chunk(UUID taskId, boolean pinned) {
+    private static TaskChunk chunk(UUID taskId) {
         return new TaskChunk(
                 UUID.randomUUID(), taskId, "Task",
                 0, 1, 60,
-                0, 0, null,
-                null, null, pinned, null
+                null, null, null, null
         );
     }
 
@@ -52,7 +51,7 @@ class ChangeMoveTest {
     @Test
     void apply_movesUnpinnedChunkToFreeSlot() {
         UUID taskId = UUID.randomUUID();
-        TaskChunk chunkA = chunk(taskId, false);
+        TaskChunk chunkA = chunk(taskId);
         TimeSlot occupied = slot(9, 10);
         TimeSlot free     = slot(11, 12);
 
@@ -68,20 +67,9 @@ class ChangeMoveTest {
     }
 
     @Test
-    void apply_returnsNull_whenAllChunksPinned() {
-        UUID taskId = UUID.randomUUID();
-        TaskChunk pinned = chunk(taskId, true);
-
-        assertNull(new ChangeMove(fixed()).apply(state(
-                List.of(new ScheduledChunk(pinned, slot(9, 10))),
-                List.of(slot(11, 12))
-        )));
-    }
-
-    @Test
     void apply_returnsNull_whenNoFreeSlots() {
         UUID taskId = UUID.randomUUID();
-        TaskChunk chunkA = chunk(taskId, false);
+        TaskChunk chunkA = chunk(taskId);
 
         assertNull(new ChangeMove(fixed()).apply(state(
                 List.of(new ScheduledChunk(chunkA, slot(9, 10))),
@@ -92,7 +80,7 @@ class ChangeMoveTest {
     @Test
     void apply_returnsNull_whenTargetSlotTooShort() {
         UUID taskId = UUID.randomUUID();
-        TaskChunk chunkA = chunk(taskId, false); // braucht 60 min
+        TaskChunk chunkA = chunk(taskId); // braucht 60 min
 
         TimeSlot thirtyMin = new TimeSlot(DAY, LocalTime.of(11, 0), LocalTime.of(11, 30));
 
@@ -105,7 +93,7 @@ class ChangeMoveTest {
     @Test
     void apply_freesOldSlot_andRemovesNewSlot() {
         UUID taskId = UUID.randomUUID();
-        TaskChunk chunkA = chunk(taskId, false);
+        TaskChunk chunkA = chunk(taskId);
         TimeSlot oldSlot = slot(9, 10);
         TimeSlot newSlot = slot(11, 12);
 
@@ -122,7 +110,7 @@ class ChangeMoveTest {
     @Test
     void apply_doesNotMutateOriginalState() {
         UUID taskId = UUID.randomUUID();
-        TaskChunk chunkA = chunk(taskId, false);
+        TaskChunk chunkA = chunk(taskId);
         TimeSlot oldSlot = slot(9, 10);
         TimeSlot newSlot = slot(11, 12);
 

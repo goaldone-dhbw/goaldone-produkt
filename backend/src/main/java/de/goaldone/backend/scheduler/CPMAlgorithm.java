@@ -156,12 +156,9 @@ public class CPMAlgorithm {
                     .chunkIndex(chunk.chunkIndex())
                     .totalChunks(chunk.totalChunks())
                     .durationMinutes(usableMinutes)
-                    .topologicalLevel(chunk.topologicalLevel())
-                    .slackMinutes(chunk.slackMinutes())
                     .cognitiveLoad(chunk.cognitiveLoad())
                     .notBefore(chunk.notBefore())
                     .deadline(chunk.deadline())
-                    .isPinned(chunk.isPinned())
                     .dependsOnTaskIds(chunk.dependsOnTaskIds())
                     .build();
 
@@ -277,12 +274,9 @@ public class CPMAlgorithm {
                     .chunkIndex(currentIndex)
                     .totalChunks(totalChunks)
                     .durationMinutes(chunk.durationMinutes())
-                    .topologicalLevel(chunk.topologicalLevel())
-                    .slackMinutes(chunk.slackMinutes())
                     .cognitiveLoad(chunk.cognitiveLoad())
                     .notBefore(chunk.notBefore())
                     .deadline(chunk.deadline())
-                    .isPinned(chunk.isPinned())
                     .dependsOnTaskIds(chunk.dependsOnTaskIds())
                     .build();
 

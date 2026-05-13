@@ -170,8 +170,12 @@ public class ScheduleService {
      */
     public SchedulingContext createSchedulingContext(Jwt jwt, UUID accountId, LocalDate fromDate) {
 
-        List<TaskResponse> allTasks = taskService.getTasksForAccountId(jwt, accountId);
-
+        List<TaskResponse> allTasks = new ArrayList<>();
+        for (TaskResponse task : taskService.getTasksForAccountId(jwt, accountId)) {
+            if (!task.getStatus().equals(TaskStatus.DONE)) {
+                allTasks.add(task);
+            }
+        }
         // Load working times for this account
         List<WorkingTimeEntity> workingTimes = userAccountRepository.findById(accountId)
                 .map(UserAccountEntity::getWorkingTimes)

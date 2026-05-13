@@ -46,7 +46,6 @@ public class PillarMove extends Move {
     @Override
     public SolverState apply(SolverState current) {
         Map<UUID, List<ScheduledChunk>> chunksByTask = current.scheduledChunks().stream()
-                .filter(sc -> !sc.chunk().isPinned())
                 .collect(Collectors.groupingBy(sc -> sc.chunk().taskId()));
 
         if (chunksByTask.isEmpty()) {
@@ -112,7 +111,7 @@ public class PillarMove extends Move {
 
         SolverState next = current.deepCopy();
         next.scheduledChunks().removeIf(sc ->
-                sc.chunk().taskId().equals(targetTaskId) && !sc.chunk().isPinned()
+                sc.chunk().taskId().equals(targetTaskId)
         );
 
         for (int i = 0; i < taskChunks.size(); i++) {
@@ -154,9 +153,7 @@ public class PillarMove extends Move {
 
         if (chunk.chunk().notBefore() != null) {
             LocalDateTime chunkStart = LocalDateTime.of(targetSlot.date(), targetSlot.startTime());
-            if (chunkStart.isBefore(chunk.chunk().notBefore())) {
-                return false;
-            }
+            return !chunkStart.isBefore(chunk.chunk().notBefore());
         }
         return true;
     }
