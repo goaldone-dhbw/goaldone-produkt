@@ -25,6 +25,7 @@ export class ScheduleFacadeService {
   private readonly schedulesService = inject(SchedulesService);
   private readonly userAccountsService = inject(UserAccountsService);
   private readonly ALL_ACCOUNTS_ID = 'ALL';
+  private readonly STORAGE_KEY = 'lastScheduleEntries';
 
   readonly accounts = signal<AccountOption[]>([]);
   readonly selectedAccountId = signal<string>(this.ALL_ACCOUNTS_ID);
@@ -62,11 +63,34 @@ export class ScheduleFacadeService {
     this.selectedAccountId.set(this.ALL_ACCOUNTS_ID);
     this.canLoadExistingSchedule.set(true);
     this.skipNextLoad.set(false);
+
+    this.restoreFromCache();
+
     await this.loadAccounts();
 
     if (this.hasAccounts()) {
       const range = this.getCurrentWeekRange();
       await this.loadSchedule(range.from, range.to);
+    }
+  }
+
+  private restoreFromCache(): void {
+    try {
+      const cached = localStorage.getItem(this.STORAGE_KEY);
+      if (cached) {
+        const entries: ScheduleEntry[] = JSON.parse(cached);
+        this.scheduleEntries.set(entries);
+      }
+    } catch {
+      // Cache kaputt, ignorieren
+    }
+  }
+
+  private saveToCache(entries: ScheduleEntry[]): void {
+    try {
+      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(entries));
+    } catch {
+      // Speicher voll, kein Caching
     }
   }
 
@@ -125,7 +149,11 @@ export class ScheduleFacadeService {
     if (!accountId) return;
     if (accountId !== this.ALL_ACCOUNTS_ID && !this.canLoadExistingSchedule()) return;
 
-    this.isLoadingSchedule.set(true);
+    // Ladeindikator nur zeigen wenn noch nichts angezeigt wird
+    if (!this.hasSchedule()) {
+      this.isLoadingSchedule.set(true);
+    }
+
     this.errorMessage.set('');
 
     try {
@@ -155,8 +183,11 @@ export class ScheduleFacadeService {
         return;
       }
 
-      this.scheduleResponse.set(null);
-      this.scheduleEntries.set([]);
+      // Einträge nicht löschen wenn wir bereits etwas anzeigen (z.B. aus Cache)
+      if (!this.hasSchedule()) {
+        this.scheduleResponse.set(null);
+        this.scheduleEntries.set([]);
+      }
 
       this.errorMessage.set(
         this.getReadableErrorMessage(error, 'Der Arbeitsplan konnte nicht geladen werden.'),
@@ -261,11 +292,14 @@ export class ScheduleFacadeService {
 
       this.scheduleResponse.set(mergedResponse);
       this.scheduleEntries.set(mergedEntries);
+      this.saveToCache(mergedEntries);
       return;
     }
 
+    const entries = response.entries ?? [];
     this.scheduleResponse.set(response);
-    this.scheduleEntries.set(response.entries ?? []);
+    this.scheduleEntries.set(entries);
+    this.saveToCache(entries);
   }
 
   private getGenerationStartDate(): string {
