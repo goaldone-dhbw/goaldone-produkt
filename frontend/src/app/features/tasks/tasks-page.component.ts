@@ -1,9 +1,13 @@
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { Button } from 'primeng/button';
 import { Tooltip } from 'primeng/tooltip';
 import { firstValueFrom } from 'rxjs';
+import { ButtonModule } from 'primeng/button';
+import { DatePickerModule } from 'primeng/datepicker';
+import { InputTextModule } from 'primeng/inputtext';
+import { SelectModule } from 'primeng/select';
+import { FormsModule } from '@angular/forms';
 import {
   CognitiveLoad,
   TaskResponse,
@@ -20,10 +24,28 @@ type AccountOption = {
   label: string;
 };
 
+type TaskFilters = {
+  status: TaskStatus | null;
+  difficulty: CognitiveLoad | null;
+  deadlineFrom: Date | null;
+  deadlineTo: Date | null;
+  duration: number | null;
+};
+
 @Component({
   selector: 'app-tasks-page',
   standalone: true,
-  imports: [CommonModule, Button, Tooltip, TaskEditDialogComponent, BasePopupComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    ButtonModule,
+    SelectModule,
+    DatePickerModule,
+    InputTextModule,
+    Tooltip,
+    TaskEditDialogComponent,
+    BasePopupComponent,
+  ],
   templateUrl: './tasks-page.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -32,6 +54,7 @@ export class TasksPageComponent {
   private readonly userAccountsService = inject(UserAccountsService);
 
   readonly tasks = signal<TaskItem[]>([]);
+  readonly totalTaskCount = signal(0);
   readonly accounts = signal<AccountOption[]>([]);
 
   readonly isLoading = signal(false);
@@ -85,14 +108,18 @@ export class TasksPageComponent {
 
       for (const accountTasks of response) {
         if (accountTasks.tasks) {
-          const mapped = accountTasks.tasks.map((t) => this.mapTaskResponse(t, accountTasks.accountId));
+          const mapped = accountTasks.tasks.map((t) =>
+            this.mapTaskResponse(t, accountTasks.accountId),
+          );
           allTasks.push(...mapped);
         }
       }
 
-      this.tasks.set(allTasks);
+      this.totalTaskCount.set(allTasks.length);
+      this.tasks.set(this.applyFilters(allTasks));
     } catch (error) {
       this.tasks.set([]);
+      this.totalTaskCount.set(0);
       this.listErrorMessage.set(
         this.getReadableErrorMessage(
           error,
@@ -102,6 +129,58 @@ export class TasksPageComponent {
     } finally {
       this.isLoading.set(false);
     }
+  }
+
+  getEmptyTasksMessage(): string {
+    if (this.totalTaskCount() > 0 && this.hasActiveFilters()) {
+      return 'Zu diesem Filter sind keine Aufgaben vorhanden.';
+    }
+
+    return 'Es sind noch keine Aufgaben vorhanden.';
+  }
+
+  private hasActiveFilters(): boolean {
+    return (
+      this.filters.status !== null ||
+      this.filters.difficulty !== null ||
+      this.filters.deadlineFrom !== null ||
+      this.filters.deadlineTo !== null ||
+      this.filters.duration !== null
+    );
+  }
+
+  private applyFilters(tasks: TaskItem[]): TaskItem[] {
+    return tasks.filter((task) => {
+      if (this.filters.status && task.status !== this.filters.status) {
+        return false;
+      }
+
+      if (this.filters.difficulty && task.cognitiveLoad !== this.filters.difficulty) {
+        return false;
+      }
+
+      if (this.filters.duration && task.duration !== this.filters.duration) {
+        return false;
+      }
+
+      if (this.filters.deadlineFrom || this.filters.deadlineTo) {
+        if (!task.deadline) {
+          return false;
+        }
+
+        const deadline = new Date(task.deadline);
+
+        if (this.filters.deadlineFrom && deadline < this.filters.deadlineFrom) {
+          return false;
+        }
+
+        if (this.filters.deadlineTo && deadline > this.filters.deadlineTo) {
+          return false;
+        }
+      }
+
+      return true;
+    });
   }
 
   openCreateDialog(): void {
@@ -312,7 +391,8 @@ export class TasksPageComponent {
     return accounts
       .map((account: any) => {
         const id = account.accountId ?? account.id;
-        const label = account.organizationName ?? account.label ?? account.name ?? account.displayName;
+        const label =
+          account.organizationName ?? account.label ?? account.name ?? account.displayName;
 
         if (!id || !label) return null;
 
@@ -339,5 +419,46 @@ export class TasksPageComponent {
     }
 
     return error.error?.message || error.error?.detail || error.error?.error || fallback;
+  }
+
+  filters: TaskFilters = {
+    status: null,
+    difficulty: null,
+    deadlineFrom: null,
+    deadlineTo: null,
+    duration: null,
+  };
+
+  dateRange: Date[] = [];
+
+  statusOptions = [
+    { label: 'Offen', value: 'OPEN' },
+    { label: 'In Bearbeitung', value: 'IN_PROGRESS' },
+    { label: 'Erledigt', value: 'DONE' },
+  ];
+
+  difficultyOptions = [
+    { label: 'Hoch', value: 'HIGH' },
+    { label: 'Mittel', value: 'MODERATE' },
+    { label: 'Niedrig', value: 'LOW' },
+  ];
+
+  onDateRangeChange(): void {
+    this.filters.deadlineFrom = this.dateRange?.[0] || null;
+    this.filters.deadlineTo = this.dateRange?.[1] || null;
+    this.loadTasks();
+  }
+
+  resetFilters(): void {
+    this.filters = {
+      status: null,
+      difficulty: null,
+      deadlineFrom: null,
+      deadlineTo: null,
+      duration: null,
+    };
+
+    this.dateRange = [];
+    this.loadTasks();
   }
 }

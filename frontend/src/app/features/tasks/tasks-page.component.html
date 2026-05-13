@@ -1,18 +1,74 @@
 <div class="min-h-screen bg-slate-50">
   <div class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-    <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-      <div>
-        <h1 class="text-3xl font-bold tracking-tight text-slate-900">Aufgaben</h1>
-        <p class="mt-2 text-sm text-slate-600">
-          Erstelle, bearbeite und verwalte deine Aufgaben.
-        </p>
+    <div class="mb-8 space-y-4">
+      <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 class="text-3xl font-bold tracking-tight text-slate-900">Aufgaben</h1>
+          <p class="mt-2 text-sm text-slate-600">
+            Erstelle, bearbeite und verwalte deine Aufgaben.
+          </p>
+        </div>
+
+        <p-button
+          label="Aufgabe hinzufügen"
+          icon="pi pi-plus"
+          (onClick)="openCreateDialog()"
+        ></p-button>
       </div>
 
-      <p-button
-        label="Aufgabe hinzufügen"
-        icon="pi pi-plus"
-        (onClick)="openCreateDialog()"
-      ></p-button>
+      <div class="flex flex-nowrap items-center gap-3">
+        <p-select
+          styleClass="w-40"
+          appendTo="body"
+          [options]="statusOptions"
+          [(ngModel)]="filters.status"
+          ariaLabel="Nach Status filtern"
+          placeholder="Status"
+          optionLabel="label"
+          optionValue="value"
+          (onChange)="loadTasks()">
+        </p-select>
+
+        <p-select
+          styleClass="w-52"
+          appendTo="body"
+          [options]="difficultyOptions"
+          [(ngModel)]="filters.difficulty"
+          ariaLabel="Nach Anforderungsgrad filtern"
+          placeholder="Anforderungsgrad"
+          optionLabel="label"
+          optionValue="value"
+          (onChange)="loadTasks()">
+        </p-select>
+
+        <p-datepicker
+          styleClass="w-64"
+          appendTo="body"
+          [(ngModel)]="dateRange"
+          selectionMode="range"
+          dateFormat="dd.mm.yy"
+          ariaLabel="Nach Deadline Zeitraum filtern"
+          placeholder="Deadline Zeitraum"
+          (onSelect)="onDateRangeChange()">
+        </p-datepicker>
+
+        <input
+          type="number"
+          pInputText
+          class="min-w-32"
+          [(ngModel)]="filters.duration"
+          aria-label="Nach Dauer in Minuten filtern"
+          placeholder="Dauer in Minuten"
+          (input)="loadTasks()" />
+
+        <button
+          pButton
+          type="button"
+          label="Filter zurücksetzen"
+          icon="pi pi-refresh"
+          (click)="resetFilters()">
+        </button>
+      </div>
     </div>
 
     @if (successMessage()) {
@@ -40,7 +96,7 @@
         </div>
       } @else if (tasks().length === 0) {
         <div class="px-6 py-8 text-sm text-slate-600">
-          Es sind noch keine Aufgaben vorhanden.
+          {{ getEmptyTasksMessage() }}
         </div>
       } @else {
         <div class="divide-y divide-slate-200">

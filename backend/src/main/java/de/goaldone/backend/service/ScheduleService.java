@@ -19,6 +19,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -126,7 +127,7 @@ public class ScheduleService {
     public ScheduleResponse generateSchedule(Jwt jwt, UUID accountId, LocalDate fromDate, long timeoutMs) {
 
         validateRequest(jwt, accountId, fromDate);
-        SchedulingContext schedulingContext = createSchedulingContext(jwt, accountId, fromDate, 1);
+        SchedulingContext schedulingContext = createSchedulingContext(jwt, accountId, fromDate);
         SchedulingResult bestResult = solver.createSchedule(schedulingContext, timeoutMs);
 
         return this.scheduleMapper.mapToScheduleResult(
@@ -167,7 +168,7 @@ public class ScheduleService {
      * @param fromDate Start date for the schedule
      * @return Scheduling context for the solver
      */
-    public SchedulingContext createSchedulingContext(Jwt jwt, UUID accountId, LocalDate fromDate, int weeks) {
+    public SchedulingContext createSchedulingContext(Jwt jwt, UUID accountId, LocalDate fromDate) {
 
         List<TaskResponse> allTasks = new ArrayList<>();
         for (TaskResponse task : taskService.getTasksForAccountId(jwt, accountId)) {
@@ -189,31 +190,31 @@ public class ScheduleService {
         }
 
         // Get available timeslots
-        List<TimeSlot> availableSlots = getAvailableTimeSlots(accountId, jwt, workingTimes, fromDate, weeks);
+        List<Appointment> appointments = appointmentService.listAppointments(accountId, jwt).getAppointments();
+        int nWeeks = getNWeeksAhead(fromDate, appointments);
+        List<TimeSlot> availableSlots = getAvailableTimeSlots(appointments, workingTimes, fromDate, nWeeks);
 
         // Create schedule context
         return new SchedulingContext(
-                fromDate, availableSlots, allTasks, workingTimes
+                fromDate, availableSlots, allTasks, appointments, workingTimes
         );
     }
 
     /**
-     * Calculate a list of available time slots to plan the task chunks into
-     * @param accountId Specific account
+     * Calculate a list of available time slots to plan the task chunks into.
+     * @param allAppointments All appointments scheduled for this account>
      * @param workingTimes List of working time definitions for the account
      * @param fromDate Start date for calculating available slots
-     * @param nWeeks Plan for N   nWeeks ahead
      * @return Available timeslots for multiple days starting from fromDate
      */
-    private List<TimeSlot> getAvailableTimeSlots(UUID accountId, Jwt jwt, List<WorkingTimeEntity> workingTimes, LocalDate fromDate, int nWeeks) {
+    private List<TimeSlot> getAvailableTimeSlots(List<Appointment> allAppointments, List<WorkingTimeEntity> workingTimes, LocalDate fromDate, int nWeeks) {
+
         List<TimeSlot> availableSlots = new ArrayList<>();
 
         if (workingTimes.isEmpty()) {
-            log.warn("No working times defined for account {}", accountId);
+            log.warn("No working times defined for this account");
             return availableSlots;
         }
-
-        List<Appointment> allAppointments = appointmentService.listAppointments(accountId, jwt).getAppointments();
 
         // Get the Monday of the week for the fromDate
         int weekDayInt = fromDate.getDayOfWeek().getValue();
@@ -297,10 +298,30 @@ public class ScheduleService {
                 currentDate = currentDate.plusDays(1);
             }
         }
-
-        log.debug("Found {} available time slots for account {} from {} for {} nWeeks",
-                availableSlots.size(), accountId, fromDate, nWeeks);
         return availableSlots;
+    }
+
+    /**
+     * Determine the date of the last planed appointment and plans n weeks ahead where n is the number of weeks
+     *  between "fromDate" and the date of the last appointment.
+     *  A minimum of weeks ahead is set to 4.
+     * @param fromDate The date from which on the schedule is calculated
+     * @param allAppointments All appointments for this account
+     * @return Minimal 4 or the number of weeks between fromDate and the date of the last appointment
+     */
+    private int getNWeeksAhead(LocalDate fromDate, List<Appointment> allAppointments) {
+
+        List<Appointment> appointmentsWithDate = allAppointments.stream()
+                .filter(apt -> apt.getDate() != null)
+                .sorted(Comparator.comparing(Appointment::getDate))
+                .toList();
+
+        if (appointmentsWithDate.isEmpty()) return 4;
+
+        LocalDate lastDate =  appointmentsWithDate.getLast().getDate();
+        int weeksBetween = (int) ChronoUnit.WEEKS.between(fromDate, lastDate) + 1;
+
+        return Math.min(4, weeksBetween);
     }
 
     /**
@@ -318,15 +339,68 @@ public class ScheduleService {
         return response;
     }
 
+
     /**
-     *
+     * This method checks whether the appointment is scheduled for this day or not.
+     * In case the appointment type is ONE_TIME, the method checks the appointment date
+     * In case the appointment type is RECURRING, the method uses the RRule to check if the
+     *      targetDate is influenced by the recurring task.
+     * @param targetDate The date to check
+     * @param appointment The appointment to check
+     * @return True, if the appointment is on that day, false otherwise
+     */
+    private boolean isAppointmentOnDate(LocalDate targetDate, Appointment appointment) {
+
+        // One time appointment
+        if (appointment.getAppointmentType() == AppointmentType.ONE_TIME) {
+            return appointment.getDate().equals(targetDate);
+        }
+
+        // Recurring appointment
+        String rrule = appointment.getRrule();
+        if (rrule == null || rrule.isBlank()) return false;
+
+        // Example:
+        // FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR
+        String[] ruleParts = rrule.split(";");
+        String byDayPart = null;
+
+        for (String part : ruleParts) {
+            if (part.startsWith("BYDAY=")) {
+                byDayPart = part.substring("BYDAY=".length());
+                break;
+            }
+        }
+
+        if (byDayPart == null || byDayPart.isBlank()) return false;
+
+        String targetDay = switch (targetDate.getDayOfWeek()) {
+            case MONDAY -> "MO";
+            case TUESDAY -> "TU";
+            case WEDNESDAY -> "WE";
+            case THURSDAY -> "TH";
+            case FRIDAY -> "FR";
+            case SATURDAY -> "SA";
+            case SUNDAY -> "SU";
+        };
+
+        String[] allowedDays = byDayPart.split(",");
+        for (String day : allowedDays) {
+            if (day.equals(targetDay)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * @param allAppointments All appointments for a specific account
      * @param target The date for which the appointments are listed
      * @return List of appointments for a given day
      */
     private List<Appointment> getAppointmentsForDay(List<Appointment> allAppointments, LocalDate target) {
         return allAppointments.stream()
-                .filter(apt -> apt.getDate().equals(target))
+                .filter(apt -> isAppointmentOnDate(target, apt))
                 .sorted(Comparator.comparing(Appointment::getStartTime))
                 .toList();
     }

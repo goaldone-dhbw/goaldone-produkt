@@ -1896,7 +1896,7 @@ components:
     # ----------------------------------------------------------
     ScheduleResponse:
       type: object
-      required: [ accountId, generatedAt, from, to, totalWorkMinutes, score, warnings, entries, unscheduledTasks ]
+      required: [ accountId, generatedAt, from, to, totalWorkMinutes, score, warnings, entries, unscheduledTasks, appointments ]
       properties:
         accountId:
           type: string
@@ -1931,7 +1931,7 @@ components:
             $ref: '#/components/schemas/ScheduleWarning'
         entries:
           type: array
-          description: Alle Kalendereinträge, sortiert nach Datum und Startzeit
+          description: Alle eingeplanten Chunks, sortiert nach Datum und Startzeit
           items:
             $ref: '#/components/schemas/ScheduleEntry'
         unscheduledTasks:
@@ -1941,6 +1941,12 @@ components:
             Enthält den Grund und Vorschläge zur Behebung.
           items:
             $ref: '#/components/schemas/UnscheduledTask'
+        appointments:
+          type: array
+          description: Alle Termine, sortiert nach Datum und Startzeit
+          items:
+            $ref: '#/components/schemas/Appointment'
+
 
     # ----------------------------------------------------------
     # Schedule – Response (All Accounts)
