@@ -2,7 +2,13 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { of, throwError } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { AccountResponse, Appointment, AppointmentsService, UserAccountsService } from '../../api';
+import {
+  AccountResponse,
+  Appointment,
+  AppointmentsService,
+  DayOfWeek,
+  UserAccountsService,
+} from '../../api';
 import { AppointmentsPage } from './appointments.page';
 
 describe('AppointmentsPage', () => {
@@ -139,6 +145,42 @@ describe('AppointmentsPage', () => {
     expect(component.successMessage()).toBe('Der Termin wurde gespeichert.');
     expect(component.isDialogOpen()).toBe(false);
     expect(appointmentsServiceMock.listAppointments).toHaveBeenCalledTimes(2);
+  });
+
+  it('soll einen wiederkehrenden Termin ohne Datum speichern', async () => {
+    component.openCreateDialog();
+    component.title = 'Daily Standup';
+    component.appointmentType = 'RECURRING';
+    component.selectedDays = [DayOfWeek.Tuesday, DayOfWeek.Thursday];
+    component.startTime = '09:00';
+    component.endTime = '09:30';
+
+    await component.saveAppointment();
+
+    expect(appointmentsServiceMock.createAppointment).toHaveBeenCalledWith('account-1', {
+      title: 'Daily Standup',
+      isBreak: false,
+      appointmentType: 'RECURRING',
+      date: null,
+      startTime: '09:00',
+      endTime: '09:30',
+      rrule: 'FREQ=WEEKLY;BYDAY=TU,TH',
+    });
+    expect(component.successMessage()).toBe('Der Termin wurde gespeichert.');
+  });
+
+  it('soll einen wiederkehrenden Termin ohne Wochentag nicht speichern', async () => {
+    component.openCreateDialog();
+    component.title = 'Daily Standup';
+    component.appointmentType = 'RECURRING';
+    component.selectedDays = [];
+    component.startTime = '09:00';
+    component.endTime = '09:30';
+
+    await component.saveAppointment();
+
+    expect(component.validationMessage()).toBe('Bitte wähle mindestens einen Wochentag aus.');
+    expect(appointmentsServiceMock.createAppointment).not.toHaveBeenCalled();
   });
 
   it('soll Backend-Fehler verständlich anzeigen', async () => {

@@ -6,6 +6,7 @@ import { ButtonModule } from 'primeng/button';
 import { DialogModule } from 'primeng/dialog';
 import { InputTextModule } from 'primeng/inputtext';
 import { SelectModule } from 'primeng/select';
+import { SelectButtonModule } from 'primeng/selectbutton';
 import { forkJoin, firstValueFrom } from 'rxjs';
 import { map } from 'rxjs/operators';
 
@@ -14,6 +15,7 @@ import {
   Appointment,
   AppointmentCreate,
   AppointmentsService,
+  DayOfWeek,
   UserAccountsService,
 } from '../../api';
 
@@ -26,10 +28,20 @@ type AccountOption = {
   label: string;
 };
 
+type AppointmentFormType = 'ONCE' | 'RECURRING';
+
 @Component({
   selector: 'app-appointments-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, ButtonModule, DialogModule, InputTextModule, SelectModule],
+  imports: [
+    CommonModule,
+    FormsModule,
+    ButtonModule,
+    DialogModule,
+    InputTextModule,
+    SelectModule,
+    SelectButtonModule,
+  ],
   templateUrl: './appointments.page.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -54,6 +66,23 @@ export class AppointmentsPage {
   date = '';
   startTime = '';
   endTime = '';
+  appointmentType: AppointmentFormType = 'ONCE';
+  selectedDays: DayOfWeek[] = [];
+
+  readonly appointmentTypeOptions = [
+    { label: 'Einmalig', value: 'ONCE' },
+    { label: 'Wiederkehrend', value: 'RECURRING' },
+  ];
+
+  readonly dayOptions = [
+    { label: 'Mo', value: DayOfWeek.Monday },
+    { label: 'Di', value: DayOfWeek.Tuesday },
+    { label: 'Mi', value: DayOfWeek.Wednesday },
+    { label: 'Do', value: DayOfWeek.Thursday },
+    { label: 'Fr', value: DayOfWeek.Friday },
+    { label: 'Sa', value: DayOfWeek.Saturday },
+    { label: 'So', value: DayOfWeek.Sunday },
+  ];
 
   constructor() {
     void this.initializePage();
@@ -132,6 +161,8 @@ export class AppointmentsPage {
     this.date = '';
     this.startTime = '';
     this.endTime = '';
+    this.appointmentType = 'ONCE';
+    this.selectedDays = [];
     this.selectedAccountId = this.accounts()[0]?.id ?? '';
     this.isDialogOpen.set(true);
   }
@@ -151,11 +182,11 @@ export class AppointmentsPage {
     const payload: AppointmentCreate = {
       title: this.title.trim(),
       isBreak: false,
-      appointmentType: 'ONE_TIME',
-      date: this.date,
+      appointmentType: this.appointmentType === 'ONCE' ? 'ONE_TIME' : 'RECURRING',
+      date: this.appointmentType === 'ONCE' ? this.date : null,
       startTime: this.startTime,
       endTime: this.endTime,
-      rrule: null,
+      rrule: this.appointmentType === 'RECURRING' ? this.buildWeeklyRrule(this.selectedDays) : null,
     };
 
     this.isSaving.set(true);
@@ -198,6 +229,21 @@ export class AppointmentsPage {
     }).format(date);
   }
 
+  formatAppointmentType(appointment: Appointment): string {
+    return appointment.appointmentType === 'RECURRING' || appointment.rrule
+      ? 'Wiederkehrend'
+      : 'Einmalig';
+  }
+
+  formatAppointmentDateOrDays(appointment: Appointment): string {
+    if (appointment.appointmentType === 'RECURRING' || appointment.rrule) {
+      const days = this.parseDaysFromRrule(appointment.rrule);
+      return days.length ? this.formatDays(days) : 'Wiederkehrend';
+    }
+
+    return this.formatDate(appointment.date);
+  }
+
   private validateForm(): string | null {
     if (!this.selectedAccountId) {
       return 'Bitte wähle ein Unternehmen oder einen Verein aus.';
@@ -207,8 +253,12 @@ export class AppointmentsPage {
       return 'Bitte gib einen Titel ein.';
     }
 
-    if (!this.date) {
+    if (this.appointmentType === 'ONCE' && !this.date) {
       return 'Bitte gib ein Datum ein.';
+    }
+
+    if (this.appointmentType === 'RECURRING' && this.selectedDays.length === 0) {
+      return 'Bitte wähle mindestens einen Wochentag aus.';
     }
 
     if (!this.startTime) {
@@ -236,7 +286,74 @@ export class AppointmentsPage {
   }
 
   private getAppointmentSortValue(appointment: AppointmentItem): string {
-    return `${appointment.date ?? '9999-12-31'}T${appointment.startTime}`;
+    return `${appointment.date ?? '0000-01-01'}T${appointment.startTime}`;
+  }
+
+  private buildWeeklyRrule(days: DayOfWeek[]): string {
+    const dayCodes: Record<string, string> = {
+      MONDAY: 'MO',
+      TUESDAY: 'TU',
+      WEDNESDAY: 'WE',
+      THURSDAY: 'TH',
+      FRIDAY: 'FR',
+      SATURDAY: 'SA',
+      SUNDAY: 'SU',
+    };
+
+    const order = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
+    const byDay = days
+      .slice()
+      .sort((a, b) => order.indexOf(a.toUpperCase()) - order.indexOf(b.toUpperCase()))
+      .map((day) => dayCodes[day.toUpperCase()])
+      .filter(Boolean)
+      .join(',');
+
+    return `FREQ=WEEKLY;BYDAY=${byDay}`;
+  }
+
+  private parseDaysFromRrule(rrule?: string | null): DayOfWeek[] {
+    if (!rrule) {
+      return [];
+    }
+
+    const codeToDay: Record<string, DayOfWeek> = {
+      MO: DayOfWeek.Monday,
+      TU: DayOfWeek.Tuesday,
+      WE: DayOfWeek.Wednesday,
+      TH: DayOfWeek.Thursday,
+      FR: DayOfWeek.Friday,
+      SA: DayOfWeek.Saturday,
+      SU: DayOfWeek.Sunday,
+    };
+
+    const byDay = rrule
+      .toUpperCase()
+      .split(';')
+      .find((part) => part.startsWith('BYDAY='))
+      ?.substring('BYDAY='.length);
+
+    if (!byDay) {
+      return [];
+    }
+
+    return byDay
+      .split(',')
+      .map((code) => codeToDay[code])
+      .filter((day): day is DayOfWeek => !!day);
+  }
+
+  private formatDays(days: DayOfWeek[]): string {
+    const labels: Record<string, string> = {
+      MONDAY: 'Mo',
+      TUESDAY: 'Di',
+      WEDNESDAY: 'Mi',
+      THURSDAY: 'Do',
+      FRIDAY: 'Fr',
+      SATURDAY: 'Sa',
+      SUNDAY: 'So',
+    };
+
+    return days.map((day) => labels[day.toUpperCase()] ?? day).join(', ');
   }
 
   private getReadableErrorMessage(error: unknown, fallback: string): string {

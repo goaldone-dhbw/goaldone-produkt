@@ -63,6 +63,11 @@
                     >
                       Fixer Blocker
                     </span>
+                    <span
+                      class="inline-flex rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700"
+                    >
+                      {{ formatAppointmentType(appointment) }}
+                    </span>
                   </div>
 
                   <div
@@ -74,7 +79,7 @@
                       >
                         <i class="pi pi-calendar text-xs text-primary-icon"></i> Datum
                       </span>
-                      <span>{{ formatDate(appointment.date) }}</span>
+                      <span>{{ formatAppointmentDateOrDays(appointment) }}</span>
                     </div>
 
                     <div class="flex items-center gap-2">
@@ -160,14 +165,37 @@
     </div>
 
     <div class="flex flex-col gap-2">
-      <label for="appointmentDate" class="text-sm font-semibold text-slate-700">Datum</label>
-      <input
-        id="appointmentDate"
-        type="date"
-        [(ngModel)]="date"
-        class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+      <label for="appointmentType" class="text-sm font-semibold text-slate-700">Art</label>
+      <p-select-button
+        [(ngModel)]="appointmentType"
+        [options]="appointmentTypeOptions"
+        optionLabel="label"
+        optionValue="value"
       />
     </div>
+
+    @if (appointmentType === 'RECURRING') {
+      <div class="flex flex-col gap-2">
+        <label class="text-sm font-semibold text-slate-700">Wochentage</label>
+        <p-select-button
+          [(ngModel)]="selectedDays"
+          [options]="dayOptions"
+          optionLabel="label"
+          optionValue="value"
+          [multiple]="true"
+        ></p-select-button>
+      </div>
+    } @else {
+      <div class="flex flex-col gap-2">
+        <label for="appointmentDate" class="text-sm font-semibold text-slate-700">Datum</label>
+        <input
+          id="appointmentDate"
+          type="date"
+          [(ngModel)]="date"
+          class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+        />
+      </div>
+    }
 
     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
       <div class="flex flex-col gap-2">
