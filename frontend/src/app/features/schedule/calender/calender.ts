@@ -31,6 +31,17 @@ type CalendarDayName =
 const SLOT_MIN_TIME = '06:00:00';
 const SLOT_MAX_TIME = '22:00:00';
 
+const DEFAULT_WORKING_TIME_START = '08:00:00';
+const DEFAULT_WORKING_TIME_END = '17:00:00';
+
+const DEFAULT_WORKING_DAYS = new Set<CalendarDayName>([
+  'MONDAY',
+  'TUESDAY',
+  'WEDNESDAY',
+  'THURSDAY',
+  'FRIDAY',
+]);
+
 const DAY_ORDER: CalendarDayName[] = [
   'SUNDAY',
   'MONDAY',
@@ -243,9 +254,15 @@ export class CalenderComponent {
   }
 
   private getWorkingIntervalsForDate(date: string): TimeInterval[] {
+    const configuredWorkingTimes = this.workingTimes();
+
+    if (configuredWorkingTimes.length === 0) {
+      return this.getDefaultWorkingIntervalsForDate(date);
+    }
+
     const dayName = this.getDayName(date);
 
-    const intervals = this.workingTimes()
+    const intervals = configuredWorkingTimes
       .filter((workingTime) => this.workingTimeContainsDay(workingTime, dayName))
       .map((workingTime): TimeInterval => {
         return {
@@ -264,6 +281,31 @@ export class CalenderComponent {
       .sort((a, b) => a.start - b.start);
 
     return this.mergeIntervals(intervals);
+  }
+
+  private getDefaultWorkingIntervalsForDate(date: string): TimeInterval[] {
+    const dayName = this.getDayName(date);
+
+    if (!DEFAULT_WORKING_DAYS.has(dayName)) {
+      return [];
+    }
+
+    const interval: TimeInterval = {
+      start: Math.max(
+        this.timeToMinutes(DEFAULT_WORKING_TIME_START),
+        this.timeToMinutes(SLOT_MIN_TIME),
+      ),
+      end: Math.min(
+        this.timeToMinutes(DEFAULT_WORKING_TIME_END),
+        this.timeToMinutes(SLOT_MAX_TIME),
+      ),
+    };
+
+    if (interval.end <= interval.start) {
+      return [];
+    }
+
+    return [interval];
   }
 
   private workingTimeContainsDay(
