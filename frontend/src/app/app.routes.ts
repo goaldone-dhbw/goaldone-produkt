@@ -30,6 +30,11 @@ export const routes: Routes = [
           import('./features/schedule/schedule.page').then((m) => m.SchedulePage),
       },
       {
+        path: 'appointments',
+        loadComponent: () =>
+          import('./features/appointments/appointments.page').then((m) => m.AppointmentsPage),
+      },
+      {
         path: 'working-hours',
         loadComponent: () =>
           import('./features/working-hours/working-hours.page').then((m) => m.WorkingHoursPage),
@@ -43,7 +48,7 @@ export const routes: Routes = [
       {
         path: 'super-admin',
         canActivate: [superAdminGuard],
-        component: SuperAdminsPageComponent
+        component: SuperAdminsPageComponent,
       },
       {
         path: 'settings',
