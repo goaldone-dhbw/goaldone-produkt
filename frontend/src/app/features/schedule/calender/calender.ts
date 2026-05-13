@@ -31,17 +31,6 @@ type CalendarDayName =
 const SLOT_MIN_TIME = '06:00:00';
 const SLOT_MAX_TIME = '22:00:00';
 
-const DEFAULT_WORKING_TIME_START = '08:00:00';
-const DEFAULT_WORKING_TIME_END = '17:00:00';
-
-const DEFAULT_WORKING_DAYS = new Set<CalendarDayName>([
-  'MONDAY',
-  'TUESDAY',
-  'WEDNESDAY',
-  'THURSDAY',
-  'FRIDAY',
-]);
-
 const DAY_ORDER: CalendarDayName[] = [
   'SUNDAY',
   'MONDAY',
