@@ -76,7 +76,7 @@
 
         <p-progressbar
           mode="indeterminate"
-          [style]="{ height: '0.5rem' }"
+          styleClass="h-2"
         ></p-progressbar>
 
         <p class="mt-3">
@@ -162,6 +162,7 @@
         <div class="p-4 sm:p-6">
           <app-schedule-calendar
             [entries]="facade.scheduleEntries()"
+            [workingTimes]="facade.workingTimes()"
             (rangeChanged)="onRangeChanged($event)"
           ></app-schedule-calendar>
         </div>

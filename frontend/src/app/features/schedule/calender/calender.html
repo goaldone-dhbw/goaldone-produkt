@@ -1,5 +1,100 @@
-<div class="w-full overflow-x-auto">
+<div
+  class="w-full overflow-x-auto
+    [--fc-border-color:#dbe3ef]
+    [--fc-page-bg-color:#ffffff]
+    [--fc-neutral-bg-color:#f8fafc]
+    [--fc-today-bg-color:#5f6f9f1f]
+    [&_.fc]:text-slate-900
+    [&_.fc_.fc-toolbar-title]:font-bold
+    [&_.fc_.fc-toolbar-title]:text-slate-900
+    [&_.fc_.fc-button-primary]:border-[#5f6f9f]
+    [&_.fc_.fc-button-primary]:bg-[#5f6f9f]
+    [&_.fc_.fc-button-primary]:text-white
+    [&_.fc_.fc-button-primary]:shadow-none
+    [&_.fc_.fc-button-primary:hover]:border-[#4f5f8a]
+    [&_.fc_.fc-button-primary:hover]:bg-[#4f5f8a]
+    [&_.fc_.fc-button-primary:disabled]:border-slate-400
+    [&_.fc_.fc-button-primary:disabled]:bg-slate-400
+    [&_.fc_.fc-button-primary:disabled]:opacity-75
+    [&_.fc_.fc-button-primary:not(:disabled).fc-button-active]:border-slate-800
+    [&_.fc_.fc-button-primary:not(:disabled).fc-button-active]:bg-slate-800
+    [&_.fc_.fc-button-primary:not(:disabled):active]:border-slate-800
+    [&_.fc_.fc-button-primary:not(:disabled):active]:bg-slate-800
+    [&_.fc_.fc-day-today]:!bg-[#5f6f9f1a]
+    [&_.fc_.fc-timegrid-col.fc-day-today]:!bg-[#5f6f9f1a]
+    [&_.fc_.fc-timegrid-now-indicator-line]:border-[#059669]
+    [&_.fc_.fc-timegrid-now-indicator-arrow]:border-[#059669]
+    [&_.fc_.fc-timegrid-now-indicator-arrow]:border-t-transparent
+    [&_.fc_.fc-timegrid-now-indicator-arrow]:border-b-transparent
+    [&_.fc_.schedule-event--non-working]:!opacity-100
+    [&_.fc_.schedule-event--non-working]:!bg-slate-50/85
+    [&_.fc_.schedule-event--non-working]:![background-image:linear-gradient(135deg,rgba(148,163,184,0.08)_25%,transparent_25%,transparent_50%,rgba(148,163,184,0.08)_50%,rgba(148,163,184,0.08)_75%,transparent_75%,transparent)]
+    [&_.fc_.schedule-event--non-working]:![background-size:18px_18px]
+    [&_.fc_.fc-v-event]:overflow-hidden
+    [&_.fc_.fc-v-event]:rounded-lg
+    [&_.fc_.fc-v-event]:text-white
+    [&_.fc_.fc-v-event]:shadow-[0_4px_10px_rgba(15,23,42,0.12)]
+    [&_.fc_.fc-event-main]:px-[0.2rem]
+    [&_.fc_.fc-event-main]:py-[0.15rem]
+    [&_.fc_.schedule-event--task]:!border-[#4f5f8a]
+    [&_.fc_.schedule-event--task]:!bg-[#5f6f9f]
+    [&_.fc_.schedule-event--break]:!border-[#047857]
+    [&_.fc_.schedule-event--break]:!border-l-[5px]
+    [&_.fc_.schedule-event--break]:!bg-[#059669]
+    [&_.fc_.schedule-event--appointment]:!border-slate-800
+    [&_.fc_.schedule-event--appointment]:!border-l-[5px]
+    [&_.fc_.schedule-event--appointment]:!bg-slate-700
+    [&_.fc_.schedule-event--pinned]:!border-amber-800
+    [&_.fc_.schedule-event--pinned]:!bg-amber-700
+    [&_.fc_.schedule-event--completed]:!border-green-800
+    [&_.fc_.schedule-event--completed]:!bg-green-700
+    [&_.fc_.fc-timegrid-slot]:h-[2.2rem]
+    [&_.fc_.fc-col-header-cell]:bg-white
+    [&_.fc_.fc-timegrid-axis]:text-slate-700
+    [&_.fc_.fc-timegrid-slot-label]:text-slate-700"
+>
   <div class="min-w-[760px] rounded-2xl bg-white">
+    <div class="space-y-3 border-b border-slate-200 px-4 py-3">
+      <div class="flex flex-wrap items-center gap-4 text-xs text-slate-600">
+        <div class="flex items-center gap-2">
+          <span class="h-3 w-3 rounded-full bg-[#5f6f9f]"></span>
+          <span>Aufgabe</span>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <span class="h-3 w-3 rounded-full bg-slate-700"></span>
+          <span>Fixer Termin</span>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <span class="h-3 w-3 rounded-full bg-emerald-600"></span>
+          <span>Pause</span>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <span class="h-3 w-3 rounded bg-[#edf1f6] ring-1 ring-slate-300"></span>
+          <span>Nicht-Arbeitszeit</span>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <span class="h-3 w-3 rounded-full bg-amber-700"></span>
+          <span>Fixierte Aufgabe</span>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <span class="h-3 w-3 rounded-full bg-green-700"></span>
+          <span>Erledigt</span>
+        </div>
+      </div>
+
+      <p class="text-xs leading-5 text-slate-500">
+        Graue Bereiche liegen außerhalb deiner Arbeitszeiten. Wenn keine Arbeitszeiten
+        konfiguriert sind, gelten automatisch Montag bis Freitag von 08:00 bis 17:00 Uhr.
+        Fixe Termine und Pausen blockieren die automatische Planung und können nicht für
+        flexible Aufgaben genutzt werden.
+      </p>
+    </div>
+
     <full-calendar
       [options]="calendarOptions"
       [events]="calendarEvents()"
