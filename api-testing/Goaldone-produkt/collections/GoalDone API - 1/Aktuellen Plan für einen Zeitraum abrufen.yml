@@ -68,7 +68,6 @@ examples:
                 "endTime": "10:30",
                 "type": "TASK",
                 "isCompleted": false,
-                "isPinned": false,
                 "taskId": "",
                 "taskTitle": "",
                 "breakId": "",
@@ -83,8 +82,7 @@ docs: |
   Die Antwort enthält zwei Arten von Einträgen, erkennbar am `source`-Feld:
 
   - `source: ONE_TIME` – echte `ScheduleEntry`-Objekte aus der Datenbank
-    (einmalige Tasks). Das Feld `entryId` ist gesetzt und wird für
-    PATCH-Aktionen (complete, pin, unpin) benötigt.
+    (einmalige Tasks). Das Feld `entryId` ist gesetzt.
 
   - `source: RECURRING` – virtuelle Vorkommen, server-seitig on-the-fly
     aus `RecurringTemplate`-Regeln berechnet. Kein DB-Eintrag –

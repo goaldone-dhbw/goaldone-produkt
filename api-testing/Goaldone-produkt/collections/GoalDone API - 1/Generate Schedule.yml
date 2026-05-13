@@ -68,7 +68,6 @@ examples:
                 "endTime": "10:30",
                 "type": "TASK",
                 "isCompleted": false,
-                "isPinned": false,
                 "taskId": "",
                 "taskTitle": "",
                 "breakId": "",

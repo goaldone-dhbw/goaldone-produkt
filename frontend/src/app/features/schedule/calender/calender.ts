@@ -119,14 +119,6 @@ export class CalenderComponent {
       };
     }
 
-    if (entry.isPinned) {
-      return {
-        backgroundColor: '#d97706',
-        borderColor: '#b45309',
-        textColor: '#ffffff',
-      };
-    }
-
     if (entry.type === 'APPOINTMENT' && entry.isBreak) {
       return {
         backgroundColor: '#059669',
