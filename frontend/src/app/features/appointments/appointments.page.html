@@ -55,14 +55,18 @@
           @for (appointment of appointments(); track appointment.id) {
             <div class="px-6 py-5">
               <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div class="min-w-0">
+                <div class="min-w-0 flex-1">
                   <div class="mb-2 flex flex-wrap items-center gap-2">
-                    <h3 class="text-lg font-semibold text-slate-900">{{ appointment.title }}</h3>
+                    <h3 class="text-lg font-semibold text-slate-900">
+                      {{ appointment.title }}
+                    </h3>
+
                     <span
                       class="inline-flex rounded-full border border-slate-200 bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700"
                     >
                       Fixer Blocker
                     </span>
+
                     <span
                       class="inline-flex rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700"
                     >
@@ -77,10 +81,39 @@
                       <span
                         class="flex items-center gap-1 text-xs font-semibold uppercase text-slate-500"
                       >
-                        <i class="pi pi-calendar text-xs text-primary-icon"></i> Datum
+                        <i class="pi pi-calendar text-xs text-primary-icon"></i>
+                        @if (isRecurringAppointment(appointment)) {
+                          Wiederholt
+                        } @else {
+                          Datum
+                        }
                       </span>
                       <span>{{ formatAppointmentDateOrDays(appointment) }}</span>
                     </div>
+
+                    @if (isRecurringAppointment(appointment) && appointment.date) {
+                      <div class="flex items-center gap-2">
+                        <span
+                          class="flex items-center gap-1 text-xs font-semibold uppercase text-slate-500"
+                        >
+                          <i class="pi pi-calendar-plus text-xs text-primary-icon"></i>
+                          Ab
+                        </span>
+                        <span>{{ formatDate(appointment.date) }}</span>
+                      </div>
+                    }
+
+                    @if (isRecurringAppointment(appointment) && getRecurringEndDate(appointment)) {
+                      <div class="flex items-center gap-2">
+                        <span
+                          class="flex items-center gap-1 text-xs font-semibold uppercase text-slate-500"
+                        >
+                          <i class="pi pi-calendar-minus text-xs text-primary-icon"></i>
+                          Bis
+                        </span>
+                        <span>{{ formatDate(getRecurringEndDate(appointment)) }}</span>
+                      </div>
+                    }
 
                     <div class="flex items-center gap-2">
                       <span
@@ -102,6 +135,26 @@
                     </div>
                   </div>
                 </div>
+
+                <div
+                  class="flex shrink-0 items-center gap-1 border-t border-slate-100 pt-3 sm:border-0 sm:pt-0"
+                >
+                  <p-button
+                    icon="pi pi-pencil"
+                    [text]="true"
+                    severity="secondary"
+                    (onClick)="openEditDialog(appointment)"
+                    pTooltip="Bearbeiten"
+                  ></p-button>
+
+                  <p-button
+                    icon="pi pi-trash"
+                    [text]="true"
+                    severity="danger"
+                    (onClick)="deleteAppointment(appointment)"
+                    pTooltip="Löschen"
+                  ></p-button>
+                </div>
               </div>
             </div>
           }
@@ -114,7 +167,7 @@
 <p-dialog
   [visible]="isDialogOpen()"
   (visibleChange)="isDialogOpen.set($event)"
-  header="Neuer Termin"
+  [header]="editingAppointment ? 'Termin bearbeiten' : 'Neuer Termin'"
   [modal]="true"
   [draggable]="false"
   [resizable]="false"
@@ -128,11 +181,11 @@
     }
 
     <div class="flex flex-col gap-2">
-      <label for="appointmentAccount" class="text-sm font-semibold text-slate-700"
-        >Unternehmen / Verein</label
-      >
+      <label for="appointmentAccount" class="text-sm font-semibold text-slate-700">
+        Unternehmen / Verein
+      </label>
 
-      @if (hasMultipleAccounts()) {
+      @if (hasMultipleAccounts() && !editingAppointment) {
         <p-select
           inputId="appointmentAccount"
           styleClass="w-full"
@@ -171,10 +224,35 @@
         [options]="appointmentTypeOptions"
         optionLabel="label"
         optionValue="value"
+        [allowEmpty]="false"
+      />
+    </div>
+
+    <div class="flex flex-col gap-2">
+      <label for="appointmentDate" class="text-sm font-semibold text-slate-700">
+        {{ appointmentType === 'RECURRING' ? 'Startdatum' : 'Datum' }}
+      </label>
+      <input
+        id="appointmentDate"
+        type="date"
+        [(ngModel)]="date"
+        class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
       />
     </div>
 
     @if (appointmentType === 'RECURRING') {
+      <div class="flex flex-col gap-2">
+        <label for="appointmentEndDate" class="text-sm font-semibold text-slate-700">
+          Enddatum
+        </label>
+        <input
+          id="appointmentEndDate"
+          type="date"
+          [(ngModel)]="recurrenceEndDate"
+          class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+        />
+      </div>
+
       <div class="flex flex-col gap-2">
         <label class="text-sm font-semibold text-slate-700">Wochentage</label>
         <p-select-button
@@ -185,21 +263,13 @@
           [multiple]="true"
         ></p-select-button>
       </div>
-    } @else {
-      <div class="flex flex-col gap-2">
-        <label for="appointmentDate" class="text-sm font-semibold text-slate-700">Datum</label>
-        <input
-          id="appointmentDate"
-          type="date"
-          [(ngModel)]="date"
-          class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
-        />
-      </div>
     }
 
     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
       <div class="flex flex-col gap-2">
-        <label for="appointmentStart" class="text-sm font-semibold text-slate-700">Startzeit</label>
+        <label for="appointmentStart" class="text-sm font-semibold text-slate-700">
+          Startzeit
+        </label>
         <input
           id="appointmentStart"
           type="time"
@@ -209,7 +279,9 @@
       </div>
 
       <div class="flex flex-col gap-2">
-        <label for="appointmentEnd" class="text-sm font-semibold text-slate-700">Endzeit</label>
+        <label for="appointmentEnd" class="text-sm font-semibold text-slate-700">
+          Endzeit
+        </label>
         <input
           id="appointmentEnd"
           type="time"
@@ -226,8 +298,9 @@
         label="Abbrechen"
         [text]="true"
         severity="secondary"
-        (onClick)="isDialogOpen.set(false)"
+        (onClick)="closeDialog()"
       ></p-button>
+
       <p-button
         label="Speichern"
         icon="pi pi-check"

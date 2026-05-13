@@ -7,6 +7,7 @@ import { DialogModule } from 'primeng/dialog';
 import { InputTextModule } from 'primeng/inputtext';
 import { SelectModule } from 'primeng/select';
 import { SelectButtonModule } from 'primeng/selectbutton';
+import { TooltipModule } from 'primeng/tooltip';
 import { forkJoin, firstValueFrom } from 'rxjs';
 import { map } from 'rxjs/operators';
 
@@ -20,6 +21,7 @@ import {
 } from '../../api';
 
 type AppointmentItem = Appointment & {
+  accountId: string;
   accountLabel: string;
 };
 
@@ -41,6 +43,7 @@ type AppointmentFormType = 'ONCE' | 'RECURRING';
     InputTextModule,
     SelectModule,
     SelectButtonModule,
+    TooltipModule,
   ],
   templateUrl: './appointments.page.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -64,10 +67,12 @@ export class AppointmentsPage {
   selectedAccountId = '';
   title = '';
   date = '';
+  recurrenceEndDate = '';
   startTime = '';
   endTime = '';
   appointmentType: AppointmentFormType = 'ONCE';
   selectedDays: DayOfWeek[] = [];
+  editingAppointment: AppointmentItem | null = null;
 
   readonly appointmentTypeOptions = [
     { label: 'Einmalig', value: 'ONCE' },
@@ -127,6 +132,7 @@ export class AppointmentsPage {
             .map(
               (appointment): AppointmentItem => ({
                 ...appointment,
+                accountId: account.id,
                 accountLabel: account.label,
               }),
             ),
@@ -157,14 +163,45 @@ export class AppointmentsPage {
     this.validationMessage.set('');
     this.errorMessage.set('');
     this.successMessage.set('');
+    this.editingAppointment = null;
+
     this.title = '';
     this.date = '';
+    this.recurrenceEndDate = '';
     this.startTime = '';
     this.endTime = '';
     this.appointmentType = 'ONCE';
     this.selectedDays = [];
     this.selectedAccountId = this.accounts()[0]?.id ?? '';
+
     this.isDialogOpen.set(true);
+  }
+
+  openEditDialog(appointment: AppointmentItem): void {
+    this.validationMessage.set('');
+    this.errorMessage.set('');
+    this.successMessage.set('');
+
+    this.editingAppointment = appointment;
+    this.selectedAccountId = appointment.accountId;
+    this.title = appointment.title ?? '';
+    this.date = appointment.date ?? '';
+    this.startTime = appointment.startTime ?? '';
+    this.endTime = appointment.endTime ?? '';
+
+    const recurring = this.isRecurringAppointment(appointment);
+
+    this.appointmentType = recurring ? 'RECURRING' : 'ONCE';
+    this.selectedDays = recurring ? this.parseDaysFromRrule(appointment.rrule) : [];
+    this.recurrenceEndDate = recurring ? this.parseUntilDateFromRrule(appointment.rrule) : '';
+
+    this.isDialogOpen.set(true);
+  }
+
+  closeDialog(): void {
+    this.isDialogOpen.set(false);
+    this.validationMessage.set('');
+    this.editingAppointment = null;
   }
 
   async saveAppointment(): Promise<void> {
@@ -183,20 +220,45 @@ export class AppointmentsPage {
       title: this.title.trim(),
       isBreak: false,
       appointmentType: this.appointmentType === 'ONCE' ? 'ONE_TIME' : 'RECURRING',
-      date: this.appointmentType === 'ONCE' ? this.date : null,
+      date: this.date,
       startTime: this.startTime,
       endTime: this.endTime,
-      rrule: this.appointmentType === 'RECURRING' ? this.buildWeeklyRrule(this.selectedDays) : null,
+      rrule:
+        this.appointmentType === 'RECURRING'
+          ? this.buildWeeklyRrule(this.selectedDays, this.recurrenceEndDate)
+          : null,
     };
 
     this.isSaving.set(true);
 
     try {
-      await firstValueFrom(
-        this.appointmentsService.createAppointment(this.selectedAccountId, payload),
-      );
-      this.successMessage.set('Der Termin wurde gespeichert.');
+      if (this.editingAppointment) {
+        if (!this.editingAppointment.id) {
+          this.errorMessage.set(
+            'Der Termin kann nicht bearbeitet werden, weil keine ID vorhanden ist.',
+          );
+          return;
+        }
+
+        await firstValueFrom(
+          this.appointmentsService.updateAppointment(
+            this.editingAppointment.accountId,
+            this.editingAppointment.id,
+            payload,
+          ),
+        );
+
+        this.successMessage.set('Der Termin wurde aktualisiert.');
+      } else {
+        await firstValueFrom(
+          this.appointmentsService.createAppointment(this.selectedAccountId, payload),
+        );
+
+        this.successMessage.set('Der Termin wurde gespeichert.');
+      }
+
       this.isDialogOpen.set(false);
+      this.editingAppointment = null;
       await this.loadAppointments();
     } catch (error) {
       this.errorMessage.set(
@@ -204,6 +266,37 @@ export class AppointmentsPage {
       );
     } finally {
       this.isSaving.set(false);
+    }
+  }
+
+  async deleteAppointment(appointment: AppointmentItem): Promise<void> {
+    if (!appointment.id) {
+      this.errorMessage.set('Der Termin kann nicht gelöscht werden, weil keine ID vorhanden ist.');
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Soll der Termin "${appointment.title ?? 'Termin'}" wirklich gelöscht werden?`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    this.errorMessage.set('');
+    this.successMessage.set('');
+
+    try {
+      await firstValueFrom(
+        this.appointmentsService.deleteAppointment(appointment.accountId, appointment.id),
+      );
+
+      this.successMessage.set('Der Termin wurde gelöscht.');
+      await this.loadAppointments();
+    } catch (error) {
+      this.errorMessage.set(
+        this.getReadableErrorMessage(error, 'Der Termin konnte nicht gelöscht werden.'),
+      );
     }
   }
 
@@ -230,18 +323,24 @@ export class AppointmentsPage {
   }
 
   formatAppointmentType(appointment: Appointment): string {
-    return appointment.appointmentType === 'RECURRING' || appointment.rrule
-      ? 'Wiederkehrend'
-      : 'Einmalig';
+    return this.isRecurringAppointment(appointment) ? 'Wiederkehrend' : 'Einmalig';
   }
 
   formatAppointmentDateOrDays(appointment: Appointment): string {
-    if (appointment.appointmentType === 'RECURRING' || appointment.rrule) {
+    if (this.isRecurringAppointment(appointment)) {
       const days = this.parseDaysFromRrule(appointment.rrule);
       return days.length ? this.formatDays(days) : 'Wiederkehrend';
     }
 
     return this.formatDate(appointment.date);
+  }
+
+  getRecurringEndDate(appointment: Appointment): string {
+    return this.parseUntilDateFromRrule(appointment.rrule);
+  }
+
+  isRecurringAppointment(appointment: Appointment): boolean {
+    return appointment.appointmentType === 'RECURRING' || Boolean(appointment.rrule);
   }
 
   private validateForm(): string | null {
@@ -253,8 +352,22 @@ export class AppointmentsPage {
       return 'Bitte gib einen Titel ein.';
     }
 
-    if (this.appointmentType === 'ONCE' && !this.date) {
-      return 'Bitte gib ein Datum ein.';
+    if (this.appointmentType !== 'ONCE' && this.appointmentType !== 'RECURRING') {
+      return 'Bitte wähle aus, ob der Termin einmalig oder wiederkehrend ist.';
+    }
+
+    if (!this.date) {
+      return this.appointmentType === 'RECURRING'
+        ? 'Bitte gib ein Startdatum ein.'
+        : 'Bitte gib ein Datum ein.';
+    }
+
+    if (this.appointmentType === 'RECURRING' && !this.recurrenceEndDate) {
+      return 'Bitte gib ein Enddatum ein.';
+    }
+
+    if (this.appointmentType === 'RECURRING' && this.recurrenceEndDate < this.date) {
+      return 'Das Enddatum darf nicht vor dem Startdatum liegen.';
     }
 
     if (this.appointmentType === 'RECURRING' && this.selectedDays.length === 0) {
@@ -286,10 +399,13 @@ export class AppointmentsPage {
   }
 
   private getAppointmentSortValue(appointment: AppointmentItem): string {
-    return `${appointment.date ?? '0000-01-01'}T${appointment.startTime}`;
+    const recurringPrefix = this.isRecurringAppointment(appointment) ? '1' : '0';
+    return `${recurringPrefix}-${appointment.date ?? '0000-01-01'}T${
+      appointment.startTime ?? ''
+    }`;
   }
 
-  private buildWeeklyRrule(days: DayOfWeek[]): string {
+  private buildWeeklyRrule(days: DayOfWeek[], untilDate?: string): string {
     const dayCodes: Record<string, string> = {
       MONDAY: 'MO',
       TUESDAY: 'TU',
@@ -301,6 +417,7 @@ export class AppointmentsPage {
     };
 
     const order = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
+
     const byDay = days
       .slice()
       .sort((a, b) => order.indexOf(a.toUpperCase()) - order.indexOf(b.toUpperCase()))
@@ -308,7 +425,13 @@ export class AppointmentsPage {
       .filter(Boolean)
       .join(',');
 
-    return `FREQ=WEEKLY;BYDAY=${byDay}`;
+    const parts = [`FREQ=WEEKLY`, `BYDAY=${byDay}`];
+
+    if (untilDate) {
+      parts.push(`UNTIL=${untilDate.replaceAll('-', '')}`);
+    }
+
+    return parts.join(';');
   }
 
   private parseDaysFromRrule(rrule?: string | null): DayOfWeek[] {
@@ -340,6 +463,37 @@ export class AppointmentsPage {
       .split(',')
       .map((code) => codeToDay[code])
       .filter((day): day is DayOfWeek => !!day);
+  }
+
+  private parseUntilDateFromRrule(rrule?: string | null): string {
+    if (!rrule) {
+      return '';
+    }
+
+    const until = rrule
+      .toUpperCase()
+      .split(';')
+      .find((part) => part.startsWith('UNTIL='))
+      ?.substring('UNTIL='.length);
+
+    if (!until) {
+      return '';
+    }
+
+    const normalized = until.replace('Z', '').split('T')[0];
+
+    if (/^\d{8}$/.test(normalized)) {
+      return `${normalized.substring(0, 4)}-${normalized.substring(4, 6)}-${normalized.substring(
+        6,
+        8,
+      )}`;
+    }
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(normalized)) {
+      return normalized;
+    }
+
+    return '';
   }
 
   private formatDays(days: DayOfWeek[]): string {
