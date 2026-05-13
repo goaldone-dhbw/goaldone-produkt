@@ -246,12 +246,14 @@ export class CalenderComponent {
       return ['schedule-event--completed'];
     }
 
-    if (entry.type === 'APPOINTMENT' && entry.isBreak) {
-      return {
-        backgroundColor: '#059669',
-        borderColor: '#047857',
-        textColor: '#ffffff',
-      };
+    return ['schedule-event--task'];
+  }
+
+  private getWorkingIntervalsForDate(date: string): TimeInterval[] {
+    const configuredWorkingTimes = this.workingTimes();
+
+    if (configuredWorkingTimes.length === 0) {
+      return this.getDefaultWorkingIntervalsForDate(date);
     }
 
     const dayName = this.getDayName(date);
