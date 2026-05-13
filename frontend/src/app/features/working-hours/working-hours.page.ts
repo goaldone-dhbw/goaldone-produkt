@@ -6,7 +6,6 @@ import { catchError, map } from 'rxjs/operators';
 
 import { TableModule } from 'primeng/table';
 import { ButtonModule } from 'primeng/button';
-import { DialogModule } from 'primeng/dialog';
 import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { TagModule } from 'primeng/tag';
 import { ToastModule } from 'primeng/toast';
@@ -28,6 +27,7 @@ import {
 } from '../../api';
 
 import { AccountStateService } from '../../core/services/account-state.service';
+import { BasePopupComponent } from '../../shared/base-popup/base-popup.component';
 
 type BreakFormType = 'ONCE' | 'RECURRING';
 
@@ -39,12 +39,12 @@ type BreakFormType = 'ONCE' | 'RECURRING';
     FormsModule,
     TableModule,
     ButtonModule,
-    DialogModule,
     ConfirmDialogModule,
     TagModule,
     ToastModule,
     SelectButtonModule,
     Tooltip,
+    BasePopupComponent,
   ],
   templateUrl: './working-hours.page.html',
   providers: [ConfirmationService, MessageService],
@@ -406,6 +406,11 @@ export class WorkingHoursPage implements OnInit {
 
     if (!this.breakTitle.trim()) {
       this.showWarn('Bitte geben Sie eine Bezeichnung ein.');
+      return;
+    }
+
+    if (!this.breakType) {
+      this.showWarn('Bitte wählen Sie einen Pausentyp aus.');
       return;
     }
 

@@ -60,6 +60,12 @@ export class AppSidebarComponent {
         command: closeSidebar,
       },
       {
+        label: 'Termine',
+        icon: 'pi pi-calendar-plus',
+        routerLink: '/app/appointments',
+        command: closeSidebar,
+      },
+      {
         label: 'Arbeitszeiten & Pausen',
         icon: 'pi pi-clock',
         routerLink: '/app/working-hours',
