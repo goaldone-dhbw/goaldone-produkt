@@ -409,6 +409,11 @@ export class WorkingHoursPage implements OnInit {
       return;
     }
 
+    if (!this.breakType) {
+      this.showWarn('Bitte wählen Sie einen Pausentyp aus.');
+      return;
+    }
+
     if (this.breakType === 'ONCE' && !this.breakDate) {
       this.showWarn('Bitte geben Sie ein Datum ein.');
       return;
