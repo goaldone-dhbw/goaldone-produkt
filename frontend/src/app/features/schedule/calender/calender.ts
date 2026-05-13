@@ -235,10 +235,6 @@ export class CalenderComponent {
       return ['schedule-event--completed'];
     }
 
-    if (entry.isPinned) {
-      return ['schedule-event--pinned'];
-    }
-
     return ['schedule-event--task'];
   }
 
