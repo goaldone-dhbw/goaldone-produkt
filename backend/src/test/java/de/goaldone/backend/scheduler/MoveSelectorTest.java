@@ -123,12 +123,9 @@ class MoveSelectorTest {
                 0,
                 1,
                 60,
-                0,
-                0,
                 null,
                 null,
                 null,
-                false,
                 null
         );
     }
