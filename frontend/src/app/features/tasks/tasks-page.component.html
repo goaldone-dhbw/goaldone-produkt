@@ -52,14 +52,17 @@
           (onSelect)="onDateRangeChange()">
         </p-datepicker>
 
-        <input
-          type="number"
-          pInputText
-          class="min-w-32"
-          [(ngModel)]="filters.duration"
-          aria-label="Nach Dauer in Minuten filtern"
-          placeholder="Dauer in Minuten"
-          (input)="loadTasks()" />
+        <p-select
+          styleClass="w-56"
+          appendTo="body"
+          [options]="accounts()"
+          [(ngModel)]="filters.accountId"
+          ariaLabel="Nach Organisation filtern"
+          placeholder="Organisation"
+          optionLabel="label"
+          optionValue="id"
+          (onChange)="loadTasks()">
+        </p-select>
 
         <button
           pButton

@@ -17,6 +17,7 @@ describe('TasksPageComponent', () => {
 
   const API_BASE = 'http://localhost:8080/api/v1';
   const accountId = '8836327e-02e8-4539-9c3d-6ca434d43827';
+  const secondAccountId = '74c68bbf-b546-4fed-a1ea-a043fd7219a3';
   const filterTestTasks: TaskResponse[] = [
     {
       id: 't-open-low',
@@ -90,16 +91,21 @@ describe('TasksPageComponent', () => {
     fixture.detectChanges();
   }
 
-  async function reloadTasksWithResponse(tasks: TaskResponse[]): Promise<void> {
+  async function reloadTasksWithResponse(
+    tasks: TaskResponse[],
+    taskAccountResponses?: TaskAccountListResponse[],
+  ): Promise<void> {
     const loadPromise = component.loadTasks();
 
     const tasksRequest = httpMock.expectOne(`${API_BASE}/tasks/all`);
-    tasksRequest.flush([
-      {
-        accountId,
-        tasks,
-      },
-    ]);
+    tasksRequest.flush(
+      taskAccountResponses ?? [
+        {
+          accountId,
+          tasks,
+        },
+      ],
+    );
 
     await loadPromise;
     fixture.detectChanges();
@@ -277,13 +283,49 @@ describe('TasksPageComponent', () => {
     expect(component.tasks().map((task) => task.id)).toEqual(['t-progress-high']);
   });
 
-  it('soll Aufgaben nach Dauer filtern', async () => {
-    await flushInitialRequests([], { accounts: [] });
+  it('soll Aufgaben nach Organisation filtern', async () => {
+    await flushInitialRequests([], {
+      accounts: [
+        {
+          accountId,
+          organizationName: 'GoalDone',
+          organizationId: 'org-1',
+          roles: [],
+          hasConflicts: false,
+        },
+        {
+          accountId: secondAccountId,
+          organizationName: 'Partner Org',
+          organizationId: 'org-2',
+          roles: [],
+          hasConflicts: false,
+        },
+      ],
+    });
 
-    component.filters.duration = 90;
-    await reloadTasksWithResponse(filterTestTasks);
+    component.filters.accountId = secondAccountId;
+    await reloadTasksWithResponse([], [
+      {
+        accountId,
+        tasks: filterTestTasks,
+      },
+      {
+        accountId: secondAccountId,
+        tasks: [
+          {
+            id: 't-partner',
+            title: 'Partner Aufgabe',
+            duration: 45,
+            status: 'OPEN',
+            cognitiveLoad: 'LOW',
+            dependencyIds: [],
+          },
+        ],
+      },
+    ]);
 
-    expect(component.tasks().map((task) => task.id)).toEqual(['t-done-moderate']);
+    expect(component.tasks().map((task) => task.id)).toEqual(['t-partner']);
+    expect(component.tasks()[0].accountLabel).toBe('Partner Org');
   });
 
   it('soll Aufgaben nach Deadline-Zeitraum filtern', async () => {
@@ -324,10 +366,29 @@ describe('TasksPageComponent', () => {
 
     component.filters.status = 'DONE';
     component.filters.difficulty = 'MODERATE';
-    component.filters.duration = 90;
+    component.filters.accountId = accountId;
     component.filters.deadlineFrom = new Date('2026-05-19T00:00:00');
     component.filters.deadlineTo = new Date('2026-05-21T23:59:59');
-    await reloadTasksWithResponse(filterTestTasks);
+    await reloadTasksWithResponse([], [
+      {
+        accountId,
+        tasks: filterTestTasks,
+      },
+      {
+        accountId: secondAccountId,
+        tasks: [
+          {
+            id: 't-other-account-matching',
+            title: 'Gleiche Filterwerte in anderer Organisation',
+            duration: 90,
+            deadline: '2026-05-20T18:00:00',
+            status: 'DONE',
+            cognitiveLoad: 'MODERATE',
+            dependencyIds: [],
+          },
+        ],
+      },
+    ]);
 
     expect(component.tasks().map((task) => task.id)).toEqual(['t-done-moderate']);
   });
@@ -337,7 +398,7 @@ describe('TasksPageComponent', () => {
 
     component.filters.status = 'DONE';
     component.filters.difficulty = 'MODERATE';
-    component.filters.duration = 90;
+    component.filters.accountId = accountId;
     component.filters.deadlineFrom = new Date('2026-05-19T00:00:00');
     component.filters.deadlineTo = new Date('2026-05-21T23:59:59');
     component.dateRange = [component.filters.deadlineFrom, component.filters.deadlineTo];
@@ -359,7 +420,7 @@ describe('TasksPageComponent', () => {
       difficulty: null,
       deadlineFrom: null,
       deadlineTo: null,
-      duration: null,
+      accountId: null,
     });
     expect(component.dateRange).toEqual([]);
     expect(component.tasks().map((task) => task.id)).toEqual([

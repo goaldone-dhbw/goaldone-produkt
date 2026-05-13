@@ -5,7 +5,6 @@ import { Tooltip } from 'primeng/tooltip';
 import { firstValueFrom } from 'rxjs';
 import { ButtonModule } from 'primeng/button';
 import { DatePickerModule } from 'primeng/datepicker';
-import { InputTextModule } from 'primeng/inputtext';
 import { SelectModule } from 'primeng/select';
 import { FormsModule } from '@angular/forms';
 import {
@@ -29,7 +28,7 @@ type TaskFilters = {
   difficulty: CognitiveLoad | null;
   deadlineFrom: Date | null;
   deadlineTo: Date | null;
-  duration: number | null;
+  accountId: string | null;
 };
 
 @Component({
@@ -41,7 +40,6 @@ type TaskFilters = {
     ButtonModule,
     SelectModule,
     DatePickerModule,
-    InputTextModule,
     Tooltip,
     TaskEditDialogComponent,
     BasePopupComponent,
@@ -145,7 +143,7 @@ export class TasksPageComponent {
       this.filters.difficulty !== null ||
       this.filters.deadlineFrom !== null ||
       this.filters.deadlineTo !== null ||
-      this.filters.duration !== null
+      this.filters.accountId !== null
     );
   }
 
@@ -159,7 +157,7 @@ export class TasksPageComponent {
         return false;
       }
 
-      if (this.filters.duration && task.duration !== this.filters.duration) {
+      if (this.filters.accountId && task.accountId !== this.filters.accountId) {
         return false;
       }
 
@@ -426,7 +424,7 @@ export class TasksPageComponent {
     difficulty: null,
     deadlineFrom: null,
     deadlineTo: null,
-    duration: null,
+    accountId: null,
   };
 
   dateRange: Date[] = [];
@@ -455,7 +453,7 @@ export class TasksPageComponent {
       difficulty: null,
       deadlineFrom: null,
       deadlineTo: null,
-      duration: null,
+      accountId: null,
     };
 
     this.dateRange = [];
