@@ -2,11 +2,6 @@ import { Routes } from '@angular/router';
 import { authGuard } from './core/auth/auth.guard';
 import { adminGuard } from './core/auth/admin.guard';
 import { superAdminGuard } from './core/auth/super-admin.guard';
-import { StartPageComponent } from './features/startpage/start-page.component';
-import { TasksPageComponent } from './features/tasks/tasks-page.component';
-import { CallbackPageComponent } from './features/callback/callback-page.component';
-import { SuperAdminsPageComponent } from './features/super-admins/super-admins-page.component';
-import { AccountLinkCallbackPage } from './features/callback/account-link-callback/account-link-callback.page';
 
 export const routes: Routes = [
   {
@@ -22,7 +17,8 @@ export const routes: Routes = [
       },
       {
         path: 'tasks',
-        component: TasksPageComponent,
+        loadComponent: () =>
+          import('./features/tasks/tasks-page.component').then((m) => m.TasksPageComponent),
       },
       {
         path: 'schedule',
@@ -48,7 +44,8 @@ export const routes: Routes = [
       {
         path: 'super-admin',
         canActivate: [superAdminGuard],
-        component: SuperAdminsPageComponent,
+        loadComponent: () =>
+          import('./features/super-admins/super-admins-page.component').then((m) => m.SuperAdminsPageComponent),
       },
       {
         path: 'settings',
@@ -59,15 +56,18 @@ export const routes: Routes = [
   },
   {
     path: '',
-    component: StartPageComponent,
+    loadComponent: () =>
+      import('./features/startpage/start-page.component').then((m) => m.StartPageComponent),
   },
   {
     path: 'callback',
-    component: CallbackPageComponent,
+    loadComponent: () =>
+      import('./features/callback/callback-page.component').then((m) => m.CallbackPageComponent),
   },
   {
     path: 'link-callback',
-    component: AccountLinkCallbackPage,
+    loadComponent: () =>
+      import('./features/callback/account-link-callback/account-link-callback.page').then((m) => m.AccountLinkCallbackPage),
   },
   {
     path: '**',
