@@ -31,6 +31,10 @@ type TaskFilters = {
   accountId: string | null;
 };
 
+type HideableSelect = {
+  hide(isFocus?: boolean): void;
+};
+
 @Component({
   selector: 'app-tasks-page',
   standalone: true,
@@ -444,6 +448,81 @@ export class TasksPageComponent {
   onDateRangeChange(): void {
     this.filters.deadlineFrom = this.dateRange?.[0] || null;
     this.filters.deadlineTo = this.dateRange?.[1] || null;
+    this.loadTasks();
+  }
+
+  onDateRangeSelect(selectedDate: Date): void {
+    const previousRangeStart = this.filters.deadlineFrom;
+    const previousRangeEnd = this.filters.deadlineTo;
+
+    if (
+      previousRangeStart &&
+      previousRangeEnd &&
+      this.isSameOrBetweenDates(selectedDate, previousRangeStart, previousRangeEnd)
+    ) {
+      this.clearDateRangeFilter();
+      return;
+    }
+
+    this.onDateRangeChange();
+  }
+
+  clearDateRangeFilter(): void {
+    this.dateRange = [];
+    this.filters.deadlineFrom = null;
+    this.filters.deadlineTo = null;
+    this.loadTasks();
+  }
+
+  private isSameOrBetweenDates(date: Date, start: Date, end: Date): boolean {
+    const day = this.getDateOnlyTime(date);
+    const startDay = this.getDateOnlyTime(start);
+    const endDay = this.getDateOnlyTime(end);
+
+    return day >= startDay && day <= endDay;
+  }
+
+  private getDateOnlyTime(date: Date): number {
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+  }
+
+  toggleSelectFilter(
+    event: Event,
+    select: HideableSelect,
+    filterKey: 'status',
+    value: TaskStatus,
+  ): void;
+  toggleSelectFilter(
+    event: Event,
+    select: HideableSelect,
+    filterKey: 'difficulty',
+    value: CognitiveLoad,
+  ): void;
+  toggleSelectFilter(
+    event: Event,
+    select: HideableSelect,
+    filterKey: 'accountId',
+    value: string,
+  ): void;
+  toggleSelectFilter(
+    event: Event,
+    select: HideableSelect,
+    filterKey: keyof Pick<TaskFilters, 'status' | 'difficulty' | 'accountId'>,
+    value: TaskStatus | CognitiveLoad | string,
+  ): void {
+    event.stopPropagation();
+
+    if (filterKey === 'status') {
+      const status = value as TaskStatus;
+      this.filters.status = this.filters.status === status ? null : status;
+    } else if (filterKey === 'difficulty') {
+      const difficulty = value as CognitiveLoad;
+      this.filters.difficulty = this.filters.difficulty === difficulty ? null : difficulty;
+    } else {
+      this.filters.accountId = this.filters.accountId === value ? null : value;
+    }
+
+    select.hide(true);
     this.loadTasks();
   }
 

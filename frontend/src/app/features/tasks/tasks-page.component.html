@@ -18,6 +18,7 @@
 
       <div class="flex flex-nowrap items-center gap-3">
         <p-select
+          #statusSelect
           styleClass="w-40"
           appendTo="body"
           [options]="statusOptions"
@@ -27,9 +28,22 @@
           optionLabel="label"
           optionValue="value"
           (onChange)="loadTasks()">
+          <ng-template #item let-option>
+            <button
+              type="button"
+              class="flex w-full items-center justify-between gap-2 text-left"
+              (click)="toggleSelectFilter($event, statusSelect, 'status', option.value)"
+            >
+              <span>{{ option.label }}</span>
+              @if (filters.status === option.value) {
+                <i class="pi pi-check text-xs text-primary-icon"></i>
+              }
+            </button>
+          </ng-template>
         </p-select>
 
         <p-select
+          #difficultySelect
           styleClass="w-52"
           appendTo="body"
           [options]="difficultyOptions"
@@ -39,6 +53,18 @@
           optionLabel="label"
           optionValue="value"
           (onChange)="loadTasks()">
+          <ng-template #item let-option>
+            <button
+              type="button"
+              class="flex w-full items-center justify-between gap-2 text-left"
+              (click)="toggleSelectFilter($event, difficultySelect, 'difficulty', option.value)"
+            >
+              <span>{{ option.label }}</span>
+              @if (filters.difficulty === option.value) {
+                <i class="pi pi-check text-xs text-primary-icon"></i>
+              }
+            </button>
+          </ng-template>
         </p-select>
 
         <p-datepicker
@@ -49,10 +75,13 @@
           dateFormat="dd.mm.yy"
           ariaLabel="Nach Deadline Zeitraum filtern"
           placeholder="Deadline Zeitraum"
-          (onSelect)="onDateRangeChange()">
+          [showClear]="true"
+          (onSelect)="onDateRangeSelect($event)"
+          (onClear)="clearDateRangeFilter()">
         </p-datepicker>
 
         <p-select
+          #accountSelect
           styleClass="w-56"
           appendTo="body"
           [options]="accounts()"
@@ -62,6 +91,18 @@
           optionLabel="label"
           optionValue="id"
           (onChange)="loadTasks()">
+          <ng-template #item let-option>
+            <button
+              type="button"
+              class="flex w-full items-center justify-between gap-2 text-left"
+              (click)="toggleSelectFilter($event, accountSelect, 'accountId', option.id)"
+            >
+              <span>{{ option.label }}</span>
+              @if (filters.accountId === option.id) {
+                <i class="pi pi-check text-xs text-primary-icon"></i>
+              }
+            </button>
+          </ng-template>
         </p-select>
 
         <button
