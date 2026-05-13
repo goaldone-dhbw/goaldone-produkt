@@ -5,7 +5,6 @@ import { Tooltip } from 'primeng/tooltip';
 import { firstValueFrom } from 'rxjs';
 import { ButtonModule } from 'primeng/button';
 import { DatePickerModule } from 'primeng/datepicker';
-import { InputTextModule } from 'primeng/inputtext';
 import { SelectModule } from 'primeng/select';
 import { FormsModule } from '@angular/forms';
 import {
@@ -29,7 +28,11 @@ type TaskFilters = {
   difficulty: CognitiveLoad | null;
   deadlineFrom: Date | null;
   deadlineTo: Date | null;
-  duration: number | null;
+  accountId: string | null;
+};
+
+type HideableSelect = {
+  hide(isFocus?: boolean): void;
 };
 
 @Component({
@@ -41,7 +44,6 @@ type TaskFilters = {
     ButtonModule,
     SelectModule,
     DatePickerModule,
-    InputTextModule,
     Tooltip,
     TaskEditDialogComponent,
     BasePopupComponent,
@@ -145,7 +147,7 @@ export class TasksPageComponent {
       this.filters.difficulty !== null ||
       this.filters.deadlineFrom !== null ||
       this.filters.deadlineTo !== null ||
-      this.filters.duration !== null
+      this.filters.accountId !== null
     );
   }
 
@@ -159,7 +161,7 @@ export class TasksPageComponent {
         return false;
       }
 
-      if (this.filters.duration && task.duration !== this.filters.duration) {
+      if (this.filters.accountId && task.accountId !== this.filters.accountId) {
         return false;
       }
 
@@ -426,7 +428,7 @@ export class TasksPageComponent {
     difficulty: null,
     deadlineFrom: null,
     deadlineTo: null,
-    duration: null,
+    accountId: null,
   };
 
   dateRange: Date[] = [];
@@ -449,13 +451,88 @@ export class TasksPageComponent {
     this.loadTasks();
   }
 
+  onDateRangeSelect(selectedDate: Date): void {
+    const previousRangeStart = this.filters.deadlineFrom;
+    const previousRangeEnd = this.filters.deadlineTo;
+
+    if (
+      previousRangeStart &&
+      previousRangeEnd &&
+      this.isSameOrBetweenDates(selectedDate, previousRangeStart, previousRangeEnd)
+    ) {
+      this.clearDateRangeFilter();
+      return;
+    }
+
+    this.onDateRangeChange();
+  }
+
+  clearDateRangeFilter(): void {
+    this.dateRange = [];
+    this.filters.deadlineFrom = null;
+    this.filters.deadlineTo = null;
+    this.loadTasks();
+  }
+
+  private isSameOrBetweenDates(date: Date, start: Date, end: Date): boolean {
+    const day = this.getDateOnlyTime(date);
+    const startDay = this.getDateOnlyTime(start);
+    const endDay = this.getDateOnlyTime(end);
+
+    return day >= startDay && day <= endDay;
+  }
+
+  private getDateOnlyTime(date: Date): number {
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+  }
+
+  toggleSelectFilter(
+    event: Event,
+    select: HideableSelect,
+    filterKey: 'status',
+    value: TaskStatus,
+  ): void;
+  toggleSelectFilter(
+    event: Event,
+    select: HideableSelect,
+    filterKey: 'difficulty',
+    value: CognitiveLoad,
+  ): void;
+  toggleSelectFilter(
+    event: Event,
+    select: HideableSelect,
+    filterKey: 'accountId',
+    value: string,
+  ): void;
+  toggleSelectFilter(
+    event: Event,
+    select: HideableSelect,
+    filterKey: keyof Pick<TaskFilters, 'status' | 'difficulty' | 'accountId'>,
+    value: TaskStatus | CognitiveLoad | string,
+  ): void {
+    event.stopPropagation();
+
+    if (filterKey === 'status') {
+      const status = value as TaskStatus;
+      this.filters.status = this.filters.status === status ? null : status;
+    } else if (filterKey === 'difficulty') {
+      const difficulty = value as CognitiveLoad;
+      this.filters.difficulty = this.filters.difficulty === difficulty ? null : difficulty;
+    } else {
+      this.filters.accountId = this.filters.accountId === value ? null : value;
+    }
+
+    select.hide(true);
+    this.loadTasks();
+  }
+
   resetFilters(): void {
     this.filters = {
       status: null,
       difficulty: null,
       deadlineFrom: null,
       deadlineTo: null,
-      duration: null,
+      accountId: null,
     };
 
     this.dateRange = [];
