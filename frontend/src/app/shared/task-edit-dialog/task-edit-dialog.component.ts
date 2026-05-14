@@ -261,6 +261,17 @@ export class TaskEditDialogComponent implements OnInit, OnChanges {
   cancel(): void {
     this.isOpenChange.emit(false);
   }
+  isDependencySelected(id: string): boolean {
+    const current = this.taskForm.get('dependencyIds')?.value ?? [];
+    return current.includes(id);
+  }
+
+  selectDependency(id: string, event: Event): void {
+    event.preventDefault();
+    const current = this.taskForm.get('dependencyIds')?.value ?? [];
+    const updated = current.includes(id) ? [] : [id];
+    this.taskForm.get('dependencyIds')?.setValue(updated);
+  }
 
   showFieldError(
     fieldName: 'title' | 'durationHours' | 'durationMinutes' | 'accountId' | 'customChunkSize',): boolean {    const control = this.taskForm.get(fieldName);

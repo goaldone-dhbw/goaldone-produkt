@@ -35,28 +35,29 @@ public class ScheduleController implements SchedulesApi {
     }
 
     /**
+     * Generates schedules for all accounts linked to the current user identity.
      *
-     * @param generateScheduleRequest  (required)
-     * @return Schedule for multiple accounts
+     * @param generateScheduleRequest Request containing the schedule generation parameters.
+     * @return Schedule responses for all linked accounts.
      */
     @Override
     public ResponseEntity<MultiAccountScheduleResponse> generateAllAccountsSchedule(GenerateScheduleRequest generateScheduleRequest) {
 
-        // Extract Token
         Jwt jwt = currentUserResolver.extractJwt();
 
-        // List all linked accounts
-        List<UUID> accountIds = getAccountsLinkedToIdentity(jwt).
-                stream()
-                .map(UserAccountEntity::getUserIdentityId)
+        List<UUID> accountIds = getAccountsLinkedToIdentity(jwt)
+                .stream()
+                .map(UserAccountEntity::getId)
                 .toList();
 
-        // Generate schedule for each account
         List<ScheduleResponse> scheduleResponses = scheduleService.generateMultiAccountSchedule(
                 jwt, accountIds, generateScheduleRequest, timeoutMilliseconds
         );
 
-        return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();
+        MultiAccountScheduleResponse response = new MultiAccountScheduleResponse();
+        response.setSchedules(scheduleResponses);
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @Override
@@ -84,7 +85,7 @@ public class ScheduleController implements SchedulesApi {
                 jwt, accountId, generateScheduleRequest, timeoutMilliseconds
         );
 
-        return ResponseEntity.status(201).body(scheduleResponse);
+        return ResponseEntity.status(HttpStatus.CREATED).body(scheduleResponse);
     }
 
     @Override

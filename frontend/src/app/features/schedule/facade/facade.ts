@@ -4,6 +4,7 @@ import { firstValueFrom } from 'rxjs';
 
 import {
   GenerateScheduleRequest,
+  MultiAccountScheduleResponse,
   ScheduleEntry,
   ScheduleResponse,
   ScheduleWarning,
@@ -34,10 +35,12 @@ export type ScheduleWorkingTime = {
 export class ScheduleFacadeService {
   private readonly schedulesService = inject(SchedulesService);
   private readonly userAccountsService = inject(UserAccountsService);
+  private readonly ALL_ACCOUNTS_ID = 'ALL';
+  private readonly STORAGE_KEY = 'lastScheduleEntries';
   private readonly workingTimesService = inject(WorkingTimesService);
 
   readonly accounts = signal<AccountOption[]>([]);
-  readonly selectedAccountId = signal<string>('');
+  readonly selectedAccountId = signal<string>(this.ALL_ACCOUNTS_ID);
 
   readonly scheduleResponse = signal<ScheduleResponse | null>(null);
   readonly scheduleEntries = signal<ScheduleEntry[]>([]);
@@ -54,15 +57,12 @@ export class ScheduleFacadeService {
   readonly lastRange = signal<{ from: string; to: string } | null>(null);
 
   private readonly canLoadExistingSchedule = signal(true);
+  private readonly skipNextLoad = signal(false);
 
   readonly hasAccounts = computed(() => this.accounts().length > 0);
 
   readonly hasSchedule = computed(
     () => this.scheduleEntries().length > 0 || this.workingTimes().length > 0,
-  );
-
-  readonly selectedAccount = computed(
-    () => this.accounts().find((account) => account.id === this.selectedAccountId()) ?? null,
   );
 
   readonly warnings = computed<ScheduleWarning[]>(() => this.scheduleResponse()?.warnings ?? []);
@@ -76,13 +76,38 @@ export class ScheduleFacadeService {
   );
 
   async initialize(): Promise<void> {
-    this.selectedAccountId.set('');
+    this.selectedAccountId.set(this.ALL_ACCOUNTS_ID);
+    this.canLoadExistingSchedule.set(true);
+    this.skipNextLoad.set(false);
+
+    this.restoreFromCache();
+
     await this.loadAccounts();
 
-    if (this.selectedAccountId()) {
+    if (this.hasAccounts()) {
       const range = this.getCurrentWeekRange();
       await this.loadWorkingTimes(this.selectedAccountId());
       await this.loadSchedule(range.from, range.to);
+    }
+  }
+
+  private restoreFromCache(): void {
+    try {
+      const cached = localStorage.getItem(this.STORAGE_KEY);
+      if (cached) {
+        const entries: ScheduleEntry[] = JSON.parse(cached);
+        this.scheduleEntries.set(entries);
+      }
+    } catch {
+      // Cache kaputt, ignorieren
+    }
+  }
+
+  private saveToCache(entries: ScheduleEntry[]): void {
+    try {
+      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(entries));
+    } catch {
+      // Speicher voll, kein Caching
     }
   }
 
@@ -117,6 +142,8 @@ export class ScheduleFacadeService {
     this.errorMessage.set('');
     this.infoMessage.set('');
     this.successMessage.set('');
+    this.canLoadExistingSchedule.set(true);
+    this.skipNextLoad.set(false);
 
     if (!accountId) {
       return;
@@ -131,6 +158,12 @@ export class ScheduleFacadeService {
   async loadSchedule(from: string, to: string): Promise<void> {
     this.lastRange.set({ from, to });
 
+    // Wenn gerade generiert wurde, diesen Load überspringen
+    if (this.skipNextLoad()) {
+      this.skipNextLoad.set(false);
+      return;
+    }
+
     const accountId = this.selectedAccountId();
     const existingResponse = this.scheduleResponse();
 
@@ -142,23 +175,30 @@ export class ScheduleFacadeService {
       if (existingResponse) {
         this.applyScheduleResponse(existingResponse);
       }
-
-      return;
     }
 
-    this.isLoadingSchedule.set(true);
+    if (accountId !== this.ALL_ACCOUNTS_ID && !this.canLoadExistingSchedule()) return;
+
+    // Ladeindikator nur zeigen wenn noch nichts angezeigt wird
+    if (!this.hasSchedule()) {
+      this.isLoadingSchedule.set(true);
+    }
+
     this.errorMessage.set('');
 
     try {
-      const response = await firstValueFrom(
-        this.schedulesService.getSingleAccountSchedule(accountId, from, to),
-      );
+      const response =
+        accountId === this.ALL_ACCOUNTS_ID
+          ? await firstValueFrom(this.schedulesService.getAllAccountsSchedule(from, to))
+          : await firstValueFrom(this.schedulesService.getSingleAccountSchedule(accountId, from, to));
 
       this.applyScheduleResponse(response);
       this.infoMessage.set('');
     } catch (error) {
       if (error instanceof HttpErrorResponse && error.status === 501) {
-        this.canLoadExistingSchedule.set(false);
+        if (accountId !== this.ALL_ACCOUNTS_ID) {
+          this.canLoadExistingSchedule.set(false);
+        }
 
         const fallbackResponse = this.scheduleResponse();
 
@@ -168,15 +208,20 @@ export class ScheduleFacadeService {
 
         if (!this.hasSchedule()) {
           this.infoMessage.set(
-            'Vorhandene Planungen können aktuell noch nicht geladen werden, da der Backend-Endpunkt noch nicht implementiert ist. Du kannst aber eine neue Planung starten.',
+            accountId === this.ALL_ACCOUNTS_ID
+              ? ''
+              : 'Vorhandene Planungen können aktuell noch nicht geladen werden. Du kannst aber eine neue Planung starten.',
           );
         }
 
         return;
       }
 
-      this.scheduleResponse.set(null);
-      this.scheduleEntries.set([]);
+      // Einträge nicht löschen wenn wir bereits etwas anzeigen (z.B. aus Cache)
+      if (!this.hasSchedule()) {
+        this.scheduleResponse.set(null);
+        this.scheduleEntries.set([]);
+      }
 
       this.errorMessage.set(
         this.getReadableErrorMessage(error, 'Der Arbeitsplan konnte nicht geladen werden.'),
@@ -206,25 +251,31 @@ export class ScheduleFacadeService {
     try {
       await this.loadWorkingTimes(accountId);
 
-      const response = await firstValueFrom(
-        this.schedulesService.generateSingleAccountSchedule(accountId, request),
-      );
+      const response =
+        accountId === this.ALL_ACCOUNTS_ID
+          ? await firstValueFrom(this.schedulesService.generateAllAccountsSchedule(request))
+          : await firstValueFrom(this.schedulesService.generateSingleAccountSchedule(accountId, request));
 
       this.applyScheduleResponse(response);
 
+      // Verhindert dass rangeChanged-Event danach die Daten überschreibt
+      this.skipNextLoad.set(true);
+
       if (
-        (response.entries?.length ?? 0) > 0 ||
-        ((response as any).appointments?.length ?? 0) > 0
+        ((response as any).entries?.length ?? 0) > 0 ||
+        ((response as any).appointments?.length ?? 0) > 0 ||
+        (response as any).schedules?.some(
+          (schedule: any) =>
+            (schedule.appointments?.length ?? 0) > 0 || (schedule.entries?.length ?? 0) > 0,
+        )
       ) {
         this.successMessage.set('Die Planung wurde erfolgreich erstellt.');
       } else {
-        this.successMessage.set('');
         this.infoMessage.set(
           'Die Planung wurde verarbeitet, aber es wurden keine Einträge erzeugt.',
         );
       }
     } catch (error) {
-      this.successMessage.set('');
       this.errorMessage.set(
         this.getReadableErrorMessage(error, 'Die Planung konnte nicht gestartet werden.'),
       );
@@ -244,6 +295,53 @@ export class ScheduleFacadeService {
       value.originalItemId ||
       'Nicht eingeplante Aufgabe'
     );
+  }
+
+  private applyScheduleResponse(response: ScheduleResponse | MultiAccountScheduleResponse): void {
+    if (Array.isArray((response as MultiAccountScheduleResponse).schedules)) {
+      const multiResponse = response as MultiAccountScheduleResponse;
+
+      const mergedEntries = multiResponse.schedules.flatMap((schedule) => schedule.entries ?? []);
+      const mergedWarnings = multiResponse.schedules.flatMap((schedule) => schedule.warnings ?? []);
+      const mergedUnscheduledTasks = multiResponse.schedules.flatMap(
+        (schedule) => schedule.unscheduledTasks ?? [],
+      );
+
+      const mergedAppointments = multiResponse.schedules.flatMap(
+        (schedule) => schedule.appointments ?? [],
+      );
+
+      const firstSchedule = multiResponse.schedules[0];
+      const currentRange = this.lastRange() ?? this.getCurrentWeekRange();
+
+      const mergedResponse: ScheduleResponse = {
+        accountId: 'ALL',
+        generatedAt: firstSchedule?.generatedAt ?? new Date().toISOString(),
+        from: firstSchedule?.from ?? currentRange.from,
+        to: firstSchedule?.to ?? currentRange.to,
+        totalWorkMinutes: multiResponse.schedules.reduce(
+          (sum, schedule) => sum + (schedule.totalWorkMinutes ?? 0),
+          0,
+        ),
+        score: multiResponse.schedules.reduce((sum, schedule) => sum + (schedule.score ?? 0), 0),
+        warnings: mergedWarnings,
+        entries: mergedEntries,
+        unscheduledTasks: mergedUnscheduledTasks,
+        appointments: mergedAppointments,
+      };
+
+      this.scheduleResponse.set(mergedResponse);
+      this.scheduleEntries.set(mergedEntries);
+      this.saveToCache(mergedEntries);
+      return;
+    }
+
+    const singleResponse = response as ScheduleResponse;
+
+    const entries = singleResponse.entries ?? [];
+    this.scheduleResponse.set(singleResponse);
+    this.scheduleEntries.set(entries);
+    this.saveToCache(entries);
   }
 
   private async loadWorkingTimes(accountId: string): Promise<void> {
@@ -266,36 +364,10 @@ export class ScheduleFacadeService {
     }
   }
 
-  private applyScheduleResponse(response: ScheduleResponse): void {
-    const scheduleEntries = response.entries ?? [];
-    const appointmentEntries = this.mapAppointmentsToScheduleEntries(response);
-
-    const mergedEntries = this.sortScheduleEntries(
-      this.deduplicateScheduleEntries([...scheduleEntries, ...appointmentEntries]),
-    );
-
-    this.scheduleResponse.set(response);
-    this.scheduleEntries.set(mergedEntries);
-  }
-
-  private mapAppointmentsToScheduleEntries(response: ScheduleResponse): ScheduleEntry[] {
-    const appointments = (response as any).appointments ?? [];
-
-    return appointments.flatMap((appointment: any): ScheduleEntry[] => {
-      if (this.isRecurringAppointment(appointment)) {
-        return this.expandRecurringAppointment(appointment);
-      }
-
-      if (this.isValidAppointmentForCalendar(appointment)) {
-        return [this.mapSingleAppointment(appointment)];
-      }
-
-      return [];
-    });
-  }
-
   private isRecurringAppointment(appointment: any): boolean {
-    return Boolean(appointment && appointment.rrule && appointment.startTime && appointment.endTime);
+    return Boolean(
+      appointment && appointment.rrule && appointment.startTime && appointment.endTime,
+    );
   }
 
   private mapSingleAppointment(appointment: any): ScheduleEntry {
@@ -374,8 +446,13 @@ export class ScheduleFacadeService {
 
   private parseDaysFromRrule(rrule: string): string[] {
     const codeToDay: Record<string, string> = {
-      MO: 'MONDAY', TU: 'TUESDAY', WE: 'WEDNESDAY', TH: 'THURSDAY',
-      FR: 'FRIDAY', SA: 'SATURDAY', SU: 'SUNDAY',
+      MO: 'MONDAY',
+      TU: 'TUESDAY',
+      WE: 'WEDNESDAY',
+      TH: 'THURSDAY',
+      FR: 'FRIDAY',
+      SA: 'SATURDAY',
+      SU: 'SUNDAY',
     };
 
     const byDay = rrule
@@ -386,7 +463,10 @@ export class ScheduleFacadeService {
 
     if (!byDay) return [];
 
-    return byDay.split(',').map((code) => codeToDay[code]).filter(Boolean);
+    return byDay
+      .split(',')
+      .map((code) => codeToDay[code])
+      .filter(Boolean);
   }
 
   private getDatesInRange(from: string, to: string): string[] {
@@ -457,7 +537,7 @@ export class ScheduleFacadeService {
           return false;
         }
 
-        if (item.accountId && String(item.accountId) !== accountId) {
+        if (accountId !== this.ALL_ACCOUNTS_ID && item.accountId && String(item.accountId) !== accountId) {
           return false;
         }
 

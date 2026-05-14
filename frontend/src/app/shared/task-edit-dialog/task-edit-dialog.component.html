@@ -32,7 +32,6 @@
 
     @if (isViewMode() && task) {
       <div class="space-y-5">
-
         <div class="space-y-2">
           <div class="block text-sm font-medium text-slate-800">
             Unternehmen / Verein
@@ -338,29 +337,34 @@
           </div>
         </div>
 
+        <!-- Dependencies radio list -->
         <div class="space-y-2">
-          <label for="dependencyIds" class="block text-sm font-medium text-slate-800">
-            Abhängigkeiten
-          </label>
-          <select
-            id="dependencyIds"
-            multiple
-            formControlName="dependencyIds"
-            class="min-h-36 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
-          >
+          <label class="block text-sm font-medium text-slate-800">Abhängigkeiten</label>
+          <div class="min-h-36 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 space-y-2">
             @for (option of availableDependencyOptions(); track option.id) {
-              <option [value]="option.id">{{ option.title }}</option>
+              <label
+                class="flex items-center gap-3 cursor-pointer rounded-lg px-2 py-1.5 hover:bg-slate-50 transition"
+                (click)="selectDependency(option.id, $event)"
+              >
+                <input
+                  type="radio"
+                  name="dependencyId"
+                  [value]="option.id"
+                  [checked]="isDependencySelected(option.id)"
+                  (click)="$event.preventDefault()"
+                  class="h-4 w-4 border-slate-300 text-pink-600 focus:ring-pink-500"
+                />
+                <span class="text-sm text-slate-900">{{ option.title }}</span>
+              </label>
             }
-          </select>
-
-          @if (availableDependencyOptions().length === 0) {
-            <p class="text-xs text-slate-500">
-              Es sind aktuell keine anderen Aufgaben verfügbar, die als Abhängigkeit ausgewählt werden können.
-            </p>
-          }
-
+            @if (availableDependencyOptions().length === 0) {
+              <p class="text-xs text-slate-500">
+                Es sind aktuell keine anderen Aufgaben verfügbar, die als Abhängigkeit ausgewählt werden können.
+              </p>
+            }
+          </div>
           <p class="text-xs text-slate-500">
-            Wähle Aufgaben aus, die vor dieser Aufgabe erledigt sein müssen.
+            Wähle eine Aufgabe aus, die vor dieser Aufgabe erledigt sein muss.
           </p>
         </div>
       </form>

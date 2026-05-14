@@ -57,7 +57,7 @@
             (change)="onAccountChanged($event)"
             class="h-11 w-full rounded-xl border border-slate-300 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
           >
-            <option value="">Bitte auswählen</option>
+            <option value="ALL">Alle Unternehmen / Vereine</option>
 
             @for (account of facade.accounts(); track account.id) {
               <option [value]="account.id">

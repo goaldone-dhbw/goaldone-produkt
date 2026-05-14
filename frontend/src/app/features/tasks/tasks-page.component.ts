@@ -8,14 +8,7 @@ import { ButtonModule } from 'primeng/button';
 import { DatePickerModule } from 'primeng/datepicker';
 import { SelectModule } from 'primeng/select';
 import { FormsModule } from '@angular/forms';
-import {
-  CognitiveLoad,
-  TaskResponse,
-  TaskStatus,
-  TaskUpdateRequest,
-} from '../../api';
-import { TasksService } from '../../api';
-import { UserAccountsService } from '../../api';
+import { CognitiveLoad, TaskResponse, TaskStatus, TaskUpdateRequest, TasksService, UserAccountsService } from '../../api';
 import { BasePopupComponent } from '../../shared/base-popup/base-popup.component';
 import { TaskEditDialogComponent, TaskItem } from '../../shared/task-edit-dialog/task-edit-dialog.component';
 
