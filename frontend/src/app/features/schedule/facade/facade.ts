@@ -182,7 +182,6 @@ export class ScheduleFacadeService {
     // Ladeindikator nur zeigen wenn noch nichts angezeigt wird
     if (!this.hasSchedule()) {
       this.isLoadingSchedule.set(true);
-      return;
     }
 
     this.errorMessage.set('');
@@ -191,9 +190,7 @@ export class ScheduleFacadeService {
       const response =
         accountId === this.ALL_ACCOUNTS_ID
           ? await firstValueFrom(this.schedulesService.getAllAccountsSchedule(from, to))
-          : await firstValueFrom(
-            this.schedulesService.getSingleAccountSchedule(accountId, from, to),
-          );
+          : await firstValueFrom(this.schedulesService.getSingleAccountSchedule(accountId, from, to));
 
       this.applyScheduleResponse(response);
       this.infoMessage.set('');
@@ -257,28 +254,28 @@ export class ScheduleFacadeService {
       const response =
         accountId === this.ALL_ACCOUNTS_ID
           ? await firstValueFrom(this.schedulesService.generateAllAccountsSchedule(request))
-          : await firstValueFrom(
-              this.schedulesService.generateSingleAccountSchedule(accountId, request),
-            );
+          : await firstValueFrom(this.schedulesService.generateSingleAccountSchedule(accountId, request));
 
       this.applyScheduleResponse(response);
 
       // Verhindert dass rangeChanged-Event danach die Daten überschreibt
       this.skipNextLoad.set(true);
 
-      if (this.scheduleEntries().length > 0 || ((response as any).appointments?.length ?? 0) > 0)
-      {
-
-        const response = await firstValueFrom(
-          this.schedulesService.generateSingleAccountSchedule(accountId, request),
-        );
-        this.applyScheduleResponse(response);
+      if (
+        ((response as any).entries?.length ?? 0) > 0 ||
+        ((response as any).appointments?.length ?? 0) > 0 ||
+        (response as any).schedules?.some(
+          (schedule: any) =>
+            (schedule.appointments?.length ?? 0) > 0 || (schedule.entries?.length ?? 0) > 0,
+        )
+      ) {
         this.successMessage.set('Die Planung wurde erfolgreich erstellt.');
       } else {
-        this.infoMessage.set('Die Planung wurde verarbeitet, aber es wurden keine Einträge erzeugt.',);
+        this.infoMessage.set(
+          'Die Planung wurde verarbeitet, aber es wurden keine Einträge erzeugt.',
+        );
       }
     } catch (error) {
-      this.successMessage.set('');
       this.errorMessage.set(
         this.getReadableErrorMessage(error, 'Die Planung konnte nicht gestartet werden.'),
       );
@@ -301,13 +298,20 @@ export class ScheduleFacadeService {
   }
 
   private applyScheduleResponse(response: ScheduleResponse | MultiAccountScheduleResponse): void {
-    if ('schedules' in response) {
-      const mergedEntries = response.schedules.flatMap((schedule) => schedule.entries ?? []);
-      const mergedWarnings = response.schedules.flatMap((schedule) => schedule.warnings ?? []);
-      const mergedUnscheduledTasks = response.schedules.flatMap((schedule) => schedule.unscheduledTasks ?? []);
-      const mergedAppointments = response.schedules.flatMap((schedule) => schedule.appointments ?? []);
+    if (Array.isArray((response as MultiAccountScheduleResponse).schedules)) {
+      const multiResponse = response as MultiAccountScheduleResponse;
 
-      const firstSchedule = response.schedules[0];
+      const mergedEntries = multiResponse.schedules.flatMap((schedule) => schedule.entries ?? []);
+      const mergedWarnings = multiResponse.schedules.flatMap((schedule) => schedule.warnings ?? []);
+      const mergedUnscheduledTasks = multiResponse.schedules.flatMap(
+        (schedule) => schedule.unscheduledTasks ?? [],
+      );
+
+      const mergedAppointments = multiResponse.schedules.flatMap(
+        (schedule) => schedule.appointments ?? [],
+      );
+
+      const firstSchedule = multiResponse.schedules[0];
       const currentRange = this.lastRange() ?? this.getCurrentWeekRange();
 
       const mergedResponse: ScheduleResponse = {
@@ -315,14 +319,11 @@ export class ScheduleFacadeService {
         generatedAt: firstSchedule?.generatedAt ?? new Date().toISOString(),
         from: firstSchedule?.from ?? currentRange.from,
         to: firstSchedule?.to ?? currentRange.to,
-        totalWorkMinutes: response.schedules.reduce(
+        totalWorkMinutes: multiResponse.schedules.reduce(
           (sum, schedule) => sum + (schedule.totalWorkMinutes ?? 0),
           0,
         ),
-        score: response.schedules.reduce(
-          (sum, schedule) => sum + (schedule.score ?? 0),
-          0,
-        ),
+        score: multiResponse.schedules.reduce((sum, schedule) => sum + (schedule.score ?? 0), 0),
         warnings: mergedWarnings,
         entries: mergedEntries,
         unscheduledTasks: mergedUnscheduledTasks,
@@ -335,8 +336,10 @@ export class ScheduleFacadeService {
       return;
     }
 
-    const entries = response.entries ?? [];
-    this.scheduleResponse.set(response);
+    const singleResponse = response as ScheduleResponse;
+
+    const entries = singleResponse.entries ?? [];
+    this.scheduleResponse.set(singleResponse);
     this.scheduleEntries.set(entries);
     this.saveToCache(entries);
   }
@@ -362,7 +365,9 @@ export class ScheduleFacadeService {
   }
 
   private isRecurringAppointment(appointment: any): boolean {
-    return Boolean(appointment && appointment.rrule && appointment.startTime && appointment.endTime);
+    return Boolean(
+      appointment && appointment.rrule && appointment.startTime && appointment.endTime,
+    );
   }
 
   private mapSingleAppointment(appointment: any): ScheduleEntry {
@@ -441,8 +446,13 @@ export class ScheduleFacadeService {
 
   private parseDaysFromRrule(rrule: string): string[] {
     const codeToDay: Record<string, string> = {
-      MO: 'MONDAY', TU: 'TUESDAY', WE: 'WEDNESDAY', TH: 'THURSDAY',
-      FR: 'FRIDAY', SA: 'SATURDAY', SU: 'SUNDAY',
+      MO: 'MONDAY',
+      TU: 'TUESDAY',
+      WE: 'WEDNESDAY',
+      TH: 'THURSDAY',
+      FR: 'FRIDAY',
+      SA: 'SATURDAY',
+      SU: 'SUNDAY',
     };
 
     const byDay = rrule
@@ -453,7 +463,10 @@ export class ScheduleFacadeService {
 
     if (!byDay) return [];
 
-    return byDay.split(',').map((code) => codeToDay[code]).filter(Boolean);
+    return byDay
+      .split(',')
+      .map((code) => codeToDay[code])
+      .filter(Boolean);
   }
 
   private getDatesInRange(from: string, to: string): string[] {
@@ -524,7 +537,7 @@ export class ScheduleFacadeService {
           return false;
         }
 
-        if (item.accountId && String(item.accountId) !== accountId) {
+        if (accountId !== this.ALL_ACCOUNTS_ID && item.accountId && String(item.accountId) !== accountId) {
           return false;
         }
 

@@ -85,7 +85,7 @@ public class ScheduleController implements SchedulesApi {
                 jwt, accountId, generateScheduleRequest, timeoutMilliseconds
         );
 
-        return ResponseEntity.status(201).body(scheduleResponse);
+        return ResponseEntity.status(HttpStatus.CREATED).body(scheduleResponse);
     }
 
     @Override
