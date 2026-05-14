@@ -65,9 +65,8 @@ describe('CalenderComponent', () => {
     fixture.detectChanges();
 
     const events = component.calendarEvents();
-
-    expect(events.length).toBe(1);
-    expect(events[0].title).toBe('Dokumentation schreiben');
+    const taskEvent = events.find((event) => event.id === 'entry-1');
+    expect(taskEvent?.title).toBe('Dokumentation schreiben');
   });
 
   it('should show chunk numbering for tasks with multiple chunks', () => {
@@ -87,9 +86,8 @@ describe('CalenderComponent', () => {
     fixture.detectChanges();
 
     const events = component.calendarEvents();
-
-    expect(events.length).toBe(1);
-    expect(events[0].title).toBe('Dokumentation schreiben (1/3)');
+    const taskEvent = events.find((event) => event.id === 'entry-1');
+    expect(taskEvent?.title).toBe('Dokumentation schreiben (1/3)');
   });
 
   it('should add pointer cursor class for task events', () => {

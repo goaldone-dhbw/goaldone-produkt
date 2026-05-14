@@ -251,7 +251,7 @@ export class CalenderComponent {
       customChunkSize: task.customChunkSize ?? null,
     };
   }
-  
+
   private mapNonWorkingTimesToBackgroundEvents(): EventInput[] {
     const range = this.visibleRange();
 
@@ -293,7 +293,6 @@ export class CalenderComponent {
 
     const fallback = entry.type === 'TASK' ? 'Unbenannte Aufgabe' : 'Termin';
 
-    const title = entry.originalItemTitle?.trim() || fallback;
 
     const chunkIndex = entry.chunkIndex;
     const totalChunks = entry.totalChunks;
@@ -309,7 +308,7 @@ export class CalenderComponent {
       return `${title} (${chunkIndex + 1}/${totalChunks})`;
     }
 
-    return title;
+    return title || fallback;
   }
 
   private mapScheduleEntryToTaskItem(entry: ScheduleEntry): TaskItem {
