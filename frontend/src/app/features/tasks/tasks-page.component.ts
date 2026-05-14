@@ -59,6 +59,9 @@ type HideableSelect = {
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class TasksPageComponent implements OnInit {
+  private static readonly INVALID_DATE_RANGE_MESSAGE =
+    'Das Startdatum muss vor dem Enddatum liegen';
+
   private readonly tasksService = inject(TasksService);
   private readonly userAccountsService = inject(UserAccountsService);
   private readonly router = inject(Router);
@@ -80,15 +83,10 @@ export class TasksPageComponent implements OnInit {
   editingTask = signal<TaskItem | null>(null);
   deletingTask = signal<TaskItem | null>(null);
 
-  readonly hasMultipleAccounts = computed(() => this.accounts().length > 1);
-  readonly hasSingleAccount = computed(() => this.accounts().length === 1);
-
   readonly currentAccount = computed<AccountOption | null>(() => {
     const accounts = this.accounts();
     return accounts.length === 1 ? accounts[0] : null;
   });
-
-  readonly currentAccountLabel = computed(() => this.currentAccount()?.label ?? null);
 
   ngOnInit(): void {
     void this.initializePage();
@@ -145,8 +143,12 @@ export class TasksPageComponent implements OnInit {
   }
 
   async loadTasks(): Promise<void> {
+    if (!this.validateFilters()) {
+      this.isLoading.set(false);
+      return;
+    }
+
     this.isLoading.set(true);
-    this.listErrorMessage.set('');
 
     try {
       const fromStr = this.filters.deadlineFrom ? this.formatLocalDateNativeString(this.filters.deadlineFrom) : undefined;
@@ -172,6 +174,8 @@ export class TasksPageComponent implements OnInit {
         return !(this.filters.accountId && task.accountId !== this.filters.accountId);
       });
 
+      this.listErrorMessage.set('');
+      this.successMessage.set('');
       this.totalTaskCount.set(allTasks.length);
       this.tasks.set(allTasks);
     } catch (error) {
@@ -186,6 +190,22 @@ export class TasksPageComponent implements OnInit {
     } finally {
       this.isLoading.set(false);
     }
+  }
+
+  private validateFilters(): boolean {
+    this.listErrorMessage.set('');
+    this.successMessage.set('');
+
+    if (
+      this.filters.deadlineFrom &&
+      this.filters.deadlineTo &&
+      this.filters.deadlineFrom > this.filters.deadlineTo
+    ) {
+      this.listErrorMessage.set(TasksPageComponent.INVALID_DATE_RANGE_MESSAGE);
+      return false;
+    }
+
+    return true;
   }
 
   getEmptyTasksMessage(): string {
@@ -209,6 +229,10 @@ export class TasksPageComponent implements OnInit {
   }
 
   applyFilterStateToUrl(): void {
+    if (!this.validateFilters()) {
+      return;
+    }
+
     const queryParams: any = {};
     if (this.filters.status) queryParams.status = this.filters.status;
     if (this.filters.difficulty) queryParams.difficulty = this.filters.difficulty;
@@ -577,6 +601,8 @@ export class TasksPageComponent implements OnInit {
     };
 
     this.dateRange = [];
+    this.listErrorMessage.set('');
+    this.successMessage.set('');
     this.applyFilterStateToUrl();
   }
 }
