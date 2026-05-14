@@ -180,6 +180,7 @@ describe('WorkingHoursPage', () => {
     component.breakStartTime = '12:00';
     component.breakEndTime = '13:00';
     component.breakType = 'RECURRING';
+    component.breakSelectedDays = [DayOfWeek.Monday, DayOfWeek.Wednesday, DayOfWeek.Friday];
     component.breakSelectedAccountId = 'acc-1';
 
     component.saveBreak();
@@ -193,7 +194,7 @@ describe('WorkingHoursPage', () => {
     expect(request.request.body.date).toBe(null);
     expect(request.request.body.startTime).toBe('12:00');
     expect(request.request.body.endTime).toBe('13:00');
-    expect(request.request.body.rrule).toBe('FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR');
+    expect(request.request.body.rrule).toBe('FREQ=WEEKLY;BYDAY=MO,WE,FR');
 
     request.flush({ id: 'break-3' });
 
@@ -214,6 +215,22 @@ describe('WorkingHoursPage', () => {
 
     expect(component.breaks().length).toBe(1);
     expect(component.getBreakTitle(component.breaks()[0])).toBe('Mittagspause');
+  });
+
+  it('should not save recurring break without selected weekdays', () => {
+    flushInitialRequests([account]);
+
+    component.openCreateBreakDialog();
+    component.breakTitle = 'Mittagspause';
+    component.breakStartTime = '12:00';
+    component.breakEndTime = '13:00';
+    component.breakType = 'RECURRING';
+    component.breakSelectedDays = [];
+    component.breakSelectedAccountId = 'acc-1';
+
+    component.saveBreak();
+
+    httpMock.expectNone((req) => req.method === 'POST' && req.url.includes('/appointments'));
   });
 
   it('should edit existing working time and update end time', () => {

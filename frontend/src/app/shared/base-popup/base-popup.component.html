@@ -5,7 +5,7 @@
   [dismissableMask]="true"
   [draggable]="false"
   [resizable]="false"
-  [style]="{ width: '32rem', 'max-width': 'calc(100vw - 2rem)' }"
+  [style]="{ width: '44rem', 'max-width': 'calc(100vw - 2rem)' }"
   (onHide)="onClose()"
 >
   <ng-template pTemplate="header">
@@ -21,13 +21,25 @@
   <ng-content select="[popup-content]"></ng-content>
 
   <ng-template pTemplate="footer">
-    <div class="flex justify-end gap-2 w-full">
+    <div class="flex w-full justify-end gap-3 px-6 pt-3">
       <ng-content select="[popup-footer]"></ng-content>
       @if (showCancelButton) {
-        <p-button [label]="cancelLabel" icon="pi pi-times" severity="secondary" (onClick)="onCancel()"></p-button>
+        <p-button
+          [label]="cancelLabel"
+          icon="pi pi-times"
+          severity="secondary"
+          (onClick)="onCancel()"
+        ></p-button>
       }
+
       @if (showConfirmButton) {
-        <p-button [label]="confirmLabel" icon="pi pi-check" [disabled]="confirmDisabled" (onClick)="onConfirm()"></p-button>
+        <p-button
+          [label]="confirmLabel"
+          icon="pi pi-check"
+          [disabled]="confirmDisabled"
+          [loading]="confirmLoading"
+          (onClick)="onConfirm()"
+        ></p-button>
       }
     </div>
   </ng-template>

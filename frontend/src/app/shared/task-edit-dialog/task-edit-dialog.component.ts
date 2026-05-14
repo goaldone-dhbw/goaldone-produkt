@@ -10,7 +10,6 @@ import {
   Output,
   SimpleChanges,
   computed,
-  effect,
   inject,
   signal,
   input,
@@ -58,12 +57,14 @@ export type TaskItem = {
   customChunkSize: number | null;
 };
 
+export type TaskDialogMode = 'create' | 'edit' | 'view';
+
 type TaskFormValue = {
   id: string | null;
   title: string;
   description: string;
-  duration: number | null;
-  deadline: string;
+  durationHours: number | null;
+  durationMinutes: number | null;  deadline: string;
   status: TaskStatus;
   accountId: string;
   dependencyIds: string[];
@@ -82,6 +83,10 @@ type TaskFormValue = {
 export class TaskEditDialogComponent implements OnInit, OnChanges {
   @Input() isOpen = false;
   @Input() task: TaskItem | null = null;
+  @Input() mode: TaskDialogMode | null = null;
+
+  readonly currentMode = signal<TaskDialogMode>('create');
+
   readonly allTasks = input<TaskItem[]>([]);
 
   @Output() isOpenChange = new EventEmitter<boolean>();
@@ -110,10 +115,25 @@ export class TaskEditDialogComponent implements OnInit, OnChanges {
 
   readonly currentAccountLabel = computed(() => this.currentAccount()?.label ?? null);
 
-  readonly popupTitle = computed(() => (this.task ? 'Aufgabe bearbeiten' : 'Aufgabe erstellen'));
+  readonly effectiveMode = computed<TaskDialogMode>(() => this.currentMode());
+
+  readonly isViewMode = computed(() => this.effectiveMode() === 'view');
+  readonly isEditMode = computed(() => this.effectiveMode() === 'edit');
+
+  readonly popupTitle = computed(() => {
+    if (this.isViewMode()) {
+      return this.task?.title || 'Aufgabendetails';
+    }
+
+    if (this.isEditMode()) {
+      return 'Aufgabe bearbeiten';
+    }
+
+    return 'Aufgabe erstellen';
+  });
 
   readonly popupConfirmLabel = computed(() =>
-    this.task ? 'Änderungen speichern' : 'Aufgabe speichern',
+    this.isEditMode() ? 'Änderungen speichern' : 'Aufgabe speichern',
   );
 
   readonly taskForm = this.fb.group(
@@ -121,7 +141,15 @@ export class TaskEditDialogComponent implements OnInit, OnChanges {
       id: this.fb.control<string | null>(null),
       title: this.fb.control('', [Validators.required, Validators.maxLength(150)]),
       description: this.fb.control(''),
-      duration: this.fb.control<number | null>(null, [Validators.required, Validators.min(1)]),
+      durationHours: this.fb.control<number | null>(0, [
+        Validators.required,
+        Validators.min(0),
+      ]),
+      durationMinutes: this.fb.control<number | null>(0, [
+        Validators.required,
+        Validators.min(0),
+        Validators.max(59),
+      ]),
       deadline: this.fb.control(''),
       status: this.fb.control<TaskStatus>('OPEN', [Validators.required]),
       accountId: this.fb.control('', [Validators.required]),
@@ -140,7 +168,7 @@ export class TaskEditDialogComponent implements OnInit, OnChanges {
     const selectedAccountId = this.selectedAccountId();
 
     return this.allTasks()
-      .filter((task) => task.id != currentId && task.accountId === selectedAccountId)
+      .filter((task) => task.id !== currentId && task.accountId === selectedAccountId)
       .map((task) => ({
         id: task.id,
         title: this.buildDependencyOptionLabel(task),
@@ -161,7 +189,16 @@ export class TaskEditDialogComponent implements OnInit, OnChanges {
     if (changes['task']) {
       this.currentTaskId.set(this.task?.id);
     }
+
     // Reset form wenn task sich ändert
+    if (
+      changes['task'] ||
+      changes['mode'] ||
+      (changes['isOpen'] && this.isOpen)
+    ) {
+      this.currentMode.set(this.resolveInitialMode());
+    }
+
     if (changes['task'] && !changes['task'].firstChange) {
       this.resetFormForTask();
     }
@@ -187,45 +224,19 @@ export class TaskEditDialogComponent implements OnInit, OnChanges {
     }
   }
 
-  private resetFormForTask(): void {
-    this.formErrorMessage.set('');
-
-    if (this.task) {
-      const accountId = this.task.accountId ?? this.getDefaultAccountId();
-      this.taskForm.reset({
-        id: this.task.id,
-        title: this.task.title,
-        description: this.task.description ?? '',
-        duration: this.task.duration,
-        deadline: this.toDateTimeLocalValue(this.task.deadline),
-        status: this.task.status,
-        accountId,
-        dependencyIds: this.task.dependencyIds ?? [],
-        cognitiveLoad: this.task.cognitiveLoad ?? '',
-        dontScheduleBefore: this.toDateTimeLocalValue(this.task.dontScheduleBefore),
-        customChunkSize: this.task.customChunkSize,
-      });
-      this.selectedAccountId.set(accountId);
-    } else {
-      const accountId = this.getDefaultAccountId();
-      this.taskForm.reset({
-        id: null,
-        title: '',
-        description: '',
-        duration: null,
-        deadline: '',
-        status: 'OPEN',
-        accountId,
-        dependencyIds: [],
-        cognitiveLoad: '',
-        dontScheduleBefore: '',
-        customChunkSize: null,
-      });
-      this.selectedAccountId.set(accountId);
+  enableEditMode(): void {
+    if (!this.task) {
+      return;
     }
+
+    this.currentMode.set('edit');
   }
 
   save(): void {
+    if (this.isViewMode()) {
+      return;
+    }
+
     this.formErrorMessage.set('');
     this.taskForm.markAllAsTouched();
 
@@ -235,31 +246,16 @@ export class TaskEditDialogComponent implements OnInit, OnChanges {
     }
 
     const value = this.taskForm.getRawValue() as TaskFormValue;
+    const duration = this.getDurationInMinutes(value);
+
+    if (duration <= 0) {
+      this.formErrorMessage.set('Bitte gib eine Dauer von mindestens einer Minute an.');
+      return;
+    }
+
     this.isSaving.set(true);
 
     void this.saveTaskInternal(value);
-  }
-
-  private async saveTaskInternal(value: TaskFormValue): Promise<void> {
-    try {
-      if (this.task) {
-        const taskId = this.task.id;
-        const payload = this.buildUpdatePayload(value);
-        await firstValueFrom(this.tasksService.updateTask(taskId, payload));
-      } else {
-        const payload = this.buildCreatePayload(value);
-        await firstValueFrom(this.tasksService.createTask(payload));
-      }
-
-      this.isOpenChange.emit(false);
-      this.taskSaved.emit();
-    } catch (error) {
-      this.formErrorMessage.set(
-        this.getReadableErrorMessage(error, 'Die Aufgabe konnte nicht gespeichert werden.'),
-      );
-    } finally {
-      this.isSaving.set(false);
-    }
   }
 
   cancel(): void {
@@ -277,8 +273,8 @@ export class TaskEditDialogComponent implements OnInit, OnChanges {
     this.taskForm.get('dependencyIds')?.setValue(updated);
   }
 
-  showFieldError(fieldName: 'title' | 'duration' | 'accountId' | 'customChunkSize'): boolean {
-    const control = this.taskForm.get(fieldName);
+  showFieldError(
+    fieldName: 'title' | 'durationHours' | 'durationMinutes' | 'accountId' | 'customChunkSize',): boolean {    const control = this.taskForm.get(fieldName);
     const hasFormLevelChunkError =
       fieldName === 'customChunkSize' && !!this.taskForm.errors?.['chunkSizeInvalid'];
 
@@ -313,6 +309,121 @@ export class TaskEditDialogComponent implements OnInit, OnChanges {
     }
   }
 
+  formatDurationForView(minutes: number | null): string {
+    if (!minutes || minutes <= 0) {
+      return '-';
+    }
+
+    const hours = Math.floor(minutes / 60);
+    const restMinutes = minutes % 60;
+
+    if (hours > 0 && restMinutes > 0) {
+      return `${hours} h ${restMinutes} min`;
+    }
+
+    if (hours > 0) {
+      return `${hours} h`;
+    }
+
+    return `${restMinutes} min`;
+  }
+
+  formatDependencyTitlesForView(task: TaskItem): string {
+    if (!task.dependencyIds?.length) {
+      return '-';
+    }
+
+    const titleMap = new Map(this.allTasks().map((item) => [item.id, item.title]));
+
+    const titles = task.dependencyIds
+      .map((id) => titleMap.get(id))
+      .filter((title): title is string => !!title);
+
+    return titles.length ? titles.join(', ') : `${task.dependencyIds.length} ausgewählt`;
+  }
+
+  formatDateTime(value: string | null): string {
+    if (!value) {
+      return '-';
+    }
+
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+      return value;
+    }
+
+    return new Intl.DateTimeFormat('de-DE', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(date);
+  }
+
+  private resetFormForTask(): void {
+    this.formErrorMessage.set('');
+
+    if (this.task) {
+      const accountId = this.task.accountId ?? this.getDefaultAccountId();
+      this.taskForm.reset({
+        id: this.task.id,
+        title: this.task.title,
+        description: this.task.description ?? '',
+        durationHours: Math.floor(this.task.duration / 60),
+        durationMinutes: this.task.duration % 60,
+        deadline: this.toDateTimeLocalValue(this.task.deadline),
+        status: this.task.status,
+        accountId,
+        dependencyIds: this.task.dependencyIds ?? [],
+        cognitiveLoad: this.task.cognitiveLoad ?? '',
+        dontScheduleBefore: this.toDateTimeLocalValue(this.task.dontScheduleBefore),
+        customChunkSize: this.task.customChunkSize,
+      });
+      this.selectedAccountId.set(accountId);
+    } else {
+      const accountId = this.getDefaultAccountId();
+      this.taskForm.reset({
+        id: null,
+        title: '',
+        description: '',
+        durationHours: 0,
+        durationMinutes: 0,
+        deadline: '',
+        status: 'OPEN',
+        accountId,
+        dependencyIds: [],
+        cognitiveLoad: '',
+        dontScheduleBefore: '',
+        customChunkSize: null,
+      });
+      this.selectedAccountId.set(accountId);
+    }
+  }
+
+  private async saveTaskInternal(value: TaskFormValue): Promise<void> {
+    try {
+      if (this.task) {
+        const taskId = this.task.id;
+        const payload = this.buildUpdatePayload(value);
+        await firstValueFrom(this.tasksService.updateTask(taskId, payload));
+      } else {
+        const payload = this.buildCreatePayload(value);
+        await firstValueFrom(this.tasksService.createTask(payload));
+      }
+
+      this.isOpenChange.emit(false);
+      this.taskSaved.emit();
+    } catch (error) {
+      this.formErrorMessage.set(
+        this.getReadableErrorMessage(error, 'Die Aufgabe konnte nicht gespeichert werden.'),
+      );
+    } finally {
+      this.isSaving.set(false);
+    }
+  }
+
   private getDefaultAccountId(): string {
     return this.currentAccount()?.id ?? '';
   }
@@ -336,7 +447,7 @@ export class TaskEditDialogComponent implements OnInit, OnChanges {
       accountId: value.accountId,
       title: value.title.trim(),
       description: value.description?.trim() || undefined,
-      duration: Number(value.duration),
+      duration: this.getDurationInMinutes(value),
       deadline: value.deadline ? new Date(value.deadline).toISOString() : undefined,
       status: value.status,
       cognitiveLoad: (value.cognitiveLoad || 'MODERATE') as CognitiveLoad,
@@ -352,7 +463,7 @@ export class TaskEditDialogComponent implements OnInit, OnChanges {
     return {
       title: value.title.trim(),
       description: value.description?.trim() || undefined,
-      duration: Number(value.duration),
+      duration: this.getDurationInMinutes(value),
       deadline: value.deadline ? new Date(value.deadline).toISOString() : undefined,
       status: value.status,
       cognitiveLoad: (value.cognitiveLoad || 'MODERATE') as CognitiveLoad,
@@ -402,26 +513,6 @@ export class TaskEditDialogComponent implements OnInit, OnChanges {
     return `${year}-${month}-${day}T${hour}:${minute}`;
   }
 
-  private formatDateTime(value: string | null): string {
-    if (!value) {
-      return '-';
-    }
-
-    const date = new Date(value);
-
-    if (Number.isNaN(date.getTime())) {
-      return value;
-    }
-
-    return new Intl.DateTimeFormat('de-DE', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    }).format(date);
-  }
-
   private getReadableErrorMessage(error: unknown, fallback: string): string {
     if (!(error instanceof HttpErrorResponse)) {
       return fallback;
@@ -453,7 +544,9 @@ export class TaskEditDialogComponent implements OnInit, OnChanges {
   }
 
   private chunkSizeValidator(control: AbstractControl): ValidationErrors | null {
-    const duration = Number(control.get('duration')?.value);
+    const durationHours = Number(control.get('durationHours')?.value ?? 0);
+    const durationMinutes = Number(control.get('durationMinutes')?.value ?? 0);
+    const duration = durationHours * 60 + durationMinutes;
     const customChunkSize = Number(control.get('customChunkSize')?.value);
 
     if (!customChunkSize) {
@@ -465,5 +558,19 @@ export class TaskEditDialogComponent implements OnInit, OnChanges {
     }
 
     return null;
+  }
+
+  private resolveInitialMode(): TaskDialogMode {
+    if (this.mode) {
+      return this.mode;
+    }
+
+    return this.task ? 'edit' : 'create';
+  }
+  private getDurationInMinutes(value: TaskFormValue): number {
+    const hours = Number(value.durationHours ?? 0);
+    const minutes = Number(value.durationMinutes ?? 0);
+
+    return hours * 60 + minutes;
   }
 }

@@ -246,7 +246,7 @@ public class ScheduleServiceTest {
         when(taskService.getTasksForAccountId(jwt, accountId)).thenReturn(List.of());
         when(appointmentService.listAppointments(accountId, jwt)).thenReturn(emptyAppointmentResponse());
 
-        SchedulingContext context = scheduleService.createSchedulingContext(jwt, accountId, fromDate, 1);
+        SchedulingContext context = scheduleService.createSchedulingContext(jwt, accountId, fromDate);
 
         assertNotNull(context);
         assertEquals(fromDate, context.fromDate());
@@ -287,7 +287,7 @@ public class ScheduleServiceTest {
         when(taskService.getTasksForAccountId(jwt, accountId)).thenReturn(List.of());
         when(appointmentService.listAppointments(accountId, jwt)).thenReturn(emptyAppointmentResponse());
 
-        SchedulingContext context = scheduleService.createSchedulingContext(jwt, accountId, fromDate, 1);
+        SchedulingContext context = scheduleService.createSchedulingContext(jwt, accountId, fromDate);
 
         assertNotNull(context);
         assertFalse(context.availableSlots().isEmpty(), "Should have at least one slot");
@@ -316,11 +316,13 @@ public class ScheduleServiceTest {
         apt1.setDate(fromDate);
         apt1.setStartTime("10:00");
         apt1.setEndTime("11:00");
+        apt1.setAppointmentType(AppointmentType.ONE_TIME);
 
         Appointment apt2 = new Appointment();
         apt2.setDate(fromDate);
         apt2.setStartTime("14:00");
         apt2.setEndTime("15:00");
+        apt2.setAppointmentType(AppointmentType.ONE_TIME);
 
         AppointmentListResponse appointmentResponse = new AppointmentListResponse();
         appointmentResponse.setAppointments(List.of(apt1, apt2));
@@ -334,7 +336,7 @@ public class ScheduleServiceTest {
         when(taskService.getTasksForAccountId(jwt, accountId)).thenReturn(List.of());
         when(appointmentService.listAppointments(accountId, jwt)).thenReturn(appointmentResponse);
 
-        SchedulingContext context = scheduleService.createSchedulingContext(jwt, accountId, fromDate, 1);
+        SchedulingContext context = scheduleService.createSchedulingContext(jwt, accountId, fromDate);
 
         List<TimeSlot> slotsForFromDate = context.availableSlots()
                 .stream()
@@ -342,16 +344,58 @@ public class ScheduleServiceTest {
                 .toList();
 
         assertNotNull(context);
-        assertEquals(3, slotsForFromDate.size(), "Should have 3 available slots on the start date");
 
-        assertEquals(LocalTime.of(9, 0), slotsForFromDate.get(0).startTime());
-        assertEquals(LocalTime.of(10, 0), slotsForFromDate.get(0).endTime());
+        // Should have 3 slots: 09:00-10:00, 11:00-14:00, 15:00-17:00
+        TimeSlot slot1 = new TimeSlot(fromDate, LocalTime.of(9,  0), LocalTime.of(10, 0));
+        TimeSlot slot2 = new TimeSlot(fromDate, LocalTime.of(11, 0), LocalTime.of(14, 0));
+        TimeSlot slot3 = new TimeSlot(fromDate, LocalTime.of(15, 0), LocalTime.of(17, 0));
 
-        assertEquals(LocalTime.of(11, 0), slotsForFromDate.get(1).startTime());
-        assertEquals(LocalTime.of(14, 0), slotsForFromDate.get(1).endTime());
+        assertEquals(slot1, context.availableSlots().getFirst());
+        assertEquals(slot2, context.availableSlots().get(1));
+        assertEquals(slot3, context.availableSlots().get(2));
+    }
 
-        assertEquals(LocalTime.of(15, 0), slotsForFromDate.get(2).startTime());
-        assertEquals(LocalTime.of(17, 0), slotsForFromDate.get(2).endTime());
+    @Test
+    void createSchedulingContext_withRecurringBreak_returnsGapsBetweenAppointments() {
+        UUID accountId = UUID.randomUUID();
+        Jwt jwt = mockJwt();
+        LocalDate fromDate = LocalDate.of(2026, 5, 11); // Monday
+
+        WorkingTimeEntity workingTime = new WorkingTimeEntity();
+        workingTime.setId(UUID.randomUUID());
+        workingTime.setStartTime(LocalTime.of(9, 0));
+        workingTime.setEndTime(LocalTime.of(17, 0));
+        workingTime.setDays(new HashSet<>(List.of(DayOfWeek.MONDAY)));
+        workingTime.setCreatedAt(Instant.now());
+
+        // Create recurring break (Mon-Fri, 12-13)
+        Appointment breakApt = new Appointment();
+        breakApt.setStartTime("12:00");
+        breakApt.setEndTime("13:00");
+        breakApt.setAppointmentType(AppointmentType.RECURRING);
+        breakApt.rrule("FREQ=WEEKLY;COUNT=30;WKST=MO;BYDAY=MO,TU,WE,FR");
+
+        AppointmentListResponse appointmentResponse = new AppointmentListResponse();
+        appointmentResponse.setAppointments(List.of(breakApt));
+
+        UserAccountEntity account = new UserAccountEntity();
+        account.setId(accountId);
+        account.setZitadelSub("user-1");
+        account.setWorkingTimes(List.of(workingTime));
+
+        when(userAccountRepository.findById(accountId)).thenReturn(Optional.of(account));
+        when(taskService.getTasksForAccountId(jwt, accountId)).thenReturn(List.of());
+        when(appointmentService.listAppointments(accountId, jwt)).thenReturn(appointmentResponse);
+
+        SchedulingContext context = scheduleService.createSchedulingContext(jwt, accountId, fromDate);
+
+        assertNotNull(context);
+
+        TimeSlot slot1 = new TimeSlot(fromDate, LocalTime.of(9, 0), LocalTime.of(12, 0));
+        TimeSlot slot2 = new TimeSlot(fromDate, LocalTime.of(13, 0), LocalTime.of(17, 0));
+
+        assertEquals(slot1, context.availableSlots().getFirst());
+        assertEquals(slot2, context.availableSlots().get(1));
     }
 
     @Test
@@ -380,7 +424,7 @@ public class ScheduleServiceTest {
         when(taskService.getTasksForAccountId(jwt, accountId)).thenReturn(List.of());
         when(appointmentService.listAppointments(accountId, jwt)).thenReturn(emptyAppointmentResponse());
 
-        SchedulingContext context = scheduleService.createSchedulingContext(jwt, accountId, fromDate, 4);
+        SchedulingContext context = scheduleService.createSchedulingContext(jwt, accountId, fromDate);
 
         assertNotNull(context);
         // Should have at least 12 slots (3 per day * 4 weeks)
@@ -418,7 +462,7 @@ public class ScheduleServiceTest {
         when(taskService.getTasksForAccountId(jwt, accountId)).thenReturn(List.of());
         when(appointmentService.listAppointments(accountId, jwt)).thenReturn(emptyAppointmentResponse());
 
-        SchedulingContext context = scheduleService.createSchedulingContext(jwt, accountId, fromDate, 4);
+        SchedulingContext context = scheduleService.createSchedulingContext(jwt, accountId, fromDate);
 
         assertNotNull(context);
         // Should collect slots from both working time definitions (Monday and Tuesday slots)
