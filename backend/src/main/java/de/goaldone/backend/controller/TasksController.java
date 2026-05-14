@@ -14,7 +14,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.time.OffsetDateTime;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -98,9 +98,11 @@ public class TasksController implements TasksApi {
     }
 
     @Override
-    public ResponseEntity<List<TaskResponse>> getTasks(TaskStatus status, CognitiveLoad cognitiveLoad, OffsetDateTime deadlineFrom, OffsetDateTime deadlineTo, Integer minDuration, Integer maxDuration, String sortBy, String sortDirection) {
+    public ResponseEntity<List<TaskResponse>> getTasks(TaskStatus status, CognitiveLoad cognitiveLoad, String deadlineFrom, String deadlineTo, Integer minDuration, Integer maxDuration, String sortBy, String sortDirection, String searchTerm) {
         Jwt jwt = currentUserResolver.extractJwt();
-        List<TaskResponse> tasks = tasksService.getTasks(jwt, status, cognitiveLoad, deadlineFrom, deadlineTo, minDuration, maxDuration, sortBy, sortDirection);
+        LocalDateTime from = deadlineFrom != null ? LocalDateTime.parse(deadlineFrom) : null;
+        LocalDateTime to = deadlineTo != null ? LocalDateTime.parse(deadlineTo) : null;
+        List<TaskResponse> tasks = tasksService.getTasks(jwt, status, cognitiveLoad, from, to, minDuration, maxDuration, sortBy, sortDirection, searchTerm);
         return ResponseEntity.ok(tasks);
     }
 }
