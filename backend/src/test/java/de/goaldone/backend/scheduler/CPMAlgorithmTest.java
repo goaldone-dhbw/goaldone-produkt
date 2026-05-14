@@ -33,7 +33,7 @@ class CPMAlgorithmTest {
         List<WorkingTimeEntity> workingTime = List.of(working(List.of(DayOfWeek.MONDAY), 16));
 
         SchedulingContext context = new SchedulingContext(
-                date, availableSlots, tasks, workingTime
+                date, availableSlots, tasks, null, workingTime
         );
 
         SolverState result = algorithm.generateInitialSchedule(context);
@@ -54,7 +54,7 @@ class CPMAlgorithmTest {
         List<WorkingTimeEntity> workingTime = List.of(working(List.of(DayOfWeek.MONDAY), 16));
 
         SchedulingContext context = new SchedulingContext(
-                date, availableSlots, tasks, workingTime
+                date, availableSlots, tasks, null, workingTime
         );
 
         SolverState result = algorithm.generateInitialSchedule(context);
@@ -77,7 +77,7 @@ class CPMAlgorithmTest {
         List<WorkingTimeEntity> workingTime = List.of(working(List.of(DayOfWeek.MONDAY), 16));
 
         SchedulingContext context = new SchedulingContext(
-                date, availableSlots, tasks, workingTime
+                date, availableSlots, tasks, null, workingTime
         );
 
         SolverState result = algorithm.generateInitialSchedule(context);
@@ -100,7 +100,7 @@ class CPMAlgorithmTest {
         List<WorkingTimeEntity> workingTime = List.of(working(List.of(DayOfWeek.MONDAY), 17));
 
         SchedulingContext context = new SchedulingContext(
-                date, availableSlots, tasks, workingTime
+                date, availableSlots, tasks, null, workingTime
         );
 
         SolverState result = algorithm.generateInitialSchedule(context);
@@ -125,7 +125,7 @@ class CPMAlgorithmTest {
         List<WorkingTimeEntity> workingTime = List.of(working(List.of(DayOfWeek.MONDAY), 17));
 
         SchedulingContext context = new SchedulingContext(
-                date, availableSlots, tasks, workingTime
+                date, availableSlots, tasks, null, workingTime
         );
 
         SolverState result = algorithm.generateInitialSchedule(context);
@@ -151,7 +151,7 @@ class CPMAlgorithmTest {
         List<WorkingTimeEntity> workingTime = List.of(working(List.of(DayOfWeek.MONDAY), 17));
 
         SchedulingContext context = new SchedulingContext(
-                date, availableSlots, tasks, workingTime
+                date, availableSlots, tasks, null, workingTime
         );
 
         SolverState result = algorithm.generateInitialSchedule(context);
@@ -176,7 +176,7 @@ class CPMAlgorithmTest {
         List<WorkingTimeEntity> workingTime = List.of(working(List.of(DayOfWeek.MONDAY, DayOfWeek.TUESDAY), 17));
 
         SchedulingContext context = new SchedulingContext(
-                date, availableSlots, tasks, workingTime
+                date, availableSlots, tasks, null, workingTime
         );
 
         SolverState result = algorithm.generateInitialSchedule(context);
@@ -206,7 +206,7 @@ class CPMAlgorithmTest {
         List<WorkingTimeEntity> workingTime = List.of(working(List.of(DayOfWeek.MONDAY, DayOfWeek.TUESDAY), 17));
 
         SchedulingContext context = new SchedulingContext(
-                date, availableSlots, tasks, workingTime
+                date, availableSlots, tasks, null, workingTime
         );
 
         SolverState result = algorithm.generateInitialSchedule(context);
@@ -226,7 +226,7 @@ class CPMAlgorithmTest {
         List<WorkingTimeEntity> workingTime = List.of(working(List.of(DayOfWeek.MONDAY), 17));
 
         SchedulingContext context = new SchedulingContext(
-                date, availableSlots, tasks, workingTime
+                date, availableSlots, tasks, null, workingTime
         );
 
         SolverState result = algorithm.generateInitialSchedule(context);
@@ -254,7 +254,7 @@ class CPMAlgorithmTest {
         List<WorkingTimeEntity> workingTime = List.of(working(List.of(DayOfWeek.MONDAY, DayOfWeek.TUESDAY), 17));
 
         SchedulingContext context = new SchedulingContext(
-                date, availableSlots, tasks, workingTime
+                date, availableSlots, tasks, null, workingTime
         );
 
         SolverState result = algorithm.generateInitialSchedule(context);
@@ -279,7 +279,7 @@ class CPMAlgorithmTest {
         List<WorkingTimeEntity> workingTime = List.of(working(List.of(DayOfWeek.MONDAY, DayOfWeek.TUESDAY), 17));
 
         SchedulingContext context = new SchedulingContext(
-                date, availableSlots, tasks, workingTime
+                date, availableSlots, tasks, null, workingTime
         );
 
         SolverState result = algorithm.generateInitialSchedule(context);
@@ -304,7 +304,7 @@ class CPMAlgorithmTest {
         List<WorkingTimeEntity> workingTime = List.of(working(List.of(DayOfWeek.MONDAY, DayOfWeek.TUESDAY), 17));
 
         SchedulingContext context = new SchedulingContext(
-                date, availableSlots, tasks, workingTime
+                date, availableSlots, tasks, null, workingTime
         );
 
         SolverState result = algorithm.generateInitialSchedule(context);
@@ -344,7 +344,7 @@ class CPMAlgorithmTest {
 
 
         SchedulingContext context = new SchedulingContext(
-            date, availableSlots, tasks, workingTimeEntities
+            date, availableSlots, tasks, null, workingTimeEntities
         );
 
         SolverState result = algorithm.generateInitialSchedule(context);
