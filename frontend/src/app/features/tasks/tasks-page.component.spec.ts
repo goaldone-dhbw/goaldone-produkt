@@ -4,7 +4,6 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, Router } from '@angular/router';
 import { AccountListResponse, BASE_PATH, TaskAccountListResponse, TaskResponse } from '../../api';
 import { TasksPageComponent } from './tasks-page.component';
-import { ActivatedRoute, Router } from '@angular/router';
 
 type RuntimeWindow = Window & {
   __env?: {

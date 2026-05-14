@@ -2,12 +2,7 @@ package de.goaldone.backend.service;
 
 import de.goaldone.backend.entity.UserAccountEntity;
 import de.goaldone.backend.entity.WorkingTimeEntity;
-import de.goaldone.backend.model.Appointment;
-import de.goaldone.backend.model.AppointmentListResponse;
-import de.goaldone.backend.model.DayOfWeek;
-import de.goaldone.backend.model.GenerateScheduleRequest;
-import de.goaldone.backend.model.ScheduleResponse;
-import de.goaldone.backend.model.ScheduleWarning;
+import de.goaldone.backend.model.*;
 import de.goaldone.backend.repository.UserAccountRepository;
 import de.goaldone.backend.scheduler.types.model.SchedulingContext;
 import de.goaldone.backend.scheduler.types.model.TimeSlot;
@@ -97,7 +92,7 @@ public class ScheduleServiceTest {
 
         assertEquals(1, response.getWarnings().size());
 
-        ScheduleWarning warning = response.getWarnings().get(0);
+        ScheduleWarning warning = response.getWarnings().getFirst();
         assertEquals(ScheduleWarning.TypeEnum.OTHER, warning.getType());
         assertTrue(warning.getMessage().contains("From date cannot be in the past"));
     }
@@ -114,7 +109,7 @@ public class ScheduleServiceTest {
 
         assertEquals(1, response.getWarnings().size());
 
-        ScheduleWarning warning = response.getWarnings().get(0);
+        ScheduleWarning warning = response.getWarnings().getFirst();
         assertEquals(ScheduleWarning.TypeEnum.OTHER, warning.getType());
         assertTrue(warning.getMessage().contains("Account not found"));
     }
@@ -134,7 +129,7 @@ public class ScheduleServiceTest {
 
         assertEquals(1, response.getWarnings().size());
 
-        ScheduleWarning warning = response.getWarnings().get(0);
+        ScheduleWarning warning = response.getWarnings().getFirst();
         assertEquals(ScheduleWarning.TypeEnum.OTHER, warning.getType());
         assertTrue(warning.getMessage().contains("does not have access"));
     }
@@ -152,9 +147,9 @@ public class ScheduleServiceTest {
                 scheduleService.generateMultiAccountSchedule(jwt, List.of(), request, 5000);
 
         assertEquals(1, responses.size());
-        assertEquals(1, responses.get(0).getWarnings().size());
+        assertEquals(1, responses.getFirst().getWarnings().size());
 
-        ScheduleWarning warning = responses.get(0).getWarnings().get(0);
+        ScheduleWarning warning = responses.getFirst().getWarnings().getFirst();
         assertEquals(ScheduleWarning.TypeEnum.OTHER, warning.getType());
         assertTrue(warning.getMessage().contains("No accounts linked to user"));
     }
@@ -185,7 +180,7 @@ public class ScheduleServiceTest {
         long warnings = responses.stream()
                 .filter(response -> response.getWarnings() != null)
                 .filter(response -> !response.getWarnings().isEmpty())
-                .filter(response -> response.getWarnings().get(0).getMessage().contains("Account not found"))
+                .filter(response -> response.getWarnings().getFirst().getMessage().contains("Account not found"))
                 .count();
 
         assertEquals(1, warnings);
@@ -220,7 +215,7 @@ public class ScheduleServiceTest {
         long warnings = responses.stream()
                 .filter(response -> response.getWarnings() != null)
                 .filter(response -> !response.getWarnings().isEmpty())
-                .filter(response -> response.getWarnings().get(0).getMessage().contains("does not have access"))
+                .filter(response -> response.getWarnings().getFirst().getMessage().contains("does not have access"))
                 .count();
 
         assertEquals(1, warnings);
@@ -292,7 +287,7 @@ public class ScheduleServiceTest {
         assertNotNull(context);
         assertFalse(context.availableSlots().isEmpty(), "Should have at least one slot");
 
-        TimeSlot slot = context.availableSlots().get(0);
+        TimeSlot slot = context.availableSlots().getFirst();
         assertEquals(fromDate, slot.date());
         assertEquals(LocalTime.of(9, 0), slot.startTime());
         assertEquals(LocalTime.of(17, 0), slot.endTime());
@@ -383,19 +378,22 @@ public class ScheduleServiceTest {
         account.setZitadelSub("user-1");
         account.setWorkingTimes(List.of(workingTime));
 
-        when(userAccountRepository.findById(accountId)).thenReturn(Optional.of(account));
         when(taskService.getTasksForAccountId(jwt, accountId)).thenReturn(List.of());
         when(appointmentService.listAppointments(accountId, jwt)).thenReturn(appointmentResponse);
 
         SchedulingContext context = scheduleService.createSchedulingContext(jwt, accountId, fromDate);
 
-        assertNotNull(context);
-
-        TimeSlot slot1 = new TimeSlot(fromDate, LocalTime.of(9, 0), LocalTime.of(12, 0));
+        List<TimeSlot> slotsForFromDate = context.availableSlots().stream()
+                .filter(timeSlot -> timeSlot.date() == fromDate)
+                .toList();
+        TimeSlot slot1 = new TimeSlot(fromDate, LocalTime.of(8, 0), LocalTime.of(12, 0));
         TimeSlot slot2 = new TimeSlot(fromDate, LocalTime.of(13, 0), LocalTime.of(17, 0));
 
-        assertEquals(slot1, context.availableSlots().getFirst());
-        assertEquals(slot2, context.availableSlots().get(1));
+
+        assertNotNull(context);
+        assertEquals(2, slotsForFromDate.size());
+        assertEquals(slot1, slotsForFromDate.getFirst());
+        assertEquals(slot2, slotsForFromDate.getLast());
     }
 
     @Test

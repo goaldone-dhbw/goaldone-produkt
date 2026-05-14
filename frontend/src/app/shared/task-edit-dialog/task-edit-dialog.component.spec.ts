@@ -109,7 +109,8 @@ describe('TaskEditDialogComponent', () => {
     it('sollte gültig sein, wenn alle Pflichtfelder gefüllt sind', () => {
       component.taskForm.patchValue({
         title: 'Test',
-        duration: 30,
+        durationHours: 0,
+        durationMinutes: 30,
         status: 'OPEN',
         accountId: 'account-1',
       });
@@ -131,11 +132,21 @@ describe('TaskEditDialogComponent', () => {
       expect(component.showFieldError('title')).toBe(false);
     });
 
-    it('sollte Fehler zeigen, wenn Dauer 0 ist', () => {
-      component.taskForm.patchValue({ duration: 0 });
-      component.taskForm.get('duration')?.markAsTouched();
+    it('sollte Fehler setzen, wenn Gesamtdauer 0 ist', () => {
+      component.taskForm.patchValue({
+        accountId: "123",
+        id: "123",
+        title: "Unknown",
+        durationHours: 0,
+        durationMinutes: 0,
+        status: "OPEN"
+      });
 
-      expect(component.showFieldError('duration')).toBe(true);
+      component.save();
+
+      expect(component.formErrorMessage()).toBe(
+        'Bitte gib eine Dauer von mindestens einer Minute an.',
+      );
     });
 
     it('sollte dontScheduleBeforeAfterDeadline Fehler setzen, wenn "Nicht planen vor" nach der Deadline liegt', () => {
@@ -158,7 +169,8 @@ describe('TaskEditDialogComponent', () => {
 
     it('sollte chunkSizeInvalid Fehler setzen, wenn Chunk-Größe größer als Dauer ist', () => {
       component.taskForm.patchValue({
-        duration: 60,
+        durationHours: 1,
+        durationMinutes: 0,
         customChunkSize: 90,
       });
 
@@ -167,7 +179,8 @@ describe('TaskEditDialogComponent', () => {
 
     it('sollte keinen chunkSize Fehler setzen, wenn Chunk-Größe kleiner als Dauer ist', () => {
       component.taskForm.patchValue({
-        duration: 60,
+        durationHours: 1,
+        durationMinutes: 0,
         customChunkSize: 30,
       });
 
@@ -295,7 +308,8 @@ describe('TaskEditDialogComponent', () => {
     beforeEach(() => {
       component.taskForm.patchValue({
         title: 'Test Aufgabe',
-        duration: 60,
+        durationHours: 1,
+        durationMinutes: 0,
         status: 'OPEN',
         accountId: 'account-1',
       });
@@ -324,7 +338,8 @@ describe('TaskEditDialogComponent', () => {
 
       component.taskForm.patchValue({
         title: 'Test Aufgabe',
-        duration: 60,
+        durationHours: 1,
+        durationMinutes: 0,
         status: 'OPEN',
         accountId: 'account-1',
         dependencyIds: ['task-2'],
@@ -345,7 +360,8 @@ describe('TaskEditDialogComponent', () => {
 
       component.taskForm.patchValue({
         title: 'Test Aufgabe',
-        duration: 60,
+        durationHours: 1,
+        durationMinutes: 0,
         status: 'OPEN',
         accountId: 'account-1',
         dependencyIds: [],

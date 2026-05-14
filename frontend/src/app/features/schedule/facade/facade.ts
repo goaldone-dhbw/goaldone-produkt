@@ -175,6 +175,7 @@ export class ScheduleFacadeService {
       if (existingResponse) {
         this.applyScheduleResponse(existingResponse);
       }
+    }
 
     if (accountId !== this.ALL_ACCOUNTS_ID && !this.canLoadExistingSchedule()) return;
 
@@ -257,23 +258,21 @@ export class ScheduleFacadeService {
         accountId === this.ALL_ACCOUNTS_ID
           ? await firstValueFrom(this.schedulesService.generateAllAccountsSchedule(request))
           : await firstValueFrom(
-            this.schedulesService.generateSingleAccountSchedule(accountId, request),
-          );
+              this.schedulesService.generateSingleAccountSchedule(accountId, request),
+            );
 
       this.applyScheduleResponse(response);
 
       // Verhindert dass rangeChanged-Event danach die Daten überschreibt
       this.skipNextLoad.set(true);
 
-      if (this.scheduleEntries().length > 0 
-          || response.entries?.length ?? 0) > 0 
-          || ((response as any).appointments?.length ?? 0) > 0)
+      if (this.scheduleEntries().length > 0 || ((response as any).appointments?.length ?? 0) > 0)
       {
 
         const response = await firstValueFrom(
           this.schedulesService.generateSingleAccountSchedule(accountId, request),
         );
-        this.applySheduleResponse(response);
+        this.applyScheduleResponse(response);
         this.successMessage.set('Die Planung wurde erfolgreich erstellt.');
       } else {
         this.infoMessage.set('Die Planung wurde verarbeitet, aber es wurden keine Einträge erzeugt.',);
@@ -305,9 +304,8 @@ export class ScheduleFacadeService {
     if ('schedules' in response) {
       const mergedEntries = response.schedules.flatMap((schedule) => schedule.entries ?? []);
       const mergedWarnings = response.schedules.flatMap((schedule) => schedule.warnings ?? []);
-      const mergedUnscheduledTasks = response.schedules.flatMap(
-        (schedule) => schedule.unscheduledTasks ?? [],
-      );
+      const mergedUnscheduledTasks = response.schedules.flatMap((schedule) => schedule.unscheduledTasks ?? []);
+      const mergedAppointments = response.schedules.flatMap((schedule) => schedule.appointments ?? []);
 
       const firstSchedule = response.schedules[0];
       const currentRange = this.lastRange() ?? this.getCurrentWeekRange();
@@ -328,6 +326,7 @@ export class ScheduleFacadeService {
         warnings: mergedWarnings,
         entries: mergedEntries,
         unscheduledTasks: mergedUnscheduledTasks,
+        appointments: mergedAppointments,
       };
 
       this.scheduleResponse.set(mergedResponse);
@@ -340,6 +339,8 @@ export class ScheduleFacadeService {
     this.scheduleResponse.set(response);
     this.scheduleEntries.set(entries);
     this.saveToCache(entries);
+  }
+
   private async loadWorkingTimes(accountId: string): Promise<void> {
     try {
       const response = await firstValueFrom(this.workingTimesService.getWorkingTimes());
