@@ -3,6 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { AccountListResponse, BASE_PATH, TaskAccountListResponse, TaskResponse } from '../../api';
 import { TasksPageComponent } from './tasks-page.component';
+import { ActivatedRoute, Router } from '@angular/router';
 
 type RuntimeWindow = Window & {
   __env?: {
@@ -59,6 +60,20 @@ describe('TasksPageComponent', () => {
         provideHttpClient(),
         provideHttpClientTesting(),
         { provide: BASE_PATH, useValue: API_BASE },
+        {
+          provide: ActivatedRoute,
+          useValue: {
+            snapshot: {
+              queryParamMap: { get: (_: string) => null },
+            },
+          },
+        },
+        {
+          provide: Router,
+          useValue: {
+            navigate: () => Promise.resolve(true),
+          },
+        },
       ],
     }).compileComponents();
 
