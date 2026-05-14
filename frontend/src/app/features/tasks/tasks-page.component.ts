@@ -3,6 +3,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, inject, signal, OnInit } from '@angular/core';
 import { Tooltip } from 'primeng/tooltip';
 import { firstValueFrom } from 'rxjs';
+import { ActivatedRoute, Router } from '@angular/router';
 import { ButtonModule } from 'primeng/button';
 import { DatePickerModule } from 'primeng/datepicker';
 import { SelectModule } from 'primeng/select';
@@ -10,14 +11,7 @@ import { InputTextModule } from 'primeng/inputtext';
 import { InputNumberModule } from 'primeng/inputnumber';
 import { FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
-import {
-  CognitiveLoad,
-  TaskResponse,
-  TaskStatus,
-  TaskUpdateRequest,
-} from '../../api';
-import { TasksService } from '../../api';
-import { UserAccountsService } from '../../api';
+import { CognitiveLoad, TaskResponse, TaskStatus, TaskUpdateRequest, TasksService, UserAccountsService } from '../../api';
 import { BasePopupComponent } from '../../shared/base-popup/base-popup.component';
 import { TaskEditDialogComponent, TaskItem } from '../../shared/task-edit-dialog/task-edit-dialog.component';
 
@@ -64,8 +58,8 @@ export class TasksPageComponent implements OnInit {
 
   private readonly tasksService = inject(TasksService);
   private readonly userAccountsService = inject(UserAccountsService);
-  private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
 
   readonly tasks = signal<TaskItem[]>([]);
   readonly totalTaskCount = signal(0);
@@ -604,5 +598,22 @@ export class TasksPageComponent implements OnInit {
     this.listErrorMessage.set('');
     this.successMessage.set('');
     this.applyFilterStateToUrl();
+  }
+
+  private openCreateDialogFromQueryParam(): void {
+    const shouldOpenCreateDialog = this.route.snapshot.queryParamMap.get('create') === 'true';
+
+    if (!shouldOpenCreateDialog) {
+      return;
+    }
+
+    this.openCreateDialog();
+
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { create: null },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
   }
 }

@@ -26,6 +26,15 @@ public interface UserAccountRepository extends JpaRepository<UserAccountEntity, 
     Optional<UserAccountEntity> findByZitadelSub(String zitadelSub);
 
     /**
+     * Finds a user account by its Zitadel sub (subject) ID.
+     *
+     * @param id The UUID of the user account.
+     * @return An {@link Optional} containing the user account with working times if found.
+     */
+    @Query("SELECT u FROM UserAccountEntity u LEFT JOIN FETCH u.workingTimes WHERE u.id = :id")
+    Optional<UserAccountEntity> findByIdWithWorkingTimes(@Param("id") UUID id);
+
+    /**
      * Counts the number of user accounts associated with a specific user identity.
      *
      * @param userIdentityId The UUID of the user identity.

@@ -2,14 +2,27 @@
   [isOpen]="isOpen"
   [autoCloseOnConfirm]="false"
   [title]="popupTitle()"
-  [showConfirmButton]="true"
+  [showConfirmButton]="!isViewMode()"
   [showCancelButton]="true"
   [confirmLabel]="popupConfirmLabel()"
-  cancelLabel="Abbrechen"
+  [cancelLabel]="isViewMode() ? 'Schließen' : 'Abbrechen'"
   (confirm)="save()"
   (cancel)="cancel()"
   (closed)="cancel()"
 >
+  @if (isViewMode()) {
+    <button
+      popup-footer
+      type="button"
+      class="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-300 bg-white text-slate-700 shadow-sm transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300"
+      (click)="enableEditMode()"
+      aria-label="Aufgabe bearbeiten"
+      title="Aufgabe bearbeiten"
+    >
+      <i class="pi pi-pencil"></i>
+    </button>
+  }
+
   <div popup-content class="space-y-5">
     @if (formErrorMessage()) {
       <div class="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
@@ -17,162 +30,344 @@
       </div>
     }
 
-    <form [formGroup]="taskForm" class="space-y-5">
+    @if (isViewMode() && task) {
+      <div class="space-y-5">
+        <div class="space-y-2">
+          <div class="block text-sm font-medium text-slate-800">
+            Unternehmen / Verein
+          </div>
+          <div class="flex min-h-12 items-center rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-700">
+            {{ task.accountLabel || currentAccountLabel() || '-' }}
+          </div>
+        </div>
 
-      <!-- Account selector (shown as dropdown when multiple accounts, read-only display when single) -->
-      <div class="space-y-2">
-        <label for="accountId" class="block text-sm font-medium text-slate-800">
-          Unternehmen / Verein <span class="text-rose-600">*</span>
-        </label>
-        @if (hasMultipleAccounts()) {
-          <div class="relative">
-            <select id="accountId" formControlName="accountId"
-              class="w-full h-12 appearance-none rounded-xl border border-slate-300 bg-white px-4 pr-10 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200">
-              <option value="">Bitte auswählen</option>
-              @for (account of accounts(); track account.id) {
-                <option [value]="account.id">{{ account.label }}</option>
-              }
-            </select>
-            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-500">
-              <i class="pi pi-chevron-down text-xs"></i>
+        <div class="space-y-2">
+          <div class="block text-sm font-medium text-slate-800">
+            Titel
+          </div>
+          <div class="flex min-h-12 items-center rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-900">
+            {{ task.title || '-' }}
+          </div>
+        </div>
+
+        <div class="space-y-2">
+          <div class="block text-sm font-medium text-slate-800">
+            Beschreibung
+          </div>
+          <div class="min-h-28 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+            {{ task.description || '-' }}
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 gap-5 md:grid-cols-2">
+          <div class="space-y-2">
+            <div class="block text-sm font-medium text-slate-800">
+              Dauer
+            </div>
+            <div class="flex h-12 items-center rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-700">
+              {{ formatDurationForView(task.duration) }}
             </div>
           </div>
-          @if (showFieldError('accountId')) {
-            <p class="text-sm text-rose-600">Bitte wähle ein Unternehmen oder einen Verein aus.</p>
-          }
-        } @else {
-          <div class="flex h-12 items-center rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-600">
-            {{ currentAccountLabel() || 'Keine Organisation' }}
+
+          <div class="space-y-2">
+            <div class="block text-sm font-medium text-slate-800">
+              Status
+            </div>
+            <div class="flex h-12 items-center rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-700">
+              {{ formatStatus(task.status) }}
+            </div>
           </div>
-        }
-      </div>
+        </div>
 
-      <!-- Title -->
-      <div class="space-y-2">
-        <label for="title" class="block text-sm font-medium text-slate-800">
-          Titel <span class="text-rose-600">*</span>
-        </label>
-        <input id="title" type="text" formControlName="title"
-          class="w-full h-12 rounded-xl border border-slate-300 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
-          placeholder="z. B. Dokumentation schreiben" />
-        @if (showFieldError('title')) {
-          <p class="text-sm text-rose-600">Bitte gib einen Titel ein.</p>
-        }
-      </div>
+        <div class="grid grid-cols-1 gap-5 md:grid-cols-2">
+          <div class="space-y-2">
+            <div class="block text-sm font-medium text-slate-800">
+              Deadline
+            </div>
+            <div class="flex h-12 items-center rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-700">
+              {{ formatDateTime(task.deadline) }}
+            </div>
+          </div>
 
-      <!-- Description -->
-      <div class="space-y-2">
-        <label for="description" class="block text-sm font-medium text-slate-800">
-          Beschreibung
-        </label>
-        <textarea id="description" rows="4" formControlName="description"
-          class="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
-          placeholder="Optionale Beschreibung der Aufgabe"></textarea>
-      </div>
+          <div class="space-y-2">
+            <div class="block text-sm font-medium text-slate-800">
+              Nicht planen vor
+            </div>
+            <div class="flex h-12 items-center rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-700">
+              {{ formatDateTime(task.dontScheduleBefore) }}
+            </div>
+          </div>
+        </div>
 
-      <!-- Duration + Status (2-column grid) -->
-      <div class="grid grid-cols-1 gap-5 md:grid-cols-2">
+        <div class="grid grid-cols-1 gap-5 md:grid-cols-2">
+          <div class="space-y-2">
+            <div class="block text-sm font-medium text-slate-800">
+              Anforderungsgrad
+            </div>
+            <div class="flex h-12 items-center rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-700">
+              {{ task.cognitiveLoad ? formatCognitiveLoad(task.cognitiveLoad) : '-' }}
+            </div>
+          </div>
+
+          <div class="space-y-2">
+            <div class="block text-sm font-medium text-slate-800">
+              Manuelle Chunk-Größe
+            </div>
+            <div class="flex h-12 items-center rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-700">
+              {{ task.customChunkSize ? formatDurationForView(task.customChunkSize) : '-' }}
+            </div>
+          </div>
+        </div>
+
         <div class="space-y-2">
-          <label for="duration" class="block text-sm font-medium text-slate-800">
-            Dauer in Minuten <span class="text-rose-600">*</span>
+          <div class="block text-sm font-medium text-slate-800">
+            Abhängigkeiten
+          </div>
+          <div class="min-h-12 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+            {{ formatDependencyTitlesForView(task) }}
+          </div>
+        </div>
+      </div>
+    } @else {
+      <form [formGroup]="taskForm" class="space-y-5">
+
+        <div class="space-y-2">
+          <label for="accountId" class="block text-sm font-medium text-slate-800">
+            Unternehmen / Verein <span class="text-rose-600">*</span>
           </label>
-          <input id="duration" type="number" min="1" max="2147483647" formControlName="duration"
+
+          @if (hasMultipleAccounts()) {
+            <div class="relative">
+              <select
+                id="accountId"
+                formControlName="accountId"
+                class="w-full h-12 appearance-none rounded-xl border border-slate-300 bg-white px-4 pr-10 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+              >
+                <option value="">Bitte auswählen</option>
+                @for (account of accounts(); track account.id) {
+                  <option [value]="account.id">{{ account.label }}</option>
+                }
+              </select>
+
+              <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-500">
+                <i class="pi pi-chevron-down text-xs"></i>
+              </div>
+            </div>
+
+            @if (showFieldError('accountId')) {
+              <p class="text-sm text-rose-600">
+                Bitte wähle ein Unternehmen oder einen Verein aus.
+              </p>
+            }
+          } @else {
+            <div class="flex h-12 items-center rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-600">
+              {{ currentAccountLabel() || 'Keine Organisation' }}
+            </div>
+          }
+        </div>
+
+        <div class="space-y-2">
+          <label for="title" class="block text-sm font-medium text-slate-800">
+            Titel <span class="text-rose-600">*</span>
+          </label>
+          <input
+            id="title"
+            type="text"
+            formControlName="title"
             class="w-full h-12 rounded-xl border border-slate-300 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
-            placeholder="z. B. 120" />
-          @if (showFieldError('duration')) {
-            <p class="text-sm text-rose-600">Die Dauer muss größer als 0 sein.</p>
+            placeholder="z. B. Dokumentation schreiben"
+          />
+          @if (showFieldError('title')) {
+            <p class="text-sm text-rose-600">Bitte gib einen Titel ein.</p>
           }
         </div>
+
         <div class="space-y-2">
-          <label for="status" class="block text-sm font-medium text-slate-800">
-            Status <span class="text-rose-600">*</span>
+          <label for="description" class="block text-sm font-medium text-slate-800">
+            Beschreibung
           </label>
-          <div class="relative">
-            <select id="status" formControlName="status"
-              class="w-full h-12 appearance-none rounded-xl border border-slate-300 bg-white px-4 pr-10 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200">
-              @for (status of statuses; track status) {
-                <option [value]="status">{{ formatStatus(status) }}</option>
-              }
-            </select>
-            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-500">
-              <i class="pi pi-chevron-down text-xs"></i>
+          <textarea
+            id="description"
+            rows="4"
+            formControlName="description"
+            class="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+            placeholder="Optionale Beschreibung der Aufgabe"
+          ></textarea>
+        </div>
+
+        <div class="grid grid-cols-1 gap-5 md:grid-cols-2">
+          <div class="space-y-2">
+            <label class="block text-sm font-medium text-slate-800">
+              Dauer <span class="text-rose-600">*</span>
+            </label>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <input
+                  id="durationHours"
+                  type="number"
+                  min="0"
+                  max="2147483647"
+                  formControlName="durationHours"
+                  class="w-full h-12 rounded-xl border border-slate-300 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                  placeholder="0"
+                />
+                <p class="mt-1 text-xs text-slate-500">
+                  Stunden
+                </p>
+              </div>
+
+              <div>
+                <input
+                  id="durationMinutes"
+                  type="number"
+                  min="0"
+                  max="59"
+                  formControlName="durationMinutes"
+                  class="w-full h-12 rounded-xl border border-slate-300 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                  placeholder="0"
+                />
+                <p class="mt-1 text-xs text-slate-500">
+                  Minuten
+                </p>
+              </div>
+            </div>
+
+            @if (showFieldError('durationHours') || showFieldError('durationMinutes')) {
+              <p class="text-sm text-rose-600">
+                Bitte gib eine gültige Dauer an. Die Minuten dürfen maximal 59 sein.
+              </p>
+            }
+          </div>
+
+          <div class="space-y-2">
+            <label for="status" class="block text-sm font-medium text-slate-800">
+              Status <span class="text-rose-600">*</span>
+            </label>
+            <div class="relative">
+              <select
+                id="status"
+                formControlName="status"
+                class="w-full h-12 appearance-none rounded-xl border border-slate-300 bg-white px-4 pr-10 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+              >
+                @for (status of statuses; track status) {
+                  <option [value]="status">{{ formatStatus(status) }}</option>
+                }
+              </select>
+
+              <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-500">
+                <i class="pi pi-chevron-down text-xs"></i>
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      <!-- Deadline + Nicht planen vor (2-column grid) -->
-      <div class="grid grid-cols-1 gap-5 md:grid-cols-2">
-        <div class="space-y-2">
-          <label for="deadline" class="block text-sm font-medium text-slate-800">Deadline</label>
-          <input id="deadline" type="datetime-local" formControlName="deadline"
-            class="w-full h-12 rounded-xl border border-slate-300 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200" />
-        </div>
-        <div class="space-y-2">
-          <label for="dontScheduleBefore" class="block text-sm font-medium text-slate-800">Nicht planen vor</label>
-          <input id="dontScheduleBefore" type="datetime-local" formControlName="dontScheduleBefore"
-            class="w-full h-12 rounded-xl border border-slate-300 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200" />
-        </div>
-      </div>
+        <div class="grid grid-cols-1 gap-5 md:grid-cols-2">
+          <div class="space-y-2">
+            <label for="deadline" class="block text-sm font-medium text-slate-800">
+              Deadline
+            </label>
+            <input
+              id="deadline"
+              type="datetime-local"
+              formControlName="deadline"
+              class="w-full h-12 rounded-xl border border-slate-300 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+            />
+          </div>
 
-      <!-- Cross-field date validation error -->
-      @if (taskForm.errors?.['dontScheduleBeforeAfterDeadline']) {
-        <p class="text-sm text-rose-600">
-          „Nicht planen vor" darf nicht nach der Deadline liegen.
-        </p>
-      }
-
-      <!-- Cognitive load + Chunk size (2-column grid) -->
-      <div class="grid grid-cols-1 gap-5 md:grid-cols-2">
-        <div class="space-y-2">
-          <label for="cognitiveLoad" class="block text-sm font-medium text-slate-800">Anforderungsgrad</label>
-          <div class="relative">
-            <select id="cognitiveLoad" formControlName="cognitiveLoad"
-              class="w-full h-12 appearance-none rounded-xl border border-slate-300 bg-white px-4 pr-10 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200">
-              <option value="">Bitte auswählen</option>
-              @for (load of cognitiveLoads; track load) {
-                <option [value]="load">{{ formatCognitiveLoad(load) }}</option>
-              }
-            </select>
-            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-500">
-              <i class="pi pi-chevron-down text-xs"></i>
-            </div>
+          <div class="space-y-2">
+            <label for="dontScheduleBefore" class="block text-sm font-medium text-slate-800">
+              Nicht planen vor
+            </label>
+            <input
+              id="dontScheduleBefore"
+              type="datetime-local"
+              formControlName="dontScheduleBefore"
+              class="w-full h-12 rounded-xl border border-slate-300 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+            />
           </div>
         </div>
-        <div class="space-y-2">
-          <label for="customChunkSize" class="block text-sm font-medium text-slate-800">
-            Manuelle Chunk-Größe (Min.)
-          </label>
-          <input id="customChunkSize" type="number" min="1" formControlName="customChunkSize"
-            class="w-full h-12 rounded-xl border border-slate-300 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
-            placeholder="Optional" />
-          @if (showFieldError('customChunkSize')) {
-            <p class="text-sm text-rose-600">
-              Die Chunk-Größe muss größer als 0 und darf nicht größer als die Dauer sein.
-            </p>
-          }
-        </div>
-      </div>
 
-      <!-- Dependencies multi-select -->
-      <div class="space-y-2">
-        <label for="dependencyIds" class="block text-sm font-medium text-slate-800">Abhängigkeiten</label>
-        <select id="dependencyIds" multiple formControlName="dependencyIds"
-          class="min-h-36 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200">
-          @for (option of availableDependencyOptions(); track option.id) {
-            <option [value]="option.id">{{ option.title }}</option>
-          }
-        </select>
-        @if (availableDependencyOptions().length === 0) {
-          <p class="text-xs text-slate-500">
-            Es sind aktuell keine anderen Aufgaben verfügbar, die als Abhängigkeit ausgewählt werden können.
+        @if (taskForm.errors?.['dontScheduleBeforeAfterDeadline']) {
+          <p class="text-sm text-rose-600">
+            „Nicht planen vor" darf nicht nach der Deadline liegen.
           </p>
         }
-        <p class="text-xs text-slate-500">
-          Wähle Aufgaben aus, die vor dieser Aufgabe erledigt sein müssen.
-        </p>
-      </div>
 
-    </form>
+        <div class="grid grid-cols-1 gap-5 md:grid-cols-2">
+          <div class="space-y-2">
+            <label for="cognitiveLoad" class="block text-sm font-medium text-slate-800">
+              Anforderungsgrad
+            </label>
+            <div class="relative">
+              <select
+                id="cognitiveLoad"
+                formControlName="cognitiveLoad"
+                class="w-full h-12 appearance-none rounded-xl border border-slate-300 bg-white px-4 pr-10 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+              >
+                <option value="">Bitte auswählen</option>
+                @for (load of cognitiveLoads; track load) {
+                  <option [value]="load">{{ formatCognitiveLoad(load) }}</option>
+                }
+              </select>
+
+              <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-500">
+                <i class="pi pi-chevron-down text-xs"></i>
+              </div>
+            </div>
+          </div>
+
+          <div class="space-y-2">
+            <label for="customChunkSize" class="block text-sm font-medium text-slate-800">
+              Manuelle Chunk-Größe (Min.)
+            </label>
+            <input
+              id="customChunkSize"
+              type="number"
+              min="1"
+              formControlName="customChunkSize"
+              class="w-full h-12 rounded-xl border border-slate-300 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+              placeholder="Optional"
+            />
+            @if (showFieldError('customChunkSize')) {
+              <p class="text-sm text-rose-600">
+                Die Chunk-Größe muss größer als 0 und darf nicht größer als die Dauer sein.
+              </p>
+            }
+          </div>
+        </div>
+
+        <!-- Dependencies radio list -->
+        <div class="space-y-2">
+          <label class="block text-sm font-medium text-slate-800">Abhängigkeiten</label>
+          <div class="min-h-36 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 space-y-2">
+            @for (option of availableDependencyOptions(); track option.id) {
+              <label
+                class="flex items-center gap-3 cursor-pointer rounded-lg px-2 py-1.5 hover:bg-slate-50 transition"
+                (click)="selectDependency(option.id, $event)"
+              >
+                <input
+                  type="radio"
+                  name="dependencyId"
+                  [value]="option.id"
+                  [checked]="isDependencySelected(option.id)"
+                  (click)="$event.preventDefault()"
+                  class="h-4 w-4 border-slate-300 text-pink-600 focus:ring-pink-500"
+                />
+                <span class="text-sm text-slate-900">{{ option.title }}</span>
+              </label>
+            }
+            @if (availableDependencyOptions().length === 0) {
+              <p class="text-xs text-slate-500">
+                Es sind aktuell keine anderen Aufgaben verfügbar, die als Abhängigkeit ausgewählt werden können.
+              </p>
+            }
+          </div>
+          <p class="text-xs text-slate-500">
+            Wähle eine Aufgabe aus, die vor dieser Aufgabe erledigt sein muss.
+          </p>
+        </div>
+      </form>
+    }
   </div>
 </app-base-popup>

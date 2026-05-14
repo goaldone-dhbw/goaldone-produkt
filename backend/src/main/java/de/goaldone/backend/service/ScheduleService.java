@@ -26,7 +26,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
-import java.util.*;
 import java.util.concurrent.*;
 
 @Slf4j
@@ -43,13 +42,13 @@ public class ScheduleService {
     private final ScheduleMapper scheduleMapper = new ScheduleMapper();
 
     /**
-     * Generates schedules for multiple accounts asynchronously
+     * Generates schedules for multiple accounts asynchronously.
      *
-     * @param accountIds          List of accounts
-     * @param request             Request parameters (e.g. fromDate)
-     * @param timeoutMilliseconds Maximum time to wait for each account's schedule
-     *                            generation before giving up (in milliseconds)
-     * @return A schedule for each account summed up in a lCist
+     * @param jwt                 JWT token containing user information
+     * @param accountIds          List of account IDs for which schedules should be generated
+     * @param request             Request parameters, for example the start date
+     * @param timeoutMilliseconds Maximum time to wait for each account's schedule generation
+     * @return A list containing one schedule response per account
      */
     public List<ScheduleResponse> generateMultiAccountSchedule(
             Jwt jwt,
@@ -162,10 +161,13 @@ public class ScheduleService {
     }
 
     /**
-     * Creates a scheduling context containing tasks, free time slots and the scheduling start date
-     * @param jwt Token
-     * @param accountId Account
-     * @param fromDate Start date for the schedule
+     * Creates a scheduling context containing tasks, working times, available time slots
+     * and the scheduling start date.
+     *
+     * @param jwt       JWT token containing user information
+     * @param accountId Account ID for which the context should be created
+     * @param fromDate  Start date for the schedule
+     * @param weeks     Number of weeks to plan ahead
      * @return Scheduling context for the solver
      */
     public SchedulingContext createSchedulingContext(Jwt jwt, UUID accountId, LocalDate fromDate) {
@@ -178,7 +180,7 @@ public class ScheduleService {
         }
 
         // Load working times for this account
-        List<WorkingTimeEntity> workingTimes = userAccountRepository.findById(accountId)
+        List<WorkingTimeEntity> workingTimes = userAccountRepository.findByIdWithWorkingTimes(accountId)
                 .map(UserAccountEntity::getWorkingTimes)
                 .orElse(List.of());
 
