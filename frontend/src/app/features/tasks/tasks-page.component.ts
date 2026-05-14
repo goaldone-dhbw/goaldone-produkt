@@ -3,6 +3,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { Tooltip } from 'primeng/tooltip';
 import { firstValueFrom } from 'rxjs';
+import { ActivatedRoute, Router } from '@angular/router';
 import { ButtonModule } from 'primeng/button';
 import { DatePickerModule } from 'primeng/datepicker';
 import { SelectModule } from 'primeng/select';
@@ -54,6 +55,8 @@ type HideableSelect = {
 export class TasksPageComponent {
   private readonly tasksService = inject(TasksService);
   private readonly userAccountsService = inject(UserAccountsService);
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
 
   readonly tasks = signal<TaskItem[]>([]);
   readonly totalTaskCount = signal(0);
@@ -88,6 +91,7 @@ export class TasksPageComponent {
   private async initializePage(): Promise<void> {
     await this.loadAccounts();
     await this.loadTasks();
+    this.openCreateDialogFromQueryParam();
   }
 
   async loadAccounts(): Promise<void> {
@@ -537,5 +541,22 @@ export class TasksPageComponent {
 
     this.dateRange = [];
     this.loadTasks();
+  }
+
+  private openCreateDialogFromQueryParam(): void {
+    const shouldOpenCreateDialog = this.route.snapshot.queryParamMap.get('create') === 'true';
+
+    if (!shouldOpenCreateDialog) {
+      return;
+    }
+
+    this.openCreateDialog();
+
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { create: null },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
   }
 }
