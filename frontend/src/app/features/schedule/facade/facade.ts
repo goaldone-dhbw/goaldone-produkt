@@ -10,11 +10,22 @@ import {
   SchedulesService,
   UnscheduledTask,
   UserAccountsService,
+  WorkingTimesService,
 } from '../../../api';
 
 type AccountOption = {
   id: string;
   label: string;
+};
+
+export type ScheduleWorkingTime = {
+  id: string | null;
+  accountId: string | null;
+  organizationId: string | null;
+  days: string[];
+  startTime: string;
+  endTime: string;
+  conflicting: boolean;
 };
 
 @Injectable({
@@ -23,12 +34,14 @@ type AccountOption = {
 export class ScheduleFacadeService {
   private readonly schedulesService = inject(SchedulesService);
   private readonly userAccountsService = inject(UserAccountsService);
+  private readonly workingTimesService = inject(WorkingTimesService);
 
   readonly accounts = signal<AccountOption[]>([]);
   readonly selectedAccountId = signal<string>('');
 
   readonly scheduleResponse = signal<ScheduleResponse | null>(null);
   readonly scheduleEntries = signal<ScheduleEntry[]>([]);
+  readonly workingTimes = signal<ScheduleWorkingTime[]>([]);
 
   readonly isLoadingAccounts = signal(false);
   readonly isLoadingSchedule = signal(false);
@@ -43,7 +56,10 @@ export class ScheduleFacadeService {
   private readonly canLoadExistingSchedule = signal(true);
 
   readonly hasAccounts = computed(() => this.accounts().length > 0);
-  readonly hasSchedule = computed(() => this.scheduleEntries().length > 0);
+
+  readonly hasSchedule = computed(
+    () => this.scheduleEntries().length > 0 || this.workingTimes().length > 0,
+  );
 
   readonly selectedAccount = computed(
     () => this.accounts().find((account) => account.id === this.selectedAccountId()) ?? null,
@@ -65,6 +81,7 @@ export class ScheduleFacadeService {
 
     if (this.selectedAccountId()) {
       const range = this.getCurrentWeekRange();
+      await this.loadWorkingTimes(this.selectedAccountId());
       await this.loadSchedule(range.from, range.to);
     }
   }
@@ -96,6 +113,7 @@ export class ScheduleFacadeService {
     this.selectedAccountId.set(accountId);
     this.scheduleResponse.set(null);
     this.scheduleEntries.set([]);
+    this.workingTimes.set([]);
     this.errorMessage.set('');
     this.infoMessage.set('');
     this.successMessage.set('');
@@ -105,6 +123,8 @@ export class ScheduleFacadeService {
     }
 
     const range = this.lastRange() ?? this.getCurrentWeekRange();
+
+    await this.loadWorkingTimes(accountId);
     await this.loadSchedule(range.from, range.to);
   }
 
@@ -112,8 +132,17 @@ export class ScheduleFacadeService {
     this.lastRange.set({ from, to });
 
     const accountId = this.selectedAccountId();
+    const existingResponse = this.scheduleResponse();
 
-    if (!accountId || !this.canLoadExistingSchedule()) {
+    if (!accountId) {
+      return;
+    }
+
+    if (!this.canLoadExistingSchedule()) {
+      if (existingResponse) {
+        this.applyScheduleResponse(existingResponse);
+      }
+
       return;
     }
 
@@ -130,6 +159,12 @@ export class ScheduleFacadeService {
     } catch (error) {
       if (error instanceof HttpErrorResponse && error.status === 501) {
         this.canLoadExistingSchedule.set(false);
+
+        const fallbackResponse = this.scheduleResponse();
+
+        if (fallbackResponse) {
+          this.applyScheduleResponse(fallbackResponse);
+        }
 
         if (!this.hasSchedule()) {
           this.infoMessage.set(
@@ -154,9 +189,6 @@ export class ScheduleFacadeService {
   async generateSchedule(): Promise<void> {
     const accountId = this.selectedAccountId();
 
-    console.log('Ausgewählte Account-ID für Planung:', accountId);
-    console.log('Ausgewählter Account:', this.selectedAccount());
-
     if (!accountId) {
       this.errorMessage.set('Bitte wähle zuerst ein Unternehmen oder einen Verein aus.');
       return;
@@ -171,18 +203,19 @@ export class ScheduleFacadeService {
       from: this.getGenerationStartDate(),
     };
 
-    console.log('GenerateScheduleRequest:', request);
-
     try {
+      await this.loadWorkingTimes(accountId);
+
       const response = await firstValueFrom(
         this.schedulesService.generateSingleAccountSchedule(accountId, request),
       );
 
-      console.log('ScheduleResponse:', response);
-
       this.applyScheduleResponse(response);
 
-      if ((response.entries?.length ?? 0) > 0) {
+      if (
+        (response.entries?.length ?? 0) > 0 ||
+        ((response as any).appointments?.length ?? 0) > 0
+      ) {
         this.successMessage.set('Die Planung wurde erfolgreich erstellt.');
       } else {
         this.successMessage.set('');
@@ -191,8 +224,6 @@ export class ScheduleFacadeService {
         );
       }
     } catch (error) {
-      console.error('Fehler bei generateSchedule:', error);
-
       this.successMessage.set('');
       this.errorMessage.set(
         this.getReadableErrorMessage(error, 'Die Planung konnte nicht gestartet werden.'),
@@ -215,9 +246,234 @@ export class ScheduleFacadeService {
     );
   }
 
+  private async loadWorkingTimes(accountId: string): Promise<void> {
+    try {
+      const response = await firstValueFrom(this.workingTimesService.getWorkingTimes());
+      const workingTimes = this.normalizeWorkingTimeResponse(response, accountId);
+
+      this.workingTimes.set(workingTimes);
+    } catch (error) {
+      this.workingTimes.set([]);
+
+      if (!this.errorMessage()) {
+        this.errorMessage.set(
+          this.getReadableErrorMessage(
+            error,
+            'Arbeitszeiten konnten nicht geladen werden. Nicht-Arbeitszeiten können deshalb nicht korrekt markiert werden.',
+          ),
+        );
+      }
+    }
+  }
+
   private applyScheduleResponse(response: ScheduleResponse): void {
+    const scheduleEntries = response.entries ?? [];
+    const appointmentEntries = this.mapAppointmentsToScheduleEntries(response);
+
+    const mergedEntries = this.sortScheduleEntries(
+      this.deduplicateScheduleEntries([...scheduleEntries, ...appointmentEntries]),
+    );
+
     this.scheduleResponse.set(response);
-    this.scheduleEntries.set(response.entries ?? []);
+    this.scheduleEntries.set(mergedEntries);
+  }
+
+  private mapAppointmentsToScheduleEntries(response: ScheduleResponse): ScheduleEntry[] {
+    const appointments = (response as any).appointments ?? [];
+
+    return appointments.flatMap((appointment: any): ScheduleEntry[] => {
+      if (this.isRecurringAppointment(appointment)) {
+        return this.expandRecurringAppointment(appointment);
+      }
+
+      if (this.isValidAppointmentForCalendar(appointment)) {
+        return [this.mapSingleAppointment(appointment)];
+      }
+
+      return [];
+    });
+  }
+
+  private isRecurringAppointment(appointment: any): boolean {
+    return Boolean(appointment && appointment.rrule && appointment.startTime && appointment.endTime);
+  }
+
+  private mapSingleAppointment(appointment: any): ScheduleEntry {
+    return {
+      source: appointment.appointmentType ?? 'ONE_TIME',
+      startTime: appointment.startTime,
+      endTime: appointment.endTime,
+      type: 'APPOINTMENT',
+      isCompleted: false,
+      isPinned: false,
+      originalItemTitle: appointment.title ?? 'Termin',
+      chunkIndex: null,
+      entryId: appointment.id ?? null,
+      isBreak: appointment.isBreak === true,
+      occurrenceDate: appointment.date,
+      originalItemId: appointment.id ?? null,
+      totalChunks: null,
+    } as ScheduleEntry;
+  }
+
+  private expandRecurringAppointment(appointment: any): ScheduleEntry[] {
+    const range = this.lastRange() ?? this.getCurrentWeekRange();
+    const days = this.parseDaysFromRrule(appointment.rrule);
+    const untilDate = this.parseUntilDateFromRrule(appointment.rrule);
+
+    if (days.length === 0) {
+      return [];
+    }
+
+    const dates = this.getDatesInRange(range.from, range.to);
+
+    const dayNameMap: Record<number, string> = {
+      0: 'SUNDAY',
+      1: 'MONDAY',
+      2: 'TUESDAY',
+      3: 'WEDNESDAY',
+      4: 'THURSDAY',
+      5: 'FRIDAY',
+      6: 'SATURDAY',
+    };
+
+    return dates
+      .filter((date) => {
+        if (appointment.date && date < appointment.date) {
+          return false;
+        }
+
+        if (untilDate && date > untilDate) {
+          return false;
+        }
+
+        const [year, month, day] = date.split('-').map(Number);
+        const jsDay = new Date(year, month - 1, day).getDay();
+
+        return days.includes(dayNameMap[jsDay]);
+      })
+      .map(
+        (date): ScheduleEntry =>
+          ({
+            source: 'RECURRING',
+            startTime: appointment.startTime,
+            endTime: appointment.endTime,
+            type: 'APPOINTMENT',
+            isCompleted: false,
+            isPinned: false,
+            originalItemTitle: appointment.title ?? 'Termin',
+            chunkIndex: null,
+            entryId: `${appointment.id}-${date}`,
+            isBreak: appointment.isBreak === true,
+            occurrenceDate: date,
+            originalItemId: appointment.id ?? null,
+            totalChunks: null,
+          }) as ScheduleEntry,
+      );
+  }
+
+  private parseDaysFromRrule(rrule: string): string[] {
+    const codeToDay: Record<string, string> = {
+      MO: 'MONDAY', TU: 'TUESDAY', WE: 'WEDNESDAY', TH: 'THURSDAY',
+      FR: 'FRIDAY', SA: 'SATURDAY', SU: 'SUNDAY',
+    };
+
+    const byDay = rrule
+      .toUpperCase()
+      .split(';')
+      .find((part) => part.startsWith('BYDAY='))
+      ?.substring('BYDAY='.length);
+
+    if (!byDay) return [];
+
+    return byDay.split(',').map((code) => codeToDay[code]).filter(Boolean);
+  }
+
+  private getDatesInRange(from: string, to: string): string[] {
+    const dates: string[] = [];
+    const [fy, fm, fd] = from.split('-').map(Number);
+    const [ty, tm, td] = to.split('-').map(Number);
+    const current = new Date(fy, fm - 1, fd);
+    const end = new Date(ty, tm - 1, td);
+
+    while (current < end) {
+      const y = current.getFullYear();
+      const m = String(current.getMonth() + 1).padStart(2, '0');
+      const d = String(current.getDate()).padStart(2, '0');
+      dates.push(`${y}-${m}-${d}`);
+      current.setDate(current.getDate() + 1);
+    }
+
+    return dates;
+  }
+
+  private isValidAppointmentForCalendar(appointment: any): boolean {
+    return Boolean(appointment && appointment.date && appointment.startTime && appointment.endTime);
+  }
+
+  private deduplicateScheduleEntries(entries: ScheduleEntry[]): ScheduleEntry[] {
+    const seen = new Set<string>();
+
+    return entries.filter((entry) => {
+      const key = [
+        entry.entryId ?? '',
+        entry.originalItemId ?? '',
+        entry.occurrenceDate ?? '',
+        entry.startTime ?? '',
+        entry.endTime ?? '',
+        entry.type ?? '',
+        entry.isBreak === true ? 'break' : 'normal',
+      ].join('|');
+
+      if (seen.has(key)) {
+        return false;
+      }
+
+      seen.add(key);
+      return true;
+    });
+  }
+
+  private sortScheduleEntries(entries: ScheduleEntry[]): ScheduleEntry[] {
+    return [...entries].sort((a, b) => {
+      const dateCompare = String(a.occurrenceDate ?? '').localeCompare(
+        String(b.occurrenceDate ?? ''),
+      );
+
+      if (dateCompare !== 0) {
+        return dateCompare;
+      }
+
+      return String(a.startTime ?? '').localeCompare(String(b.startTime ?? ''));
+    });
+  }
+
+  private normalizeWorkingTimeResponse(response: any, accountId: string): ScheduleWorkingTime[] {
+    const items = Array.isArray(response) ? response : (response?.items ?? []);
+
+    return items
+      .filter((item: any) => {
+        if (!item) {
+          return false;
+        }
+
+        if (item.accountId && String(item.accountId) !== accountId) {
+          return false;
+        }
+
+        return Boolean(item.days?.length && item.startTime && item.endTime);
+      })
+      .map((item: any): ScheduleWorkingTime => {
+        return {
+          id: item.id ?? null,
+          accountId: item.accountId ?? null,
+          organizationId: item.organizationId ?? null,
+          days: item.days ?? [],
+          startTime: item.startTime,
+          endTime: item.endTime,
+          conflicting: item.conflicting === true,
+        };
+      });
   }
 
   private getGenerationStartDate(): string {
@@ -296,5 +552,35 @@ export class ScheduleFacadeService {
     }
 
     return error.error?.message || error.error?.detail || error.error?.error || fallback;
+  }
+  private parseUntilDateFromRrule(rrule?: string | null): string {
+    if (!rrule) {
+      return '';
+    }
+
+    const until = rrule
+      .toUpperCase()
+      .split(';')
+      .find((part) => part.startsWith('UNTIL='))
+      ?.substring('UNTIL='.length);
+
+    if (!until) {
+      return '';
+    }
+
+    const normalized = until.replace('Z', '').split('T')[0];
+
+    if (/^\d{8}$/.test(normalized)) {
+      return `${normalized.substring(0, 4)}-${normalized.substring(4, 6)}-${normalized.substring(
+        6,
+        8,
+      )}`;
+    }
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(normalized)) {
+      return normalized;
+    }
+
+    return '';
   }
 }

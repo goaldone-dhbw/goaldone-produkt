@@ -8,9 +8,7 @@
         <h1 class="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
           Arbeitszeiten & Pausen
         </h1>
-        <p class="mt-2 text-sm text-slate-600">
-          Verwalte deine Arbeitszeiten und festen Pausen.
-        </p>
+        <p class="mt-2 text-sm text-slate-600">Verwalte deine Arbeitszeiten und festen Pausen.</p>
       </div>
 
       <div class="flex flex-col gap-2 sm:flex-row">
@@ -39,9 +37,7 @@
       </div>
 
       @if (loading()) {
-        <div class="px-6 py-8 text-sm text-slate-600">
-          Arbeitszeiten werden geladen...
-        </div>
+        <div class="px-6 py-8 text-sm text-slate-600">Arbeitszeiten werden geladen...</div>
       } @else if (workingTimes().length === 0) {
         <div class="px-6 py-8 text-sm text-slate-600">
           Es sind noch keine Arbeitszeiten hinterlegt.
@@ -58,28 +54,38 @@
                     </h3>
 
                     @if (item.conflicting) {
-                      <span class="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-100 px-2 py-0.5 text-xs font-medium text-rose-800">
+                      <span
+                        class="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-100 px-2 py-0.5 text-xs font-medium text-rose-800"
+                      >
                         <i class="pi pi-exclamation-circle text-[10px]"></i>
                         Konflikt
                       </span>
                     }
                   </div>
 
-                  <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-6 sm:gap-y-2 text-sm text-slate-600">
+                  <div
+                    class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-6 sm:gap-y-2 text-sm text-slate-600"
+                  >
                     <div class="flex items-center gap-2">
-                      <span class="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      <span
+                        class="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500"
+                      >
                         <i class="pi pi-calendar text-xs text-primary-icon"></i> Tage:
                       </span>
                       <span>{{ formatDays(item.days) }}</span>
                     </div>
 
                     <div class="flex items-center gap-2">
-                      <span class="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      <span
+                        class="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500"
+                      >
                         <i class="pi pi-clock text-xs text-primary-icon"></i> Zeit:
                       </span>
                       <span>{{ item.startTime }} – {{ item.endTime }}</span>
                       <span class="hidden sm:inline text-slate-300">|</span>
-                      <span class="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      <span
+                        class="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500"
+                      >
                         Dauer:
                       </span>
                       <span>
@@ -91,7 +97,9 @@
                   </div>
                 </div>
 
-                <div class="flex shrink-0 items-center gap-1 border-t border-slate-100 pt-3 sm:border-0 sm:pt-0">
+                <div
+                  class="flex shrink-0 items-center gap-1 border-t border-slate-100 pt-3 sm:border-0 sm:pt-0"
+                >
                   <p-button
                     icon="pi pi-pencil"
                     [text]="true"
@@ -120,13 +128,9 @@
       </div>
 
       @if (breaksLoading()) {
-        <div class="px-6 py-8 text-sm text-slate-600">
-          Pausen werden geladen...
-        </div>
+        <div class="px-6 py-8 text-sm text-slate-600">Pausen werden geladen...</div>
       } @else if (breaks().length === 0) {
-        <div class="px-6 py-8 text-sm text-slate-600">
-          Es sind noch keine Pausen hinterlegt.
-        </div>
+        <div class="px-6 py-8 text-sm text-slate-600">Es sind noch keine Pausen hinterlegt.</div>
       } @else {
         <div class="divide-y divide-slate-200">
           @for (item of breaks(); track $any(item).id) {
@@ -138,28 +142,38 @@
                       {{ getBreakTitle(item) }}
                     </h3>
 
-                    <span class="inline-flex items-center rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
+                    <span
+                      class="inline-flex items-center rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700"
+                    >
                       {{ getBreakTypeLabel(item) }}
                     </span>
                   </div>
 
-                  <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-6 sm:gap-y-2 text-sm text-slate-600">
+                  <div
+                    class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-6 sm:gap-y-2 text-sm text-slate-600"
+                  >
                     <div class="flex items-center gap-2">
-                      <span class="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      <span
+                        class="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500"
+                      >
                         <i class="pi pi-building text-xs text-primary-icon"></i> Organisation:
                       </span>
                       <span>{{ getAccountName($any(item).accountId) }}</span>
                     </div>
 
                     <div class="flex items-center gap-2">
-                      <span class="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      <span
+                        class="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500"
+                      >
                         <i class="pi pi-calendar text-xs text-primary-icon"></i> Datum:
                       </span>
                       <span>{{ getBreakDate(item) }}</span>
                     </div>
 
                     <div class="flex items-center gap-2">
-                      <span class="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      <span
+                        class="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500"
+                      >
                         <i class="pi pi-clock text-xs text-primary-icon"></i> Zeit:
                       </span>
                       <span>{{ getBreakStart(item) }} – {{ getBreakEnd(item) }}</span>
@@ -167,7 +181,9 @@
                   </div>
                 </div>
 
-                <div class="flex shrink-0 items-center gap-1 border-t border-slate-100 pt-3 sm:border-0 sm:pt-0">
+                <div
+                  class="flex shrink-0 items-center gap-1 border-t border-slate-100 pt-3 sm:border-0 sm:pt-0"
+                >
                   <p-button
                     icon="pi pi-pencil"
                     [text]="true"
@@ -192,17 +208,16 @@
   </div>
 </div>
 
-<p-dialog
-  [visible]="showDialog()"
-  (visibleChange)="showDialog.set($event)"
-  [header]="isEditMode() ? 'Arbeitszeit bearbeiten' : 'Neue Arbeitszeit'"
-  [modal]="true"
-  [draggable]="false"
-  [resizable]="false"
-  [style]="{ width: '90vw', maxWidth: '500px' }"
-  class="custom-dialog"
+<app-base-popup
+  [isOpen]="showDialog()"
+  [title]="isEditMode() ? 'Arbeitszeit bearbeiten' : 'Neue Arbeitszeit'"
+  confirmLabel="Speichern"
+  cancelLabel="Abbrechen"
+  [autoCloseOnConfirm]="false"
+  (isOpenChange)="showDialog.set($event)"
+  (confirm)="saveWorkingTime()"
 >
-  <div class="flex flex-col gap-4 py-4">
+  <div popup-content class="flex flex-col gap-4 py-4">
     @if (!isEditMode()) {
       <div class="flex flex-col gap-2">
         <label class="text-sm font-semibold text-slate-700">Organisation</label>
@@ -219,12 +234,16 @@
                 </option>
               }
             </select>
-            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-500">
+            <div
+              class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-500"
+            >
               <i class="pi pi-chevron-down text-xs"></i>
             </div>
           </div>
         } @else {
-          <div class="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
+          <div
+            class="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600"
+          >
             {{ accounts()[0]?.organizationName || 'Keine Organisation' }}
           </div>
         }
@@ -263,34 +282,18 @@
       </div>
     </div>
   </div>
+</app-base-popup>
 
-  <ng-template pTemplate="footer">
-    <div class="flex justify-end gap-2 border-t border-slate-100 pt-4">
-      <p-button
-        label="Abbrechen"
-        (onClick)="showDialog.set(false)"
-        [text]="true"
-        severity="secondary"
-      />
-      <p-button
-        label="Speichern"
-        (onClick)="saveWorkingTime()"
-        icon="pi pi-check"
-      />
-    </div>
-  </ng-template>
-</p-dialog>
-
-<p-dialog
-  [visible]="showBreakDialog()"
-  (visibleChange)="showBreakDialog.set($event)"
-  [header]="isBreakEditMode() ? 'Pause bearbeiten' : 'Neue Pause'"
-  [modal]="true"
-  [draggable]="false"
-  [resizable]="false"
-  [style]="{ width: '90vw', maxWidth: '500px' }"
+<app-base-popup
+  [isOpen]="showBreakDialog()"
+  [title]="isBreakEditMode() ? 'Pause bearbeiten' : 'Neue Pause'"
+  confirmLabel="Speichern"
+  cancelLabel="Abbrechen"
+  [autoCloseOnConfirm]="false"
+  (isOpenChange)="showBreakDialog.set($event)"
+  (confirm)="saveBreak()"
 >
-  <div class="flex flex-col gap-4 py-4">
+  <div popup-content class="flex flex-col gap-4 py-4">
     <div class="flex flex-col gap-2">
       <label class="text-sm font-semibold text-slate-700">Organisation</label>
 
@@ -306,12 +309,16 @@
               </option>
             }
           </select>
-          <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-500">
+          <div
+            class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-500"
+          >
             <i class="pi pi-chevron-down text-xs"></i>
           </div>
         </div>
       } @else {
-        <div class="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
+        <div
+          class="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600"
+        >
           {{ accounts()[0]?.organizationName || 'Keine Organisation' }}
         </div>
       }
@@ -334,6 +341,7 @@
         [options]="breakTypeOptions"
         optionLabel="label"
         optionValue="value"
+        [allowEmpty]="false"
       />
     </div>
 
@@ -344,6 +352,18 @@
           type="date"
           [(ngModel)]="breakDate"
           class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+        />
+      </div>
+    } @else {
+      <div class="flex flex-col gap-2">
+        <label class="text-sm font-semibold text-slate-700">Wochentage</label>
+        <p-select-button
+          [(ngModel)]="breakSelectedDays"
+          [options]="dayOptions"
+          optionLabel="label"
+          optionValue="value"
+          [multiple]="true"
+          class="custom-selectbutton"
         />
       </div>
     }
@@ -368,20 +388,4 @@
       </div>
     </div>
   </div>
-
-  <ng-template pTemplate="footer">
-    <div class="flex justify-end gap-2 border-t border-slate-100 pt-4">
-      <p-button
-        label="Abbrechen"
-        (onClick)="showBreakDialog.set(false)"
-        [text]="true"
-        severity="secondary"
-      />
-      <p-button
-        label="Speichern"
-        icon="pi pi-check"
-        (onClick)="saveBreak()"
-      />
-    </div>
-  </ng-template>
-</p-dialog>
+</app-base-popup>
