@@ -6,7 +6,6 @@ import de.goaldone.backend.scheduler.types.model.SolverState;
 import de.goaldone.backend.scheduler.types.model.TimeSlot;
 import java.util.List;
 import java.util.Random;
-import java.util.UUID;
 
 /**
  * Move, der einen zufällig ausgewählten nicht fixierten Chunk auf einen freien Slot verschiebt.
@@ -47,7 +46,7 @@ public class ChangeMove extends Move {
 
         TimeSlot newSlot = current.freeSlots().get(random.nextInt(current.freeSlots().size()));
 
-        if (newSlot.durationMinutes() < target.chunk().durationMinutes()) {
+        if (newSlot.getSlotDuration() < target.chunk().durationMinutes()) {
             return null;
         }
         SolverState next = current.deepCopy();

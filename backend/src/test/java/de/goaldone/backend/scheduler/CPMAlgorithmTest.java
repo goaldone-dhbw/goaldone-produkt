@@ -4,6 +4,7 @@ import de.goaldone.backend.entity.WorkingTimeEntity;
 import de.goaldone.backend.model.*;
 import de.goaldone.backend.model.DayOfWeek;
 import de.goaldone.backend.scheduler.types.model.*;
+import de.goaldone.backend.service.ScheduleService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -23,6 +24,8 @@ class CPMAlgorithmTest {
     @Spy
     @InjectMocks
     private CPMAlgorithm algorithm;
+
+    private final ScheduleService scheduleService = new ScheduleService(null, null, null, null);
 
     @Test
     void shouldGenerate_singleTaskInSingleSlot() {
@@ -235,8 +238,32 @@ class CPMAlgorithmTest {
 
         ScheduledChunk scheduledChunk = result.scheduledChunks().getFirst();
         assertThat(scheduledChunk.chunk().durationMinutes()).isEqualTo(task.getDuration());
-        assertThat(scheduledChunk.chunk().durationMinutes()).isEqualTo(scheduledChunk.slot().durationMinutes());
+        assertThat(scheduledChunk.chunk().durationMinutes()).isEqualTo(scheduledChunk.slot().getSlotDuration());
 
+    }
+
+    @Test
+    void shouldAddAutomatedBreak_whenChunkExceedsSlotWithinBuffer() {
+        LocalDate date = LocalDate.of(2026, 5, 11); // Monday
+        List<TimeSlot> availableSlots = List.of(slot(date, 8, 0, 9, 55));
+        TaskResponse task = task(120, List.of(), null, null, CognitiveLoad.HIGH);
+        List<WorkingTimeEntity> workingTime = List.of(working(List.of(DayOfWeek.MONDAY), 17));
+
+        SchedulingContext context = new SchedulingContext(
+                date, availableSlots, List.of(task), null, workingTime
+        );
+
+        SolverState result = algorithm.generateInitialSchedule(context);
+
+        assertThat(result.scheduledChunks()).hasSize(2);
+        assertThat(result.freeSlots()).isEmpty();
+
+        ScheduledChunk scheduledTask = result.scheduledChunks().getFirst();
+        ScheduledChunk automatedBreak = result.scheduledChunks().getLast();
+
+        assertThat(scheduledTask.slot()).isEqualTo(new TimeSlot(date, LocalTime.of(8, 0), LocalTime.of(10, 0)));
+        assertThat(automatedBreak.chunk().taskTitle()).isEqualTo("Automatische Pause");
+        assertThat(automatedBreak.slot()).isEqualTo(new TimeSlot(date, LocalTime.of(10, 0), LocalTime.of(10, 15)));
     }
 
     @Test
@@ -352,6 +379,51 @@ class CPMAlgorithmTest {
         assertThat(result.unscheduledChunks()).isEmpty();
     }
 
+
+    @Test
+    void shouldCreateSchedule_whenRecurringAppointments() {
+
+        LocalDate date = LocalDate.of(2026, 5, 11);
+
+        List<WorkingTimeEntity> workingTimeEntities = List.of(working(
+                List.of(DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY, DayOfWeek.FRIDAY),
+                17));
+
+        TaskResponse task1 = task(540, List.of(), null, null, CognitiveLoad.HIGH);
+        List<TaskResponse> tasks = List.of(task1);
+
+        List<Appointment> appointments = List.of(
+                //appointment("Daily", AppointmentType.RECURRING, "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR", LocalDate.of(2026, 5, 11), false, "11:15", "12:00"),
+                appointment("Pause", AppointmentType.RECURRING, "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR", null, true, "12:00", "13:00")
+        );
+
+        List<TimeSlot> availableSlots = scheduleService.getAvailableTimeSlots(appointments, workingTimeEntities, date);
+
+        SchedulingContext context = new SchedulingContext(
+                date, availableSlots, tasks, appointments, workingTimeEntities
+        );
+
+        SolverState result = algorithm.generateInitialSchedule(context);
+
+        assertThat(result).isNotNull();
+        assertThat(result.unscheduledChunks()).isEmpty();
+
+    }
+
+
+    private Appointment appointment(String title, AppointmentType appointmentType, String rrule, LocalDate date, boolean isBreak, String startTime, String endTime) {
+        return new Appointment()
+                .id(UUID.randomUUID())
+                .accountId(UUID.randomUUID())
+                .title(title)
+                .isBreak(isBreak)
+                .appointmentType(appointmentType)
+                .startTime(startTime)
+                .endTime(endTime)
+                .createdAt(OffsetDateTime.now())
+                .date(date)
+                .rrule(rrule);
+    }
 
     private TaskResponse task(int taskDuration) {
         return task(taskDuration, List.of());
