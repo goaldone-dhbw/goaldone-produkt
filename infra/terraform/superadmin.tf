@@ -6,6 +6,7 @@ resource "zitadel_human_user" "first_superadmin" {
   email            = var.first_superadmin_email
   is_email_verified = true
   initial_password = var.first_superadmin_password
+  initial_skip_password_change = true
 }
 
 resource "zitadel_user_grant" "first_superadmin_role" {
