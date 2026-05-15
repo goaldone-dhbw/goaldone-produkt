@@ -19,7 +19,6 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
-import java.time.OffsetDateTime;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
@@ -138,9 +137,9 @@ class TasksServiceTest {
 
         List<TaskResponse> results = tasksService.getTasks(
                 jwt, TaskStatus.OPEN, CognitiveLoad.HIGH,
-                OffsetDateTime.parse("2026-05-01T00:00:00Z"), null,
+                java.time.LocalDateTime.parse("2026-05-01T00:00:00"), null,
                 30, 100,
-                "deadline", "desc"
+                "deadline", "desc", null
         );
 
         assertEquals(1, results.size());
