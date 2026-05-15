@@ -534,11 +534,20 @@ export class TaskEditDialogComponent implements OnInit, OnChanges {
       return fallback;
     }
 
-    if (typeof error.error === 'string' && error.error.trim()) {
-      return error.error;
+    const backendMessage =
+        typeof error.error === 'string'
+            ? error.error
+            : error.error?.message || error.error?.detail || error.error?.error || '';
+
+    if (backendMessage.includes('cyclic task dependency is not allowed')) {
+      return 'Diese Abhängigkeit ist nicht möglich, da dadurch ein Kreislauf zwischen Aufgaben entstehen würde.';
     }
 
-    return error.error?.message || error.error?.detail || error.error?.error || fallback;
+    if (backendMessage.trim()) {
+      return backendMessage;
+    }
+
+    return fallback;
   }
 
   private dateRelationValidator(control: AbstractControl): ValidationErrors | null {
