@@ -1,12 +1,11 @@
 resource "zitadel_human_user" "first_superadmin" {
   org_id           = var.org_id
   user_name        = var.first_superadmin_email
+  first_name       = "Super"
+  last_name        = "Admin"
+  email            = var.first_superadmin_email
+  is_email_verified = true
   initial_password = var.first_superadmin_password
-
-  email {
-    address     = var.first_superadmin_email
-    is_verified = true
-  }
 }
 
 resource "zitadel_user_grant" "first_superadmin_role" {
