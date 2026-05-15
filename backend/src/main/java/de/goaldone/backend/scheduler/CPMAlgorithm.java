@@ -1,5 +1,6 @@
 package de.goaldone.backend.scheduler;
 
+import de.goaldone.backend.model.CognitiveLoad;
 import de.goaldone.backend.model.TaskResponse;
 import de.goaldone.backend.model.UnscheduledTask;
 import de.goaldone.backend.scheduler.types.model.ScheduledChunk;
@@ -9,6 +10,7 @@ import de.goaldone.backend.scheduler.types.model.TaskChunk;
 import de.goaldone.backend.scheduler.types.model.TaskSlack;
 import de.goaldone.backend.scheduler.types.model.TimeSlot;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -20,12 +22,17 @@ import java.util.*;
 
 public class CPMAlgorithm {
 
+    private static final int DEFAULT_AUTO_BREAK_DURATION = 15;
+    private static final String AUTOMATED_BREAK_TITLE = "Automatische Pause";
     private ArrayList<TimeSlot> tempAvailableTimeSlots;
 
     private UnscheduledTask.ReasonEnum unscheduledReason;
     private final int maxBuffer = 15;
     private final Chunker chunker = new Chunker();
     private final TaskSorter taskSorter = new TaskSorter();
+
+    private record TimeSlotUpdate(TimeSlot occupiedSlot, TimeSlot breakSlot) {
+    }
 
     /**
      * Creates initial schedule
@@ -58,7 +65,7 @@ public class CPMAlgorithm {
             List<TaskChunk> chunks = chunkMap.get(taskId);
             List<ScheduledChunk> tempResults = new ArrayList<>();
             for (TaskChunk chunk : chunks) {
-                List<ScheduledChunk> scheduledChunk = findTimeSlotForChunk(chunk);
+                List<ScheduledChunk> scheduledChunk = findTimeSlotForChunk(chunk, taskMap.get(taskId));
 
                 if (scheduledChunk.isEmpty()) {
                     totalTaskFit = false;
@@ -89,12 +96,11 @@ public class CPMAlgorithm {
      * @return a list of scheduled chunks with assigned time slots
      * @throws IllegalStateException if there is not enough free time available
      */
-    private List<ScheduledChunk> findTimeSlotForChunk(TaskChunk chunk) {
+    private List<ScheduledChunk> findTimeSlotForChunk(TaskChunk chunk, TaskResponse task) {
 
         List<List<TimeSlot>> suitableSlots = getSuitableTimeSlots(chunk);
-        if (suitableSlots.isEmpty()) {
-            return List.of();
-        }
+        if (suitableSlots.isEmpty()) return List.of();
+
 
         List<TimeSlot> slotsBetween = suitableSlots.getLast();
 
@@ -105,6 +111,8 @@ public class CPMAlgorithm {
 
         // At this point, at least one timeslot was found in between notBefore and deadline
 
+        int additionalBreakMinutes = getAdditionalTimeForAutomatedBreaks(chunk, task);
+
         Optional<TimeSlot> suitableSlot = slotsBetween.stream()
                 .filter(slot -> slot.canFit(chunk.durationMinutes()))
                 .min(Comparator.comparing(TimeSlot::date).thenComparing(TimeSlot::startTime));
@@ -112,8 +120,18 @@ public class CPMAlgorithm {
         if (suitableSlot.isPresent()) {
             TimeSlot slot = suitableSlot.get();
 
-            TimeSlot occupiedSlot = updateTimeSlots(slot, chunk);
-            return List.of(new ScheduledChunk(chunk, occupiedSlot));
+            TimeSlotUpdate timeSlotUpdate = updateTimeSlots(slot, chunk, additionalBreakMinutes);
+            List<ScheduledChunk> scheduledChunks = new ArrayList<>();
+            scheduledChunks.add(new ScheduledChunk(chunk, timeSlotUpdate.occupiedSlot()));
+
+            if (timeSlotUpdate.breakSlot() != null) {
+                scheduledChunks.add(new ScheduledChunk(
+                        createAutomatedBreakChunk(timeSlotUpdate.breakSlot(), task.getId()),
+                        timeSlotUpdate.breakSlot()
+                ));
+            }
+
+            return scheduledChunks;
         }
 
         // At this point, no slot was large enough to accommodate this chunk
@@ -169,7 +187,14 @@ public class CPMAlgorithm {
 
             remainingMinutes -= usableMinutes;
 
-            updateTimeSlots(slot, partialChunk);
+            int partialBreakMinutes = remainingMinutes == 0 ? additionalBreakMinutes : 0;
+            TimeSlotUpdate timeSlotUpdate = updateTimeSlots(slot, partialChunk, partialBreakMinutes);
+            if (timeSlotUpdate.breakSlot() != null) {
+                result.add(new ScheduledChunk(
+                        createAutomatedBreakChunk(timeSlotUpdate.breakSlot(), task.getId()),
+                        timeSlotUpdate.breakSlot()
+                ));
+            }
         }
 
         if (remainingMinutes > 0) {
@@ -178,6 +203,30 @@ public class CPMAlgorithm {
         }
 
         return result;
+    }
+
+    private int getAdditionalTimeForAutomatedBreaks(TaskChunk chunk, TaskResponse task) {
+
+        // Return 0 minutes for custom chunk size
+        if (task.getCustomChunkSize() != null) {
+            return 0;
+        }
+
+        // Return 0 minutes for tasks with low cognitive load
+        if (task.getCognitiveLoad() == CognitiveLoad.LOW) {
+            return 0;
+        }
+
+        int maxChunkSize = switch (task.getCognitiveLoad()) {
+            case HIGH -> 120;
+            case MODERATE -> 480;
+            default -> 24*60;       // default value: 24 hours
+        };
+
+        if (chunk.durationMinutes() >= maxChunkSize) {
+            return DEFAULT_AUTO_BREAK_DURATION;
+        }
+        return 0;
     }
 
     /**
@@ -262,13 +311,20 @@ public class CPMAlgorithm {
      */
     public List<ScheduledChunk> updateChunks(List<ScheduledChunk> scheduledChunks) {
 
-        int totalChunks = scheduledChunks.size();
+        int totalChunks = (int) scheduledChunks.stream()
+                .filter(scheduledChunk -> !isAutomatedBreak(scheduledChunk.chunk()))
+                .count();
         List<ScheduledChunk> result = new ArrayList<>();
 
         int currentIndex = 0;
         for (ScheduledChunk scheduledChunk : scheduledChunks) {
             TaskChunk chunk = scheduledChunk.chunk();
             TimeSlot timeSlot = scheduledChunk.slot();
+
+            if (isAutomatedBreak(chunk)) {
+                result.add(scheduledChunk);
+                continue;
+            }
 
             chunk = TaskChunk.builder()
                     .taskTitle(chunk.taskTitle())
@@ -299,40 +355,83 @@ public class CPMAlgorithm {
      * existing slots if the chunk occupies only part of a slot.
      * @param target The time slot we want to remove from the available slots
      * @param chunk The chunk which occupies the target time slot
-     * @return The time slot which is now occupied by the chunk
+     * @return The occupied work slot and, if generated, the automatic break slot directly afterwards
      */
-    private TimeSlot updateTimeSlots(TimeSlot target, TaskChunk chunk) {
+    private TimeSlotUpdate updateTimeSlots(TimeSlot target, TaskChunk chunk, int additionalBreakTime) {
 
         if (target == null || chunk == null) {
             throw new IllegalArgumentException("There was a problem in updating the available time slots");
         }
 
-        // Case 1: TimeSlot is more than 15 minutes bigger than the chunk -> split it into two separate slots
-        if (target.durationMinutes() > chunk.durationMinutes() + this.maxBuffer) {
+        TimeSlot occupiedSlot = new TimeSlot(
+                target.date(),
+                target.startTime(),
+                target.startTime().plusMinutes(chunk.durationMinutes())
+        );
 
-            TimeSlot occupiedSlot = new TimeSlot(
-                    target.date(), target.startTime(), target.startTime().plusMinutes(chunk.durationMinutes())
-            );
-
+        // Case 1: TimeSlot is more than 30 minutes bigger than the chunk
+        // -> split it into three separate slots
+        //  1. Slot for chunk
+        //  2. Slot for automated break;
+        //  3. Rest of time slot
+        if (target.durationMinutes() > chunk.durationMinutes() + additionalBreakTime + this.maxBuffer) {
+            TimeSlot automatedBreakSlot = additionalBreakTime > 0
+                    ? new TimeSlot(
+                            target.date(),
+                            occupiedSlot.endTime(),
+                            occupiedSlot.endTime().plusMinutes(additionalBreakTime)
+                    )
+                    : null;
             TimeSlot newTimeSlot = new TimeSlot(
-                    target.date(), occupiedSlot.endTime(), target.endTime()
+                    target.date(),
+                    automatedBreakSlot != null ? automatedBreakSlot.endTime() : occupiedSlot.endTime(),
+                    target.endTime()
             );
 
             this.tempAvailableTimeSlots.remove(target);
             this.tempAvailableTimeSlots.add(newTimeSlot);
-            return occupiedSlot;
+            return new TimeSlotUpdate(occupiedSlot, automatedBreakSlot);
         }
-        // Case 2: TimeSlot is equal to or only lightly bigger than the chunk
-        else  {
+        // Case 2: TimeSlot is only lightly bigger than the chunk
+        // -> split it into two separate slots
+        // 1. Slot for chunk
+        // 2. Slot for small break
+        else if (target.durationMinutes() > chunk.durationMinutes() + this.maxBuffer) {
             this.tempAvailableTimeSlots.remove(target);
 
-            // Set end time because of overlapping time (up to 14 minutes)
-            return new TimeSlot(
-                    target.date(),
-                    target.startTime(),
-                    target.startTime().plusMinutes(chunk.durationMinutes())
-            );
+            TimeSlot automatedBreakSlot = additionalBreakTime > 0
+                    ? new TimeSlot(target.date(), occupiedSlot.endTime(), target.endTime())
+                    : null;
+            return new TimeSlotUpdate(occupiedSlot, automatedBreakSlot);
         }
+        // Case 3: Time slot duration is equal to chunk duration
+        // -> Fill timeslot
+        else {
+            this.tempAvailableTimeSlots.remove(target);
+            return new TimeSlotUpdate(occupiedSlot, null);
+        }
+    }
+
+    private TaskChunk createAutomatedBreakChunk(TimeSlot breakSlot, UUID taskId) {
+        return TaskChunk.builder()
+                .taskTitle(AUTOMATED_BREAK_TITLE)
+                .chunkId(UUID.randomUUID())
+                .taskId(taskId)
+                .chunkIndex(0)
+                .totalChunks(1)
+                .durationMinutes(breakSlot.durationMinutes())
+                .topologicalLevel(0)
+                .slackMinutes(0)
+                .cognitiveLoad(null)
+                .notBefore(null)
+                .deadline(null)
+                .isPinned(false)
+                .dependsOnTaskIds(List.of())
+                .build();
+    }
+
+    private boolean isAutomatedBreak(TaskChunk chunk) {
+        return AUTOMATED_BREAK_TITLE.equals(chunk.taskTitle());
     }
 
     /**
@@ -370,7 +469,7 @@ public class CPMAlgorithm {
             LocalDateTime latestFinish = task.getDeadline().toLocalDateTime();
             LocalDateTime earliestFinish = earliestStart.plusMinutes(task.getDuration());
             LocalDateTime latestStart = latestFinish.minusMinutes(task.getDuration());
-            long slackMinutes = java.time.Duration.between(earliestStart, latestStart).toMinutes();
+            long slackMinutes = Duration.between(earliestStart, latestStart).toMinutes();
 
             results.add(new TaskSlack(
                     task.getId(),
