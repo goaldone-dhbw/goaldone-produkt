@@ -102,7 +102,6 @@ public class CPMAlgorithm {
         List<List<TimeSlot>> suitableSlots = getSuitableTimeSlots(chunk);
         if (suitableSlots.isEmpty()) return List.of();
 
-
         List<TimeSlot> slotsBetween = suitableSlots.getLast();
 
         if (slotsBetween.isEmpty()) {
