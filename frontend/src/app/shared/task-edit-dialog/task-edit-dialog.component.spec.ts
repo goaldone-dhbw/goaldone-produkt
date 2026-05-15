@@ -132,21 +132,17 @@ describe('TaskEditDialogComponent', () => {
       expect(component.showFieldError('title')).toBe(false);
     });
 
-    it('sollte Fehler setzen, wenn Gesamtdauer 0 ist', () => {
+    it('sollte durationTooSmall Fehler setzen, wenn Gesamtdauer 0 ist', () => {
       component.taskForm.patchValue({
-        accountId: "123",
-        id: "123",
-        title: "Unknown",
+        accountId: '123',
+        id: '123',
+        title: 'Unknown',
         durationHours: 0,
         durationMinutes: 0,
-        status: "OPEN"
+        status: 'OPEN',
       });
 
-      component.save();
-
-      expect(component.formErrorMessage()).toBe(
-        'Bitte gib eine Dauer von mindestens einer Minute an.',
-      );
+      expect(component.taskForm.errors?.['durationTooSmall']).toBe(true);
     });
 
     it('sollte dontScheduleBeforeAfterDeadline Fehler setzen, wenn "Nicht planen vor" nach der Deadline liegt', () => {
@@ -239,7 +235,7 @@ describe('TaskEditDialogComponent', () => {
       expect(component.isDependencySelected('task-2')).toBe(false);
     });
 
-    it('sollte die bisherige Abhängigkeit ersetzen, wenn eine andere Abhängigkeit ausgewählt wird', () => {
+    it('sollte eine weitere Abhängigkeit hinzufügen, wenn bereits eine andere ausgewählt ist', () => {
       const event = new MouseEvent('click');
       vi.spyOn(event, 'preventDefault');
 
@@ -249,8 +245,8 @@ describe('TaskEditDialogComponent', () => {
 
       component.toggleDependency('task-3', event);
 
-      expect(component.taskForm.getRawValue().dependencyIds).toEqual(['task-3']);
-      expect(component.isDependencySelected('task-2')).toBe(false);
+      expect(component.taskForm.getRawValue().dependencyIds).toEqual(['task-2', 'task-3']);
+      expect(component.isDependencySelected('task-2')).toBe(true);
       expect(component.isDependencySelected('task-3')).toBe(true);
     });
 
