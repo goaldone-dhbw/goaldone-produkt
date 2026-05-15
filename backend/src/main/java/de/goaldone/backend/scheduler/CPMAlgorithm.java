@@ -375,7 +375,7 @@ public class CPMAlgorithm {
         //  1. Slot for chunk
         //  2. Slot for automated break;
         //  3. Rest of time slot
-        if (target.durationMinutes() >= chunk.durationMinutes() + additionalBreakTime + this.MAX_BUFFER) {
+        if (target.durationMinutes() > chunk.durationMinutes() + additionalBreakTime + this.MAX_BUFFER) {
             TimeSlot automatedBreakSlot = additionalBreakTime > 0
                     ? new TimeSlot(
                             target.date(),
@@ -397,7 +397,7 @@ public class CPMAlgorithm {
         // -> split it into two separate slots
         // 1. Slot for chunk
         // 2. Slot for small break
-        else if (target.durationMinutes() >= chunk.durationMinutes() + this.MAX_BUFFER) {
+        else if (target.durationMinutes() > chunk.durationMinutes() + this.MAX_BUFFER) {
             this.tempAvailableTimeSlots.remove(target);
 
             TimeSlot automatedBreakSlot = additionalBreakTime > 0
