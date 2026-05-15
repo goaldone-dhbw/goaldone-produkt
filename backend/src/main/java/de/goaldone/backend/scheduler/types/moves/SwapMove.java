@@ -72,7 +72,7 @@ public class SwapMove extends Move {
     }
 
     private boolean isValidSwap(ScheduledChunk a, ScheduledChunk b) {
-        return b.slot().durationMinutes() >= a.chunk().durationMinutes()
-                && a.slot().durationMinutes() >= b.chunk().durationMinutes();
+        return b.slot().getSlotDuration() >= a.chunk().durationMinutes()
+                && a.slot().getSlotDuration() >= b.chunk().durationMinutes();
     }
 }
