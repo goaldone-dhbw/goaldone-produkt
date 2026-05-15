@@ -1,0 +1,1594 @@
+#!/bin/bash
+# GoalDone Deployment Script
+# Repository cloning, environment setup, and Terraform deployment
+# Prerequisites: Run install-deps.sh first (with sudo)
+
+set -euo pipefail
+IFS=$'\n\t'
+
+# ==============================================================================
+# Global Variables
+# ==============================================================================
+if [[ -n "${BASH_SOURCE[0]:-}" && "${BASH_SOURCE[0]}" != "/dev/stdin" && -f "${BASH_SOURCE[0]}" ]]; then
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+else
+    SCRIPT_DIR="$HOME"
+fi
+STATE_FILE="${SCRIPT_DIR}/.deploy-state"
+CREDS_FILE="${SCRIPT_DIR}/.deploy-state.creds"
+LOG_FILE="${SCRIPT_DIR}/deploy.log"
+TOTAL_STEPS=10
+START_STEP=1
+LAST_COMPLETED_STEP=0
+SCRIPT_START_TIME=$(date +%s)
+
+# Color codes (per D-10)
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Trap variables
+CLEANUP_CALLED=false
+SKIP_HEALTH_CHECK=false
+
+# Initialize terminal output FD (per D-11)
+# This must be done before any helper functions using >&3 are called
+exec 3>&1
+
+# ==============================================================================
+# Helper Functions - Output (per D-11, UX-02)
+# ==============================================================================
+get_timestamp() {
+    date +"[%H:%M:%S]"
+}
+
+get_duration() {
+    local start=$1
+    local end
+    end=$(date +%s)
+    local diff=$((end - start))
+    printf "%dm %ds" $((diff / 60)) $((diff % 60))
+}
+
+show_header() {
+    local title=$1
+    local width
+    width=$(tput cols 2>/dev/null || echo 80)
+    local title_len=${#title}
+    local padding=$(( (width - title_len - 4) / 2 ))
+    
+    echo "" >&3
+    if [[ $padding -gt 0 ]]; then
+        printf "%${padding}s" "" | tr ' ' '=' >&3
+    fi
+    printf "  %s  " "$title" >&3
+    if [[ $padding -gt 0 ]]; then
+        printf "%${padding}s" "" | tr ' ' '=' >&3
+    fi
+    echo "" >&3
+}
+
+show_success() {
+    echo -e "$(get_timestamp) ${GREEN}✓ $1${NC}" >&3
+}
+
+show_error() {
+    echo -e "$(get_timestamp) ${RED}✗ Error: $1${NC}" >&3
+}
+
+show_warning() {
+    echo -e "$(get_timestamp) ${YELLOW}⚠ Warning: $1${NC}" >&3
+}
+
+show_info() {
+    echo -e "$(get_timestamp) ${BLUE}⏳ $1${NC}" >&3
+}
+
+show_spinner() {
+    local pid=$1
+    local delay=0.1
+    local spinstr='|/-\'
+    
+    # Hide cursor
+    tput civis >&3 2>/dev/null || true
+    
+    while kill -0 "$pid" 2>/dev/null; do
+        local temp=${spinstr#?}
+        printf " [%c]  " "$spinstr" >&3
+        spinstr=$temp${spinstr%"$temp"}
+        sleep $delay
+        printf "\b\b\b\b\b\b" >&3
+    done
+    
+    # Clear spinner and show cursor
+    printf "    \b\b\b\b" >&3
+    tput cnorm >&3 2>/dev/null || true
+}
+
+show_troubleshooting_hint() {
+    local service=$1
+    echo "" >&3
+    echo -e "${YELLOW}💡 Troubleshooting Hint for $service:${NC}" >&3
+    case "$service" in
+        apt)
+            echo "  - Check your internet connection." >&3
+            echo "  - Ensure no other package manager is running (check for /var/lib/dpkg/lock-frontend)." >&3
+            echo "  - Try running 'sudo apt-get update' manually." >&3
+            ;;
+        git)
+            echo "  - Check your internet connection." >&3
+            echo "  - Verify GitHub access (https://github.com/goaldone-dhbw/goaldone-produkt)." >&3
+            echo "  - Ensure you have enough disk space." >&3
+            ;;
+        docker)
+            echo "  - Check if Docker service is running: 'sudo systemctl status docker'." >&3
+            echo "  - Inspect Zitadel logs: 'docker compose logs zitadel'." >&3
+            echo "  - Verify ZITADEL_MASTERKEY is exactly 32 characters." >&3
+            echo "  - Ensure ports 8080 and 5432 are not already in use." >&3
+            ;;
+        terraform)
+            echo "  - Verify your ZITADEL_DOMAIN is reachable." >&3
+            echo "  - Check if the TERRAFORM_TOKEN is still valid." >&3
+            echo "  - Look for state locks in the terraform directory." >&3
+            ;;
+        *)
+            echo "  - Check the log file for detailed error messages: $LOG_FILE" >&3
+            ;;
+    esac
+    echo "" >&3
+}
+
+error_exit() {
+    local msg=$1
+    local service=${2:-}
+    
+    show_error "$msg"
+    if [[ -n "$service" ]]; then
+        show_troubleshooting_hint "$service"
+    fi
+    exit 1
+}
+
+# ==============================================================================
+# Helper Functions - Input & Caching (per D-01, D-02)
+# ==============================================================================
+prompt_input() {
+    local prompt_text=$1
+    local validation_regex=${2:-}
+    local is_hidden=${3:-false}
+    local attempts=0
+    local max_attempts=3
+    local input=""
+
+    echo "[$(get_timestamp)] prompt_input called: $prompt_text" >> "$LOG_FILE"
+
+    while [[ $attempts -lt $max_attempts ]]; do
+        attempts=$((attempts + 1))
+
+        # Ensure we're reading from the terminal, not a pipe
+        if [[ "$is_hidden" == "true" ]]; then
+            echo -n -e "$(get_timestamp) ${BLUE}⏳ $prompt_text ${NC}" >&3
+            input=""
+            local char
+            while IFS= read -rsn1 char < /dev/tty; do
+                if [[ $char == $'\0' || $char == $'\n' ]]; then
+                    break
+                elif [[ $char == $'\177' || $char == $'\b' ]]; then
+                    if [[ -n "$input" ]]; then
+                        input="${input%?}"
+                        printf '\b \b' >&3
+                    fi
+                else
+                    input+="$char"
+                    printf '*' >&3
+                fi
+            done
+            echo "" >&3
+        else
+            echo -n -e "$(get_timestamp) ${BLUE}⏳ $prompt_text ${NC}" >&3
+            read -r input < /dev/tty 2>&3 || {
+                echo "[$(get_timestamp)] ERROR: Failed to read input from /dev/tty" >> "$LOG_FILE"
+                show_error "Failed to read input"
+                return 1
+            }
+        fi
+
+        echo "[$(get_timestamp)] Input received (${#input} chars)" >> "$LOG_FILE"
+
+        # Adaptive correction: trim whitespace
+        input="${input#"${input%%[![:space:]]*}"}"
+        input="${input%"${input##*[![:space:]]}"}"
+
+        # Adaptive correction: lowercase for domains/URLs
+        if [[ "$prompt_text" == *"domain"* ]] || [[ "$prompt_text" == *"URL"* ]] || [[ "$validation_regex" == *"a-z0-9.-"* ]]; then
+            local original_input=$input
+            input=$(echo "$input" | tr '[:upper:]' '[:lower:]')
+            if [[ "$input" != "$original_input" ]]; then
+                show_info "Corrected input to lowercase: $input"
+                echo "[$(get_timestamp)] Lowercase correction applied" >> "$LOG_FILE"
+            fi
+        fi
+
+        # Adaptive correction: strip spaces from passwords
+        if [[ "$is_hidden" == "true" ]]; then
+            if [[ "$input" == *" "* ]]; then
+                input="${input// /}"
+                show_info "Stripped spaces from password."
+                echo "[$(get_timestamp)] Spaces stripped from password" >> "$LOG_FILE"
+            fi
+        fi
+
+        # Validation
+        if [[ -n "$validation_regex" ]]; then
+            if [[ ! "$input" =~ $validation_regex ]]; then
+                show_error "Invalid input format. (Attempt $attempts/$max_attempts)"
+                echo "[$(get_timestamp)] Validation failed for input against regex: $validation_regex" >> "$LOG_FILE"
+                continue
+            fi
+        fi
+
+        echo "$input"
+        echo "[$(get_timestamp)] Input validated and accepted" >> "$LOG_FILE"
+        return 0
+    done
+
+    show_error "Max attempts reached for input: $prompt_text"
+    echo "[$(get_timestamp)] ERROR: Max attempts reached for: $prompt_text" >> "$LOG_FILE"
+    return 1
+}
+
+cache_credential() {
+    local key=$1
+    local value=$2
+    
+    # Update memory variable
+    eval "$key=\"$value\""
+    
+    # Persistent save
+    save_credentials
+}
+
+load_credential() {
+    local key=$1
+    echo "${!key}"
+}
+
+# ==============================================================================
+# Helper Functions - Configuration Updates (per Plan 04-03, SEC-01)
+# ==============================================================================
+update_env_var() {
+    local file=$1
+    local key=$2
+    local value=$3
+    local temp_file="${file}.tmp"
+
+    # Robust update using grep/tmp-file pattern (no sed delimiter issues)
+    if [[ -f "$file" ]]; then
+        grep -v "^${key}=" "$file" > "$temp_file" || true
+    else
+        touch "$temp_file"
+    fi
+    
+    # Quote the value to handle special characters and prevent shell injection
+    # We use single quotes and escape any single quotes within the value
+    local escaped_value
+    escaped_value=$(echo -n "$value" | sed "s/'/'\\\\''/g")
+    echo "${key}='${escaped_value}'" >> "$temp_file"
+    mv "$temp_file" "$file"
+}
+
+escape_hcl() {
+    local value=$1
+    # Use jq to safely escape string for HCL
+    echo -n "$value" | jq -Rs .
+}
+
+# ==============================================================================
+# Helper Functions - State Management (per D-04, D-05, D-06)
+# ==============================================================================
+ensure_file_accessibility() {
+    # Ensure state and log files are readable/writable by the current non-root user
+    # This handles transition from root-owned files (created by install-deps.sh)
+    local current_user=$(whoami)
+
+    if [[ -f "$STATE_FILE" && ! -w "$STATE_FILE" ]]; then
+        # Try to fix permissions if we can't write
+        if sudo -n true 2>/dev/null; then
+            sudo chmod 644 "$STATE_FILE" 2>/dev/null || true
+            sudo chown "$current_user:$current_user" "$STATE_FILE" 2>/dev/null || true
+        else
+            show_warning "State file not writable and sudo not available. State changes may not persist."
+        fi
+    fi
+
+    if [[ -f "$LOG_FILE" && ! -w "$LOG_FILE" ]]; then
+        if sudo -n true 2>/dev/null; then
+            sudo chmod 644 "$LOG_FILE" 2>/dev/null || true
+            sudo chown "$current_user:$current_user" "$LOG_FILE" 2>/dev/null || true
+        fi
+    fi
+}
+
+load_state() {
+    # Initialize default state if file doesn't exist
+    if [[ -f "$STATE_FILE" ]]; then
+        # shellcheck disable=SC1090
+        source "$STATE_FILE"
+    else
+        # Initialize empty state
+        LAST_COMPLETED_STEP=0
+        ZITADEL_DOMAIN=""
+        GOALDONE_URL=""
+        TERRAFORM_TOKEN=""
+        BACKEND_PAT=""
+        APP_CLIENT_ID=""
+        DEPLOY_WORK_DIR=""
+        ZITADEL_PROJECT_ID=""
+        GOALDONE_ORG_ID=""
+        GOALDONE_DB_PASSWORD=""
+    fi
+
+    # Strip protocols from cached GOALDONE_URL if present
+    if [[ -n "${GOALDONE_URL:-}" ]]; then
+        GOALDONE_URL="${GOALDONE_URL#https://}"
+        GOALDONE_URL="${GOALDONE_URL#http://}"
+        GOALDONE_URL="${GOALDONE_URL%/}"
+    fi
+
+    # Load cached credentials if they exist (per D-06)
+    if [[ -f "$CREDS_FILE" ]]; then
+        # shellcheck disable=SC1090
+        source "$CREDS_FILE" 2>/dev/null || true
+    fi
+}
+
+save_state() {
+    local temp_file="${STATE_FILE}.tmp"
+
+    # Write to temporary file first (atomic write per D-04)
+    cat > "$temp_file" <<EOF
+# Generated by deploy.sh at $(date)
+LAST_COMPLETED_STEP=$LAST_COMPLETED_STEP
+STEP_1_CLONE_REPOSITORY=${STEP_1_CLONE_REPOSITORY:-pending}
+STEP_2_SETUP_ENV=${STEP_2_SETUP_ENV:-pending}
+STEP_3_DOCKER_COMPOSE=${STEP_3_DOCKER_COMPOSE:-pending}
+STEP_4_EXTRACT_TOKEN=${STEP_4_EXTRACT_TOKEN:-pending}
+STEP_5_CREATE_TFVARS=${STEP_5_CREATE_TFVARS:-pending}
+STEP_6_TERRAFORM_INIT=${STEP_6_TERRAFORM_INIT:-pending}
+STEP_7_TERRAFORM_PLAN=${STEP_7_TERRAFORM_PLAN:-pending}
+STEP_8_TERRAFORM_APPLY=${STEP_8_TERRAFORM_APPLY:-pending}
+STEP_9_DEPLOY_APP=${STEP_9_DEPLOY_APP:-pending}
+STEP_10_OUTPUT_SUMMARY=${STEP_10_OUTPUT_SUMMARY:-pending}
+ZITADEL_DOMAIN=${ZITADEL_DOMAIN:-}
+GOALDONE_URL=${GOALDONE_URL:-}
+TERRAFORM_TOKEN=${TERRAFORM_TOKEN:-}
+BACKEND_PAT=${BACKEND_PAT:-}
+APP_CLIENT_ID=${APP_CLIENT_ID:-}
+ZITADEL_PROJECT_ID=${ZITADEL_PROJECT_ID:-}
+GOALDONE_ORG_ID=${GOALDONE_ORG_ID:-}
+GOALDONE_DB_PASSWORD=${GOALDONE_DB_PASSWORD:-}
+DEPLOY_WORK_DIR=${DEPLOY_WORK_DIR:-}
+EOF
+
+    # Atomic move
+    if mv "$temp_file" "$STATE_FILE"; then
+        show_success "State saved."
+    else
+        show_error "Failed to save state."
+        rm -f "$temp_file"
+        return 1
+    fi
+}
+
+save_credentials() {
+    # Save plaintext credentials for recovery (per D-05 security trade-off)
+    # File permissions: 600 (user read-only)
+    local temp_creds="${CREDS_FILE}.tmp"
+
+    cat > "$temp_creds" <<EOF
+# Plaintext credentials for session recovery (security trade-off: convenience during multi-step recovery)
+# File permissions: 600 (chmod 600 enforced below)
+ZITADEL_MASTERKEY="${ZITADEL_MASTERKEY:-}"
+ZITADEL_ADMIN_PASSWORD="${ZITADEL_ADMIN_PASSWORD:-}"
+POSTGRES_ADMIN_PASSWORD="${POSTGRES_ADMIN_PASSWORD:-}"
+POSTGRES_ZITADEL_PASSWORD="${POSTGRES_ZITADEL_PASSWORD:-}"
+ZITADEL_DOMAIN="${ZITADEL_DOMAIN:-}"
+GOALDONE_URL="${GOALDONE_URL:-}"
+TERRAFORM_TOKEN="${TERRAFORM_TOKEN:-}"
+BACKEND_PAT="${BACKEND_PAT:-}"
+APP_CLIENT_ID="${APP_CLIENT_ID:-}"
+ZITADEL_PROJECT_ID="${ZITADEL_PROJECT_ID:-}"
+GOALDONE_ORG_ID="${GOALDONE_ORG_ID:-}"
+GOALDONE_DB_PASSWORD="${GOALDONE_DB_PASSWORD:-}"
+SMTP_HOST="${SMTP_HOST:-}"
+SMTP_USER="${SMTP_USER:-}"
+SMTP_PASSWORD="${SMTP_PASSWORD:-}"
+SMTP_SENDER_ADDRESS="${SMTP_SENDER_ADDRESS:-}"
+FIRST_SUPERADMIN_EMAIL="${FIRST_SUPERADMIN_EMAIL:-}"
+FIRST_SUPERADMIN_PASSWORD="${FIRST_SUPERADMIN_PASSWORD:-}"
+EOF
+
+    if mv "$temp_creds" "$CREDS_FILE"; then
+        chmod 600 "$CREDS_FILE"
+        show_success "Credentials cached (file permissions: 600)."
+    else
+        show_error "Failed to save credentials."
+        rm -f "$temp_creds"
+        return 1
+    fi
+}
+
+reset_state() {
+    show_info "Resetting deployment state..."
+    rm -f "$STATE_FILE" "$CREDS_FILE"
+    LAST_COMPLETED_STEP=0
+    show_success "State reset complete. Next run will start from step 1."
+}
+
+mark_step_complete() {
+    local step_number=$1
+    local step_name=$2
+
+    # Update step status
+    LAST_COMPLETED_STEP=$step_number
+
+    # Update status variables in memory so they are saved correctly
+    case $step_number in
+        1) STEP_1_CLONE_REPOSITORY="completed" ;;
+        2) STEP_2_SETUP_ENV="completed" ;;
+        3) STEP_3_DOCKER_COMPOSE="completed" ;;
+        4) STEP_4_EXTRACT_TOKEN="completed" ;;
+        5) STEP_5_CREATE_TFVARS="completed" ;;
+        6) STEP_6_TERRAFORM_INIT="completed" ;;
+        7) STEP_7_TERRAFORM_PLAN="completed" ;;
+        8) STEP_8_TERRAFORM_APPLY="completed" ;;
+        9) STEP_9_DEPLOY_APP="completed" ;;
+        10) STEP_10_OUTPUT_SUMMARY="completed" ;;
+    esac
+
+    show_success "Completed: Step $step_number ($step_name)"
+    save_state
+}
+
+# ==============================================================================
+# Trap Handlers (per D-17)
+# ==============================================================================
+cleanup_on_exit() {
+    local exit_code=$?
+
+    # Prevent double execution
+    if [[ "$CLEANUP_CALLED" == true ]]; then
+        return
+    fi
+    CLEANUP_CALLED=true
+
+    if [[ $exit_code -ne 0 ]]; then
+        echo "" >&3
+        show_warning "Script interrupted or exiting with code $exit_code"
+        
+        # Only prompt if we are in an interactive shell
+        if [[ -c /dev/tty ]]; then
+            echo "" >&3
+            echo -n "Save current state before exiting? (yes/no): " >&3
+            read -r save_choice < /dev/tty 2>&3 || save_choice=""
+            if [[ "$save_choice" == "yes" ]]; then
+                save_state
+                show_success "State saved. Next run will allow resume."
+            fi
+        fi
+    fi
+
+    # Clean up any temporary files
+    rm -f "${STATE_FILE}.tmp" "${CREDS_FILE}.tmp"
+}
+
+# Register trap handlers
+trap 'cleanup_on_exit' EXIT INT TERM
+
+# ==============================================================================
+# Pre-flight Validation (per D-12, D-13, D-14, D-15, D-16)
+# ==============================================================================
+check_prerequisites() {
+    local validation_failed=false
+
+    show_info "Validating prerequisites..."
+
+    # D-12: Ubuntu 24.04 version check
+    if [[ -f /etc/os-release ]]; then
+        # shellcheck disable=SC1091
+        source /etc/os-release
+        if [[ "$PRETTY_NAME" != "Ubuntu 24.04"* ]]; then
+            show_error "This script requires Ubuntu 24.04. Detected: $PRETTY_NAME. Aborting."
+            validation_failed=true
+        else
+            show_success "Ubuntu version: $PRETTY_NAME"
+        fi
+    else
+        show_error "Cannot determine OS version (/etc/os-release not found)."
+        validation_failed=true
+    fi
+
+    # D-13: Required binaries check
+    local required_binaries=("curl" "git" "docker" "terraform" "jq")
+    for binary in "${required_binaries[@]}"; do
+        if command -v "$binary" &>/dev/null; then
+            show_success "Binary found: $binary"
+        else
+            show_error "Missing required binary: $binary."
+            show_info "Please run the dependency installation script first: sudo ./install-deps.sh"
+            validation_failed=true
+        fi
+    done
+
+    # D-14: Disk space validation
+    local available_disk_gb
+    available_disk_gb=$(df -BG / | tail -1 | awk '{print $4}' | sed 's/G//')
+    if [[ $available_disk_gb -lt 10 ]]; then
+        show_error "Insufficient disk space. Available: ${available_disk_gb}GB, Minimum required: 10GB"
+        validation_failed=true
+    elif [[ $available_disk_gb -lt 20 ]]; then
+        show_warning "Low disk space. Available: ${available_disk_gb}GB (recommended minimum: 20GB)"
+    else
+        show_success "Disk space: ${available_disk_gb}GB available (≥20GB)"
+    fi
+
+    # D-15: RAM validation
+    local available_ram_kb
+    available_ram_kb=$(free | awk 'NR==2 {print $7}' 2>/dev/null || echo 0) # Available column
+    local available_ram_gb=$((available_ram_kb / 1024 / 1024))
+    if [[ $available_ram_gb -lt 2 ]]; then
+        show_error "Insufficient RAM. Available: ${available_ram_gb}GB, Minimum required: 2GB"
+        validation_failed=true
+    elif [[ $available_ram_gb -lt 4 ]]; then
+        show_warning "Low RAM. Available: ${available_ram_gb}GB (recommended minimum: 4GB)"
+    else
+        show_success "RAM: ${available_ram_gb}GB available (≥8GB)"
+    fi
+
+    if [[ "$validation_failed" == true ]]; then
+        return 1
+    fi
+    return 0
+}
+
+# ==============================================================================
+# Checkpoint Recovery (per D-07, D-08)
+# ==============================================================================
+prompt_recovery_action() {
+    if [[ ! -f "$STATE_FILE" ]]; then
+        return 0
+    fi
+
+    local last_step=$LAST_COMPLETED_STEP
+    local next_step=$((last_step + 1))
+
+    if [[ $last_step -eq 0 ]]; then
+        return 0
+    fi
+
+    if [[ $last_step -ge $TOTAL_STEPS ]]; then
+        show_info "Deployment already completed. Use --reset-state to start over."
+        exit 0
+    fi
+
+    local step_names=("" "Clone Repository" "Setup .env" "Start Docker Compose" "Extract Terraform Token" "Create .tfvars" "Terraform Init" "Terraform Plan" "Terraform Apply" "Deploy App" "Output Summary")
+    local last_step_name="${step_names[$last_step]:-Step $last_step}"
+
+    echo "" >&3
+    echo "Previous deployment found (last completed: Step $last_step - $last_step_name)" >&3
+    echo "" >&3
+    echo "Choose recovery action:" >&3
+    echo "  1) Resume from Step $next_step (continue from last completed)" >&3
+    echo "  2) Retry Step $last_step (re-execute the last step)" >&3
+    echo "  3) Start fresh (delete state and begin from step 1)" >&3
+    echo "" >&3
+
+    echo -n "Enter choice (1, 2, or 3): " >&3
+    read -r choice < /dev/tty 2>&3 || {
+        show_error "Failed to read choice"
+        return 1
+    }
+    case "$choice" in
+        1)
+            show_info "Resuming from Step $next_step..."
+            START_STEP=$next_step
+            ;;
+        2)
+            show_info "Retrying Step $last_step..."
+            START_STEP=$last_step
+            ;;
+        3)
+            echo -n "Are you sure? This will delete all progress. (yes/no): " >&3
+            read -r confirm < /dev/tty 2>&3 || confirm=""
+            if [[ "$confirm" == "yes" ]]; then
+                reset_state
+                # Clear log on Start Fresh
+                echo "--- Fresh Start: $(date) ---" > "$LOG_FILE"
+                START_STEP=1
+            else
+                echo "Cancelled. Exiting." >&3
+                exit 0
+            fi
+            ;;
+        *)
+            show_error "Invalid choice. Exiting."
+            exit 1
+            ;;
+    esac
+}
+
+# ==============================================================================
+# Step Implementations
+# ==============================================================================
+step_clone_repository() {
+    local repo_url="https://github.com/goaldone-dhbw/goaldone-produkt.git"
+    local repo_branch="setup-script"
+    local repo_dir="goaldone-produkt"
+    
+    if [[ -d "$repo_dir" ]]; then
+        show_info "Repository directory found: ./${repo_dir}/"
+        echo "" >&3
+        echo "Options:" >&3
+        echo "  1) Reuse existing (skip clone)" >&3
+        echo "  2) Re-clone (delete and fetch fresh)" >&3
+        echo "  3) Cancel" >&3
+        echo "" >&3
+        echo -n "$(get_timestamp) ${BLUE}⏳ Choose option (1-3): ${NC}" >&3
+        read -r clone_choice < /dev/tty 2>&3 || clone_choice=""
+
+        case "$clone_choice" in
+            1)
+                show_info "Using existing repository."
+                ;;
+            2)
+                show_warning "Removing existing directory..."
+                rm -rf "$repo_dir"
+                show_info "⏳ Cloning repository from GitHub..."
+                git clone --branch "$repo_branch" "$repo_url" &
+                show_spinner "$!"
+                wait "$!" || error_exit "Clone failed" "git"
+                ;;
+            3)
+                show_error "Clone cancelled."
+                return 1
+                ;;
+            *)
+                error_exit "Invalid choice."
+                ;;
+        esac
+    else
+        show_info "⏳ Cloning repository from GitHub..."
+        git clone --branch "$repo_branch" "$repo_url" &
+        show_spinner "$!"
+        wait "$!" || error_exit "Clone failed" "git"
+    fi
+    
+    # Verify clone
+    [[ -d "$repo_dir/.git" ]] || error_exit "Clone verification failed: .git directory not found" "git"
+    
+    # Detect partial/corrupted clone
+    if ! git -C "$repo_dir" fsck --quiet >/dev/null 2>&1; then
+        show_warning "Detected corrupted clone; removing and re-cloning..."
+        rm -rf "$repo_dir"
+        git clone --branch "$repo_branch" "$repo_url" &
+        show_spinner "$!"
+        wait "$!" || error_exit "Retry clone failed" "git"
+    fi
+    
+    # Set deployment work directory
+    DEPLOY_WORK_DIR="$(pwd)/${repo_dir}/infra"
+    show_success "Repository ready at $DEPLOY_WORK_DIR"
+    echo "[$(get_timestamp)] DEPLOY_WORK_DIR set to: $DEPLOY_WORK_DIR" >> "$LOG_FILE"
+    
+    mark_step_complete 1 "Clone Repository"
+    return 0
+}
+
+step_setup_env() {
+    echo "[$(get_timestamp)] === STEP 2: Setup .env ===" >> "$LOG_FILE"
+
+    [[ -n "${DEPLOY_WORK_DIR:-}" ]] || error_exit "DEPLOY_WORK_DIR not set. Run step 4 first."
+
+    echo "[$(get_timestamp)] Changing to DEPLOY_WORK_DIR: $DEPLOY_WORK_DIR" >> "$LOG_FILE"
+    if ! cd "$DEPLOY_WORK_DIR" 2>> "$LOG_FILE"; then
+        echo "[$(get_timestamp)] ERROR: Could not enter directory: $DEPLOY_WORK_DIR" >> "$LOG_FILE"
+        error_exit "Could not enter directory: $DEPLOY_WORK_DIR"
+    fi
+
+    echo "[$(get_timestamp)] Current working directory: $(pwd)" >> "$LOG_FILE"
+    echo "[$(get_timestamp)] Contents: $(ls -la | head -20)" >> "$LOG_FILE"
+
+    # Look for template in standard locations
+    local template=""
+    if [[ -f "infra-setup/.env-example" ]]; then
+        template="infra-setup/.env-example"
+        echo "[$(get_timestamp)] Found template at: $template" >> "$LOG_FILE"
+    elif [[ -f ".env-example" ]]; then
+        template=".env-example"
+        echo "[$(get_timestamp)] Found template at: $template" >> "$LOG_FILE"
+    elif [[ -f "infra-setup/.env-dev-example" ]]; then
+        template="infra-setup/.env-dev-example"
+        echo "[$(get_timestamp)] Found template at: $template" >> "$LOG_FILE"
+    else
+        echo "[$(get_timestamp)] ERROR: No .env template found" >> "$LOG_FILE"
+        echo "[$(get_timestamp)] Available files:" >> "$LOG_FILE"
+        find . -maxdepth 2 -name "*.env*" -o -name "*.example*" >> "$LOG_FILE" 2>&1
+        error_exit "Template file not found. Checked: .env-example, infra-setup/.env-example, infra-setup/.env-dev-example"
+    fi
+
+    local target="infra-setup/.env"
+
+    [[ -f "$template" ]] || error_exit "Template $template not found in $DEPLOY_WORK_DIR"
+    echo "[$(get_timestamp)] Template verified: $template" >> "$LOG_FILE"
+
+    # Log environment state before interactive input
+    echo "[$(get_timestamp)] Pre-interactive-input state:" >> "$LOG_FILE"
+    echo "[$(get_timestamp)]   PWD=$(pwd)" >> "$LOG_FILE"
+    echo "[$(get_timestamp)]   DEPLOY_WORK_DIR=$DEPLOY_WORK_DIR" >> "$LOG_FILE"
+    echo "[$(get_timestamp)]   /dev/tty exists: $([ -c /dev/tty ] && echo yes || echo no)" >> "$LOG_FILE"
+
+    if [[ -f "$target" ]]; then
+        show_info ".env file already exists."
+        echo "" >&3
+        echo "Options:" >&3
+        echo "  1) Reuse existing (skip collection)" >&3
+        echo "  2) Create new (overwrite)" >&3
+        echo "  3) Backup and create new" >&3
+        echo "" >&3
+        echo -n "$(get_timestamp) ${BLUE}⏳ Choose option (1-3): ${NC}" >&3
+        read -r env_choice < /dev/tty 2>&3 || {
+            echo "[$(get_timestamp)] ERROR: Failed to read env_choice from /dev/tty" >> "$LOG_FILE"
+            error_exit "Failed to read user input"
+        }
+        echo "[$(get_timestamp)] User chose: $env_choice" >> "$LOG_FILE"
+
+        case "$env_choice" in
+            1)
+                show_info "Reusing existing .env file."
+                mark_step_complete 5 "Setup .env"
+                return 0
+                ;;
+            2)
+                show_warning "Overwriting existing .env..."
+                ;;
+            3)
+                show_info "Backing up existing .env to .env.backup..."
+                cp "$target" "${target}.backup"
+                ;;
+            *)
+                error_exit "Invalid choice."
+                ;;
+        esac
+    fi
+    
+    # Check if /dev/tty is available for interactive input
+    if [[ ! -c /dev/tty ]]; then
+        echo "[$(get_timestamp)] WARNING: /dev/tty not accessible" >> "$LOG_FILE"
+        show_warning "Interactive terminal not available. Cannot proceed with credential collection."
+        echo "[$(get_timestamp)] ERROR: This script requires an interactive terminal (/dev/tty) for credential input." >> "$LOG_FILE"
+        echo "[$(get_timestamp)] Suggestion: Run the script from an interactive SSH/terminal session." >> "$LOG_FILE"
+        return 1
+    fi
+    echo "[$(get_timestamp)] /dev/tty verified, proceeding with interactive input" >> "$LOG_FILE"
+
+    # Auto-generate Masterkey using openssl (most reliable method)
+    echo "[$(get_timestamp)] About to generate Zitadel Master Key..." >> "$LOG_FILE"
+    ZITADEL_MASTERKEY=""
+
+    # Try openssl first (most reliable)
+    if command -v openssl &>/dev/null; then
+        echo "[$(get_timestamp)] Using openssl for master key generation..." >> "$LOG_FILE"
+        ZITADEL_MASTERKEY=$(openssl rand -hex 16 2>> "$LOG_FILE")
+        gen_status=$?
+        echo "[$(get_timestamp)] openssl rand -hex 16 exit code: $gen_status" >> "$LOG_FILE"
+    fi
+
+    # Fallback to base64 + od if openssl didn't work or produce output
+    if [[ -z "$ZITADEL_MASTERKEY" ]]; then
+        echo "[$(get_timestamp)] Attempting fallback with base64 encoding..." >> "$LOG_FILE"
+        # Read 24 bytes and base64 encode, then take first 32 chars
+        ZITADEL_MASTERKEY=$(head -c 24 /dev/urandom 2>> "$LOG_FILE" | base64 2>> "$LOG_FILE" | tr -d '=' | cut -c1-32 2>> "$LOG_FILE")
+        gen_status=$?
+        echo "[$(get_timestamp)] base64 fallback exit code: $gen_status" >> "$LOG_FILE"
+    fi
+
+    echo "[$(get_timestamp)] Zitadel Master Key generated (length: ${#ZITADEL_MASTERKEY})" >> "$LOG_FILE"
+
+    if [[ -z "$ZITADEL_MASTERKEY" || ${#ZITADEL_MASTERKEY} -ne 32 ]]; then
+        echo "[$(get_timestamp)] ERROR: Invalid master key (length: ${#ZITADEL_MASTERKEY}, expected 32)" >> "$LOG_FILE"
+        echo "[$(get_timestamp)] Value: '$ZITADEL_MASTERKEY'" >> "$LOG_FILE"
+        error_exit "Failed to generate Zitadel master key"
+    fi
+
+    show_info "Generated Zitadel Master Key: $ZITADEL_MASTERKEY"
+    cache_credential "ZITADEL_MASTERKEY" "$ZITADEL_MASTERKEY"
+    echo "[$(get_timestamp)] Zitadel Master Key cached" >> "$LOG_FILE"
+
+    echo "[$(get_timestamp)] Prompting for Zitadel admin password" >> "$LOG_FILE"
+
+    # Collect other credentials
+    ZITADEL_ADMIN_PASSWORD=$(prompt_input "Zitadel admin password (min 8 chars):" ".{8,}" true) || {
+        echo "[$(get_timestamp)] ERROR: Failed to get Zitadel admin password" >> "$LOG_FILE"
+        return 1
+    }
+    cache_credential "ZITADEL_ADMIN_PASSWORD" "$ZITADEL_ADMIN_PASSWORD"
+    echo "[$(get_timestamp)] Zitadel admin password cached" >> "$LOG_FILE"
+    
+    POSTGRES_ADMIN_PASSWORD=$(prompt_input "PostgreSQL admin password (min 8 chars):" ".{8,}" true) || return 1
+    cache_credential "POSTGRES_ADMIN_PASSWORD" "$POSTGRES_ADMIN_PASSWORD"
+    
+    POSTGRES_ZITADEL_PASSWORD=$(prompt_input "PostgreSQL Zitadel password (min 8 chars):" ".{8,}" true) || return 1
+    cache_credential "POSTGRES_ZITADEL_PASSWORD" "$POSTGRES_ZITADEL_PASSWORD"
+    
+    # Stricter domain validation (SEC-01)
+    ZITADEL_DOMAIN=$(prompt_input "Zitadel domain (e.g., sso.example.com):" "^[a-z0-9.-]+\.[a-z]{2,}$") || return 1
+    cache_credential "ZITADEL_DOMAIN" "$ZITADEL_DOMAIN"
+    
+    GOALDONE_URL=$(prompt_input "GoalDone URL (e.g., app.example.com):" "^[a-z0-9.-]+\.[a-z]{2,}$") || return 1
+    cache_credential "GOALDONE_URL" "$GOALDONE_URL"
+    
+    # Create .env from template
+    show_info "Creating .env from template..."
+    cp "$template" "$target"
+    chmod 600 "$target"
+    
+    # Substitutions using update_env_var (SEC-01)
+    update_env_var "$target" "ZITADEL_DOMAIN" "$ZITADEL_DOMAIN"
+    update_env_var "$target" "ZITADEL_MASTERKEY" "$ZITADEL_MASTERKEY"
+    update_env_var "$target" "ZITADEL_ADMIN_PASSWORD" "$ZITADEL_ADMIN_PASSWORD"
+    update_env_var "$target" "POSTGRES_ADMIN_PASSWORD" "$POSTGRES_ADMIN_PASSWORD"
+    update_env_var "$target" "POSTGRES_ZITADEL_PASSWORD" "$POSTGRES_ZITADEL_PASSWORD"
+    
+    test -r "$target" || error_exit "Failed to create $target"
+    
+    show_success ".env file created and configured."
+
+    mark_step_complete 2 "Setup .env"
+    return 0
+}
+
+step_docker_compose_up() {
+    [[ -n "${DEPLOY_WORK_DIR:-}" ]] || error_exit "DEPLOY_WORK_DIR not set. Run step 4 first."
+    cd "$DEPLOY_WORK_DIR" || error_exit "Could not enter directory: $DEPLOY_WORK_DIR"
+
+    show_info "⏳ Starting Docker Compose services..."
+
+    # Debug logging for docker command detection
+    echo "[$(get_timestamp)] === Docker Command Detection Debug ===" >> "$LOG_FILE"
+    echo "[$(get_timestamp)] Current user: $(whoami)" >> "$LOG_FILE"
+    echo "[$(get_timestamp)] Current UID: $(id -u)" >> "$LOG_FILE"
+    echo "[$(get_timestamp)] Current GID: $(id -g)" >> "$LOG_FILE"
+    echo "[$(get_timestamp)] User groups: $(id -G)" >> "$LOG_FILE"
+    echo "[$(get_timestamp)] PATH: $PATH" >> "$LOG_FILE"
+    echo "[$(get_timestamp)] Running as sudo: ${SUDO_USER:-none}" >> "$LOG_FILE"
+
+    # Test docker command availability
+    echo "[$(get_timestamp)] Testing 'command -v docker-compose'..." >> "$LOG_FILE"
+    if command -v docker-compose >/dev/null 2>&1; then
+        echo "[$(get_timestamp)]   ✓ docker-compose found at: $(command -v docker-compose)" >> "$LOG_FILE"
+    else
+        echo "[$(get_timestamp)]   ✗ docker-compose not found" >> "$LOG_FILE"
+    fi
+
+    echo "[$(get_timestamp)] Testing 'command -v docker'..." >> "$LOG_FILE"
+    if command -v docker >/dev/null 2>&1; then
+        echo "[$(get_timestamp)]   ✓ docker found at: $(command -v docker)" >> "$LOG_FILE"
+    else
+        echo "[$(get_timestamp)]   ✗ docker not found" >> "$LOG_FILE"
+    fi
+
+    echo "[$(get_timestamp)] Testing 'docker compose version'..." >> "$LOG_FILE"
+    if docker compose version >/dev/null 2>&1; then
+        echo "[$(get_timestamp)]   ✓ docker compose version: $(docker compose version)" >> "$LOG_FILE"
+    else
+        echo "[$(get_timestamp)]   ✗ docker compose version failed: $?" >> "$LOG_FILE"
+        docker compose version >> "$LOG_FILE" 2>&1 || true
+    fi
+
+    local -a cmd
+    if command -v docker-compose >/dev/null 2>&1; then
+        cmd=("docker-compose")
+        echo "[$(get_timestamp)] Selected command: docker-compose" >> "$LOG_FILE"
+    elif command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
+        cmd=("docker" "compose")
+        echo "[$(get_timestamp)] Selected command: docker compose" >> "$LOG_FILE"
+    else
+        echo "[$(get_timestamp)] ERROR: No docker command found!" >> "$LOG_FILE"
+        error_exit "Docker Compose not found. Install Docker Compose v2 or the standalone docker-compose binary." "docker"
+    fi
+
+    # Ensure machinekey directory exists and is writable (for Zitadel token generation)
+    echo "[$(get_timestamp)] Creating machinekey directory if not exists..." >> "$LOG_FILE"
+    mkdir -p infra-setup/machinekey
+    chmod 700 infra-setup/machinekey
+    echo "[$(get_timestamp)] machinekey directory ready at: $(pwd)/infra-setup/machinekey" >> "$LOG_FILE"
+
+    echo "[$(get_timestamp)] Executing: ${cmd[@]} -f infra-setup/docker-compose.yml up -d" >> "$LOG_FILE"
+    "${cmd[@]}" -f infra-setup/docker-compose.yml up -d &
+    show_spinner "$!"
+    wait "$!" || error_exit "Failed to start Docker Compose" "docker"
+
+    show_info "Waiting for containers to stabilize..."
+    sleep 3
+
+    # Validate services running
+    "${cmd[@]}" -f infra-setup/docker-compose.yml ps | tee /tmp/docker-compose-ps.txt >/dev/null 2>&1
+    if ! grep -E 'zitadel|postgres' /tmp/docker-compose-ps.txt | grep -qiE 'Up|running'; then
+        error_exit "Services not running. Check logs with: ${cmd[@]} -f infra-setup/docker-compose.yml logs" "docker"
+    fi
+    
+    if [[ "$SKIP_HEALTH_CHECK" == "true" ]]; then
+        show_warning "Skipping health check validation as requested."
+        mark_step_complete 3 "Docker Compose"
+        return 0
+    fi
+
+    show_info "Running Zitadel health check (90s timeout)..."
+    echo "[$(get_timestamp)] Health check: polling Docker container health status" >> "$LOG_FILE"
+    echo "[$(get_timestamp)] Health check: will also verify https://${ZITADEL_DOMAIN:-sso.example.com}/debug/healthz" >> "$LOG_FILE"
+
+    local timeout=90
+    local i=0
+
+    while [[ $i -lt $timeout ]]; do
+        # Stage 1: Docker container health
+        local container_health
+        container_health=$("${cmd[@]}" -f infra-setup/docker-compose.yml ps --format json 2>/dev/null \
+            | grep -o '"Health":"[^"]*"' | grep -o 'healthy\|unhealthy\|starting' | head -1 || echo "unknown")
+
+        echo "[$(get_timestamp)] [$i/${timeout}s] Docker health: $container_health" >> "$LOG_FILE"
+
+        if [[ "$container_health" == "healthy" ]]; then
+            echo "[$(get_timestamp)] Docker reports zitadel-api healthy." >> "$LOG_FILE"
+            echo "" >&3
+            show_success "Docker reports Zitadel healthy."
+
+            # Stage 2: External domain check (warning only)
+            if [[ -n "$ZITADEL_DOMAIN" ]]; then
+                local http_code
+                http_code=$(curl -sk -o /dev/null -w "%{http_code}" \
+                    "https://${ZITADEL_DOMAIN}/debug/healthz" 2>>"$LOG_FILE" || echo "000")
+                echo "[$(get_timestamp)] External check https://${ZITADEL_DOMAIN}/debug/healthz → HTTP $http_code" >> "$LOG_FILE"
+
+                if [[ "$http_code" == "200" ]]; then
+                    show_success "External health check passed (HTTP $http_code)."
+                else
+                    show_warning "Domain not yet reachable (HTTP $http_code) — containers are up, DNS/TLS may need a moment."
+                fi
+            fi
+
+            mark_step_complete 3 "Docker Compose"
+            return 0
+        fi
+
+        if [[ $((i % 10)) -eq 0 && $i -gt 0 ]]; then
+            echo -n " [${i}s]" >&3
+            # Log container ps snapshot every 10s
+            "${cmd[@]}" -f infra-setup/docker-compose.yml ps >> "$LOG_FILE" 2>&1
+        else
+            echo -n "." >&3
+        fi
+
+        sleep 1
+        i=$((i + 1))
+    done
+
+    echo "" >&3
+    # Log final state before failing
+    echo "[$(get_timestamp)] Health check timed out after ${timeout}s. Final container state:" >> "$LOG_FILE"
+    "${cmd[@]}" -f infra-setup/docker-compose.yml ps >> "$LOG_FILE" 2>&1
+    echo "[$(get_timestamp)] Zitadel logs (last 30 lines):" >> "$LOG_FILE"
+    "${cmd[@]}" -f infra-setup/docker-compose.yml logs zitadel-api --tail=30 >> "$LOG_FILE" 2>&1
+
+    error_exit "Zitadel did not become healthy after ${timeout} seconds. Check deploy.log for details." "docker"
+}
+
+step_extract_token() {
+    [[ -n "${DEPLOY_WORK_DIR:-}" ]] || error_exit "DEPLOY_WORK_DIR not set. Run step 4 first."
+    cd "$DEPLOY_WORK_DIR" || error_exit "Could not enter directory: $DEPLOY_WORK_DIR"
+
+    show_info "⏳ Extracting Terraform token (Step 7)..."
+    
+    local key_file="infra-setup/machinekey/terraform-sa.token"
+    local timeout=60
+    local interval=2
+    local elapsed=0
+
+    show_info "Waiting for $key_file to be generated by Zitadel..."
+    
+    while [[ ! -f "$key_file" ]]; do
+        if [[ $elapsed -ge $timeout ]]; then
+            error_exit "Timeout waiting for $key_file after ${timeout}s. Ensure Zitadel setup finished correctly."
+        fi
+        sleep $interval
+        elapsed=$((elapsed + interval))
+        echo -n "." >&2
+    done
+    echo "" >&2
+
+    # Extract token (raw PAT)
+    TERRAFORM_TOKEN=$(cat "$key_file")
+    
+    if [[ -z "$TERRAFORM_TOKEN" ]]; then
+        error_exit "Failed to read token from $key_file or token is empty."
+    fi
+
+    show_success "Terraform token extracted successfully."
+    cache_credential "TERRAFORM_TOKEN" "$TERRAFORM_TOKEN"
+
+    mark_step_complete 4 "Extract Token"
+    return 0
+}
+
+step_create_tfvars() {
+    [[ -n "${DEPLOY_WORK_DIR:-}" ]] || error_exit "DEPLOY_WORK_DIR not set. Run step 4 first."
+    cd "$DEPLOY_WORK_DIR" || error_exit "Could not enter directory: $DEPLOY_WORK_DIR"
+
+    show_info "⏳ Configuring SMTP and generating terraform.tfvars (Step 8)..."
+
+    # Prompt for SMTP settings
+    SMTP_HOST=$(prompt_input "SMTP Host (e.g., smtp.mailtrap.io:587):" "^[a-z0-9.-]+(:[0-9]+)?$") || return 1
+    cache_credential "SMTP_HOST" "$SMTP_HOST"
+
+    SMTP_USER=$(prompt_input "SMTP User:") || return 1
+    cache_credential "SMTP_USER" "$SMTP_USER"
+
+    SMTP_PASSWORD=$(prompt_input "SMTP Password:" "" true) || return 1
+    cache_credential "SMTP_PASSWORD" "$SMTP_PASSWORD"
+
+    # Stricter email validation (SEC-01)
+    SMTP_SENDER_ADDRESS=$(prompt_input "SMTP Sender Address (e.g., noreply@example.com):" "^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$") || return 1
+    cache_credential "SMTP_SENDER_ADDRESS" "$SMTP_SENDER_ADDRESS"
+
+    # First superadmin user
+    FIRST_SUPERADMIN_EMAIL=$(prompt_input "First Superadmin Email:" "^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$") || return 1
+    cache_credential "FIRST_SUPERADMIN_EMAIL" "$FIRST_SUPERADMIN_EMAIL"
+
+    FIRST_SUPERADMIN_PASSWORD=$(prompt_input "First Superadmin Password (min 8 chars, upper+lower+digit+symbol):" "" true) || return 1
+    cache_credential "FIRST_SUPERADMIN_PASSWORD" "$FIRST_SUPERADMIN_PASSWORD"
+
+    # Ensure terraform directory exists
+    mkdir -p terraform
+
+    # Auto-discover Zitadel org ID from the authenticated service account
+    show_info "Discovering Zitadel organization ID..."
+    local org_id
+    org_id=$(curl -sf "https://${ZITADEL_DOMAIN}/auth/v1/users/me" \
+        -H "Authorization: Bearer ${TERRAFORM_TOKEN}" \
+        | jq -r '.user.details.resourceOwner') || true
+
+    if [[ -z "$org_id" || "$org_id" == "null" ]]; then
+        error_exit "Failed to discover Zitadel org ID. Check ZITADEL_DOMAIN and TERRAFORM_TOKEN."
+    fi
+    show_success "Discovered org ID: $org_id"
+
+    # Ensure bare domain for terraform.tfvars
+    local bare_goaldone_url="${GOALDONE_URL#https://}"
+    bare_goaldone_url="${bare_goaldone_url#http://}"
+    bare_goaldone_url="${bare_goaldone_url%/}"
+
+    # Create terraform.tfvars using escape_hcl (SEC-01)
+    cat > terraform/terraform.tfvars <<EOF
+# Generated by deploy.sh at $(date)
+zitadel_domain         = $(escape_hcl "${ZITADEL_DOMAIN}")
+zitadel_token          = $(escape_hcl "${TERRAFORM_TOKEN}")
+org_id                 = $(escape_hcl "${org_id}")
+goaldone_url           = $(escape_hcl "${bare_goaldone_url}")
+smtp_host              = $(escape_hcl "${SMTP_HOST}")
+smtp_user              = $(escape_hcl "${SMTP_USER}")
+smtp_password          = $(escape_hcl "${SMTP_PASSWORD}")
+smtp_sender_address    = $(escape_hcl "${SMTP_SENDER_ADDRESS}")
+first_superadmin_email    = $(escape_hcl "${FIRST_SUPERADMIN_EMAIL}")
+first_superadmin_password = $(escape_hcl "${FIRST_SUPERADMIN_PASSWORD}")
+EOF
+
+    chmod 600 terraform/terraform.tfvars
+    show_success "terraform/terraform.tfvars generated with 600 permissions."
+
+    mark_step_complete 5 "Create .tfvars"
+    return 0
+}
+
+step_terraform_init() {
+    # Check if terraform is installed (may fail if HashiCorp repo setup failed in step 2)
+    if ! terraform --version >/dev/null 2>&1; then
+        error_exit "Terraform is not installed. This is required for step 6. Check install-deps.sh for repository setup errors." "terraform"
+    fi
+
+    [[ -n "${DEPLOY_WORK_DIR:-}" ]] || error_exit "DEPLOY_WORK_DIR not set. Run step 1 first."
+    mkdir -p "${DEPLOY_WORK_DIR}/terraform"
+    cd "${DEPLOY_WORK_DIR}/terraform" || error_exit "Could not enter terraform directory"
+
+    show_info "⏳ Initializing Terraform (Step 9)..."
+    terraform init -input=false -upgrade &
+    show_spinner "$!"
+    wait "$!" || error_exit "Terraform init failed" "terraform"
+    
+    show_success "Terraform initialized."
+    mark_step_complete 6 "Terraform Init"
+    return 0
+}
+
+step_terraform_plan() {
+    [[ -n "${DEPLOY_WORK_DIR:-}" ]] || error_exit "DEPLOY_WORK_DIR not set. Run step 4 first."
+    cd "${DEPLOY_WORK_DIR}/terraform" || error_exit "Could not enter terraform directory"
+
+    show_info "⏳ Generating Terraform plan (Step 10)..."
+    terraform plan -input=false -out=tfplan >/tmp/terraform-plan.log 2>&1 &
+    show_spinner "$!"
+    if ! wait "$!"; then
+        echo "" >&3
+        echo -e "${RED}── Terraform plan output ──${NC}" >&3
+        cat /tmp/terraform-plan.log >&3 2>/dev/null
+        echo -e "${RED}── End of Terraform output ──${NC}" >&3
+        error_exit "Terraform plan failed" "terraform"
+    fi
+    
+    local summary
+    summary=$(grep -E "Plan: [0-9]+ to add, [0-9]+ to change, [0-9]+ to destroy" /tmp/terraform-plan.log || true)
+    if [[ -n "$summary" ]]; then
+        show_info "Plan Summary: $summary"
+    fi
+
+    # Prompt for confirmation if in an interactive shell
+    if [[ -c /dev/tty ]]; then
+        echo "" >&3
+        echo -e -n "$(get_timestamp) ${BLUE}⏳ Do you want to proceed with these changes? (yes/no): ${NC}" >&3
+        read -r plan_confirm < /dev/tty 2>&3 || plan_confirm=""
+        if [[ "$plan_confirm" != "yes" ]]; then
+            show_error "Terraform apply cancelled by user."
+            return 1
+        fi
+    fi
+    
+    show_success "Terraform plan generated."
+    mark_step_complete 7 "Terraform Plan"
+    return 0
+}
+
+step_terraform_apply() {
+    [[ -n "${DEPLOY_WORK_DIR:-}" ]] || error_exit "DEPLOY_WORK_DIR not set. Run step 1 first."
+    cd "${DEPLOY_WORK_DIR}/terraform" || error_exit "Could not enter terraform directory"
+    [[ -f "tfplan" ]] || error_exit "tfplan not found. Re-run step 7 (Terraform Plan) first." "terraform"
+
+    show_info "⏳ Applying Terraform plan (Step 8)..."
+    terraform apply -input=false tfplan >/tmp/terraform-apply.log 2>&1 &
+    show_spinner "$!"
+    if ! wait "$!"; then
+        echo "" >&3
+        echo -e "${RED}── Terraform apply output ──${NC}" >&3
+        cat /tmp/terraform-apply.log >&3 2>/dev/null
+        echo -e "${RED}── End of Terraform output ──${NC}" >&3
+        error_exit "Terraform apply failed" "terraform"
+    fi
+    
+    show_info "Extracting outputs..."
+    BACKEND_PAT=$(terraform output -raw goaldone_backend_pat) || error_exit "Failed to extract goaldone_backend_pat" "terraform"
+    APP_CLIENT_ID=$(terraform output -raw goaldone_app_client_id) || error_exit "Failed to extract goaldone_app_client_id" "terraform"
+    
+    cache_credential "BACKEND_PAT" "$BACKEND_PAT"
+    cache_credential "APP_CLIENT_ID" "$APP_CLIENT_ID"
+
+    ZITADEL_PROJECT_ID=$(terraform output -raw zitadel_project_id) || error_exit "Failed to extract zitadel_project_id" "terraform"
+    GOALDONE_ORG_ID=$(terraform output -raw goaldone_org_id) || error_exit "Failed to extract goaldone_org_id" "terraform"
+
+    cache_credential "ZITADEL_PROJECT_ID" "$ZITADEL_PROJECT_ID"
+    cache_credential "GOALDONE_ORG_ID" "$GOALDONE_ORG_ID"
+
+    show_success "Terraform applied and outputs extracted."
+    mark_step_complete 8 "Terraform Apply"
+    return 0
+}
+
+# ==============================================================================
+# Step 9: Deploy GoalDone App
+# ==============================================================================
+
+# Attempts to pull a Docker image from GHCR, falling back to a local build.
+# Arguments: image_name dockerfile_path build_context
+# Returns: 0 on success, 1 on failure
+pull_or_build_image() {
+    local image_name=$1
+    local ghcr_image="ghcr.io/goaldone-dhbw/${image_name}:latest"
+    local dockerfile_path=$2
+    local build_context=$3
+
+    show_info "Pulling ${ghcr_image}..."
+    if docker pull "$ghcr_image" >> "$LOG_FILE" 2>&1; then
+        show_success "Pulled ${ghcr_image}"
+        return 0
+    fi
+
+    show_warning "Pull failed for ${ghcr_image}. Building from source..."
+    # DEPLOY_WORK_DIR is the infra/ directory; repo root is one level up
+    local repo_root="$(dirname "${DEPLOY_WORK_DIR}")"
+    cd "$repo_root" || error_exit "Cannot enter repo root: $repo_root"
+
+    if docker build -t "$ghcr_image" -f "$dockerfile_path" "$build_context" >> "$LOG_FILE" 2>&1; then
+        show_success "Built ${image_name} from source"
+        cd "$DEPLOY_WORK_DIR" || true
+        return 0
+    fi
+
+    cd "$DEPLOY_WORK_DIR" || true
+    show_error "Failed to pull AND build ${image_name}."
+    show_error "Pull log and build log are in deploy.log."
+    show_error "Troubleshooting:"
+    show_error "  1. Check internet connectivity: curl -s https://ghcr.io"
+    show_error "  2. Check Docker disk space: docker system df"
+    show_error "  3. Try manual pull: docker pull ${ghcr_image}"
+    show_error "  4. Try manual build: cd ${repo_root} && docker build -t ${ghcr_image} -f ${dockerfile_path} ${build_context}"
+    return 1
+}
+
+# Writes the application environment file (app.env) with all dynamic values
+# derived from Terraform outputs and user-provided credentials.
+# Uses atomic write (temp file + mv) and chmod 600 for security.
+write_app_env() {
+    local env_file="${DEPLOY_WORK_DIR}/app.env"
+    local temp_file="${env_file}.tmp"
+
+    cat > "$temp_file" <<EOF
+# Generated by deploy.sh at $(date)
+# Backend -- Spring Boot reads these via application.yaml / application-prod.yaml
+SPRING_PROFILES_ACTIVE=prod
+ZITADEL_ISSUER_URI=https://${ZITADEL_DOMAIN}
+ZITADEL_SERVICE_ACCOUNT_TOKEN=${BACKEND_PAT}
+ZITADEL_GOALDONE_PROJECT_ID=${ZITADEL_PROJECT_ID}
+ZITADEL_GOALDONE_ORG_ID=${GOALDONE_ORG_ID}
+SPRING_DATASOURCE_URL=jdbc:postgresql://goaldone-postgres:5432/goaldone
+SPRING_DATASOURCE_USERNAME=goaldone
+SPRING_DATASOURCE_PASSWORD=${GOALDONE_DB_PASSWORD}
+CORS_ALLOWED_ORIGINS=https://${GOALDONE_URL}
+
+# Frontend -- docker-entrypoint.sh substitutes into env.js.template and nginx.conf
+ZITADEL_CLIENT_ID=${APP_CLIENT_ID}
+ZITADEL_ISSUER_URI=https://${ZITADEL_DOMAIN}
+API_BASE_PATH=/api/v1
+BACKEND_HOST=goaldone-backend
+
+# App PostgreSQL
+GOALDONE_DB_PASSWORD=${GOALDONE_DB_PASSWORD}
+
+# Traefik routing (used in docker-compose.app.yml labels)
+GOALDONE_DOMAIN=${GOALDONE_URL}
+EOF
+
+    mv "$temp_file" "$env_file" || error_exit "Failed to write app.env"
+    chmod 600 "$env_file"
+    show_success "Created app.env (permissions: 600)"
+}
+
+# Deploys the GoalDone application stack: prompts for the app DB password,
+# pulls or builds Docker images, writes app.env, starts the docker-compose
+# app stack, and health-checks both backend and frontend containers.
+step_deploy_app() {
+    show_info "Deploying GoalDone application (Step 9)..."
+
+    # Prompt for app database password
+    if [[ -z "${GOALDONE_DB_PASSWORD:-}" ]]; then
+        GOALDONE_DB_PASSWORD=$(prompt_input "GoalDone App Database Password (min 8 chars):" ".{8,}" true) || return 1
+        cache_credential "GOALDONE_DB_PASSWORD" "$GOALDONE_DB_PASSWORD"
+    else
+        show_info "Using cached GOALDONE_DB_PASSWORD."
+    fi
+
+    # Pull or build Docker images (per D-01)
+    show_info "Preparing Docker images..."
+    pull_or_build_image "goaldone-backend" "backend/Dockerfile" "." || error_exit "Failed to prepare backend image" "docker"
+    pull_or_build_image "goaldone-frontend" "frontend/Dockerfile" "." || error_exit "Failed to prepare frontend image" "docker"
+
+    # Write app.env with all dynamic values (per D-04)
+    show_info "Writing app.env..."
+    write_app_env
+
+    # Verify zitadel network exists (app stack depends on it)
+    if ! docker network inspect zitadel >/dev/null 2>&1; then
+        error_exit "Zitadel network not found. The infrastructure stack (docker-compose.yml) must be running before deploying the app." "docker"
+    fi
+
+    # Detect docker compose command (reuse existing pattern)
+    local cmd=()
+    if docker compose version &>/dev/null; then
+        cmd=(docker compose)
+    elif command -v docker-compose &>/dev/null; then
+        cmd=(docker-compose)
+    else
+        error_exit "Docker Compose not found. Install Docker Compose v2 or the standalone docker-compose binary." "docker"
+    fi
+
+    # Start app stack
+    show_info "Starting GoalDone app stack..."
+    "${cmd[@]}" --env-file "${DEPLOY_WORK_DIR}/app.env" -f "${DEPLOY_WORK_DIR}/docker-compose.app.yml" up -d >> "$LOG_FILE" 2>&1 || error_exit "Failed to start app stack. Check deploy.log for details." "docker"
+
+    # Poll backend health via docker inspect (backend is on internal network)
+    # Spring Boot needs 60s start_period + additional time for full initialization
+    show_info "Waiting for backend to become healthy (120s timeout)..."
+    local timeout=120
+    local i=0
+    while [[ $i -lt $timeout ]]; do
+        local container_id
+        container_id=$(docker ps -qf "name=goaldone-app-goaldone-backend" 2>/dev/null || true)
+        if [[ -n "$container_id" ]]; then
+            local health_status
+            health_status=$(docker inspect --format='{{.State.Health.Status}}' "$container_id" 2>/dev/null || echo "unknown")
+            if [[ "$health_status" == "healthy" ]]; then
+                echo "" >&3
+                show_success "Backend is healthy."
+                break
+            fi
+        fi
+
+        if [[ $((i % 10)) -eq 0 && $i -gt 0 ]]; then
+            echo -n " [${i}s]" >&3
+        else
+            echo -n "." >&3
+        fi
+
+        sleep 1
+        i=$((i + 1))
+    done
+
+    if [[ $i -ge $timeout ]]; then
+        echo "" >&3
+        show_error "Backend did not become healthy after ${timeout}s."
+        show_error "Troubleshooting:"
+        show_error "  1. Check backend logs: ${cmd[*]} --env-file ${DEPLOY_WORK_DIR}/app.env -f ${DEPLOY_WORK_DIR}/docker-compose.app.yml logs goaldone-backend"
+        show_error "  2. Check database connection: ${cmd[*]} --env-file ${DEPLOY_WORK_DIR}/app.env -f ${DEPLOY_WORK_DIR}/docker-compose.app.yml logs goaldone-postgres"
+        show_error "  3. Verify BACKEND_PAT is valid: curl -s https://${ZITADEL_DOMAIN}/.well-known/openid-configuration"
+        show_error "  4. Check app.env values: cat ${DEPLOY_WORK_DIR}/app.env"
+        error_exit "App deployment failed: backend unhealthy" "docker"
+    fi
+
+    # Poll frontend health
+    show_info "Waiting for frontend to become healthy (30s timeout)..."
+    timeout=30
+    i=0
+    while [[ $i -lt $timeout ]]; do
+        local container_id
+        container_id=$(docker ps -qf "name=goaldone-app-goaldone-frontend" 2>/dev/null || true)
+        if [[ -n "$container_id" ]]; then
+            local health_status
+            health_status=$(docker inspect --format='{{.State.Health.Status}}' "$container_id" 2>/dev/null || echo "unknown")
+            if [[ "$health_status" == "healthy" ]]; then
+                echo "" >&3
+                show_success "Frontend is healthy."
+                break
+            fi
+        fi
+
+        if [[ $((i % 10)) -eq 0 && $i -gt 0 ]]; then
+            echo -n " [${i}s]" >&3
+        else
+            echo -n "." >&3
+        fi
+
+        sleep 1
+        i=$((i + 1))
+    done
+
+    if [[ $i -ge $timeout ]]; then
+        echo "" >&3
+        show_error "Frontend did not become healthy after ${timeout}s."
+        show_error "Troubleshooting:"
+        show_error "  1. Check frontend logs: ${cmd[*]} --env-file ${DEPLOY_WORK_DIR}/app.env -f ${DEPLOY_WORK_DIR}/docker-compose.app.yml logs goaldone-frontend"
+        show_error "  2. Check backend is reachable: ${cmd[*]} --env-file ${DEPLOY_WORK_DIR}/app.env -f ${DEPLOY_WORK_DIR}/docker-compose.app.yml exec goaldone-frontend curl -s http://goaldone-backend:8080/api/v1/actuator/health"
+        error_exit "App deployment failed: frontend unhealthy" "docker"
+    fi
+
+    show_success "GoalDone app stack is running and healthy."
+    mark_step_complete 9 "Deploy App"
+    return 0
+}
+
+step_output_summary() {
+    show_info "Generating final output summary (Step 10)..."
+
+    local output_file="${DEPLOY_WORK_DIR}/deploy-outputs.txt"
+
+    # Ensure variables are available (they should be in environment, but just in case)
+    local zitadel_domain="${ZITADEL_DOMAIN:-}"
+    local goaldone_url="${GOALDONE_URL:-}"
+    local backend_pat="${BACKEND_PAT:-}"
+    local app_client_id="${APP_CLIENT_ID:-}"
+
+    {
+        echo "=============================================================================="
+        echo "GoalDone Deployment Summary"
+        echo "Generated on: $(date)"
+        echo "=============================================================================="
+        echo ""
+        echo "Application Status: RUNNING"
+        echo ""
+        echo "Access URLs:"
+        echo "  - Zitadel (SSO):       https://${zitadel_domain}"
+        echo "  - GoalDone App:        https://${goaldone_url}"
+        echo "  - Backend Health:      https://${goaldone_url}/api/v1/actuator/health"
+        echo ""
+        echo "Credentials & IDs (also saved in app.env):"
+        echo "  - Backend PAT:         ${backend_pat}"
+        echo "  - OIDC Client ID:      ${app_client_id}"
+        echo "  - Zitadel Project ID:  ${ZITADEL_PROJECT_ID:-}"
+        echo "  - GoalDone Org ID:     ${GOALDONE_ORG_ID:-}"
+        echo ""
+        echo "Configuration Files:"
+        echo "  - Infrastructure:      ${DEPLOY_WORK_DIR}/infra-setup/.env"
+        echo "  - App Environment:     ${DEPLOY_WORK_DIR}/app.env"
+        echo "  - Terraform State:     ${DEPLOY_WORK_DIR}/terraform/terraform.tfstate"
+        echo ""
+        echo "Useful Commands:"
+        echo "  - App logs:            docker compose --env-file ${DEPLOY_WORK_DIR}/app.env -f ${DEPLOY_WORK_DIR}/docker-compose.app.yml logs -f"
+        echo "  - Restart app:         docker compose --env-file ${DEPLOY_WORK_DIR}/app.env -f ${DEPLOY_WORK_DIR}/docker-compose.app.yml restart"
+        echo "  - Stop app:            docker compose --env-file ${DEPLOY_WORK_DIR}/app.env -f ${DEPLOY_WORK_DIR}/docker-compose.app.yml down"
+        echo ""
+        echo "=============================================================================="
+    } | tee "$output_file"
+
+    chmod 600 "$output_file"
+    show_success "Summary generated and saved to $output_file"
+
+    mark_step_complete 10 "Output Summary"
+    return 0
+}
+
+# ==============================================================================
+# Usage and Help
+# ==============================================================================
+usage() {
+    cat <<EOF
+GoalDone Deployment Script
+
+Usage:
+  bash ./deploy.sh [OPTIONS]
+
+Options:
+  --help                Show this help message
+  --reset-state         Delete .deploy-state and .deploy-state.creds (with confirmation)
+  --skip-health-check   Skip Zitadel health check validation after startup
+
+Prerequisites:
+  - Run without sudo (must have docker group membership)
+  - Ubuntu 24.04
+  - Network access
+  - Run install-deps.sh first (with sudo)
+  - Zitadel domain and SMTP credentials ready
+
+State Management:
+  The script maintains .deploy-state file to track progress.
+  Shares state with install-deps.sh.
+EOF
+}
+
+# ==============================================================================
+# Argument Parsing
+# ==============================================================================
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --help)
+            usage
+            exit 0
+            ;;
+        --reset-state)
+            echo -n "Delete .deploy-state and .deploy-state.creds? (yes/no): " >&3
+            read -r response < /dev/tty 2>&3 || response=""
+            if [[ "$response" == "yes" ]]; then
+                reset_state
+                exit 0
+            else
+                echo "Cancelled."
+                exit 0
+            fi
+            ;;
+        --skip-health-check)
+            SKIP_HEALTH_CHECK=true
+            ;;
+        *)
+            show_error "Unknown option: $1"
+            usage
+            exit 1
+            ;;
+    esac
+    shift
+done
+
+# Check if user is root
+# This script should be run without sudo (docker group membership required)
+# Load state first to determine START_STEP before checking root
+ensure_file_accessibility
+load_state
+
+# Calculate START_STEP based on LAST_COMPLETED_STEP
+if [[ $LAST_COMPLETED_STEP -gt 0 ]] && [[ $LAST_COMPLETED_STEP -lt $TOTAL_STEPS ]]; then
+    START_STEP=$((LAST_COMPLETED_STEP + 1))
+else
+    START_STEP=1
+fi
+
+if [[ $UID -eq 0 ]]; then
+    show_error "This script must be run as a regular user, not root."
+    show_error "Docker group setup was completed by install-deps.sh."
+    show_error "Run as: bash ./deploy.sh (NOT: sudo bash ./deploy.sh)"
+    exit 1
+fi
+
+check_prerequisites || exit 1
+
+if ! docker ps >/dev/null 2>&1; then
+    show_error "Cannot access Docker. Docker group membership may not be active."
+    show_error "Log out and log back in, then try again."
+    exit 1
+fi
+
+# ==============================================================================
+# Main Execution Loop
+# ==============================================================================
+main() {
+    # Initialize logging (append mode)
+    exec >> "$LOG_FILE" 2>&1
+
+    show_header "GoalDone Deployment"
+    show_info "Starting GoalDone Deployment Script"
+
+    if [[ -f "$STATE_FILE" ]]; then
+        prompt_recovery_action
+    fi
+
+    show_info "Starting execution from Step $START_STEP to Step $TOTAL_STEPS..."
+    echo "" >&3
+
+    for step in $(seq "$START_STEP" "$TOTAL_STEPS"); do
+        local step_start_time=$(date +%s)
+        case $step in
+            1)
+                show_header "Step 1: Clone Repository"
+                step_clone_repository
+                ;;
+            2)
+                show_header "Step 2: Setup .env"
+                step_setup_env
+                ;;
+            3)
+                show_header "Step 3: Docker Compose"
+                step_docker_compose_up
+                ;;
+            4)
+                show_header "Step 4: Extract Token"
+                step_extract_token
+                ;;
+            5)
+                show_header "Step 5: Create .tfvars"
+                step_create_tfvars
+                ;;
+            6)
+                show_header "Step 6: Terraform Init"
+                step_terraform_init
+                ;;
+            7)
+                show_header "Step 7: Terraform Plan"
+                step_terraform_plan
+                ;;
+            8)
+                show_header "Step 8: Terraform Apply"
+                step_terraform_apply
+                ;;
+            9)
+                show_header "Step 9: Deploy App"
+                step_deploy_app
+                ;;
+            10)
+                show_header "Step 10: Output Summary"
+                step_output_summary
+                ;;
+        esac
+        show_info "Step $step completed in $(get_duration $step_start_time)"
+    done
+
+    show_header "Deployment Complete"
+    show_success "All steps completed successfully in $(get_duration $SCRIPT_START_TIME)!"
+    show_info "Total execution time: $(get_duration $SCRIPT_START_TIME)"
+}
+
+# Start script
+main
