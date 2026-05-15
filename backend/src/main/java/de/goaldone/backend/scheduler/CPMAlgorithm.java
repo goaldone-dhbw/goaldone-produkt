@@ -24,14 +24,15 @@ public class CPMAlgorithm {
 
     private static final int DEFAULT_AUTO_BREAK_DURATION = 15;
     private static final String AUTOMATED_BREAK_TITLE = "Automatische Pause";
-    private ArrayList<TimeSlot> tempAvailableTimeSlots;
+    private final int MAX_BUFFER = 15;
 
+    private ArrayList<TimeSlot> tempAvailableTimeSlots;
     private UnscheduledTask.ReasonEnum unscheduledReason;
-    private final int maxBuffer = 15;
+
     private final Chunker chunker = new Chunker();
     private final TaskSorter taskSorter = new TaskSorter();
 
-    private record TimeSlotUpdate(TimeSlot occupiedSlot, TimeSlot breakSlot) {
+    private record TimeSlotTuple(TimeSlot occupiedSlot, TimeSlot breakSlot) {
     }
 
     /**
@@ -120,14 +121,14 @@ public class CPMAlgorithm {
         if (suitableSlot.isPresent()) {
             TimeSlot slot = suitableSlot.get();
 
-            TimeSlotUpdate timeSlotUpdate = updateTimeSlots(slot, chunk, additionalBreakMinutes);
+            TimeSlotTuple timeSlotTuple = updateTimeSlots(slot, chunk, additionalBreakMinutes);
             List<ScheduledChunk> scheduledChunks = new ArrayList<>();
-            scheduledChunks.add(new ScheduledChunk(chunk, timeSlotUpdate.occupiedSlot()));
+            scheduledChunks.add(new ScheduledChunk(chunk, timeSlotTuple.occupiedSlot()));
 
-            if (timeSlotUpdate.breakSlot() != null) {
+            if (timeSlotTuple.breakSlot() != null) {
                 scheduledChunks.add(new ScheduledChunk(
-                        createAutomatedBreakChunk(timeSlotUpdate.breakSlot(), task.getId()),
-                        timeSlotUpdate.breakSlot()
+                        createAutomatedBreakChunk(timeSlotTuple.breakSlot(), task.getId()),
+                        timeSlotTuple.breakSlot()
                 ));
             }
 
@@ -157,7 +158,7 @@ public class CPMAlgorithm {
             // Only split if remainder is at least 15 minutes
             int remainder = remainingMinutes - usableMinutes;
 
-            if (remainder > 0 && remainder < this.maxBuffer) {
+            if (remainder > 0 && remainder <= this.MAX_BUFFER) {
                 usableMinutes = remainingMinutes;
             }
 
@@ -188,11 +189,11 @@ public class CPMAlgorithm {
             remainingMinutes -= usableMinutes;
 
             int partialBreakMinutes = remainingMinutes == 0 ? additionalBreakMinutes : 0;
-            TimeSlotUpdate timeSlotUpdate = updateTimeSlots(slot, partialChunk, partialBreakMinutes);
-            if (timeSlotUpdate.breakSlot() != null) {
+            TimeSlotTuple timeSlotTuple = updateTimeSlots(slot, partialChunk, partialBreakMinutes);
+            if (timeSlotTuple.breakSlot() != null) {
                 result.add(new ScheduledChunk(
-                        createAutomatedBreakChunk(timeSlotUpdate.breakSlot(), task.getId()),
-                        timeSlotUpdate.breakSlot()
+                        createAutomatedBreakChunk(timeSlotTuple.breakSlot(), task.getId()),
+                        timeSlotTuple.breakSlot()
                 ));
             }
         }
@@ -264,7 +265,7 @@ public class CPMAlgorithm {
 
         int totalMinAvailable = slotsBetween.stream().mapToInt(TimeSlot::durationMinutes).sum();
 
-        if (totalMinAvailable + this.maxBuffer-1 < chunk.durationMinutes()) {
+        if (totalMinAvailable + this.MAX_BUFFER < chunk.durationMinutes()) {
 
             // Not enough time left. Find reason
             int totalMinAfterNotBefore = slotsAfterNotBefore.stream().mapToInt(TimeSlot::durationMinutes).sum();
@@ -355,9 +356,9 @@ public class CPMAlgorithm {
      * existing slots if the chunk occupies only part of a slot.
      * @param target The time slot we want to remove from the available slots
      * @param chunk The chunk which occupies the target time slot
-     * @return The occupied work slot and, if generated, the automatic break slot directly afterwards
+     * @return The occupied work slot and, if generated, the automatic break slot directly afterward
      */
-    private TimeSlotUpdate updateTimeSlots(TimeSlot target, TaskChunk chunk, int additionalBreakTime) {
+    private TimeSlotTuple updateTimeSlots(TimeSlot target, TaskChunk chunk, int additionalBreakTime) {
 
         if (target == null || chunk == null) {
             throw new IllegalArgumentException("There was a problem in updating the available time slots");
@@ -374,7 +375,7 @@ public class CPMAlgorithm {
         //  1. Slot for chunk
         //  2. Slot for automated break;
         //  3. Rest of time slot
-        if (target.durationMinutes() > chunk.durationMinutes() + additionalBreakTime + this.maxBuffer) {
+        if (target.durationMinutes() >= chunk.durationMinutes() + additionalBreakTime + this.MAX_BUFFER) {
             TimeSlot automatedBreakSlot = additionalBreakTime > 0
                     ? new TimeSlot(
                             target.date(),
@@ -390,25 +391,25 @@ public class CPMAlgorithm {
 
             this.tempAvailableTimeSlots.remove(target);
             this.tempAvailableTimeSlots.add(newTimeSlot);
-            return new TimeSlotUpdate(occupiedSlot, automatedBreakSlot);
+            return new TimeSlotTuple(occupiedSlot, automatedBreakSlot);
         }
         // Case 2: TimeSlot is only lightly bigger than the chunk
         // -> split it into two separate slots
         // 1. Slot for chunk
         // 2. Slot for small break
-        else if (target.durationMinutes() > chunk.durationMinutes() + this.maxBuffer) {
+        else if (target.durationMinutes() >= chunk.durationMinutes() + this.MAX_BUFFER) {
             this.tempAvailableTimeSlots.remove(target);
 
             TimeSlot automatedBreakSlot = additionalBreakTime > 0
                     ? new TimeSlot(target.date(), occupiedSlot.endTime(), target.endTime())
                     : null;
-            return new TimeSlotUpdate(occupiedSlot, automatedBreakSlot);
+            return new TimeSlotTuple(occupiedSlot, automatedBreakSlot);
         }
         // Case 3: Time slot duration is equal to chunk duration
         // -> Fill timeslot
         else {
             this.tempAvailableTimeSlots.remove(target);
-            return new TimeSlotUpdate(occupiedSlot, null);
+            return new TimeSlotTuple(occupiedSlot, null);
         }
     }
 
