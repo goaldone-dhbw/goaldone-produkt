@@ -141,7 +141,7 @@ public class PillarMove extends Move {
     }
 
     private boolean isValidTargetSlot(TimeSlot targetSlot, ScheduledChunk chunk) {
-        if (targetSlot.durationMinutes() < chunk.chunk().durationMinutes()) {
+        if (targetSlot.getSlotDuration() < chunk.chunk().durationMinutes()) {
             return false;
         }
 
