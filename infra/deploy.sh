@@ -169,14 +169,23 @@ prompt_input() {
 
         # Ensure we're reading from the terminal, not a pipe
         if [[ "$is_hidden" == "true" ]]; then
-            # Use read -s for hidden input from terminal
             echo -n -e "$(get_timestamp) ${BLUE}⏳ $prompt_text ${NC}" >&3
-            read -rs input < /dev/tty 2>&3 || {
-                echo "[$(get_timestamp)] ERROR: Failed to read hidden input from /dev/tty" >> "$LOG_FILE"
-                show_error "Failed to read input"
-                return 1
-            }
-            echo "" >&3 # Add newline after hidden input
+            input=""
+            local char
+            while IFS= read -rsn1 char < /dev/tty; do
+                if [[ $char == $'\0' || $char == $'\n' ]]; then
+                    break
+                elif [[ $char == $'\177' || $char == $'\b' ]]; then
+                    if [[ -n "$input" ]]; then
+                        input="${input%?}"
+                        printf '\b \b' >&3
+                    fi
+                else
+                    input+="$char"
+                    printf '*' >&3
+                fi
+            done
+            echo "" >&3
         else
             echo -n -e "$(get_timestamp) ${BLUE}⏳ $prompt_text ${NC}" >&3
             read -r input < /dev/tty 2>&3 || {
