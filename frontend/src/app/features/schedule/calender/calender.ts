@@ -1,4 +1,12 @@
-import { ChangeDetectionStrategy, Component, computed, inject, input, output, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  inject,
+  input,
+  output,
+  signal,
+} from '@angular/core';
 import { FullCalendarModule } from '@fullcalendar/angular';
 import { CalendarOptions, DatesSetArg, EventClickArg, EventInput } from '@fullcalendar/core';
 import deLocale from '@fullcalendar/core/locales/de';
@@ -6,8 +14,18 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import { firstValueFrom } from 'rxjs';
-import { ScheduleEntry, TaskAccountListResponse, TaskResponse, TasksService, TaskStatus } from '../../../api';
-import { TaskEditDialogComponent, TaskItem } from '../../../shared/task-edit-dialog/task-edit-dialog.component';
+
+import {
+  ScheduleEntry,
+  TaskAccountListResponse,
+  TaskResponse,
+  TasksService,
+  TaskStatus,
+} from '../../../api';
+import {
+  TaskEditDialogComponent,
+  TaskItem,
+} from '../../../shared/task-edit-dialog/task-edit-dialog.component';
 
 import type { ScheduleWorkingTime } from '../facade/facade';
 
@@ -32,6 +50,17 @@ type CalendarDayName =
 
 const SLOT_MIN_TIME = '06:00:00';
 const SLOT_MAX_TIME = '22:00:00';
+
+const DEFAULT_WORKING_TIME_START = '08:00:00';
+const DEFAULT_WORKING_TIME_END = '17:00:00';
+
+const DEFAULT_WORKING_DAYS = new Set<CalendarDayName>([
+  'MONDAY',
+  'TUESDAY',
+  'WEDNESDAY',
+  'THURSDAY',
+  'FRIDAY',
+]);
 
 const DAY_ORDER: CalendarDayName[] = [
   'SUNDAY',
@@ -199,6 +228,7 @@ export class CalenderComponent {
       },
     };
   }
+
   private findTaskById(
     accountLists: TaskAccountListResponse[],
     taskId: string,
@@ -293,7 +323,6 @@ export class CalenderComponent {
 
     const fallback = entry.type === 'TASK' ? 'Unbenannte Aufgabe' : 'Termin';
 
-
     const chunkIndex = entry.chunkIndex;
     const totalChunks = entry.totalChunks;
 
@@ -305,7 +334,7 @@ export class CalenderComponent {
       totalChunks !== undefined &&
       totalChunks > 1
     ) {
-      return `${title} (${chunkIndex + 1}/${totalChunks})`;
+      return `${title || fallback} (${chunkIndex + 1}/${totalChunks})`;
     }
 
     return title || fallback;
@@ -339,18 +368,18 @@ export class CalenderComponent {
     const rawEntry = entry as any;
 
     return (
-      rawEntry.originalItemId ??
-      rawEntry.taskId ??
-      rawEntry.originalTaskId ??
-      entry.entryId ??
-      ''
+      rawEntry.originalItemId ?? rawEntry.taskId ?? rawEntry.originalTaskId ?? entry.entryId ?? ''
     );
   }
 
   private getTaskStatus(entry: ScheduleEntry): TaskStatus {
     const rawEntry = entry as any;
 
-    if (rawEntry.status === 'OPEN' || rawEntry.status === 'IN_PROGRESS' || rawEntry.status === 'DONE') {
+    if (
+      rawEntry.status === 'OPEN' ||
+      rawEntry.status === 'IN_PROGRESS' ||
+      rawEntry.status === 'DONE'
+    ) {
       return rawEntry.status;
     }
 
@@ -400,8 +429,8 @@ export class CalenderComponent {
       return 0;
     }
 
-    const start = new Date(`${entry.occurrenceDate}T${entry.startTime}`);
-    const end = new Date(`${entry.occurrenceDate}T${entry.endTime}`);
+    const start = new Date(`${entry.occurrenceDate}T${this.normalizeTime(entry.startTime)}`);
+    const end = new Date(`${entry.occurrenceDate}T${this.normalizeTime(entry.endTime)}`);
 
     if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
       return 0;
@@ -423,13 +452,23 @@ export class CalenderComponent {
       return ['schedule-event--completed'];
     }
 
+    if (entry.isPinned) {
+      return ['schedule-event--pinned'];
+    }
+
     return ['schedule-event--task'];
   }
 
   private getWorkingIntervalsForDate(date: string): TimeInterval[] {
+    const configuredWorkingTimes = this.workingTimes();
+
+    if (configuredWorkingTimes.length === 0) {
+      return this.getDefaultWorkingIntervalsForDate(date);
+    }
+
     const dayName = this.getDayName(date);
 
-    const intervals = this.workingTimes()
+    const intervals = configuredWorkingTimes
       .filter((workingTime) => this.workingTimeContainsDay(workingTime, dayName))
       .map((workingTime): TimeInterval => {
         return {
@@ -448,6 +487,31 @@ export class CalenderComponent {
       .sort((a, b) => a.start - b.start);
 
     return this.mergeIntervals(intervals);
+  }
+
+  private getDefaultWorkingIntervalsForDate(date: string): TimeInterval[] {
+    const dayName = this.getDayName(date);
+
+    if (!DEFAULT_WORKING_DAYS.has(dayName)) {
+      return [];
+    }
+
+    const interval: TimeInterval = {
+      start: Math.max(
+        this.timeToMinutes(DEFAULT_WORKING_TIME_START),
+        this.timeToMinutes(SLOT_MIN_TIME),
+      ),
+      end: Math.min(
+        this.timeToMinutes(DEFAULT_WORKING_TIME_END),
+        this.timeToMinutes(SLOT_MAX_TIME),
+      ),
+    };
+
+    if (interval.end <= interval.start) {
+      return [];
+    }
+
+    return [interval];
   }
 
   private workingTimeContainsDay(
