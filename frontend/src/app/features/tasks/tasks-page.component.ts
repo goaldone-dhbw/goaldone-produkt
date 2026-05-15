@@ -138,7 +138,7 @@ export class TasksPageComponent {
     return 'Es sind noch keine Aufgaben vorhanden.';
   }
 
-  private hasActiveFilters(): boolean {
+  hasActiveFilters(): boolean {
     return (
       this.filters.status !== null ||
       this.filters.difficulty !== null ||

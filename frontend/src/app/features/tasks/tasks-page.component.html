@@ -105,13 +105,15 @@
           </ng-template>
         </p-select>
 
-        <button
-          pButton
-          type="button"
-          label="Filter zurücksetzen"
-          icon="pi pi-refresh"
-          (click)="resetFilters()">
-        </button>
+        @if (hasActiveFilters()) {
+          <button
+            pButton
+            type="button"
+            label="Filter zurücksetzen"
+            icon="pi pi-refresh"
+            (click)="resetFilters()">
+          </button>
+        }
       </div>
     </div>
 
