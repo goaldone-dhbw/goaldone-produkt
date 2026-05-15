@@ -208,7 +208,7 @@ public class ScheduleService {
      * @param fromDate Start date for calculating available slots
      * @return Available timeslots for multiple days starting from fromDate
      */
-    private List<TimeSlot> getAvailableTimeSlots(List<Appointment> allAppointments, List<WorkingTimeEntity> workingTimes, LocalDate fromDate) {
+    public List<TimeSlot> getAvailableTimeSlots(List<Appointment> allAppointments, List<WorkingTimeEntity> workingTimes, LocalDate fromDate) {
 
         int nWeeks = getNWeeksAhead(fromDate, allAppointments);
 
@@ -328,7 +328,7 @@ public class ScheduleService {
         LocalDate lastDate =  appointmentsWithDate.getLast().getDate();
         int weeksBetween = (int) ChronoUnit.WEEKS.between(fromDate, lastDate) + 1;
 
-        return Math.min(4, weeksBetween);
+        return Math.max(weeksBetween, 4);
     }
 
     /**
