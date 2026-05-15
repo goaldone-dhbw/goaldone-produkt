@@ -14,7 +14,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.time.OffsetDateTime;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -97,10 +97,26 @@ public class TasksController implements TasksApi {
         return ResponseEntity.ok(updatedTask);
     }
 
+    /**
+     * Retrieves tasks filtered and sorted.
+     *
+     * @param status The {@link TaskStatus} to filter by.
+     * @param cognitiveLoad The {@link CognitiveLoad} to filter by.
+     * @param deadlineFrom The start of the deadline range (ISO 8601 string).
+     * @param deadlineTo The end of the deadline range (ISO 8601 string).
+     * @param minDuration The minimum estimated duration.
+     * @param maxDuration The maximum estimated duration.
+     * @param sortBy The property to sort by.
+     * @param sortDirection The sort direction (asc or desc).
+     * @param searchTerm The term to search for in title and description.
+     * @return A ResponseEntity containing a list of matching {@link TaskResponse} objects.
+     */
     @Override
-    public ResponseEntity<List<TaskResponse>> getTasks(TaskStatus status, CognitiveLoad cognitiveLoad, OffsetDateTime deadlineFrom, OffsetDateTime deadlineTo, Integer minDuration, Integer maxDuration, String sortBy, String sortDirection) {
+    public ResponseEntity<List<TaskResponse>> getTasks(TaskStatus status, CognitiveLoad cognitiveLoad, String deadlineFrom, String deadlineTo, Integer minDuration, Integer maxDuration, String sortBy, String sortDirection, String searchTerm) {
         Jwt jwt = currentUserResolver.extractJwt();
-        List<TaskResponse> tasks = tasksService.getTasks(jwt, status, cognitiveLoad, deadlineFrom, deadlineTo, minDuration, maxDuration, sortBy, sortDirection);
+        LocalDateTime from = deadlineFrom != null ? LocalDateTime.parse(deadlineFrom) : null;
+        LocalDateTime to = deadlineTo != null ? LocalDateTime.parse(deadlineTo) : null;
+        List<TaskResponse> tasks = tasksService.getTasks(jwt, status, cognitiveLoad, from, to, minDuration, maxDuration, sortBy, sortDirection, searchTerm);
         return ResponseEntity.ok(tasks);
     }
 }

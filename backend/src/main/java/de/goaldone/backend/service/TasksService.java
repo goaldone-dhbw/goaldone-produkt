@@ -21,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
@@ -127,12 +128,28 @@ public class TasksService {
 
     /**
      * Retrieves tasks filtered and sorted.
+     *
+     * @param jwt The {@link Jwt} of the authenticated user.
+     * @param status The {@link TaskStatus} to filter by.
+     * @param cognitiveLoad The {@link CognitiveLoad} to filter by.
+     * @param deadlineFrom The start of the deadline range.
+     * @param deadlineTo The end of the deadline range.
+     * @param minDuration The minimum estimated duration in minutes.
+     * @param maxDuration The maximum estimated duration in minutes.
+     * @param sortBy The property to sort by (e.g. "deadline", "duration").
+     * @param sortDirection The sort direction ("asc" or "desc").
+     * @param searchTerm The search term to match against task title and description.
+     * @return A list of matching {@link TaskResponse} objects.
      */
     @Transactional(readOnly = true)
     public List<TaskResponse> getTasks(Jwt jwt, TaskStatus status, CognitiveLoad cognitiveLoad,
-                                       OffsetDateTime deadlineFrom, OffsetDateTime deadlineTo,
+                                       LocalDateTime deadlineFrom, LocalDateTime deadlineTo,
                                        Integer minDuration, Integer maxDuration,
-                                       String sortBy, String sortDirection) {
+                                       String sortBy, String sortDirection, String searchTerm) {
+
+        if (deadlineFrom != null && deadlineTo != null && deadlineFrom.isAfter(deadlineTo)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Das Startdatum muss vor oder gleich dem Enddatum liegen");
+        }
 
         List<UUID> accountIds = userIdentityService.accountIdsForUser(jwt);
         if (accountIds.isEmpty()) {
@@ -154,16 +171,22 @@ public class TasksService {
                 predicates.add(cb.equal(root.get("cognitiveLoad"), cognitiveLoad));
             }
             if (deadlineFrom != null) {
-                predicates.add(cb.greaterThanOrEqualTo(root.get("deadline"), deadlineFrom.toInstant()));
+                predicates.add(cb.greaterThanOrEqualTo(root.get("deadline"), deadlineFrom.toInstant(ZoneOffset.UTC)));
             }
             if (deadlineTo != null) {
-                predicates.add(cb.lessThanOrEqualTo(root.get("deadline"), deadlineTo.toInstant()));
+                predicates.add(cb.lessThanOrEqualTo(root.get("deadline"), deadlineTo.toInstant(ZoneOffset.UTC)));
             }
             if (minDuration != null) {
                 predicates.add(cb.greaterThanOrEqualTo(root.get("duration"), minDuration));
             }
             if (maxDuration != null) {
                 predicates.add(cb.lessThanOrEqualTo(root.get("duration"), maxDuration));
+            }
+            if (searchTerm != null && !searchTerm.isBlank()) {
+                String pattern = "%" + searchTerm.toLowerCase() + "%";
+                Predicate titleLike = cb.like(cb.lower(root.get("title")), pattern);
+                Predicate descLike = cb.like(cb.lower(root.get("description")), pattern);
+                predicates.add(cb.or(titleLike, descLike));
             }
 
             query.distinct(true);
@@ -416,6 +439,7 @@ public class TasksService {
 
         return new TaskResponse()
                 .id(entity.getId())
+                .accountId(entity.getAccountId())
                 .title(entity.getTitle())
                 .description(entity.getDescription())
                 .duration(entity.getDuration())

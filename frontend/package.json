@@ -1,13 +1,13 @@
 {
   "name": "frontend",
-  "version": "0.3.13",
+  "version": "0.3.18",
   "scripts": {
     "ng": "ng",
     "setup-env": "node scripts/setup-env.js",
     "start": "npm run generate-api && ng serve",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
-    "test": "ng test",
+    "test": "ng test --watch=false",
     "generate-api": "openapi-generator-cli generate -i ../api-spec/openapi.yaml -g typescript-angular -o src/app/api --additional-properties=ngVersion=21,supportsES6=true,withInterfaces=true",
     "test:ci": "ng test --watch=false --reporters=junit --output-file=junit.xml"
   },

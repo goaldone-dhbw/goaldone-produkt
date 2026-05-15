@@ -1031,13 +1031,11 @@ paths:
           required: false
           schema:
             type: string
-            format: date-time
         - name: deadlineTo
           in: query
           required: false
           schema:
             type: string
-            format: date-time
         - name: minDuration
           in: query
           required: false
@@ -1054,6 +1052,14 @@ paths:
           schema:
             type: string
         - name: sortDirection
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - asc
+              - desc
+        - name: searchTerm
           in: query
           required: false
           schema:
@@ -1254,6 +1260,9 @@ components:
       type: object
       properties:
         id:
+          type: string
+          format: uuid
+        accountId:
           type: string
           format: uuid
         title:

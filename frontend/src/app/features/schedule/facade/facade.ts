@@ -3,6 +3,7 @@ import { computed, inject, Injectable, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
 import {
+  AppointmentsService,
   GenerateScheduleRequest,
   MultiAccountScheduleResponse,
   ScheduleEntry,
@@ -29,15 +30,67 @@ export type ScheduleWorkingTime = {
   conflicting: boolean;
 };
 
+type CalendarDayName =
+  | 'SUNDAY'
+  | 'MONDAY'
+  | 'TUESDAY'
+  | 'WEDNESDAY'
+  | 'THURSDAY'
+  | 'FRIDAY'
+  | 'SATURDAY';
+
+const DAY_TOKEN_MAP: Record<string, CalendarDayName> = {
+  SUNDAY: 'SUNDAY',
+  SUN: 'SUNDAY',
+  SU: 'SUNDAY',
+  SO: 'SUNDAY',
+  SONNTAG: 'SUNDAY',
+
+  MONDAY: 'MONDAY',
+  MON: 'MONDAY',
+  MO: 'MONDAY',
+  MONTAG: 'MONDAY',
+
+  TUESDAY: 'TUESDAY',
+  TUE: 'TUESDAY',
+  TU: 'TUESDAY',
+  DI: 'TUESDAY',
+  DIENSTAG: 'TUESDAY',
+
+  WEDNESDAY: 'WEDNESDAY',
+  WED: 'WEDNESDAY',
+  WE: 'WEDNESDAY',
+  MI: 'WEDNESDAY',
+  MITTWOCH: 'WEDNESDAY',
+
+  THURSDAY: 'THURSDAY',
+  THU: 'THURSDAY',
+  TH: 'THURSDAY',
+  DO: 'THURSDAY',
+  DONNERSTAG: 'THURSDAY',
+
+  FRIDAY: 'FRIDAY',
+  FRI: 'FRIDAY',
+  FR: 'FRIDAY',
+  FREITAG: 'FRIDAY',
+
+  SATURDAY: 'SATURDAY',
+  SAT: 'SATURDAY',
+  SA: 'SATURDAY',
+  SAMSTAG: 'SATURDAY',
+};
+
 @Injectable({
   providedIn: 'root',
 })
 export class ScheduleFacadeService {
   private readonly schedulesService = inject(SchedulesService);
   private readonly userAccountsService = inject(UserAccountsService);
+  private readonly workingTimesService = inject(WorkingTimesService);
+  private readonly appointmentsService = inject(AppointmentsService);
+
   private readonly ALL_ACCOUNTS_ID = 'ALL';
   private readonly STORAGE_KEY = 'lastScheduleEntries';
-  private readonly workingTimesService = inject(WorkingTimesService);
 
   readonly accounts = signal<AccountOption[]>([]);
   readonly selectedAccountId = signal<string>(this.ALL_ACCOUNTS_ID);
@@ -158,7 +211,6 @@ export class ScheduleFacadeService {
   async loadSchedule(from: string, to: string): Promise<void> {
     this.lastRange.set({ from, to });
 
-    // Wenn gerade generiert wurde, diesen Load überspringen
     if (this.skipNextLoad()) {
       this.skipNextLoad.set(false);
       return;
@@ -173,13 +225,13 @@ export class ScheduleFacadeService {
 
     if (!this.canLoadExistingSchedule()) {
       if (existingResponse) {
-        this.applyScheduleResponse(existingResponse);
+        const appointmentEntries = await this.loadAppointmentEntries(accountId);
+        this.applyScheduleResponse(existingResponse, appointmentEntries);
       }
     }
 
     if (accountId !== this.ALL_ACCOUNTS_ID && !this.canLoadExistingSchedule()) return;
 
-    // Ladeindikator nur zeigen wenn noch nichts angezeigt wird
     if (!this.hasSchedule()) {
       this.isLoadingSchedule.set(true);
     }
@@ -190,9 +242,13 @@ export class ScheduleFacadeService {
       const response =
         accountId === this.ALL_ACCOUNTS_ID
           ? await firstValueFrom(this.schedulesService.getAllAccountsSchedule(from, to))
-          : await firstValueFrom(this.schedulesService.getSingleAccountSchedule(accountId, from, to));
+          : await firstValueFrom(
+              this.schedulesService.getSingleAccountSchedule(accountId, from, to),
+            );
 
-      this.applyScheduleResponse(response);
+      const appointmentEntries = await this.loadAppointmentEntries(accountId);
+
+      this.applyScheduleResponse(response, appointmentEntries);
       this.infoMessage.set('');
     } catch (error) {
       if (error instanceof HttpErrorResponse && error.status === 501) {
@@ -201,9 +257,13 @@ export class ScheduleFacadeService {
         }
 
         const fallbackResponse = this.scheduleResponse();
+        const appointmentEntries = await this.loadAppointmentEntries(accountId);
 
         if (fallbackResponse) {
-          this.applyScheduleResponse(fallbackResponse);
+          this.applyScheduleResponse(fallbackResponse, appointmentEntries);
+        } else if (appointmentEntries.length > 0) {
+          this.scheduleEntries.set(appointmentEntries);
+          this.saveToCache(appointmentEntries);
         }
 
         if (!this.hasSchedule()) {
@@ -217,7 +277,6 @@ export class ScheduleFacadeService {
         return;
       }
 
-      // Einträge nicht löschen wenn wir bereits etwas anzeigen (z.B. aus Cache)
       if (!this.hasSchedule()) {
         this.scheduleResponse.set(null);
         this.scheduleEntries.set([]);
@@ -254,16 +313,20 @@ export class ScheduleFacadeService {
       const response =
         accountId === this.ALL_ACCOUNTS_ID
           ? await firstValueFrom(this.schedulesService.generateAllAccountsSchedule(request))
-          : await firstValueFrom(this.schedulesService.generateSingleAccountSchedule(accountId, request));
+          : await firstValueFrom(
+              this.schedulesService.generateSingleAccountSchedule(accountId, request),
+            );
 
-      this.applyScheduleResponse(response);
+      const appointmentEntries = await this.loadAppointmentEntries(accountId);
 
-      // Verhindert dass rangeChanged-Event danach die Daten überschreibt
+      this.applyScheduleResponse(response, appointmentEntries);
+
       this.skipNextLoad.set(true);
 
       if (
         ((response as any).entries?.length ?? 0) > 0 ||
         ((response as any).appointments?.length ?? 0) > 0 ||
+        appointmentEntries.length > 0 ||
         (response as any).schedules?.some(
           (schedule: any) =>
             (schedule.appointments?.length ?? 0) > 0 || (schedule.entries?.length ?? 0) > 0,
@@ -297,18 +360,33 @@ export class ScheduleFacadeService {
     );
   }
 
-  private applyScheduleResponse(response: ScheduleResponse | MultiAccountScheduleResponse): void {
+  private applyScheduleResponse(
+    response: ScheduleResponse | MultiAccountScheduleResponse,
+    externalAppointmentEntries: ScheduleEntry[] = [],
+  ): void {
     if (Array.isArray((response as MultiAccountScheduleResponse).schedules)) {
       const multiResponse = response as MultiAccountScheduleResponse;
 
-      const mergedEntries = multiResponse.schedules.flatMap((schedule) => schedule.entries ?? []);
+      const rawEntries = multiResponse.schedules.flatMap((schedule) => schedule.entries ?? []);
+
+      const responseAppointments = multiResponse.schedules.flatMap(
+        (schedule) => schedule.appointments ?? [],
+      );
+
+      const responseAppointmentEntries =
+        this.mapAppointmentsToScheduleEntries(responseAppointments);
+
+      const mergedEntries = this.sortScheduleEntries(
+        this.deduplicateScheduleEntries([
+          ...rawEntries,
+          ...responseAppointmentEntries,
+          ...externalAppointmentEntries,
+        ]),
+      );
+
       const mergedWarnings = multiResponse.schedules.flatMap((schedule) => schedule.warnings ?? []);
       const mergedUnscheduledTasks = multiResponse.schedules.flatMap(
         (schedule) => schedule.unscheduledTasks ?? [],
-      );
-
-      const mergedAppointments = multiResponse.schedules.flatMap(
-        (schedule) => schedule.appointments ?? [],
       );
 
       const firstSchedule = multiResponse.schedules[0];
@@ -327,7 +405,7 @@ export class ScheduleFacadeService {
         warnings: mergedWarnings,
         entries: mergedEntries,
         unscheduledTasks: mergedUnscheduledTasks,
-        appointments: mergedAppointments,
+        appointments: responseAppointments,
       };
 
       this.scheduleResponse.set(mergedResponse);
@@ -338,8 +416,25 @@ export class ScheduleFacadeService {
 
     const singleResponse = response as ScheduleResponse;
 
-    const entries = singleResponse.entries ?? [];
-    this.scheduleResponse.set(singleResponse);
+    const rawEntries = singleResponse.entries ?? [];
+    const responseAppointmentEntries = this.mapAppointmentsToScheduleEntries(
+      (singleResponse as any).appointments ?? [],
+    );
+
+    const entries = this.sortScheduleEntries(
+      this.deduplicateScheduleEntries([
+        ...rawEntries,
+        ...responseAppointmentEntries,
+        ...externalAppointmentEntries,
+      ]),
+    );
+
+    const normalizedResponse: ScheduleResponse = {
+      ...singleResponse,
+      entries,
+    };
+
+    this.scheduleResponse.set(normalizedResponse);
     this.scheduleEntries.set(entries);
     this.saveToCache(entries);
   }
@@ -364,9 +459,87 @@ export class ScheduleFacadeService {
     }
   }
 
+  private async loadAppointmentEntries(accountId: string): Promise<ScheduleEntry[]> {
+    const appointments = await this.loadAppointmentsForSelection(accountId);
+    return this.mapAppointmentsToScheduleEntries(appointments);
+  }
+
+  private async loadAppointmentsForSelection(accountId: string): Promise<any[]> {
+    const accountIds =
+      accountId === this.ALL_ACCOUNTS_ID
+        ? this.accounts()
+            .map((account) => account.id)
+            .filter(Boolean)
+        : [accountId];
+
+    if (accountIds.length === 0) {
+      return [];
+    }
+
+    const results = await Promise.all(
+      accountIds.map(async (currentAccountId) => {
+        try {
+          const response = await firstValueFrom(
+            this.appointmentsService.listAppointments(currentAccountId),
+          );
+
+          return this.extractAppointmentItems(response).map((appointment) => ({
+            ...appointment,
+            accountId: appointment.accountId ?? currentAccountId,
+          }));
+        } catch {
+          return [];
+        }
+      }),
+    );
+
+    return results.flat();
+  }
+
+  private extractAppointmentItems(response: any): any[] {
+    if (Array.isArray(response)) {
+      return response;
+    }
+
+    if (Array.isArray(response?.appointments)) {
+      return response.appointments;
+    }
+
+    if (Array.isArray(response?.items)) {
+      return response.items;
+    }
+
+    if (Array.isArray(response?.data)) {
+      return response.data;
+    }
+
+    return [];
+  }
+
+  private mapAppointmentsToScheduleEntries(appointments: any[]): ScheduleEntry[] {
+    if (!Array.isArray(appointments)) {
+      return [];
+    }
+
+    return appointments.flatMap((appointment) => {
+      if (this.isRecurringAppointment(appointment)) {
+        return this.expandRecurringAppointment(appointment);
+      }
+
+      if (this.isValidAppointmentForCalendar(appointment)) {
+        return [this.mapSingleAppointment(appointment)];
+      }
+
+      return [];
+    });
+  }
+
   private isRecurringAppointment(appointment: any): boolean {
     return Boolean(
-      appointment && appointment.rrule && appointment.startTime && appointment.endTime,
+      appointment &&
+      this.getAppointmentRrule(appointment) &&
+      appointment.startTime &&
+      appointment.endTime,
     );
   }
 
@@ -382,7 +555,7 @@ export class ScheduleFacadeService {
       chunkIndex: null,
       entryId: appointment.id ?? null,
       isBreak: appointment.isBreak === true,
-      occurrenceDate: appointment.date,
+      occurrenceDate: this.getAppointmentDate(appointment),
       originalItemId: appointment.id ?? null,
       totalChunks: null,
     } as ScheduleEntry;
@@ -390,16 +563,24 @@ export class ScheduleFacadeService {
 
   private expandRecurringAppointment(appointment: any): ScheduleEntry[] {
     const range = this.lastRange() ?? this.getCurrentWeekRange();
-    const days = this.parseDaysFromRrule(appointment.rrule);
-    const untilDate = this.parseUntilDateFromRrule(appointment.rrule);
+    const rrule = this.getAppointmentRrule(appointment);
 
-    if (days.length === 0) {
+    if (!rrule) {
+      return [];
+    }
+
+    const recurringDays = this.getRecurringDays(appointment, rrule);
+    const isDaily = this.isDailyRrule(rrule);
+    const untilDate = this.parseUntilDateFromRrule(rrule);
+    const startDate = this.getAppointmentDate(appointment);
+
+    if (recurringDays.length === 0 && !isDaily) {
       return [];
     }
 
     const dates = this.getDatesInRange(range.from, range.to);
 
-    const dayNameMap: Record<number, string> = {
+    const dayNameMap: Record<number, CalendarDayName> = {
       0: 'SUNDAY',
       1: 'MONDAY',
       2: 'TUESDAY',
@@ -411,7 +592,7 @@ export class ScheduleFacadeService {
 
     return dates
       .filter((date) => {
-        if (appointment.date && date < appointment.date) {
+        if (startDate && date < startDate) {
           return false;
         }
 
@@ -419,10 +600,14 @@ export class ScheduleFacadeService {
           return false;
         }
 
+        if (isDaily) {
+          return true;
+        }
+
         const [year, month, day] = date.split('-').map(Number);
         const jsDay = new Date(year, month - 1, day).getDay();
 
-        return days.includes(dayNameMap[jsDay]);
+        return recurringDays.includes(dayNameMap[jsDay]);
       })
       .map(
         (date): ScheduleEntry =>
@@ -435,7 +620,7 @@ export class ScheduleFacadeService {
             isPinned: false,
             originalItemTitle: appointment.title ?? 'Termin',
             chunkIndex: null,
-            entryId: `${appointment.id}-${date}`,
+            entryId: `${appointment.id ?? 'recurring'}-${date}`,
             isBreak: appointment.isBreak === true,
             occurrenceDate: date,
             originalItemId: appointment.id ?? null,
@@ -444,17 +629,95 @@ export class ScheduleFacadeService {
       );
   }
 
-  private parseDaysFromRrule(rrule: string): string[] {
-    const codeToDay: Record<string, string> = {
-      MO: 'MONDAY',
-      TU: 'TUESDAY',
-      WE: 'WEDNESDAY',
-      TH: 'THURSDAY',
-      FR: 'FRIDAY',
-      SA: 'SATURDAY',
-      SU: 'SUNDAY',
-    };
+  private getAppointmentRrule(appointment: any): string | null {
+    const value =
+      appointment?.rrule ??
+      appointment?.rule ??
+      appointment?.recurrenceRule ??
+      appointment?.recurrence;
 
+    if (typeof value !== 'string' || value.trim() === '') {
+      return null;
+    }
+
+    return value.trim();
+  }
+
+  private getRecurringDays(appointment: any, rrule: string): CalendarDayName[] {
+    const daysFromRule = this.parseDaysFromRrule(rrule);
+
+    if (daysFromRule.length > 0) {
+      return daysFromRule;
+    }
+
+    const rawDays =
+      appointment?.days ??
+      appointment?.weekDays ??
+      appointment?.recurrenceDays ??
+      appointment?.dayOfWeek ??
+      [];
+
+    if (Array.isArray(rawDays)) {
+      return rawDays
+        .flatMap((day) => this.normalizeDayValue(String(day)))
+        .filter((day): day is CalendarDayName => Boolean(day));
+    }
+
+    if (typeof rawDays === 'string') {
+      return rawDays
+        .split(',')
+        .map((day) => this.normalizeDayValue(day))
+        .filter((day): day is CalendarDayName => Boolean(day));
+    }
+
+    return [];
+  }
+
+  private normalizeDayValue(value: string): CalendarDayName | null {
+    const normalized = value
+      .trim()
+      .toUpperCase()
+      .replace(/\./g, '')
+      .replace(/\s+/g, '')
+      .replace(/Ä/g, 'AE')
+      .replace(/Ö/g, 'OE')
+      .replace(/Ü/g, 'UE');
+
+    return DAY_TOKEN_MAP[normalized] ?? null;
+  }
+
+  private getAppointmentDate(appointment: any): string {
+    const value =
+      appointment?.date ??
+      appointment?.occurrenceDate ??
+      appointment?.startDate ??
+      appointment?.start;
+
+    if (typeof value !== 'string' || value.trim() === '') {
+      return '';
+    }
+
+    return this.normalizeDateValue(value);
+  }
+
+  private normalizeDateValue(value: string): string {
+    const trimmed = value.trim();
+    const firstTen = trimmed.substring(0, 10);
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(firstTen)) {
+      return firstTen;
+    }
+
+    const compact = trimmed.substring(0, 8);
+
+    if (/^\d{8}$/.test(compact)) {
+      return `${compact.substring(0, 4)}-${compact.substring(4, 6)}-${compact.substring(6, 8)}`;
+    }
+
+    return '';
+  }
+
+  private parseDaysFromRrule(rrule: string): CalendarDayName[] {
     const byDay = rrule
       .toUpperCase()
       .split(';')
@@ -465,8 +728,16 @@ export class ScheduleFacadeService {
 
     return byDay
       .split(',')
-      .map((code) => codeToDay[code])
-      .filter(Boolean);
+      .map((code) => code.trim().slice(-2))
+      .map((code) => this.normalizeDayValue(code))
+      .filter((day): day is CalendarDayName => Boolean(day));
+  }
+
+  private isDailyRrule(rrule: string): boolean {
+    return rrule
+      .toUpperCase()
+      .split(';')
+      .some((part) => part === 'FREQ=DAILY' || part === 'RRULE:FREQ=DAILY');
   }
 
   private getDatesInRange(from: string, to: string): string[] {
@@ -488,16 +759,30 @@ export class ScheduleFacadeService {
   }
 
   private isValidAppointmentForCalendar(appointment: any): boolean {
-    return Boolean(appointment && appointment.date && appointment.startTime && appointment.endTime);
+    return Boolean(
+      appointment &&
+      this.getAppointmentDate(appointment) &&
+      appointment.startTime &&
+      appointment.endTime,
+    );
   }
 
   private deduplicateScheduleEntries(entries: ScheduleEntry[]): ScheduleEntry[] {
     const seen = new Set<string>();
 
     return entries.filter((entry) => {
+      const rawEntry = entry as any;
+
+      const sourceId =
+        entry.originalItemId ??
+        rawEntry.appointmentId ??
+        rawEntry.taskId ??
+        rawEntry.originalTaskId ??
+        entry.entryId ??
+        '';
+
       const key = [
-        entry.entryId ?? '',
-        entry.originalItemId ?? '',
+        sourceId,
         entry.occurrenceDate ?? '',
         entry.startTime ?? '',
         entry.endTime ?? '',
@@ -537,7 +822,11 @@ export class ScheduleFacadeService {
           return false;
         }
 
-        if (accountId !== this.ALL_ACCOUNTS_ID && item.accountId && String(item.accountId) !== accountId) {
+        if (
+          accountId !== this.ALL_ACCOUNTS_ID &&
+          item.accountId &&
+          String(item.accountId) !== accountId
+        ) {
           return false;
         }
 
@@ -633,6 +922,7 @@ export class ScheduleFacadeService {
 
     return error.error?.message || error.error?.detail || error.error?.error || fallback;
   }
+
   private parseUntilDateFromRrule(rrule?: string | null): string {
     if (!rrule) {
       return '';

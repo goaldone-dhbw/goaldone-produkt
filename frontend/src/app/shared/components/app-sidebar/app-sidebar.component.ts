@@ -48,7 +48,7 @@ export class AppSidebarComponent {
         command: closeSidebar,
       },
       {
-        label: 'Aufgaben & Routinen',
+        label: 'Aufgaben',
         icon: 'pi pi-list',
         routerLink: '/app/tasks',
         command: closeSidebar,
