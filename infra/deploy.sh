@@ -624,7 +624,7 @@ prompt_recovery_action() {
 # ==============================================================================
 step_clone_repository() {
     local repo_url="https://github.com/goaldone-dhbw/goaldone-produkt.git"
-    local repo_branch="setup-script"
+    local repo_branch="master"
     local repo_dir="goaldone-produkt"
     
     if [[ -d "$repo_dir" ]]; then

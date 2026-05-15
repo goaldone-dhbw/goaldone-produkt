@@ -5,4 +5,5 @@ resource "zitadel_smtp_config" "default" {
   sender_address = var.smtp_sender_address
   sender_name    = var.smtp_sender_name
   tls            = true
+  set_active     = true
 }
