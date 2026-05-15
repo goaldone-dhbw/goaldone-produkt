@@ -217,7 +217,7 @@ describe('TaskEditDialogComponent', () => {
         dependencyIds: [],
       });
 
-      component.selectDependency('task-2', event);
+      component.toggleDependency('task-2', event);
 
       expect(event.preventDefault).toHaveBeenCalled();
       expect(component.taskForm.getRawValue().dependencyIds).toEqual(['task-2']);
@@ -232,7 +232,7 @@ describe('TaskEditDialogComponent', () => {
         dependencyIds: ['task-2'],
       });
 
-      component.selectDependency('task-2', event);
+      component.toggleDependency('task-2', event);
 
       expect(event.preventDefault).toHaveBeenCalled();
       expect(component.taskForm.getRawValue().dependencyIds).toEqual([]);
@@ -247,7 +247,7 @@ describe('TaskEditDialogComponent', () => {
         dependencyIds: ['task-2'],
       });
 
-      component.selectDependency('task-3', event);
+      component.toggleDependency('task-3', event);
 
       expect(component.taskForm.getRawValue().dependencyIds).toEqual(['task-3']);
       expect(component.isDependencySelected('task-2')).toBe(false);

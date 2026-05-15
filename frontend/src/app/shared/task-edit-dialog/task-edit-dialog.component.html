@@ -202,12 +202,13 @@
             </label>
 
             <div class="grid grid-cols-2 gap-3">
+              <!-- Stunden -->
               <div>
                 <input
                   id="durationHours"
                   type="number"
                   min="0"
-                  max="2147483647"
+                  [max]="maxDurationHours"
                   formControlName="durationHours"
                   class="w-full h-12 rounded-xl border border-slate-300 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
                   placeholder="0"
@@ -215,8 +216,25 @@
                 <p class="mt-1 text-xs text-slate-500">
                   Stunden
                 </p>
+
+                @if (taskForm.get('durationHours')?.hasError('min') && showFieldError('durationHours')) {
+                  <p class="text-sm text-rose-600">
+                    Die Stunden dürfen nicht negativ sein.
+                  </p>
+                }
+
+                @if (
+                  taskForm.get('durationHours')?.hasError('max') &&
+                  showFieldError('durationHours') &&
+                  !hasDurationMinutes()
+                  ) {
+                  <p class="text-sm text-rose-600">
+                    Die Stunden dürfen maximal {{ maxDurationHours }} betragen.
+                  </p>
+                }
               </div>
 
+              <!-- Minuten -->
               <div>
                 <input
                   id="durationMinutes"
@@ -230,12 +248,43 @@
                 <p class="mt-1 text-xs text-slate-500">
                   Minuten
                 </p>
+
+                @if (taskForm.get('durationMinutes')?.hasError('required') && showFieldError('durationMinutes')) {
+                  <p class="text-sm text-rose-600">
+                    Bitte gib eine Minutenzahl ein.
+                  </p>
+                }
+
+                @if (taskForm.get('durationMinutes')?.hasError('min') && showFieldError('durationMinutes')) {
+                  <p class="text-sm text-rose-600">
+                    Die Minuten dürfen nicht negativ sein.
+                  </p>
+                }
+
+                @if (taskForm.get('durationMinutes')?.hasError('max') && showFieldError('durationMinutes')) {
+                  <p class="text-sm text-rose-600">
+                    Die Minuten dürfen maximal 59 sein.
+                  </p>
+                }
               </div>
             </div>
 
-            @if (showFieldError('durationHours') || showFieldError('durationMinutes')) {
+            @if (taskForm.errors?.['durationTooSmall'] && (taskForm.touched || taskForm.dirty)) {
               <p class="text-sm text-rose-600">
-                Bitte gib eine gültige Dauer an. Die Minuten dürfen maximal 59 sein.
+                Die Dauer darf nicht 0 sein.
+              </p>
+            }
+
+            @if (
+              taskForm.errors?.['durationTooLarge'] &&
+              (
+                !taskForm.get('durationHours')?.hasError('max') ||
+                hasDurationMinutes()
+              ) &&
+              (taskForm.touched || taskForm.dirty)
+              ) {
+              <p class="text-sm text-rose-600">
+                Die Dauer darf insgesamt nicht länger als ein Jahr ({{ maxDurationHours }} Stunden) sein.
               </p>
             }
           </div>
@@ -337,22 +386,22 @@
           </div>
         </div>
 
-        <!-- Dependencies radio list -->
+        <!-- Dependencies checkbox list -->
         <div class="space-y-2">
           <label class="block text-sm font-medium text-slate-800">Abhängigkeiten</label>
+
           <div class="min-h-36 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 space-y-2">
             @for (option of availableDependencyOptions(); track option.id) {
               <label
                 class="flex items-center gap-3 cursor-pointer rounded-lg px-2 py-1.5 hover:bg-slate-50 transition"
-                (click)="selectDependency(option.id, $event)"
+                (click)="toggleDependency(option.id, $event)"
               >
                 <input
-                  type="radio"
-                  name="dependencyId"
+                  type="checkbox"
                   [value]="option.id"
                   [checked]="isDependencySelected(option.id)"
                   (click)="$event.preventDefault()"
-                  class="h-4 w-4 border-slate-300 text-pink-600 focus:ring-pink-500"
+                  class="h-4 w-4 rounded border-slate-300 text-pink-600 focus:ring-pink-500"
                 />
                 <span class="text-sm text-slate-900">{{ option.title }}</span>
               </label>
@@ -364,7 +413,7 @@
             }
           </div>
           <p class="text-xs text-slate-500">
-            Wähle eine Aufgabe aus, die vor dieser Aufgabe erledigt sein muss.
+            Wähle eine oder mehrere Aufgaben aus, die vor dieser Aufgabe erledigt sein müssen.
           </p>
         </div>
       </form>
