@@ -380,6 +380,8 @@ SMTP_HOST="${SMTP_HOST:-}"
 SMTP_USER="${SMTP_USER:-}"
 SMTP_PASSWORD="${SMTP_PASSWORD:-}"
 SMTP_SENDER_ADDRESS="${SMTP_SENDER_ADDRESS:-}"
+FIRST_SUPERADMIN_EMAIL="${FIRST_SUPERADMIN_EMAIL:-}"
+FIRST_SUPERADMIN_PASSWORD="${FIRST_SUPERADMIN_PASSWORD:-}"
 EOF
 
     if mv "$temp_creds" "$CREDS_FILE"; then
@@ -1013,6 +1015,13 @@ step_create_tfvars() {
     SMTP_SENDER_ADDRESS=$(prompt_input "SMTP Sender Address (e.g., noreply@example.com):" "^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$") || return 1
     cache_credential "SMTP_SENDER_ADDRESS" "$SMTP_SENDER_ADDRESS"
 
+    # First superadmin user
+    FIRST_SUPERADMIN_EMAIL=$(prompt_input "First Superadmin Email:" "^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$") || return 1
+    cache_credential "FIRST_SUPERADMIN_EMAIL" "$FIRST_SUPERADMIN_EMAIL"
+
+    FIRST_SUPERADMIN_PASSWORD=$(prompt_input "First Superadmin Password (min 8 chars, upper+lower+digit+symbol):" "" true) || return 1
+    cache_credential "FIRST_SUPERADMIN_PASSWORD" "$FIRST_SUPERADMIN_PASSWORD"
+
     # Ensure terraform directory exists
     mkdir -p terraform
 
@@ -1042,6 +1051,8 @@ smtp_host              = $(escape_hcl "${SMTP_HOST}")
 smtp_user              = $(escape_hcl "${SMTP_USER}")
 smtp_password          = $(escape_hcl "${SMTP_PASSWORD}")
 smtp_sender_address    = $(escape_hcl "${SMTP_SENDER_ADDRESS}")
+first_superadmin_email    = $(escape_hcl "${FIRST_SUPERADMIN_EMAIL}")
+first_superadmin_password = $(escape_hcl "${FIRST_SUPERADMIN_PASSWORD}")
 EOF
 
     chmod 600 terraform/terraform.tfvars

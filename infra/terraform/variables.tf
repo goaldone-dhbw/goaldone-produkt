@@ -46,3 +46,14 @@ variable "smtp_sender_name" {
   default     = "GoalDone"
   description = "Sender name for SMTP"
 }
+
+variable "first_superadmin_email" {
+  type        = string
+  description = "Email address for the first superadmin human user"
+}
+
+variable "first_superadmin_password" {
+  type        = string
+  sensitive   = true
+  description = "Initial password for the first superadmin human user"
+}
