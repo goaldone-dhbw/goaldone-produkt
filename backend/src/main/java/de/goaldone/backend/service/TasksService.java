@@ -128,6 +128,18 @@ public class TasksService {
 
     /**
      * Retrieves tasks filtered and sorted.
+     *
+     * @param jwt The {@link Jwt} of the authenticated user.
+     * @param status The {@link TaskStatus} to filter by.
+     * @param cognitiveLoad The {@link CognitiveLoad} to filter by.
+     * @param deadlineFrom The start of the deadline range.
+     * @param deadlineTo The end of the deadline range.
+     * @param minDuration The minimum estimated duration in minutes.
+     * @param maxDuration The maximum estimated duration in minutes.
+     * @param sortBy The property to sort by (e.g. "deadline", "duration").
+     * @param sortDirection The sort direction ("asc" or "desc").
+     * @param searchTerm The search term to match against task title and description.
+     * @return A list of matching {@link TaskResponse} objects.
      */
     @Transactional(readOnly = true)
     public List<TaskResponse> getTasks(Jwt jwt, TaskStatus status, CognitiveLoad cognitiveLoad,
