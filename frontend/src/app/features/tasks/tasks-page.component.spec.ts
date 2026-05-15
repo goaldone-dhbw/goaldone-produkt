@@ -3,7 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, Params, provideRouter, Router } from '@angular/router';
 import { BehaviorSubject } from 'rxjs';
-import { AccountListResponse, BASE_PATH, TaskAccountListResponse, TaskResponse } from '../../api';
+import { AccountListResponse, BASE_PATH, TaskResponse } from '../../api';
 import { TasksPageComponent } from './tasks-page.component';
 
 type RuntimeWindow = Window & {
@@ -79,17 +79,12 @@ describe('TasksPageComponent', () => {
           provide: ActivatedRoute,
           useValue: {
             queryParams: queryParamsSubject.asObservable(),
-          },
-        },
-        { provide: BASE_PATH, useValue: API_BASE },
-        {
-          provide: ActivatedRoute,
-          useValue: {
             snapshot: {
               queryParamMap: { get: (_: string) => null },
             },
           },
         },
+        { provide: BASE_PATH, useValue: API_BASE },
         {
           provide: Router,
           useValue: {
@@ -138,9 +133,7 @@ describe('TasksPageComponent', () => {
 
   function expectNoTasksRequest(): void {
     expect(
-      httpMock.match(
-        (request) => request.method === 'GET' && request.url === `${API_BASE}/tasks`,
-      ),
+      httpMock.match((request) => request.method === 'GET' && request.url === `${API_BASE}/tasks`),
     ).toHaveLength(0);
   }
 
@@ -481,15 +474,11 @@ describe('TasksPageComponent', () => {
     await flushInitialRequests([], { accounts: [] });
 
     component.filters.maxDuration = 60;
-    await reloadTasksWithResponse(
-      tasksForAccount([filterTestTasks[0], filterTestTasks[1]]),
-      { maxDuration: '60' },
-    );
+    await reloadTasksWithResponse(tasksForAccount([filterTestTasks[0], filterTestTasks[1]]), {
+      maxDuration: '60',
+    });
 
-    expect(component.tasks().map((task) => task.id)).toEqual([
-      't-open-low',
-      't-progress-high',
-    ]);
+    expect(component.tasks().map((task) => task.id)).toEqual(['t-open-low', 't-progress-high']);
   });
 
   it('soll Suchbegriff, Status und maximale Dauer kombinieren', async () => {
@@ -670,9 +659,7 @@ describe('TasksPageComponent', () => {
     expect(router.navigate).not.toHaveBeenCalled();
     expectNoTasksRequest();
     expect(component.tasks().map((task) => task.id)).toEqual(['t-open-low']);
-    expect(component.listErrorMessage()).toBe(
-      'Das Startdatum muss vor dem Enddatum liegen',
-    );
+    expect(component.listErrorMessage()).toBe('Das Startdatum muss vor dem Enddatum liegen');
     expect(component.successMessage()).toBe('');
   });
 
@@ -693,9 +680,7 @@ describe('TasksPageComponent', () => {
     expectNoTasksRequest();
     expect(component.tasks().map((task) => task.id)).toEqual(['t-open-low']);
     expect(component.totalTaskCount()).toBe(1);
-    expect(component.listErrorMessage()).toBe(
-      'Das Startdatum muss vor dem Enddatum liegen',
-    );
+    expect(component.listErrorMessage()).toBe('Das Startdatum muss vor dem Enddatum liegen');
     expect(component.successMessage()).toBe('');
   });
 
@@ -710,9 +695,7 @@ describe('TasksPageComponent', () => {
     await Promise.resolve();
     await Promise.resolve();
 
-    expect(component.listErrorMessage()).toBe(
-      'Das Startdatum muss vor dem Enddatum liegen',
-    );
+    expect(component.listErrorMessage()).toBe('Das Startdatum muss vor dem Enddatum liegen');
 
     queryParamsSubject.next({
       deadlineFrom: '2026-05-01T00:00:00',
