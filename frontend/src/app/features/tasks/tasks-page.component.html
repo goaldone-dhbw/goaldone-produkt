@@ -126,15 +126,16 @@
           icon="pi pi-filter"
           (click)="applyFilterStateToUrl()">
         </button>
-
-        <button
-          pButton
-          type="button"
-          label="Filter zurücksetzen"
-          icon="pi pi-refresh"
-          severity="secondary"
-          (click)="resetFilters()">
-        </button>
+        
+        @if (hasActiveFilters()) {
+          <button
+            pButton
+            type="button"
+            label="Filter zurücksetzen"
+            icon="pi pi-refresh"
+            (click)="resetFilters()">
+          </button>
+        }
       </div>
     </div>
 

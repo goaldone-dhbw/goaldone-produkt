@@ -31,6 +31,7 @@ import {
 import { TasksService } from '../../api';
 import { UserAccountsService } from '../../api';
 import { BasePopupComponent } from '../base-popup/base-popup.component';
+import {Button} from "primeng/button";
 
 export type AccountOption = {
   id: string;
@@ -76,7 +77,7 @@ type TaskFormValue = {
 @Component({
   selector: 'app-task-edit-dialog',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, BasePopupComponent],
+  imports: [CommonModule, ReactiveFormsModule, BasePopupComponent, Button],
   templateUrl: './task-edit-dialog.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -104,6 +105,8 @@ export class TaskEditDialogComponent implements OnInit, OnChanges {
 
   readonly statuses: TaskStatus[] = ['OPEN', 'IN_PROGRESS', 'DONE'];
   readonly cognitiveLoads: CognitiveLoad[] = ['LOW', 'MODERATE', 'HIGH'];
+  readonly maxDurationHours = 8766;
+  readonly maxDurationMinutes = this.maxDurationHours * 60;
 
   readonly hasMultipleAccounts = computed(() => this.accounts().length > 1);
   readonly hasSingleAccount = computed(() => this.accounts().length === 1);
@@ -142,11 +145,10 @@ export class TaskEditDialogComponent implements OnInit, OnChanges {
       title: this.fb.control('', [Validators.required, Validators.maxLength(150)]),
       description: this.fb.control(''),
       durationHours: this.fb.control<number | null>(0, [
-        Validators.required,
         Validators.min(0),
+        Validators.max(this.maxDurationHours),
       ]),
       durationMinutes: this.fb.control<number | null>(0, [
-        Validators.required,
         Validators.min(0),
         Validators.max(59),
       ]),
@@ -159,7 +161,11 @@ export class TaskEditDialogComponent implements OnInit, OnChanges {
       customChunkSize: this.fb.control<number | null>(null),
     },
     {
-      validators: [this.dateRelationValidator.bind(this), this.chunkSizeValidator.bind(this)],
+      validators: [
+        this.dateRelationValidator.bind(this),
+        this.chunkSizeValidator.bind(this),
+        this.durationValidator.bind(this),
+      ],
     },
   );
 
@@ -181,7 +187,15 @@ export class TaskEditDialogComponent implements OnInit, OnChanges {
 
   ngOnInit(): void {
     this.taskForm.get('accountId')?.valueChanges.subscribe((accountId) => {
+      const previousAccountId = this.selectedAccountId();
+
       this.selectedAccountId.set(accountId);
+
+      if (previousAccountId && previousAccountId !== accountId) {
+        this.taskForm.get('dependencyIds')?.setValue([]);
+        this.taskForm.get('dependencyIds')?.markAsDirty();
+        this.taskForm.get('dependencyIds')?.markAsTouched();
+      }
     });
   }
 
@@ -246,12 +260,6 @@ export class TaskEditDialogComponent implements OnInit, OnChanges {
     }
 
     const value = this.taskForm.getRawValue() as TaskFormValue;
-    const duration = this.getDurationInMinutes(value);
-
-    if (duration <= 0) {
-      this.formErrorMessage.set('Bitte gib eine Dauer von mindestens einer Minute an.');
-      return;
-    }
 
     this.isSaving.set(true);
 
@@ -266,11 +274,19 @@ export class TaskEditDialogComponent implements OnInit, OnChanges {
     return current.includes(id);
   }
 
-  selectDependency(id: string, event: Event): void {
+  toggleDependency(id: string, event: Event): void {
     event.preventDefault();
-    const current = this.taskForm.get('dependencyIds')?.value ?? [];
-    const updated = current.includes(id) ? [] : [id];
-    this.taskForm.get('dependencyIds')?.setValue(updated);
+
+    const control = this.taskForm.get('dependencyIds');
+    const current = control?.value ?? [];
+
+    const updated = current.includes(id)
+        ? current.filter((dependencyId) => dependencyId !== id)
+        : [...current, id];
+
+    control?.setValue(updated);
+    control?.markAsDirty();
+    control?.markAsTouched();
   }
 
   showFieldError(
@@ -518,11 +534,20 @@ export class TaskEditDialogComponent implements OnInit, OnChanges {
       return fallback;
     }
 
-    if (typeof error.error === 'string' && error.error.trim()) {
-      return error.error;
+    const backendMessage =
+        typeof error.error === 'string'
+            ? error.error
+            : error.error?.message || error.error?.detail || error.error?.error || '';
+
+    if (backendMessage.includes('cyclic task dependency is not allowed')) {
+      return 'Diese Abhängigkeit ist nicht möglich, da dadurch ein Kreislauf zwischen Aufgaben entstehen würde.';
     }
 
-    return error.error?.message || error.error?.detail || error.error?.error || fallback;
+    if (backendMessage.trim()) {
+      return backendMessage;
+    }
+
+    return fallback;
   }
 
   private dateRelationValidator(control: AbstractControl): ValidationErrors | null {
@@ -572,5 +597,27 @@ export class TaskEditDialogComponent implements OnInit, OnChanges {
     const minutes = Number(value.durationMinutes ?? 0);
 
     return hours * 60 + minutes;
+  }
+
+  private durationValidator(control: AbstractControl): ValidationErrors | null {
+    const durationHours = Number(control.get('durationHours')?.value ?? 0);
+    const durationMinutes = Number(control.get('durationMinutes')?.value ?? 0);
+
+    const totalDuration = durationHours * 60 + durationMinutes;
+
+    if (totalDuration <= 0) {
+      return { durationTooSmall: true };
+    }
+
+    if (totalDuration > this.maxDurationMinutes) {
+      return { durationTooLarge: true };
+    }
+
+    return null;
+  }
+
+  hasDurationMinutes(): boolean {
+    const minutes = Number(this.taskForm.get('durationMinutes')?.value ?? 0);
+    return minutes > 0;
   }
 }
