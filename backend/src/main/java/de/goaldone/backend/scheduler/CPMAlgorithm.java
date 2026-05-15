@@ -375,7 +375,7 @@ public class CPMAlgorithm {
         //  1. Slot for chunk
         //  2. Slot for automated break;
         //  3. Rest of time slot
-        if (target.durationMinutes() >= chunk.durationMinutes() + additionalBreakTime + this.MAX_BUFFER) {
+        if (target.durationMinutes() > chunk.durationMinutes() + additionalBreakTime + this.MAX_BUFFER) {
             TimeSlot automatedBreakSlot = additionalBreakTime > 0
                     ? new TimeSlot(
                             target.date(),
