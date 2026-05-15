@@ -17,7 +17,7 @@ fi
 STATE_FILE="${SCRIPT_DIR}/.deploy-state"
 CREDS_FILE="${SCRIPT_DIR}/.deploy-state.creds"
 LOG_FILE="${SCRIPT_DIR}/deploy.log"
-TOTAL_STEPS=9
+TOTAL_STEPS=10
 START_STEP=1
 LAST_COMPLETED_STEP=0
 SCRIPT_START_TIME=$(date +%s)
@@ -325,6 +325,16 @@ load_state() {
         BACKEND_PAT=""
         APP_CLIENT_ID=""
         DEPLOY_WORK_DIR=""
+        ZITADEL_PROJECT_ID=""
+        GOALDONE_ORG_ID=""
+        GOALDONE_DB_PASSWORD=""
+    fi
+
+    # Strip protocols from cached GOALDONE_URL if present
+    if [[ -n "${GOALDONE_URL:-}" ]]; then
+        GOALDONE_URL="${GOALDONE_URL#https://}"
+        GOALDONE_URL="${GOALDONE_URL#http://}"
+        GOALDONE_URL="${GOALDONE_URL%/}"
     fi
 
     # Load cached credentials if they exist (per D-06)
@@ -349,12 +359,16 @@ STEP_5_CREATE_TFVARS=${STEP_5_CREATE_TFVARS:-pending}
 STEP_6_TERRAFORM_INIT=${STEP_6_TERRAFORM_INIT:-pending}
 STEP_7_TERRAFORM_PLAN=${STEP_7_TERRAFORM_PLAN:-pending}
 STEP_8_TERRAFORM_APPLY=${STEP_8_TERRAFORM_APPLY:-pending}
-STEP_9_OUTPUT_SUMMARY=${STEP_9_OUTPUT_SUMMARY:-pending}
+STEP_9_DEPLOY_APP=${STEP_9_DEPLOY_APP:-pending}
+STEP_10_OUTPUT_SUMMARY=${STEP_10_OUTPUT_SUMMARY:-pending}
 ZITADEL_DOMAIN=${ZITADEL_DOMAIN:-}
 GOALDONE_URL=${GOALDONE_URL:-}
 TERRAFORM_TOKEN=${TERRAFORM_TOKEN:-}
 BACKEND_PAT=${BACKEND_PAT:-}
 APP_CLIENT_ID=${APP_CLIENT_ID:-}
+ZITADEL_PROJECT_ID=${ZITADEL_PROJECT_ID:-}
+GOALDONE_ORG_ID=${GOALDONE_ORG_ID:-}
+GOALDONE_DB_PASSWORD=${GOALDONE_DB_PASSWORD:-}
 DEPLOY_WORK_DIR=${DEPLOY_WORK_DIR:-}
 EOF
 
@@ -385,6 +399,9 @@ GOALDONE_URL="${GOALDONE_URL:-}"
 TERRAFORM_TOKEN="${TERRAFORM_TOKEN:-}"
 BACKEND_PAT="${BACKEND_PAT:-}"
 APP_CLIENT_ID="${APP_CLIENT_ID:-}"
+ZITADEL_PROJECT_ID="${ZITADEL_PROJECT_ID:-}"
+GOALDONE_ORG_ID="${GOALDONE_ORG_ID:-}"
+GOALDONE_DB_PASSWORD="${GOALDONE_DB_PASSWORD:-}"
 SMTP_HOST="${SMTP_HOST:-}"
 SMTP_USER="${SMTP_USER:-}"
 SMTP_PASSWORD="${SMTP_PASSWORD:-}"
@@ -427,7 +444,8 @@ mark_step_complete() {
         6) STEP_6_TERRAFORM_INIT="completed" ;;
         7) STEP_7_TERRAFORM_PLAN="completed" ;;
         8) STEP_8_TERRAFORM_APPLY="completed" ;;
-        9) STEP_9_OUTPUT_SUMMARY="completed" ;;
+        9) STEP_9_DEPLOY_APP="completed" ;;
+        10) STEP_10_OUTPUT_SUMMARY="completed" ;;
     esac
 
     show_success "Completed: Step $step_number ($step_name)"
@@ -555,7 +573,7 @@ prompt_recovery_action() {
         exit 0
     fi
 
-    local step_names=("" "Clone Repository" "Setup .env" "Start Docker Compose" "Extract Terraform Token" "Create .tfvars" "Terraform Init" "Terraform Plan" "Terraform Apply" "Output Summary")
+    local step_names=("" "Clone Repository" "Setup .env" "Start Docker Compose" "Extract Terraform Token" "Create .tfvars" "Terraform Init" "Terraform Plan" "Terraform Apply" "Deploy App" "Output Summary")
     local last_step_name="${step_names[$last_step]:-Step $last_step}"
 
     echo "" >&3
@@ -1046,8 +1064,10 @@ step_create_tfvars() {
     fi
     show_success "Discovered org ID: $org_id"
 
-    # Ensure GOALDONE_URL always has https:// prefix
-    [[ "${GOALDONE_URL}" != https://* ]] && GOALDONE_URL="https://${GOALDONE_URL}"
+    # Ensure bare domain for terraform.tfvars
+    local bare_goaldone_url="${GOALDONE_URL#https://}"
+    bare_goaldone_url="${bare_goaldone_url#http://}"
+    bare_goaldone_url="${bare_goaldone_url%/}"
 
     # Create terraform.tfvars using escape_hcl (SEC-01)
     cat > terraform/terraform.tfvars <<EOF
@@ -1055,7 +1075,7 @@ step_create_tfvars() {
 zitadel_domain         = $(escape_hcl "${ZITADEL_DOMAIN}")
 zitadel_token          = $(escape_hcl "${TERRAFORM_TOKEN}")
 org_id                 = $(escape_hcl "${org_id}")
-goaldone_url           = $(escape_hcl "${GOALDONE_URL}")
+goaldone_url           = $(escape_hcl "${bare_goaldone_url}")
 smtp_host              = $(escape_hcl "${SMTP_HOST}")
 smtp_user              = $(escape_hcl "${SMTP_USER}")
 smtp_password          = $(escape_hcl "${SMTP_PASSWORD}")
@@ -1150,17 +1170,224 @@ step_terraform_apply() {
     
     cache_credential "BACKEND_PAT" "$BACKEND_PAT"
     cache_credential "APP_CLIENT_ID" "$APP_CLIENT_ID"
-    
+
+    ZITADEL_PROJECT_ID=$(terraform output -raw zitadel_project_id) || error_exit "Failed to extract zitadel_project_id" "terraform"
+    GOALDONE_ORG_ID=$(terraform output -raw goaldone_org_id) || error_exit "Failed to extract goaldone_org_id" "terraform"
+
+    cache_credential "ZITADEL_PROJECT_ID" "$ZITADEL_PROJECT_ID"
+    cache_credential "GOALDONE_ORG_ID" "$GOALDONE_ORG_ID"
+
     show_success "Terraform applied and outputs extracted."
     mark_step_complete 8 "Terraform Apply"
     return 0
 }
 
+# ==============================================================================
+# Step 9: Deploy GoalDone App
+# ==============================================================================
+
+# Attempts to pull a Docker image from GHCR, falling back to a local build.
+# Arguments: image_name dockerfile_path build_context
+# Returns: 0 on success, 1 on failure
+pull_or_build_image() {
+    local image_name=$1
+    local ghcr_image="ghcr.io/goaldone-dhbw/${image_name}:latest"
+    local dockerfile_path=$2
+    local build_context=$3
+
+    show_info "Pulling ${ghcr_image}..."
+    if docker pull "$ghcr_image" >> "$LOG_FILE" 2>&1; then
+        show_success "Pulled ${ghcr_image}"
+        return 0
+    fi
+
+    show_warning "Pull failed for ${ghcr_image}. Building from source..."
+    # DEPLOY_WORK_DIR is the infra/ directory; repo root is one level up
+    local repo_root="$(dirname "${DEPLOY_WORK_DIR}")"
+    cd "$repo_root" || error_exit "Cannot enter repo root: $repo_root"
+
+    if docker build -t "$ghcr_image" -f "$dockerfile_path" "$build_context" >> "$LOG_FILE" 2>&1; then
+        show_success "Built ${image_name} from source"
+        cd "$DEPLOY_WORK_DIR" || true
+        return 0
+    fi
+
+    cd "$DEPLOY_WORK_DIR" || true
+    show_error "Failed to pull AND build ${image_name}."
+    show_error "Pull log and build log are in deploy.log."
+    show_error "Troubleshooting:"
+    show_error "  1. Check internet connectivity: curl -s https://ghcr.io"
+    show_error "  2. Check Docker disk space: docker system df"
+    show_error "  3. Try manual pull: docker pull ${ghcr_image}"
+    show_error "  4. Try manual build: cd ${repo_root} && docker build -t ${ghcr_image} -f ${dockerfile_path} ${build_context}"
+    return 1
+}
+
+# Writes the application environment file (app.env) with all dynamic values
+# derived from Terraform outputs and user-provided credentials.
+# Uses atomic write (temp file + mv) and chmod 600 for security.
+write_app_env() {
+    local env_file="${DEPLOY_WORK_DIR}/app.env"
+    local temp_file="${env_file}.tmp"
+
+    cat > "$temp_file" <<EOF
+# Generated by deploy.sh at $(date)
+# Backend -- Spring Boot reads these via application.yaml / application-prod.yaml
+SPRING_PROFILES_ACTIVE=prod
+ZITADEL_ISSUER_URI=https://${ZITADEL_DOMAIN}
+ZITADEL_SERVICE_ACCOUNT_TOKEN=${BACKEND_PAT}
+ZITADEL_GOALDONE_PROJECT_ID=${ZITADEL_PROJECT_ID}
+ZITADEL_GOALDONE_ORG_ID=${GOALDONE_ORG_ID}
+SPRING_DATASOURCE_URL=jdbc:postgresql://goaldone-postgres:5432/goaldone
+SPRING_DATASOURCE_USERNAME=goaldone
+SPRING_DATASOURCE_PASSWORD=${GOALDONE_DB_PASSWORD}
+CORS_ALLOWED_ORIGINS=https://${GOALDONE_URL}
+
+# Frontend -- docker-entrypoint.sh substitutes into env.js.template and nginx.conf
+ZITADEL_CLIENT_ID=${APP_CLIENT_ID}
+ZITADEL_ISSUER_URI=https://${ZITADEL_DOMAIN}
+API_BASE_PATH=/api/v1
+BACKEND_HOST=goaldone-backend
+
+# App PostgreSQL
+GOALDONE_DB_PASSWORD=${GOALDONE_DB_PASSWORD}
+
+# Traefik routing (used in docker-compose.app.yml labels)
+GOALDONE_DOMAIN=${GOALDONE_URL}
+EOF
+
+    mv "$temp_file" "$env_file" || error_exit "Failed to write app.env"
+    chmod 600 "$env_file"
+    show_success "Created app.env (permissions: 600)"
+}
+
+# Deploys the GoalDone application stack: prompts for the app DB password,
+# pulls or builds Docker images, writes app.env, starts the docker-compose
+# app stack, and health-checks both backend and frontend containers.
+step_deploy_app() {
+    show_info "Deploying GoalDone application (Step 9)..."
+
+    # Prompt for app database password
+    if [[ -z "${GOALDONE_DB_PASSWORD:-}" ]]; then
+        GOALDONE_DB_PASSWORD=$(prompt_input "GoalDone App Database Password (min 8 chars):" ".{8,}" true) || return 1
+        cache_credential "GOALDONE_DB_PASSWORD" "$GOALDONE_DB_PASSWORD"
+    else
+        show_info "Using cached GOALDONE_DB_PASSWORD."
+    fi
+
+    # Pull or build Docker images (per D-01)
+    show_info "Preparing Docker images..."
+    pull_or_build_image "goaldone-backend" "backend/Dockerfile" "." || error_exit "Failed to prepare backend image" "docker"
+    pull_or_build_image "goaldone-frontend" "frontend/Dockerfile" "." || error_exit "Failed to prepare frontend image" "docker"
+
+    # Write app.env with all dynamic values (per D-04)
+    show_info "Writing app.env..."
+    write_app_env
+
+    # Verify zitadel network exists (app stack depends on it)
+    if ! docker network inspect zitadel >/dev/null 2>&1; then
+        error_exit "Zitadel network not found. The infrastructure stack (docker-compose.yml) must be running before deploying the app." "docker"
+    fi
+
+    # Detect docker compose command (reuse existing pattern)
+    local cmd=()
+    if docker compose version &>/dev/null; then
+        cmd=(docker compose)
+    elif command -v docker-compose &>/dev/null; then
+        cmd=(docker-compose)
+    else
+        error_exit "Docker Compose not found. Install Docker Compose v2 or the standalone docker-compose binary." "docker"
+    fi
+
+    # Start app stack
+    show_info "Starting GoalDone app stack..."
+    "${cmd[@]}" --env-file "${DEPLOY_WORK_DIR}/app.env" -f "${DEPLOY_WORK_DIR}/docker-compose.app.yml" up -d >> "$LOG_FILE" 2>&1 || error_exit "Failed to start app stack. Check deploy.log for details." "docker"
+
+    # Poll backend health via docker inspect (backend is on internal network)
+    # Spring Boot needs 60s start_period + additional time for full initialization
+    show_info "Waiting for backend to become healthy (120s timeout)..."
+    local timeout=120
+    local i=0
+    while [[ $i -lt $timeout ]]; do
+        local container_id
+        container_id=$(docker ps -qf "name=goaldone-app-goaldone-backend" 2>/dev/null || true)
+        if [[ -n "$container_id" ]]; then
+            local health_status
+            health_status=$(docker inspect --format='{{.State.Health.Status}}' "$container_id" 2>/dev/null || echo "unknown")
+            if [[ "$health_status" == "healthy" ]]; then
+                echo "" >&3
+                show_success "Backend is healthy."
+                break
+            fi
+        fi
+
+        if [[ $((i % 10)) -eq 0 && $i -gt 0 ]]; then
+            echo -n " [${i}s]" >&3
+        else
+            echo -n "." >&3
+        fi
+
+        sleep 1
+        i=$((i + 1))
+    done
+
+    if [[ $i -ge $timeout ]]; then
+        echo "" >&3
+        show_error "Backend did not become healthy after ${timeout}s."
+        show_error "Troubleshooting:"
+        show_error "  1. Check backend logs: ${cmd[*]} --env-file ${DEPLOY_WORK_DIR}/app.env -f ${DEPLOY_WORK_DIR}/docker-compose.app.yml logs goaldone-backend"
+        show_error "  2. Check database connection: ${cmd[*]} --env-file ${DEPLOY_WORK_DIR}/app.env -f ${DEPLOY_WORK_DIR}/docker-compose.app.yml logs goaldone-postgres"
+        show_error "  3. Verify BACKEND_PAT is valid: curl -s https://${ZITADEL_DOMAIN}/.well-known/openid-configuration"
+        show_error "  4. Check app.env values: cat ${DEPLOY_WORK_DIR}/app.env"
+        error_exit "App deployment failed: backend unhealthy" "docker"
+    fi
+
+    # Poll frontend health
+    show_info "Waiting for frontend to become healthy (30s timeout)..."
+    timeout=30
+    i=0
+    while [[ $i -lt $timeout ]]; do
+        local container_id
+        container_id=$(docker ps -qf "name=goaldone-app-goaldone-frontend" 2>/dev/null || true)
+        if [[ -n "$container_id" ]]; then
+            local health_status
+            health_status=$(docker inspect --format='{{.State.Health.Status}}' "$container_id" 2>/dev/null || echo "unknown")
+            if [[ "$health_status" == "healthy" ]]; then
+                echo "" >&3
+                show_success "Frontend is healthy."
+                break
+            fi
+        fi
+
+        if [[ $((i % 10)) -eq 0 && $i -gt 0 ]]; then
+            echo -n " [${i}s]" >&3
+        else
+            echo -n "." >&3
+        fi
+
+        sleep 1
+        i=$((i + 1))
+    done
+
+    if [[ $i -ge $timeout ]]; then
+        echo "" >&3
+        show_error "Frontend did not become healthy after ${timeout}s."
+        show_error "Troubleshooting:"
+        show_error "  1. Check frontend logs: ${cmd[*]} --env-file ${DEPLOY_WORK_DIR}/app.env -f ${DEPLOY_WORK_DIR}/docker-compose.app.yml logs goaldone-frontend"
+        show_error "  2. Check backend is reachable: ${cmd[*]} --env-file ${DEPLOY_WORK_DIR}/app.env -f ${DEPLOY_WORK_DIR}/docker-compose.app.yml exec goaldone-frontend curl -s http://goaldone-backend:8080/api/v1/actuator/health"
+        error_exit "App deployment failed: frontend unhealthy" "docker"
+    fi
+
+    show_success "GoalDone app stack is running and healthy."
+    mark_step_complete 9 "Deploy App"
+    return 0
+}
+
 step_output_summary() {
-    show_info "⏳ Generating final output summary (Step 12)..."
-    
-    local output_file="${SCRIPT_DIR}/deploy-outputs.txt"
-    
+    show_info "Generating final output summary (Step 10)..."
+
+    local output_file="${DEPLOY_WORK_DIR}/deploy-outputs.txt"
+
     # Ensure variables are available (they should be in environment, but just in case)
     local zitadel_domain="${ZITADEL_DOMAIN:-}"
     local goaldone_url="${GOALDONE_URL:-}"
@@ -1173,24 +1400,28 @@ step_output_summary() {
         echo "Generated on: $(date)"
         echo "=============================================================================="
         echo ""
+        echo "Application Status: RUNNING"
+        echo ""
         echo "Access URLs:"
-        echo "  - Zitadel (SSO): https://${zitadel_domain}"
-        echo "  - GoalDone App:  https://${goaldone_url}"
+        echo "  - Zitadel (SSO):       https://${zitadel_domain}"
+        echo "  - GoalDone App:        https://${goaldone_url}"
+        echo "  - Backend Health:      https://${goaldone_url}/api/v1/actuator/health"
         echo ""
-        echo "Credentials & IDs:"
-        echo "  - Backend PAT:      ${backend_pat}"
-        echo "  - OIDC Client ID:   ${app_client_id}"
+        echo "Credentials & IDs (also saved in app.env):"
+        echo "  - Backend PAT:         ${backend_pat}"
+        echo "  - OIDC Client ID:      ${app_client_id}"
+        echo "  - Zitadel Project ID:  ${ZITADEL_PROJECT_ID:-}"
+        echo "  - GoalDone Org ID:     ${GOALDONE_ORG_ID:-}"
         echo ""
-        echo "Next Steps:"
-        echo "  1. Backend Configuration:"
-        echo "     - Update 'backend/src/main/resources/application-prod.yaml' (if not using env vars)"
-        echo "     - Ensure it uses the Backend PAT for machine-to-machine communication."
+        echo "Configuration Files:"
+        echo "  - Infrastructure:      ${DEPLOY_WORK_DIR}/infra-setup/.env"
+        echo "  - App Environment:     ${DEPLOY_WORK_DIR}/app.env"
+        echo "  - Terraform State:     ${DEPLOY_WORK_DIR}/terraform/terraform.tfstate"
         echo ""
-        echo "  2. Frontend Configuration:"
-        echo "     - Update 'frontend/src/environments/environment.prod.ts' with the OIDC Client ID."
-        echo ""
-        echo "  3. Deployment Verification:"
-        echo "     - Visit https://${goaldone_url} and log in via Zitadel."
+        echo "Useful Commands:"
+        echo "  - App logs:            docker compose --env-file ${DEPLOY_WORK_DIR}/app.env -f ${DEPLOY_WORK_DIR}/docker-compose.app.yml logs -f"
+        echo "  - Restart app:         docker compose --env-file ${DEPLOY_WORK_DIR}/app.env -f ${DEPLOY_WORK_DIR}/docker-compose.app.yml restart"
+        echo "  - Stop app:            docker compose --env-file ${DEPLOY_WORK_DIR}/app.env -f ${DEPLOY_WORK_DIR}/docker-compose.app.yml down"
         echo ""
         echo "=============================================================================="
     } | tee "$output_file"
@@ -1198,7 +1429,7 @@ step_output_summary() {
     chmod 600 "$output_file"
     show_success "Summary generated and saved to $output_file"
 
-    mark_step_complete 9 "Output Summary"
+    mark_step_complete 10 "Output Summary"
     return 0
 }
 
@@ -1343,7 +1574,11 @@ main() {
                 step_terraform_apply
                 ;;
             9)
-                show_header "Step 9: Output Summary"
+                show_header "Step 9: Deploy App"
+                step_deploy_app
+                ;;
+            10)
+                show_header "Step 10: Output Summary"
                 step_output_summary
                 ;;
         esac

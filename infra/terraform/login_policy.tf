@@ -42,7 +42,7 @@ resource "zitadel_default_login_policy" "default" {
   passwordless_type              = "ALLOWED"
   hide_password_reset            = false
   ignore_unknown_usernames       = false
-  default_redirect_uri           = var.goaldone_url
+  default_redirect_uri           = "https://${var.goaldone_url}"
   password_check_lifetime        = "240h"
   external_login_check_lifetime  = "240h"
   mfa_init_skip_lifetime         = "720h"
