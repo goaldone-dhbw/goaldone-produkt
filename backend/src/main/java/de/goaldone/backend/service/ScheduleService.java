@@ -167,7 +167,6 @@ public class ScheduleService {
      * @param jwt       JWT token containing user information
      * @param accountId Account ID for which the context should be created
      * @param fromDate  Start date for the schedule
-     * @param weeks     Number of weeks to plan ahead
      * @return Scheduling context for the solver
      */
     public SchedulingContext createSchedulingContext(Jwt jwt, UUID accountId, LocalDate fromDate) {
@@ -274,6 +273,9 @@ public class ScheduleService {
                     List<Appointment> dayAppointments = getAppointmentsForDay(allAppointments, currentDate);
 
                     TimeSlot workingHours = mapping.get(weekday);
+
+                    // Merge overlapping appointments to avoid schedule generation issues
+                    dayAppointments = mergeOverlappingAppointments(dayAppointments);
 
                     // Calculate free slots between appointments
                     LocalTime currentTime = workingHours.startTime();
@@ -396,6 +398,56 @@ public class ScheduleService {
             }
         }
         return false;
+    }
+
+    /**
+     * Merges overlapping appointments into combined blocks so that the free-slot
+     * calculation in {@link #getAvailableTimeSlots} works correctly even when
+     * legacy data contains overlapping appointments.
+     *
+     * @param sortedAppointments Appointments for a single day, already sorted by startTime
+     * @return A list of synthetic Appointment objects with merged time ranges
+     */
+    private List<Appointment> mergeOverlappingAppointments(List<Appointment> sortedAppointments) {
+        if (sortedAppointments.size() <= 1) {
+            return sortedAppointments;
+        }
+
+        List<Appointment> merged = new ArrayList<>();
+
+        final Appointment current = sortedAppointments.getFirst();
+        LocalTime currentStart = LocalTime.parse(current.getStartTime());
+        LocalTime currentEnd = LocalTime.parse(current.getEndTime());
+
+        for (int i = 1; i < sortedAppointments.size(); i++) {
+            Appointment next = sortedAppointments.get(i);
+            LocalTime nextStart = LocalTime.parse(next.getStartTime());
+            LocalTime nextEnd = LocalTime.parse(next.getEndTime());
+
+            if (nextStart.isBefore(currentEnd) || nextStart.equals(currentEnd)) {
+                // Overlapping or adjacent – extend the end time
+                if (nextEnd.isAfter(currentEnd)) {
+                    currentEnd = nextEnd;
+                }
+            } else {
+                // No overlap – emit current block and start new one
+                Appointment block = new Appointment();
+                block.setStartTime(currentStart.toString());
+                block.setEndTime(currentEnd.toString());
+                merged.add(block);
+
+                currentStart = nextStart;
+                currentEnd = nextEnd;
+            }
+        }
+
+        // Emit last block
+        Appointment block = new Appointment();
+        block.setStartTime(currentStart.toString());
+        block.setEndTime(currentEnd.toString());
+        merged.add(block);
+
+        return merged;
     }
 
     /**
