@@ -31,6 +31,7 @@ import {
 import { TasksService } from '../../api';
 import { UserAccountsService } from '../../api';
 import { BasePopupComponent } from '../base-popup/base-popup.component';
+import {Button} from "primeng/button";
 
 export type AccountOption = {
   id: string;
@@ -76,7 +77,7 @@ type TaskFormValue = {
 @Component({
   selector: 'app-task-edit-dialog',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, BasePopupComponent],
+  imports: [CommonModule, ReactiveFormsModule, BasePopupComponent, Button],
   templateUrl: './task-edit-dialog.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
