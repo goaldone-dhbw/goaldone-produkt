@@ -1,6 +1,13 @@
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, computed, inject, signal, OnInit } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  inject,
+  OnInit,
+  signal,
+} from '@angular/core';
 import { Tooltip } from 'primeng/tooltip';
 import { firstValueFrom } from 'rxjs';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -10,10 +17,19 @@ import { SelectModule } from 'primeng/select';
 import { InputTextModule } from 'primeng/inputtext';
 import { InputNumberModule } from 'primeng/inputnumber';
 import { FormsModule } from '@angular/forms';
-import { Router, ActivatedRoute } from '@angular/router';
-import { CognitiveLoad, TaskResponse, TaskStatus, TaskUpdateRequest, TasksService, UserAccountsService } from '../../api';
+import {
+  CognitiveLoad,
+  TaskResponse,
+  TasksService,
+  TaskStatus,
+  TaskUpdateRequest,
+  UserAccountsService,
+} from '../../api';
 import { BasePopupComponent } from '../../shared/base-popup/base-popup.component';
-import { TaskEditDialogComponent, TaskItem } from '../../shared/task-edit-dialog/task-edit-dialog.component';
+import {
+  TaskEditDialogComponent,
+  TaskItem,
+} from '../../shared/task-edit-dialog/task-edit-dialog.component';
 
 type AccountOption = {
   id: string;
@@ -101,7 +117,9 @@ export class TasksPageComponent implements OnInit {
       accountId: params.accountId || null,
       searchTerm: params.searchTerm || null,
       maxDuration: params.maxDuration ? parseInt(params.maxDuration, 10) : null,
-      deadlineFrom: params.deadlineFrom ? this.parseLocalDateNativeString(params.deadlineFrom) : null,
+      deadlineFrom: params.deadlineFrom
+        ? this.parseLocalDateNativeString(params.deadlineFrom)
+        : null,
       deadlineTo: params.deadlineTo ? this.parseLocalDateNativeString(params.deadlineTo) : null,
     };
     this.dateRange = [];
@@ -145,8 +163,12 @@ export class TasksPageComponent implements OnInit {
     this.isLoading.set(true);
 
     try {
-      const fromStr = this.filters.deadlineFrom ? this.formatLocalDateNativeString(this.filters.deadlineFrom) : undefined;
-      const toStr = this.filters.deadlineTo ? this.formatLocalDateNativeString(this.filters.deadlineTo) : undefined;
+      const fromStr = this.filters.deadlineFrom
+        ? this.formatLocalDateNativeString(this.filters.deadlineFrom)
+        : undefined;
+      const toStr = this.filters.deadlineTo
+        ? this.formatLocalDateNativeString(this.filters.deadlineTo)
+        : undefined;
 
       const response = await firstValueFrom(
         this.tasksService.getTasks(
@@ -158,15 +180,15 @@ export class TasksPageComponent implements OnInit {
           this.filters.maxDuration || undefined,
           undefined,
           undefined,
-          this.filters.searchTerm || undefined
-        )
+          this.filters.searchTerm || undefined,
+        ),
       );
 
-      const allTasks: TaskItem[] = response.map((t) =>
-        this.mapTaskResponse(t, t.accountId ?? '')
-      ).filter(task => {
-        return !(this.filters.accountId && task.accountId !== this.filters.accountId);
-      });
+      const allTasks: TaskItem[] = response
+        .map((t) => this.mapTaskResponse(t, t.accountId ?? ''))
+        .filter((task) => {
+          return !(this.filters.accountId && task.accountId !== this.filters.accountId);
+        });
 
       this.listErrorMessage.set('');
       this.successMessage.set('');
@@ -176,10 +198,7 @@ export class TasksPageComponent implements OnInit {
       this.tasks.set([]);
       this.totalTaskCount.set(0);
       this.listErrorMessage.set(
-        this.getReadableErrorMessage(
-          error,
-          'Aufgaben konnten nicht geladen werden.'
-        ),
+        this.getReadableErrorMessage(error, 'Aufgaben konnten nicht geladen werden.'),
       );
     } finally {
       this.isLoading.set(false);
@@ -233,8 +252,10 @@ export class TasksPageComponent implements OnInit {
     if (this.filters.accountId) queryParams.accountId = this.filters.accountId;
     if (this.filters.searchTerm) queryParams.searchTerm = this.filters.searchTerm;
     if (this.filters.maxDuration) queryParams.maxDuration = this.filters.maxDuration;
-    if (this.filters.deadlineFrom) queryParams.deadlineFrom = this.formatLocalDateNativeString(this.filters.deadlineFrom);
-    if (this.filters.deadlineTo) queryParams.deadlineTo = this.formatLocalDateNativeString(this.filters.deadlineTo);
+    if (this.filters.deadlineFrom)
+      queryParams.deadlineFrom = this.formatLocalDateNativeString(this.filters.deadlineFrom);
+    if (this.filters.deadlineTo)
+      queryParams.deadlineTo = this.formatLocalDateNativeString(this.filters.deadlineTo);
 
     void this.router.navigate([], {
       relativeTo: this.route,
