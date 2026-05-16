@@ -44,7 +44,7 @@ public class ChangeMove extends Move {
 
         TimeSlot newSlot = current.freeSlots().get(random.nextInt(current.freeSlots().size()));
 
-        if (newSlot.getSlotDuration() < target.chunk().durationMinutes()) {
+        if (newSlot.durationMinutes() < target.chunk().durationMinutes()) {
             return null;
         }
         SolverState next = current.deepCopy();
