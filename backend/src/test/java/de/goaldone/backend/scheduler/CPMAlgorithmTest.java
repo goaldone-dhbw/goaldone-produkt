@@ -237,7 +237,7 @@ class CPMAlgorithmTest {
         assertThat(result.scheduledChunks().size()).isEqualTo(1);
 
         ScheduledChunk scheduledChunk = result.scheduledChunks().getFirst();
-        assertThat(scheduledChunk.slot().getSlotDuration()).isEqualTo(availableSlots.getFirst().getSlotDuration());
+        assertThat(scheduledChunk.chunk().durationMinutes()).isEqualTo(task.getDuration());
     }
 
     @Test
@@ -284,7 +284,7 @@ class CPMAlgorithmTest {
         SolverState result = algorithm.generateInitialSchedule(context);
 
         assertThat(result).isNotNull();
-        assertThat(result.unscheduledChunks().size()).isEqualTo(1);
+        assertThat(result.unscheduledTasks().size()).isEqualTo(1);
         assertThat(result.scheduledChunks().getFirst().chunk().taskId()).isEqualTo(task1.getId());
     }
 
@@ -334,13 +334,18 @@ class CPMAlgorithmTest {
         SolverState result = algorithm.generateInitialSchedule(context);
 
         assertThat(result).isNotNull();
-        assertThat(result.unscheduledChunks().size()).isEqualTo(0);
+        assertThat(result.unscheduledTasks().size()).isEqualTo(0);
 
+        LocalDate today = date.toLocalDate();
+        LocalDate tomorrow = today.plusDays(1);
 
         List<TimeSlot> expected = List.of(
-                new TimeSlot(date.toLocalDate(), LocalTime.of(8, 0), LocalTime.of(12,0)),
-                new TimeSlot(date.toLocalDate(), LocalTime.of(12, 0), LocalTime.of(16,0)),
-                new TimeSlot(date.toLocalDate().plusDays(1), LocalTime.of(8, 0), LocalTime.of(10,0))
+                new TimeSlot(today,    LocalTime.of(8,  0),  LocalTime.of(12,0)),    // 4h
+                new TimeSlot(today,    LocalTime.of(12, 0),  LocalTime.of(12,15)),   // Pause
+                new TimeSlot(today,    LocalTime.of(12, 15), LocalTime.of(16,15)),   // 4h
+                new TimeSlot(today,    LocalTime.of(16, 15), LocalTime.of(16,30)),   // Pause
+                new TimeSlot(today,    LocalTime.of(16, 30), LocalTime.of(17,0)),    // 0.5h
+                new TimeSlot(tomorrow, LocalTime.of(8,  0),  LocalTime.of(9,30))     // 1,5h
         );
 
         for (int i = 0; i < expected.size(); i++) {
@@ -373,7 +378,7 @@ class CPMAlgorithmTest {
 
         SolverState result = algorithm.generateInitialSchedule(context);
 
-        assertThat(result.unscheduledChunks()).isEmpty();
+        assertThat(result.unscheduledTasks()).isEmpty();
     }
 
 
@@ -391,7 +396,7 @@ class CPMAlgorithmTest {
 
         List<Appointment> appointments = List.of(
                 //appointment("Daily", AppointmentType.RECURRING, "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR", LocalDate.of(2026, 5, 11), false, "11:15", "12:00"),
-                appointment("Pause", AppointmentType.RECURRING, "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR", null, true, "12:00", "13:00")
+                appointment()
         );
 
         List<TimeSlot> availableSlots = scheduleService.getAvailableTimeSlots(appointments, workingTimeEntities, date);
@@ -403,23 +408,80 @@ class CPMAlgorithmTest {
         SolverState result = algorithm.generateInitialSchedule(context);
 
         assertThat(result).isNotNull();
-        assertThat(result.unscheduledChunks()).isEmpty();
-
+        assertThat(result.unscheduledTasks()).isEmpty();
     }
 
+    @Test
+    void shouldAddAutomatedPause_whenCognitiveLoadReached_HIGH() {
+        LocalDateTime date = LocalDateTime.of(LocalDate.of(2026, 5, 11),  LocalTime.of(7, 0));
+        List<WorkingTimeEntity> workingTimeEntities = List.of(working(List.of(DayOfWeek.MONDAY), 18));
+        List<TaskResponse> tasks = List.of(task(480,  List.of(), null, null, CognitiveLoad.HIGH));
+        List<TimeSlot> availableSlots = new ArrayList<>(List.of(slot(date.toLocalDate(), 8, 18)));
 
-    private Appointment appointment(String title, AppointmentType appointmentType, String rrule, LocalDate date, boolean isBreak, String startTime, String endTime) {
+        SchedulingContext context = new SchedulingContext(
+                date, availableSlots, tasks, null, workingTimeEntities
+        );
+
+        SolverState result = algorithm.generateInitialSchedule(context);
+
+        assertThat(result).isNotNull();
+        assertThat(result.unscheduledTasks()).isEmpty();
+
+        List<TimeSlot> expectedSlots = new ArrayList<>();
+        expectedSlots.add(slot(date.toLocalDate(), 8,  0,  10, 0));
+        expectedSlots.add(slot(date.toLocalDate(), 10, 0,  10, 15));
+        expectedSlots.add(slot(date.toLocalDate(), 10, 15, 12, 15));
+        expectedSlots.add(slot(date.toLocalDate(), 12, 15, 12, 30));
+        expectedSlots.add(slot(date.toLocalDate(), 12, 30, 14, 30));
+        expectedSlots.add(slot(date.toLocalDate(), 14, 30, 14, 45));
+        expectedSlots.add(slot(date.toLocalDate(), 14, 45, 16, 45));
+        expectedSlots.add(slot(date.toLocalDate(), 16, 45, 17, 0));
+
+        for (int i = 0; i < expectedSlots.size(); i++) {
+            assertThat(result.scheduledChunks().get(i).slot()).isEqualTo(expectedSlots.get(i));
+        }
+    }
+
+    @Test
+    void shouldAddAutomatedPause_whenCognitiveLoadReached_MODERATE() {
+        LocalDateTime date = LocalDateTime.of(LocalDate.of(2026, 5, 11),  LocalTime.of(7, 0));
+        List<WorkingTimeEntity> workingTimeEntities = List.of(working(List.of(DayOfWeek.MONDAY), 18));
+        List<TaskResponse> tasks = List.of(task(480,  List.of(), null, null, CognitiveLoad.MODERATE));
+        List<TimeSlot> availableSlots = new ArrayList<>(List.of(slot(date.toLocalDate(), 8, 18)));
+
+        SchedulingContext context = new SchedulingContext(
+                date, availableSlots, tasks, null, workingTimeEntities
+        );
+
+        SolverState result = algorithm.generateInitialSchedule(context);
+
+        assertThat(result).isNotNull();
+        assertThat(result.unscheduledTasks()).isEmpty();
+
+        List<TimeSlot> expectedSlots = new ArrayList<>();
+        expectedSlots.add(slot(date.toLocalDate(), 8,  0,   12, 0)); // 4h
+        expectedSlots.add(slot(date.toLocalDate(), 12, 0,   12, 15)); // Pause
+        expectedSlots.add(slot(date.toLocalDate(), 12, 15,  16, 15)); // 4h
+        expectedSlots.add(slot(date.toLocalDate(), 16, 15,  16, 30)); // Pause
+
+
+        for (int i = 0; i < expectedSlots.size(); i++) {
+            assertThat(result.scheduledChunks().get(i).slot()).isEqualTo(expectedSlots.get(i));
+        }
+    }
+
+    private Appointment appointment() {
         return new Appointment()
                 .id(UUID.randomUUID())
                 .accountId(UUID.randomUUID())
-                .title(title)
-                .isBreak(isBreak)
-                .appointmentType(appointmentType)
-                .startTime(startTime)
-                .endTime(endTime)
+                .title("Pause")
+                .isBreak(true)
+                .appointmentType(AppointmentType.RECURRING)
+                .startTime("12:00")
+                .endTime("13:00")
                 .createdAt(OffsetDateTime.now())
-                .date(date)
-                .rrule(rrule);
+                .date(null)
+                .rrule("FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR");
     }
 
     private TaskResponse task(int taskDuration) {
@@ -486,5 +548,4 @@ class CPMAlgorithmTest {
         entity.setCreatedAt(Instant.now());
         return entity;
     }
-
 }
