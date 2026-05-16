@@ -157,8 +157,8 @@ Nachdem das Skript `deploy.sh` erfolgreich abgeschlossen wurde, sollten Sie die 
     *   Sie werden beim ersten Login eventuell aufgefordert, Ihr Passwort zu ändern.
 
 3.  **Erstellung der ersten Organisation (D-08):**
-    *   Nach dem Login sollten Sie Zugriff auf die Anwendung als Superadmin haben.
-    *   Navigieren Sie zu den Superadmineinstellungen und erstellen Sie eine erste Organisation. Dieser Schritt verifiziert die korrekte Anbindung der Datenbank und des Backends.
+    *   Nach dem Login sollten Sie Zugriff auf die Anwendung als Super-Admin haben.
+    *   Navigieren Sie zu den Super-Admin-Einstellungen und erstellen Sie eine erste Organisation. Dieser Schritt verifiziert die korrekte Anbindung der Datenbank und des Backends.
 
 4.  **Prüfung der Container-Status:**
     *   Führen Sie auf der Server-Konsole den folgenden Befehl aus:
