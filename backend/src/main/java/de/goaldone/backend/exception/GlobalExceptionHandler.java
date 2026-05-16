@@ -95,6 +95,16 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * Handles AppointmentOverlapException and returns HTTP 409 (Conflict).
+     */
+    @ExceptionHandler(AppointmentOverlapException.class)
+    public ProblemDetail handleAppointmentOverlap(AppointmentOverlapException ex) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
+        pd.setType(URI.create("https://goaldone.de/errors/appointment-overlap"));
+        return pd;
+    }
+
+    /**
      * Handles WorkingTimeValidationException and returns HTTP 400 (Bad Request).
      */
     @ExceptionHandler(WorkingTimeValidationException.class)

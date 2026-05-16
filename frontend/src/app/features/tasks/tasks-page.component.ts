@@ -1,16 +1,35 @@
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  inject,
+  OnInit,
+  signal,
+} from '@angular/core';
 import { Tooltip } from 'primeng/tooltip';
 import { firstValueFrom } from 'rxjs';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ButtonModule } from 'primeng/button';
 import { DatePickerModule } from 'primeng/datepicker';
 import { SelectModule } from 'primeng/select';
+import { InputTextModule } from 'primeng/inputtext';
+import { InputNumberModule } from 'primeng/inputnumber';
 import { FormsModule } from '@angular/forms';
-import { CognitiveLoad, TaskResponse, TaskStatus, TaskUpdateRequest, TasksService, UserAccountsService } from '../../api';
+import {
+  CognitiveLoad,
+  TaskResponse,
+  TasksService,
+  TaskStatus,
+  TaskUpdateRequest,
+  UserAccountsService,
+} from '../../api';
 import { BasePopupComponent } from '../../shared/base-popup/base-popup.component';
-import { TaskEditDialogComponent, TaskItem } from '../../shared/task-edit-dialog/task-edit-dialog.component';
+import {
+  TaskEditDialogComponent,
+  TaskItem,
+} from '../../shared/task-edit-dialog/task-edit-dialog.component';
 
 type AccountOption = {
   id: string;
@@ -23,6 +42,8 @@ type TaskFilters = {
   deadlineFrom: Date | null;
   deadlineTo: Date | null;
   accountId: string | null;
+  searchTerm: string | null;
+  maxDuration: number | null;
 };
 
 type HideableSelect = {
@@ -38,6 +59,8 @@ type HideableSelect = {
     ButtonModule,
     SelectModule,
     DatePickerModule,
+    InputTextModule,
+    InputNumberModule,
     Tooltip,
     TaskEditDialogComponent,
     BasePopupComponent,
@@ -45,7 +68,10 @@ type HideableSelect = {
   templateUrl: './tasks-page.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class TasksPageComponent {
+export class TasksPageComponent implements OnInit {
+  private static readonly INVALID_DATE_RANGE_MESSAGE =
+    'Das Startdatum muss vor dem Enddatum liegen';
+
   private readonly tasksService = inject(TasksService);
   private readonly userAccountsService = inject(UserAccountsService);
   private readonly route = inject(ActivatedRoute);
@@ -67,24 +93,55 @@ export class TasksPageComponent {
   editingTask = signal<TaskItem | null>(null);
   deletingTask = signal<TaskItem | null>(null);
 
-  readonly hasMultipleAccounts = computed(() => this.accounts().length > 1);
-  readonly hasSingleAccount = computed(() => this.accounts().length === 1);
-
   readonly currentAccount = computed<AccountOption | null>(() => {
     const accounts = this.accounts();
     return accounts.length === 1 ? accounts[0] : null;
   });
 
-  readonly currentAccountLabel = computed(() => this.currentAccount()?.label ?? null);
-
-  constructor() {
+  ngOnInit(): void {
     void this.initializePage();
   }
 
   private async initializePage(): Promise<void> {
     await this.loadAccounts();
-    await this.loadTasks();
-    this.openCreateDialogFromQueryParam();
+    this.route.queryParams.subscribe((params) => {
+      this.parseQueryParams(params);
+      void this.loadTasks();
+    });
+  }
+
+  private parseQueryParams(params: any): void {
+    this.filters = {
+      status: params.status || null,
+      difficulty: params.difficulty || null,
+      accountId: params.accountId || null,
+      searchTerm: params.searchTerm || null,
+      maxDuration: params.maxDuration ? parseInt(params.maxDuration, 10) : null,
+      deadlineFrom: params.deadlineFrom
+        ? this.parseLocalDateNativeString(params.deadlineFrom)
+        : null,
+      deadlineTo: params.deadlineTo ? this.parseLocalDateNativeString(params.deadlineTo) : null,
+    };
+    this.dateRange = [];
+    if (this.filters.deadlineFrom) {
+      this.dateRange[0] = this.filters.deadlineFrom;
+    }
+    if (this.filters.deadlineTo && this.filters.deadlineFrom) {
+      this.dateRange[1] = this.filters.deadlineTo;
+    } else if (this.filters.deadlineTo && !this.filters.deadlineFrom) {
+      this.dateRange = [this.filters.deadlineTo];
+    }
+  }
+
+  private parseLocalDateNativeString(val: string): Date | null {
+    if (!val) return null;
+    const d = new Date(val);
+    return isNaN(d.getTime()) ? null : d;
+  }
+
+  private formatLocalDateNativeString(date: Date): string {
+    const pad = (num: number) => String(num).padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
   }
 
   async loadAccounts(): Promise<void> {
@@ -98,40 +155,74 @@ export class TasksPageComponent {
   }
 
   async loadTasks(): Promise<void> {
+    if (!this.validateFilters()) {
+      this.isLoading.set(false);
+      return;
+    }
+
     this.isLoading.set(true);
-    this.listErrorMessage.set('');
 
     try {
-      const response = await firstValueFrom(this.tasksService.getTasksForAllAccounts());
-      const allTasks: TaskItem[] = [];
+      const fromStr = this.filters.deadlineFrom
+        ? this.formatLocalDateNativeString(this.filters.deadlineFrom)
+        : undefined;
+      const toStr = this.filters.deadlineTo
+        ? this.formatLocalDateNativeString(this.filters.deadlineTo)
+        : undefined;
 
-      for (const accountTasks of response) {
-        if (accountTasks.tasks) {
-          const mapped = accountTasks.tasks.map((t) =>
-            this.mapTaskResponse(t, accountTasks.accountId),
-          );
-          allTasks.push(...mapped);
-        }
-      }
+      const response = await firstValueFrom(
+        this.tasksService.getTasks(
+          this.filters.status || undefined,
+          this.filters.difficulty || undefined,
+          fromStr,
+          toStr,
+          undefined,
+          this.filters.maxDuration || undefined,
+          undefined,
+          undefined,
+          this.filters.searchTerm || undefined,
+        ),
+      );
 
+      const allTasks: TaskItem[] = response
+        .map((t) => this.mapTaskResponse(t, t.accountId ?? ''))
+        .filter((task) => {
+          return !(this.filters.accountId && task.accountId !== this.filters.accountId);
+        });
+
+      this.listErrorMessage.set('');
+      this.successMessage.set('');
       this.totalTaskCount.set(allTasks.length);
-      this.tasks.set(this.applyFilters(allTasks));
+      this.tasks.set(allTasks);
     } catch (error) {
       this.tasks.set([]);
       this.totalTaskCount.set(0);
       this.listErrorMessage.set(
-        this.getReadableErrorMessage(
-          error,
-          'Aufgaben konnten nicht geladen werden. Das Backend ist möglicherweise noch nicht verfügbar.',
-        ),
+        this.getReadableErrorMessage(error, 'Aufgaben konnten nicht geladen werden.'),
       );
     } finally {
       this.isLoading.set(false);
     }
   }
 
+  private validateFilters(): boolean {
+    this.listErrorMessage.set('');
+    this.successMessage.set('');
+
+    if (
+      this.filters.deadlineFrom &&
+      this.filters.deadlineTo &&
+      this.filters.deadlineFrom > this.filters.deadlineTo
+    ) {
+      this.listErrorMessage.set(TasksPageComponent.INVALID_DATE_RANGE_MESSAGE);
+      return false;
+    }
+
+    return true;
+  }
+
   getEmptyTasksMessage(): string {
-    if (this.totalTaskCount() > 0 && this.hasActiveFilters()) {
+    if (this.hasActiveFilters()) {
       return 'Zu diesem Filter sind keine Aufgaben vorhanden.';
     }
 
@@ -144,41 +235,32 @@ export class TasksPageComponent {
       this.filters.difficulty !== null ||
       this.filters.deadlineFrom !== null ||
       this.filters.deadlineTo !== null ||
-      this.filters.accountId !== null
+      this.filters.accountId !== null ||
+      this.filters.searchTerm !== null ||
+      this.filters.maxDuration !== null
     );
   }
 
-  private applyFilters(tasks: TaskItem[]): TaskItem[] {
-    return tasks.filter((task) => {
-      if (this.filters.status && task.status !== this.filters.status) {
-        return false;
-      }
+  applyFilterStateToUrl(): void {
+    if (!this.validateFilters()) {
+      return;
+    }
 
-      if (this.filters.difficulty && task.cognitiveLoad !== this.filters.difficulty) {
-        return false;
-      }
+    const queryParams: any = {};
+    if (this.filters.status) queryParams.status = this.filters.status;
+    if (this.filters.difficulty) queryParams.difficulty = this.filters.difficulty;
+    if (this.filters.accountId) queryParams.accountId = this.filters.accountId;
+    if (this.filters.searchTerm) queryParams.searchTerm = this.filters.searchTerm;
+    if (this.filters.maxDuration) queryParams.maxDuration = this.filters.maxDuration;
+    if (this.filters.deadlineFrom)
+      queryParams.deadlineFrom = this.formatLocalDateNativeString(this.filters.deadlineFrom);
+    if (this.filters.deadlineTo)
+      queryParams.deadlineTo = this.formatLocalDateNativeString(this.filters.deadlineTo);
 
-      if (this.filters.accountId && task.accountId !== this.filters.accountId) {
-        return false;
-      }
-
-      if (this.filters.deadlineFrom || this.filters.deadlineTo) {
-        if (!task.deadline) {
-          return false;
-        }
-
-        const deadline = new Date(task.deadline);
-
-        if (this.filters.deadlineFrom && deadline < this.filters.deadlineFrom) {
-          return false;
-        }
-
-        if (this.filters.deadlineTo && deadline > this.filters.deadlineTo) {
-          return false;
-        }
-      }
-
-      return true;
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams,
+      queryParamsHandling: '',
     });
   }
 
@@ -426,6 +508,8 @@ export class TasksPageComponent {
     deadlineFrom: null,
     deadlineTo: null,
     accountId: null,
+    searchTerm: null,
+    maxDuration: null,
   };
 
   dateRange: Date[] = [];
@@ -445,7 +529,6 @@ export class TasksPageComponent {
   onDateRangeChange(): void {
     this.filters.deadlineFrom = this.dateRange?.[0] || null;
     this.filters.deadlineTo = this.dateRange?.[1] || null;
-    this.loadTasks();
   }
 
   onDateRangeSelect(selectedDate: Date): void {
@@ -468,7 +551,6 @@ export class TasksPageComponent {
     this.dateRange = [];
     this.filters.deadlineFrom = null;
     this.filters.deadlineTo = null;
-    this.loadTasks();
   }
 
   private isSameOrBetweenDates(date: Date, start: Date, end: Date): boolean {
@@ -520,7 +602,6 @@ export class TasksPageComponent {
     }
 
     select.hide(true);
-    this.loadTasks();
   }
 
   resetFilters(): void {
@@ -530,10 +611,14 @@ export class TasksPageComponent {
       deadlineFrom: null,
       deadlineTo: null,
       accountId: null,
+      searchTerm: null,
+      maxDuration: null,
     };
 
     this.dateRange = [];
-    this.loadTasks();
+    this.listErrorMessage.set('');
+    this.successMessage.set('');
+    this.applyFilterStateToUrl();
   }
 
   private openCreateDialogFromQueryParam(): void {
