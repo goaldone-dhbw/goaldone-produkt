@@ -54,7 +54,7 @@ public class ScheduleServiceTest {
 
     private GenerateScheduleRequest createGenerateScheduleRequest(LocalDate fromDate) {
         GenerateScheduleRequest request = new GenerateScheduleRequest();
-        request.setFrom(OffsetDateTime.of(fromDate, LocalTime.of(0,0,0), ZoneOffset.UTC));
+        request.setFrom(fromDate);
         return request;
     }
 
