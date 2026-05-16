@@ -253,6 +253,8 @@ export class CalenderComponent {
     slotMaxTime: DEFAULT_SLOT_MAX_TIME,
 
     eventDisplay: 'block',
+    slotEventOverlap: false,
+    eventMaxStack: 3,
 
     eventTimeFormat: {
       hour: '2-digit',
@@ -322,7 +324,6 @@ export class CalenderComponent {
 
     this.isAppointmentEditMode.set(true);
   }
-
   cancelAppointmentEdit(): void {
     this.isAppointmentEditMode.set(false);
     this.appointmentEditForm.set(null);
@@ -422,7 +423,6 @@ export class CalenderComponent {
     try {
       const shouldSplitRecurringAppointment =
         appointment?.isRecurring === true &&
-        appointment.isBreak === false &&
         Boolean(appointment.originalStartDate) &&
         form.date > appointment.originalStartDate;
 

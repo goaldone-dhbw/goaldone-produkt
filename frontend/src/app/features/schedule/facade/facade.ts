@@ -221,7 +221,10 @@ export class ScheduleFacadeService {
         const appointmentEntries = await this.loadAppointmentEntries(accountId);
 
         if (existingResponse) {
-          this.applyScheduleResponse(existingResponse, appointmentEntries);
+          this.applyScheduleResponse(
+            this.removeAppointmentEntriesFromResponse(existingResponse),
+            appointmentEntries,
+          );
         } else if (appointmentEntries.length > 0) {
           const entries = this.sortScheduleEntries(appointmentEntries);
           this.scheduleEntries.set(entries);
@@ -242,9 +245,14 @@ export class ScheduleFacadeService {
     if (!this.canLoadExistingSchedule()) {
       if (existingResponse) {
         const appointmentEntries = await this.loadAppointmentEntries(accountId);
-        this.applyScheduleResponse(existingResponse, appointmentEntries);
+
+        this.applyScheduleResponse(
+          this.removeAppointmentEntriesFromResponse(existingResponse),
+          appointmentEntries,
+        );
       }
     }
+
 
     if (accountId !== this.ALL_ACCOUNTS_ID && !this.canLoadExistingSchedule()) return;
 
@@ -276,7 +284,10 @@ export class ScheduleFacadeService {
         const appointmentEntries = await this.loadAppointmentEntries(accountId);
 
         if (fallbackResponse) {
-          this.applyScheduleResponse(fallbackResponse, appointmentEntries);
+          this.applyScheduleResponse(
+            this.removeAppointmentEntriesFromResponse(fallbackResponse),
+            appointmentEntries,
+          );
         } else if (appointmentEntries.length > 0) {
           this.scheduleEntries.set(appointmentEntries);
           this.saveToCache(appointmentEntries);
@@ -414,6 +425,15 @@ export class ScheduleFacadeService {
       value.originalItemId ||
       'Nicht eingeplante Aufgabe'
     );
+  }
+  private removeAppointmentEntriesFromResponse(response: ScheduleResponse): ScheduleResponse {
+    return {
+      ...response,
+      entries: (response.entries ?? []).filter(
+        (entry) => entry.type !== 'APPOINTMENT',
+      ),
+      appointments: [],
+    };
   }
 
   private applyScheduleResponse(
