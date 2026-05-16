@@ -19,13 +19,13 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
-import java.util.*;
 import java.util.concurrent.*;
 
 @Slf4j
@@ -42,13 +42,13 @@ public class ScheduleService {
     private final ScheduleMapper scheduleMapper = new ScheduleMapper();
 
     /**
-     * Generates schedules for multiple accounts asynchronously
+     * Generates schedules for multiple accounts asynchronously.
      *
-     * @param accountIds          List of accounts
-     * @param request             Request parameters (e.g. fromDate)
-     * @param timeoutMilliseconds Maximum time to wait for each account's schedule
-     *                            generation before giving up (in milliseconds)
-     * @return A schedule for each account summed up in a lCist
+     * @param jwt                 JWT token containing user information
+     * @param accountIds          List of account IDs for which schedules should be generated
+     * @param request             Request parameters, for example the start date
+     * @param timeoutMilliseconds Maximum time to wait for each account's schedule generation
+     * @return A list containing one schedule response per account
      */
     public List<ScheduleResponse> generateMultiAccountSchedule(
             Jwt jwt,
@@ -126,7 +126,7 @@ public class ScheduleService {
     public ScheduleResponse generateSchedule(Jwt jwt, UUID accountId, LocalDate fromDate, long timeoutMs) {
 
         validateRequest(jwt, accountId, fromDate);
-        SchedulingContext schedulingContext = createSchedulingContext(jwt, accountId, fromDate, 1);
+        SchedulingContext schedulingContext = createSchedulingContext(jwt, accountId, fromDate);
         SchedulingResult bestResult = solver.createSchedule(schedulingContext, timeoutMs);
 
         return this.scheduleMapper.mapToScheduleResult(
@@ -161,18 +161,25 @@ public class ScheduleService {
     }
 
     /**
-     * Creates a scheduling context containing tasks, free time slots and the scheduling start date
-     * @param jwt Token
-     * @param accountId Account
-     * @param fromDate Start date for the schedule
+     * Creates a scheduling context containing tasks, working times, available time slots
+     * and the scheduling start date.
+     *
+     * @param jwt       JWT token containing user information
+     * @param accountId Account ID for which the context should be created
+     * @param fromDate  Start date for the schedule
      * @return Scheduling context for the solver
      */
-    public SchedulingContext createSchedulingContext(Jwt jwt, UUID accountId, LocalDate fromDate, int weeks) {
+    public SchedulingContext createSchedulingContext(Jwt jwt, UUID accountId, LocalDate fromDate) {
 
-        List<TaskResponse> allTasks = taskService.getTasksForAccountId(jwt, accountId);
+        List<TaskResponse> allTasks = new ArrayList<>();
+        for (TaskResponse task : taskService.getTasksForAccountId(jwt, accountId)) {
+            if (!task.getStatus().equals(TaskStatus.DONE)) {
+                allTasks.add(task);
+            }
+        }
 
         // Load working times for this account
-        List<WorkingTimeEntity> workingTimes = userAccountRepository.findById(accountId)
+        List<WorkingTimeEntity> workingTimes = userAccountRepository.findByIdWithWorkingTimes(accountId)
                 .map(UserAccountEntity::getWorkingTimes)
                 .orElse(List.of());
 
@@ -186,7 +193,7 @@ public class ScheduleService {
 
         // Get available timeslots
         List<Appointment> allAppointments = appointmentService.listAppointments(accountId, jwt).getAppointments();
-        List<TimeSlot> availableSlots = getAvailableTimeSlots(allAppointments, workingTimes, fromDate, weeks);
+        List<TimeSlot> availableSlots = getAvailableTimeSlots(allAppointments, workingTimes, fromDate);
 
         // Create schedule context
         return new SchedulingContext(
@@ -195,14 +202,16 @@ public class ScheduleService {
     }
 
     /**
-     * Calculate a list of available time slots to plan the task chunks into
+     * Calculate a list of available time slots to plan the task chunks into.
      * @param allAppointments All appointments scheduled for this account>
      * @param workingTimes List of working time definitions for the account
      * @param fromDate Start date for calculating available slots
-     * @param nWeeks Plan for N   nWeeks ahead
      * @return Available timeslots for multiple days starting from fromDate
      */
-    private List<TimeSlot> getAvailableTimeSlots(List<Appointment> allAppointments, List<WorkingTimeEntity> workingTimes, LocalDate fromDate, int nWeeks) {
+    private List<TimeSlot> getAvailableTimeSlots(List<Appointment> allAppointments, List<WorkingTimeEntity> workingTimes, LocalDate fromDate) {
+
+        int nWeeks = getNWeeksAhead(fromDate, allAppointments);
+
         List<TimeSlot> availableSlots = new ArrayList<>();
 
         if (workingTimes.isEmpty()) {
@@ -265,6 +274,9 @@ public class ScheduleService {
 
                     TimeSlot workingHours = mapping.get(weekday);
 
+                    // Merge overlapping appointments to avoid schedule generation issues
+                    dayAppointments = mergeOverlappingAppointments(dayAppointments);
+
                     // Calculate free slots between appointments
                     LocalTime currentTime = workingHours.startTime();
                     LocalTime workEndTime = workingHours.endTime();
@@ -294,6 +306,29 @@ public class ScheduleService {
             }
         }
         return availableSlots;
+    }
+
+    /**
+     * Determine the date of the last planed appointment and plans n weeks ahead where n is the number of weeks
+     *  between "fromDate" and the date of the last appointment.
+     *  A minimum of weeks ahead is set to 4.
+     * @param fromDate The date from which on the schedule is calculated
+     * @param allAppointments All appointments for this account
+     * @return Minimal 4 or the number of weeks between fromDate and the date of the last appointment
+     */
+    private int getNWeeksAhead(LocalDate fromDate, List<Appointment> allAppointments) {
+
+        List<Appointment> appointmentsWithDate = allAppointments.stream()
+                .filter(apt -> apt.getDate() != null)
+                .sorted(Comparator.comparing(Appointment::getDate))
+                .toList();
+
+        if (appointmentsWithDate.isEmpty()) return 4;
+
+        LocalDate lastDate =  appointmentsWithDate.getLast().getDate();
+        int weeksBetween = (int) ChronoUnit.WEEKS.between(fromDate, lastDate) + 1;
+
+        return Math.min(4, weeksBetween);
     }
 
     /**
@@ -363,6 +398,56 @@ public class ScheduleService {
             }
         }
         return false;
+    }
+
+    /**
+     * Merges overlapping appointments into combined blocks so that the free-slot
+     * calculation in {@link #getAvailableTimeSlots} works correctly even when
+     * legacy data contains overlapping appointments.
+     *
+     * @param sortedAppointments Appointments for a single day, already sorted by startTime
+     * @return A list of synthetic Appointment objects with merged time ranges
+     */
+    private List<Appointment> mergeOverlappingAppointments(List<Appointment> sortedAppointments) {
+        if (sortedAppointments.size() <= 1) {
+            return sortedAppointments;
+        }
+
+        List<Appointment> merged = new ArrayList<>();
+
+        final Appointment current = sortedAppointments.getFirst();
+        LocalTime currentStart = LocalTime.parse(current.getStartTime());
+        LocalTime currentEnd = LocalTime.parse(current.getEndTime());
+
+        for (int i = 1; i < sortedAppointments.size(); i++) {
+            Appointment next = sortedAppointments.get(i);
+            LocalTime nextStart = LocalTime.parse(next.getStartTime());
+            LocalTime nextEnd = LocalTime.parse(next.getEndTime());
+
+            if (nextStart.isBefore(currentEnd) || nextStart.equals(currentEnd)) {
+                // Overlapping or adjacent – extend the end time
+                if (nextEnd.isAfter(currentEnd)) {
+                    currentEnd = nextEnd;
+                }
+            } else {
+                // No overlap – emit current block and start new one
+                Appointment block = new Appointment();
+                block.setStartTime(currentStart.toString());
+                block.setEndTime(currentEnd.toString());
+                merged.add(block);
+
+                currentStart = nextStart;
+                currentEnd = nextEnd;
+            }
+        }
+
+        // Emit last block
+        Appointment block = new Appointment();
+        block.setStartTime(currentStart.toString());
+        block.setEndTime(currentEnd.toString());
+        merged.add(block);
+
+        return merged;
     }
 
     /**

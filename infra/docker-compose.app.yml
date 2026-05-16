@@ -1,0 +1,97 @@
+name: goaldone-app
+
+services:
+  # -------------------------------------------------------
+  # GoalDone Backend (Spring Boot)
+  # -------------------------------------------------------
+  goaldone-backend:
+    image: ghcr.io/goaldone-dhbw/goaldone-backend:latest
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
+      ZITADEL_ISSUER_URI: ${ZITADEL_ISSUER_URI}
+      ZITADEL_SERVICE_ACCOUNT_TOKEN: ${ZITADEL_SERVICE_ACCOUNT_TOKEN}
+      ZITADEL_GOALDONE_PROJECT_ID: ${ZITADEL_GOALDONE_PROJECT_ID}
+      ZITADEL_GOALDONE_ORG_ID: ${ZITADEL_GOALDONE_ORG_ID}
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL}
+      SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
+    depends_on:
+      goaldone-postgres:
+        condition: service_healthy
+    networks:
+      - goaldone
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/api/v1/actuator/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+
+  # -------------------------------------------------------
+  # GoalDone Frontend (Angular + nginx)
+  # -------------------------------------------------------
+  goaldone-frontend:
+    image: ghcr.io/goaldone-dhbw/goaldone-frontend:latest
+    restart: unless-stopped
+    environment:
+      ZITADEL_CLIENT_ID: ${ZITADEL_CLIENT_ID}
+      ZITADEL_ISSUER_URI: ${ZITADEL_ISSUER_URI}
+      API_BASE_PATH: ${API_BASE_PATH}
+      BACKEND_HOST: ${BACKEND_HOST}
+    depends_on:
+      goaldone-backend:
+        condition: service_healthy
+    networks:
+      - goaldone
+      - zitadel
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=zitadel
+      - traefik.http.services.goaldone-frontend.loadbalancer.server.port=80
+      - traefik.http.routers.goaldone-web.rule=Host(`${GOALDONE_DOMAIN}`)
+      - traefik.http.routers.goaldone-web.entrypoints=web
+      - traefik.http.routers.goaldone-web.middlewares=redirect-to-https
+      - traefik.http.routers.goaldone-web.service=goaldone-frontend
+      - traefik.http.routers.goaldone-websecure.rule=Host(`${GOALDONE_DOMAIN}`)
+      - traefik.http.routers.goaldone-websecure.entrypoints=websecure
+      - traefik.http.routers.goaldone-websecure.tls=true
+      - traefik.http.routers.goaldone-websecure.tls.certresolver=le
+      - traefik.http.routers.goaldone-websecure.service=goaldone-frontend
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:80/"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+
+  # -------------------------------------------------------
+  # GoalDone PostgreSQL
+  # -------------------------------------------------------
+  goaldone-postgres:
+    image: postgres:17.2-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: goaldone
+      POSTGRES_USER: goaldone
+      POSTGRES_PASSWORD: ${GOALDONE_DB_PASSWORD}
+    volumes:
+      - goaldone-postgres-data:/var/lib/postgresql/data:rw
+    networks:
+      - goaldone
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d goaldone -U goaldone"]
+      interval: 10s
+      timeout: 30s
+      retries: 10
+      start_period: 20s
+
+networks:
+  goaldone:
+    name: goaldone
+  zitadel:
+    external: true
+
+volumes:
+  goaldone-postgres-data:

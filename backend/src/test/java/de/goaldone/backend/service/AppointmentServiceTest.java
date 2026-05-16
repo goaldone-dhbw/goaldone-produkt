@@ -1,6 +1,7 @@
 package de.goaldone.backend.service;
 
 import de.goaldone.backend.entity.AppointmentEntity;
+import de.goaldone.backend.exception.AppointmentOverlapException;
 import de.goaldone.backend.model.Appointment;
 import de.goaldone.backend.model.AppointmentCreate;
 import de.goaldone.backend.model.AppointmentListResponse;
@@ -17,6 +18,7 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.Optional;
@@ -284,6 +286,230 @@ class AppointmentServiceTest {
         assertEquals(HttpStatus.BAD_REQUEST, ex.getStatusCode());
         assertNotNull(ex.getReason());
         assertTrue(ex.getReason().contains("rrule"));
+    }
+
+    // -------------------------------------------------------------------------
+    // Negative: Overlapping RECURRING ↔ RECURRING → 409
+    // -------------------------------------------------------------------------
+
+    @Test
+    void createAppointment_overlappingRecurringBreaks_throwsOverlapException() {
+        UUID accountId = UUID.randomUUID();
+        Jwt jwt = mockJwt();
+
+        // Existing recurring break: Mon-Fri 12:00-13:00
+        AppointmentEntity existing = buildEntity(accountId, "Mittag", "12:00", "13:00", true);
+        existing.setAppointmentType(AppointmentType.RECURRING);
+        existing.setRrule("FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR");
+
+        // New recurring break: Mon-Wed 12:30-13:30 (overlaps on MO,TU,WE + time overlap)
+        AppointmentCreate req = new AppointmentCreate();
+        req.setTitle("Zweite Pause");
+        req.setIsBreak(true);
+        req.setAppointmentType(AppointmentType.RECURRING);
+        req.setRrule("FREQ=WEEKLY;BYDAY=MO,TU,WE");
+        req.setStartTime("12:30");
+        req.setEndTime("13:30");
+
+        when(userIdentityService.hasUserAccessToAccount(jwt, accountId)).thenReturn(true);
+        when(appointmentRepository.findByAccountId(accountId)).thenReturn(List.of(existing));
+
+        AppointmentOverlapException ex = assertThrows(AppointmentOverlapException.class,
+                () -> appointmentService.createAppointment(accountId, req, jwt));
+
+        assertTrue(ex.getMessage().contains("Mittag"));
+    }
+
+    // -------------------------------------------------------------------------
+    // Negative: Overlapping ONE_TIME ↔ ONE_TIME → 409
+    // -------------------------------------------------------------------------
+
+    @Test
+    void createAppointment_overlappingOneTimeAppointments_throwsOverlapException() {
+        UUID accountId = UUID.randomUUID();
+        Jwt jwt = mockJwt();
+
+        // Existing one-time appointment on 2026-05-18 10:00-11:00
+        AppointmentEntity existing = buildEntity(accountId, "Arzttermin", "10:00", "11:00", false);
+        existing.setAppointmentType(AppointmentType.ONE_TIME);
+        existing.setDate(LocalDate.of(2026, 5, 18));
+        existing.setRrule(null);
+
+        // New one-time break on same date 10:30-11:30
+        AppointmentCreate req = new AppointmentCreate();
+        req.setTitle("Pause");
+        req.setIsBreak(true);
+        req.setAppointmentType(AppointmentType.ONE_TIME);
+        req.setDate(LocalDate.of(2026, 5, 18));
+        req.setStartTime("10:30");
+        req.setEndTime("11:30");
+
+        when(userIdentityService.hasUserAccessToAccount(jwt, accountId)).thenReturn(true);
+        when(appointmentRepository.findByAccountId(accountId)).thenReturn(List.of(existing));
+
+        AppointmentOverlapException ex = assertThrows(AppointmentOverlapException.class,
+                () -> appointmentService.createAppointment(accountId, req, jwt));
+
+        assertTrue(ex.getMessage().contains("Arzttermin"));
+    }
+
+    // -------------------------------------------------------------------------
+    // Negative: Overlapping ONE_TIME ↔ RECURRING → 409
+    // -------------------------------------------------------------------------
+
+    @Test
+    void createAppointment_oneTimeOverlapsRecurring_throwsOverlapException() {
+        UUID accountId = UUID.randomUUID();
+        Jwt jwt = mockJwt();
+
+        // Existing recurring break on MO 12:00-13:00
+        AppointmentEntity existing = buildEntity(accountId, "Mittagspause", "12:00", "13:00", true);
+        existing.setAppointmentType(AppointmentType.RECURRING);
+        existing.setRrule("FREQ=WEEKLY;BYDAY=MO");
+
+        // New one-time appointment on Monday 2026-05-18 12:30-13:30
+        AppointmentCreate req = new AppointmentCreate();
+        req.setTitle("Montags-Termin");
+        req.setIsBreak(false);
+        req.setAppointmentType(AppointmentType.ONE_TIME);
+        req.setDate(LocalDate.of(2026, 5, 18)); // Monday
+        req.setStartTime("12:30");
+        req.setEndTime("13:30");
+
+        when(userIdentityService.hasUserAccessToAccount(jwt, accountId)).thenReturn(true);
+        when(appointmentRepository.findByAccountId(accountId)).thenReturn(List.of(existing));
+
+        AppointmentOverlapException ex = assertThrows(AppointmentOverlapException.class,
+                () -> appointmentService.createAppointment(accountId, req, jwt));
+
+        assertTrue(ex.getMessage().contains("Mittagspause"));
+    }
+
+    @Test
+    void createAppointment_recurringOverlapsOneTime_throwsOverlapException() {
+        UUID accountId = UUID.randomUUID();
+        Jwt jwt = mockJwt();
+
+        // Existing one-time appointment on Monday 2026-05-18 12:00-13:00
+        AppointmentEntity existing = buildEntity(accountId, "Montags-Termin", "12:00", "13:00", false);
+        existing.setAppointmentType(AppointmentType.ONE_TIME);
+        existing.setDate(LocalDate.of(2026, 5, 18)); // Monday
+        existing.setRrule(null);
+
+        // New recurring break on MO 12:30-13:30
+        AppointmentCreate req = new AppointmentCreate();
+        req.setTitle("Mittagspause");
+        req.setIsBreak(true);
+        req.setAppointmentType(AppointmentType.RECURRING);
+        req.setRrule("FREQ=WEEKLY;BYDAY=MO");
+        req.setStartTime("12:30");
+        req.setEndTime("13:30");
+
+        when(userIdentityService.hasUserAccessToAccount(jwt, accountId)).thenReturn(true);
+        when(appointmentRepository.findByAccountId(accountId)).thenReturn(List.of(existing));
+
+        assertThrows(AppointmentOverlapException.class,
+                () -> appointmentService.createAppointment(accountId, req, jwt));
+    }
+
+    // -------------------------------------------------------------------------
+    // Positive: No overlap (different times)
+    // -------------------------------------------------------------------------
+
+    @Test
+    void createAppointment_noTimeOverlap_succeeds() {
+        UUID accountId = UUID.randomUUID();
+        Jwt jwt = mockJwt();
+
+        // Existing break 12:00-13:00
+        AppointmentEntity existing = buildEntity(accountId, "Mittag", "12:00", "13:00", true);
+        existing.setAppointmentType(AppointmentType.RECURRING);
+        existing.setRrule("FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR");
+
+        // New break 15:00-15:30 (no time overlap)
+        AppointmentCreate req = buildBreakRequest("Kaffeepause", "15:00", "15:30");
+        req.setRrule("FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR");
+
+        when(userIdentityService.hasUserAccessToAccount(jwt, accountId)).thenReturn(true);
+        when(appointmentRepository.findByAccountId(accountId)).thenReturn(List.of(existing));
+        when(appointmentRepository.save(any(AppointmentEntity.class)))
+                .thenAnswer(invocation -> {
+                    AppointmentEntity e = invocation.getArgument(0);
+                    e.setId(UUID.randomUUID());
+                    return e;
+                });
+
+        Appointment result = appointmentService.createAppointment(accountId, req, jwt);
+
+        assertEquals("Kaffeepause", result.getTitle());
+    }
+
+    // -------------------------------------------------------------------------
+    // Positive: No overlap (different days)
+    // -------------------------------------------------------------------------
+
+    @Test
+    void createAppointment_noDayOverlap_succeeds() {
+        UUID accountId = UUID.randomUUID();
+        Jwt jwt = mockJwt();
+
+        // Existing break on MO 12:00-13:00
+        AppointmentEntity existing = buildEntity(accountId, "Montag Pause", "12:00", "13:00", true);
+        existing.setAppointmentType(AppointmentType.RECURRING);
+        existing.setRrule("FREQ=WEEKLY;BYDAY=MO");
+
+        // New break on FR 12:00-13:00 (same time but different day)
+        AppointmentCreate req = new AppointmentCreate();
+        req.setTitle("Freitag Pause");
+        req.setIsBreak(true);
+        req.setAppointmentType(AppointmentType.RECURRING);
+        req.setRrule("FREQ=WEEKLY;BYDAY=FR");
+        req.setStartTime("12:00");
+        req.setEndTime("13:00");
+
+        when(userIdentityService.hasUserAccessToAccount(jwt, accountId)).thenReturn(true);
+        when(appointmentRepository.findByAccountId(accountId)).thenReturn(List.of(existing));
+        when(appointmentRepository.save(any(AppointmentEntity.class)))
+                .thenAnswer(invocation -> {
+                    AppointmentEntity e = invocation.getArgument(0);
+                    e.setId(UUID.randomUUID());
+                    return e;
+                });
+
+        Appointment result = appointmentService.createAppointment(accountId, req, jwt);
+
+        assertEquals("Freitag Pause", result.getTitle());
+    }
+
+    // -------------------------------------------------------------------------
+    // Positive: Update excludes own ID from overlap check
+    // -------------------------------------------------------------------------
+
+    @Test
+    void updateAppointment_sameAppointment_doesNotThrowOverlap() {
+        UUID accountId = UUID.randomUUID();
+        UUID appointmentId = UUID.randomUUID();
+        Jwt jwt = mockJwt();
+
+        AppointmentEntity existing = buildEntity(accountId, "Mittag", "12:00", "13:00", true);
+        existing.setId(appointmentId);
+        existing.setAppointmentType(AppointmentType.RECURRING);
+        existing.setRrule("FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR");
+
+        // Update with same times (should not conflict with itself)
+        AppointmentCreate req = buildBreakRequest("Mittag Neu", "12:00", "13:00");
+        req.setRrule("FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR");
+
+        when(userIdentityService.hasUserAccessToAccount(jwt, accountId)).thenReturn(true);
+        when(appointmentRepository.findByAccountId(accountId)).thenReturn(List.of(existing));
+        when(appointmentRepository.findByIdAndAccountId(appointmentId, accountId))
+                .thenReturn(Optional.of(existing));
+        when(appointmentRepository.save(any(AppointmentEntity.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        Appointment result = appointmentService.updateAppointment(accountId, appointmentId, req, jwt);
+
+        assertEquals("Mittag Neu", result.getTitle());
     }
 
     // -------------------------------------------------------------------------

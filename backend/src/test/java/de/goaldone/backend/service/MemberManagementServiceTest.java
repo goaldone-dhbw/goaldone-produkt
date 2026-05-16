@@ -46,6 +46,8 @@ class MemberManagementServiceTest {
     private OrganizationRepository organizationRepository;
     @Mock
     private DeletionService deletionService;
+    @Mock
+    private UserIdentityService userIdentityService;
 
     @InjectMocks
     private MemberManagementService memberManagementService;
@@ -65,6 +67,8 @@ class MemberManagementServiceTest {
         SecurityContext securityContext = mock(SecurityContext.class);
         lenient().when(securityContext.getAuthentication()).thenReturn(authentication);
         SecurityContextHolder.setContext(securityContext);
+
+        lenient().when(userIdentityService.hasUserAccessToOrganization(any(Jwt.class), any(UUID.class))).thenReturn(true);
 
         // Reflection to set @Value fields
         java.lang.reflect.Field projectField = MemberManagementService.class.getDeclaredField("goaldoneProjectId");
@@ -123,9 +127,6 @@ class MemberManagementServiceTest {
     @Test
     void changeMemberRole_Success() {
         // Arrange
-        UserAccountEntity callerAccount = new UserAccountEntity();
-        callerAccount.setOrganizationId(orgId);
-        when(userAccountRepository.findByZitadelSub(callerSub)).thenReturn(Optional.of(callerAccount));
 
         OrganizationEntity org = new OrganizationEntity();
         org.setZitadelOrgId("zitadel-org");
@@ -150,9 +151,6 @@ class MemberManagementServiceTest {
     @Test
     void changeMemberRole_LastAdmin_ThrowsConflict() throws Exception {
         // Arrange
-        UserAccountEntity callerAccount = new UserAccountEntity();
-        callerAccount.setOrganizationId(orgId);
-        when(userAccountRepository.findByZitadelSub(callerSub)).thenReturn(Optional.of(callerAccount));
 
         OrganizationEntity org = new OrganizationEntity();
         org.setZitadelOrgId("user-org");
@@ -178,9 +176,6 @@ class MemberManagementServiceTest {
     @Test
     void removeMember_ActiveUser_Success() throws Exception {
         // Arrange
-        UserAccountEntity callerAccount = new UserAccountEntity();
-        callerAccount.setOrganizationId(orgId);
-        when(userAccountRepository.findByZitadelSub(callerSub)).thenReturn(Optional.of(callerAccount));
 
         OrganizationEntity org = new OrganizationEntity();
         org.setZitadelOrgId("zitadel-org");
@@ -207,9 +202,6 @@ class MemberManagementServiceTest {
     @Test
     void removeMember_InvitedUser_Success() throws Exception {
         // Arrange
-        UserAccountEntity callerAccount = new UserAccountEntity();
-        callerAccount.setOrganizationId(orgId);
-        when(userAccountRepository.findByZitadelSub(callerSub)).thenReturn(Optional.of(callerAccount));
 
         OrganizationEntity org = new OrganizationEntity();
         org.setZitadelOrgId("zitadel-org");
@@ -232,9 +224,6 @@ class MemberManagementServiceTest {
     @Test
     void removeMember_SelfRemove_ThrowsForbidden() {
         // Arrange
-        UserAccountEntity callerAccount = new UserAccountEntity();
-        callerAccount.setOrganizationId(orgId);
-        when(userAccountRepository.findByZitadelSub(callerSub)).thenReturn(Optional.of(callerAccount));
 
         // Act & Assert
         ResponseStatusException ex = assertThrows(ResponseStatusException.class,
@@ -246,9 +235,6 @@ class MemberManagementServiceTest {
     @Test
     void changeMemberRole_DemoteAdmin_MultipleAdmins_Success() throws Exception {
         // Arrange
-        UserAccountEntity callerAccount = new UserAccountEntity();
-        callerAccount.setOrganizationId(orgId);
-        when(userAccountRepository.findByZitadelSub(callerSub)).thenReturn(Optional.of(callerAccount));
 
         OrganizationEntity org = new OrganizationEntity();
         org.setZitadelOrgId("user-org");
@@ -274,9 +260,6 @@ class MemberManagementServiceTest {
     @Test
     void changeMemberRole_SelfDemotion_MultipleAdmins_Success() throws Exception {
         // Arrange
-        UserAccountEntity callerAccount = new UserAccountEntity();
-        callerAccount.setOrganizationId(orgId);
-        when(userAccountRepository.findByZitadelSub(callerSub)).thenReturn(Optional.of(callerAccount));
 
         OrganizationEntity org = new OrganizationEntity();
         org.setZitadelOrgId("user-org");
@@ -302,9 +285,6 @@ class MemberManagementServiceTest {
     @Test
     void removeMember_LastAdmin_ThrowsConflict() throws Exception {
         // Arrange
-        UserAccountEntity callerAccount = new UserAccountEntity();
-        callerAccount.setOrganizationId(orgId);
-        when(userAccountRepository.findByZitadelSub(callerSub)).thenReturn(Optional.of(callerAccount));
 
         OrganizationEntity org = new OrganizationEntity();
         org.setZitadelOrgId("user-org");
@@ -332,9 +312,6 @@ class MemberManagementServiceTest {
     @Test
     void changeMemberRole_RoleUnchanged_ThrowsConflict() throws Exception {
         // Arrange
-        UserAccountEntity callerAccount = new UserAccountEntity();
-        callerAccount.setOrganizationId(orgId);
-        when(userAccountRepository.findByZitadelSub(callerSub)).thenReturn(Optional.of(callerAccount));
 
         OrganizationEntity org = new OrganizationEntity();
         org.setZitadelOrgId("zitadel-org");
@@ -359,9 +336,6 @@ class MemberManagementServiceTest {
     @Test
     void removeMember_UserNotFoundInOrg_ThrowsNotFound() {
         // Arrange
-        UserAccountEntity callerAccount = new UserAccountEntity();
-        callerAccount.setOrganizationId(orgId);
-        when(userAccountRepository.findByZitadelSub(callerSub)).thenReturn(Optional.of(callerAccount));
 
         when(organizationRepository.findById(orgId)).thenReturn(Optional.of(new OrganizationEntity()));
 

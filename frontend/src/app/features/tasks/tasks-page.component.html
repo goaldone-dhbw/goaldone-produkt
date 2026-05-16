@@ -1,18 +1,142 @@
 <div class="min-h-screen bg-slate-50">
   <div class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-    <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-      <div>
-        <h1 class="text-3xl font-bold tracking-tight text-slate-900">Aufgaben</h1>
-        <p class="mt-2 text-sm text-slate-600">
-          Erstelle, bearbeite und verwalte deine Aufgaben.
-        </p>
+    <div class="mb-8 space-y-4">
+      <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 class="text-3xl font-bold tracking-tight text-slate-900">Aufgaben</h1>
+          <p class="mt-2 text-sm text-slate-600">
+            Erstelle, bearbeite und verwalte deine Aufgaben.
+          </p>
+        </div>
+
+        <p-button
+          label="Aufgabe hinzufügen"
+          icon="pi pi-plus"
+          (onClick)="openCreateDialog()"
+        ></p-button>
       </div>
 
-      <p-button
-        label="Aufgabe hinzufügen"
-        icon="pi pi-plus"
-        (onClick)="openCreateDialog()"
-      ></p-button>
+      <div class="flex flex-wrap items-center gap-3">
+        <input
+          pInputText
+          type="text"
+          class="w-full sm:w-48"
+          placeholder="Suchen..."
+          [(ngModel)]="filters.searchTerm"
+          aria-label="Suchen in Titel und Beschreibung"
+        />
+
+        <p-select
+          #statusSelect
+          styleClass="w-40"
+          appendTo="body"
+          [options]="statusOptions"
+          [(ngModel)]="filters.status"
+          ariaLabel="Nach Status filtern"
+          placeholder="Status"
+          optionLabel="label"
+          optionValue="value">
+          <ng-template #item let-option>
+            <button
+              type="button"
+              class="flex w-full items-center justify-between gap-2 text-left"
+              (click)="toggleSelectFilter($event, statusSelect, 'status', option.value)"
+            >
+              <span>{{ option.label }}</span>
+              @if (filters.status === option.value) {
+                <i class="pi pi-check text-xs text-primary-icon"></i>
+              }
+            </button>
+          </ng-template>
+        </p-select>
+
+        <p-select
+          #difficultySelect
+          styleClass="w-52"
+          appendTo="body"
+          [options]="difficultyOptions"
+          [(ngModel)]="filters.difficulty"
+          ariaLabel="Nach Anforderungsgrad filtern"
+          placeholder="Anforderungsgrad"
+          optionLabel="label"
+          optionValue="value">
+          <ng-template #item let-option>
+            <button
+              type="button"
+              class="flex w-full items-center justify-between gap-2 text-left"
+              (click)="toggleSelectFilter($event, difficultySelect, 'difficulty', option.value)"
+            >
+              <span>{{ option.label }}</span>
+              @if (filters.difficulty === option.value) {
+                <i class="pi pi-check text-xs text-primary-icon"></i>
+              }
+            </button>
+          </ng-template>
+        </p-select>
+
+        <p-datepicker
+          styleClass="w-64"
+          appendTo="body"
+          [(ngModel)]="dateRange"
+          selectionMode="range"
+          dateFormat="dd.mm.yy"
+          ariaLabel="Nach Deadline Zeitraum filtern"
+          placeholder="Deadline Zeitraum"
+          [showClear]="true"
+          (onSelect)="onDateRangeSelect($event)"
+          (onClear)="clearDateRangeFilter()">
+        </p-datepicker>
+
+        <p-inputNumber
+          [(ngModel)]="filters.maxDuration"
+          [showButtons]="false"
+          placeholder="max. Dauer (min)"
+          ariaLabel="Maximale Dauer in Minuten angeben"
+          class="w-40">
+        </p-inputNumber>
+
+        <p-select
+          #accountSelect
+          styleClass="w-56"
+          appendTo="body"
+          [options]="accounts()"
+          [(ngModel)]="filters.accountId"
+          ariaLabel="Nach Organisation filtern"
+          placeholder="Organisation"
+          optionLabel="label"
+          optionValue="id">
+          <ng-template #item let-option>
+            <button
+              type="button"
+              class="flex w-full items-center justify-between gap-2 text-left"
+              (click)="toggleSelectFilter($event, accountSelect, 'accountId', option.id)"
+            >
+              <span>{{ option.label }}</span>
+              @if (filters.accountId === option.id) {
+                <i class="pi pi-check text-xs text-primary-icon"></i>
+              }
+            </button>
+          </ng-template>
+        </p-select>
+
+        <button
+          pButton
+          type="button"
+          label="Filtern"
+          icon="pi pi-filter"
+          (click)="applyFilterStateToUrl()">
+        </button>
+        
+        @if (hasActiveFilters()) {
+          <button
+            pButton
+            type="button"
+            label="Filter zurücksetzen"
+            icon="pi pi-refresh"
+            (click)="resetFilters()">
+          </button>
+        }
+      </div>
     </div>
 
     @if (successMessage()) {
@@ -40,7 +164,7 @@
         </div>
       } @else if (tasks().length === 0) {
         <div class="px-6 py-8 text-sm text-slate-600">
-          Es sind noch keine Aufgaben vorhanden.
+          {{ getEmptyTasksMessage() }}
         </div>
       } @else {
         <div class="divide-y divide-slate-200">

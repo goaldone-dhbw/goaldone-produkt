@@ -48,7 +48,7 @@ export class AppSidebarComponent {
         command: closeSidebar,
       },
       {
-        label: 'Aufgaben & Routinen',
+        label: 'Aufgaben',
         icon: 'pi pi-list',
         routerLink: '/app/tasks',
         command: closeSidebar,
@@ -57,6 +57,12 @@ export class AppSidebarComponent {
         label: 'Planungsansicht',
         icon: 'pi pi-calendar-clock',
         routerLink: '/app/schedule',
+        command: closeSidebar,
+      },
+      {
+        label: 'Termine',
+        icon: 'pi pi-calendar-plus',
+        routerLink: '/app/appointments',
         command: closeSidebar,
       },
       {

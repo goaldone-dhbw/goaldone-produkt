@@ -36,6 +36,7 @@ public class MemberManagementService {
     private final UserAccountRepository userAccountRepository;
     private final OrganizationRepository organizationRepository;
     private final DeletionService deletionService;
+    private final UserIdentityService userIdentityService;
 
     @Value("${zitadel.goaldone.project-id}")
     private String goaldoneProjectId;
@@ -263,10 +264,8 @@ public class MemberManagementService {
      * @param orgId the ID of the organization to check
      */
     private void validateCallerBelongsToOrg(UUID orgId) {
-        String callerSub = getCallerSub();
-        UserAccountEntity callerAccount = userAccountRepository.findByZitadelSub(callerSub).orElseThrow(() -> new NotMemberOfOrganizationException("Caller account not found"));
-
-        if (!callerAccount.getOrganizationId().equals(orgId)) {
+        Jwt jwt = (Jwt) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        if (!userIdentityService.hasUserAccessToOrganization(jwt, orgId)) {
             throw new NotMemberOfOrganizationException("Caller does not belong to organization: " + orgId);
         }
     }
