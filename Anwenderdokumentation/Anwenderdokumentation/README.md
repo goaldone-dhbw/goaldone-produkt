@@ -5,6 +5,7 @@ Willkommen bei der Anwenderdokumentation für GoalDone. Diese Dokumentation hilf
 ## Inhaltsverzeichnis
 
 - [Installationsanleitung](Installation.md)
+- [Glossar](Glossar.md)
 - [Arbeitszeiten](Features/Arbeitszeiten.md)
 - [Aufgaben](Features/Aufgaben.md)
 - [Benutzereinstellungen](Features/Benutzereinstellungen.md)
