@@ -18,6 +18,7 @@ import timeGridPlugin from '@fullcalendar/timegrid';
 import { firstValueFrom } from 'rxjs';
 
 import {
+  AppointmentCreate,
   AppointmentsService,
   ScheduleEntry,
   TaskAccountListResponse,
@@ -419,34 +420,37 @@ export class CalenderComponent {
     try {
       const payload = this.createAppointmentUpdatePayload(form);
 
+      // DIREKT HIER – vor dem API-Call:
+      console.log('=== saveAppointment ===');
+      console.log('accountId:', form.accountId);
+      console.log('appointmentId:', form.id);
+      console.log('payload:', JSON.stringify(payload, null, 2));
+
       await firstValueFrom(
-        this.appointmentsService.updateAppointment(form.accountId, form.id, payload as any),
+        this.appointmentsService.updateAppointment(form.accountId, form.id, payload),
       );
+
 
       this.closeAppointmentDialog();
       this.appointmentSaved.emit();
-    } catch {
+    } catch (error) {
+      console.error('saveAppointment error:', error);
       this.appointmentError.set('Der Eintrag konnte nicht gespeichert werden.');
     } finally {
       this.isSavingAppointment.set(false);
     }
   }
 
-  private createAppointmentUpdatePayload(form: AppointmentEditForm): any {
-    const normalizedStartTime = this.normalizeTime(form.startTime);
-    const normalizedEndTime = this.normalizeTime(form.endTime);
-
-    const payload: any = {
+  private createAppointmentUpdatePayload(form: AppointmentEditForm): AppointmentCreate {
+    return {
       title: form.title.trim(),
-      date: form.date,
-      startTime: normalizedStartTime,
-      endTime: normalizedEndTime,
       isBreak: form.isBreak,
       appointmentType: form.isRecurring ? 'RECURRING' : 'ONE_TIME',
-      rule: form.isRecurring ? this.createWeeklyRule(form.days) : null,
+      date: form.date || null,
+      startTime: form.startTime.substring(0, 5),
+      endTime: form.endTime.substring(0, 5),
+      rrule: form.isRecurring ? this.createWeeklyRule(form.days) : null,
     };
-
-    return payload;
   }
 
   private createWeeklyRule(days: WeekdayCode[]): string {
@@ -607,13 +611,26 @@ export class CalenderComponent {
 
   private mapScheduleEntryToAppointmentDetail(entry: ScheduleEntry): AppointmentDetail {
     const rawEntry = entry as any;
+
+    //temporär zum Debuggen:
+    console.log('entry.source:', entry.source);
+    console.log('rawEntry.date:', rawEntry.date);
+    console.log('rawEntry.rrule:', rawEntry.rrule);
+    console.log('rawEntry.accountLabel:', rawEntry.accountLabel);
+    console.log('entry.occurrenceDate:', entry.occurrenceDate);
     const duration = this.calculateDurationInMinutes(entry);
     const rule = this.getOptionalString(entry, 'rule') || this.getOptionalString(entry, 'rrule');
     const isRecurring =
       rawEntry.source === 'RECURRING' || rawEntry.appointmentType === 'RECURRING' || Boolean(rule);
 
     return {
-      id: String(entry.originalItemId ?? entry.entryId ?? ''),
+      id: String(
+        entry.originalItemId ??
+        (entry.entryId && !String(entry.entryId).startsWith('recurring-')
+          ? entry.entryId
+          : null) ??
+        ''
+      ),
       accountId: String(rawEntry.accountId ?? ''),
       title:
         entry.originalItemTitle?.trim() || (this.isBreakEntry(entry) ? 'Pause' : 'Fixer Termin'),

@@ -146,15 +146,6 @@
               </div>
             </div>
 
-            <div>
-              <label class="mb-2 block text-sm font-semibold text-slate-700">
-                Beschreibung
-              </label>
-              <div class="min-h-28 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-700">
-                -
-              </div>
-            </div>
-
             <div class="grid gap-4 sm:grid-cols-2">
               <div>
                 <label class="mb-2 block text-sm font-semibold text-slate-700">
@@ -274,18 +265,6 @@
                   [value]="form.title"
                   (input)="updateAppointmentEditField('title', getInputValue($event))"
                 />
-              </div>
-
-              <div>
-                <label class="mb-2 block text-sm font-semibold text-slate-700">
-                  Beschreibung
-                </label>
-                <textarea
-                  rows="4"
-                  disabled
-                  class="w-full resize-none rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-500 outline-none placeholder:text-slate-400 disabled:bg-white"
-                  placeholder="Optionale Beschreibung"
-                ></textarea>
               </div>
 
               <div class="grid gap-4 sm:grid-cols-2">

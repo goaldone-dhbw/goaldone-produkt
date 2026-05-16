@@ -483,10 +483,17 @@ export class ScheduleFacadeService {
             this.appointmentsService.listAppointments(currentAccountId),
           );
 
-          return this.extractAppointmentItems(response).map((appointment) => ({
-            ...appointment,
-            accountId: appointment.accountId ?? currentAccountId,
-          }));
+          return this.extractAppointmentItems(response).map((appointment) => {
+            const resolvedAccountId = appointment.accountId ?? currentAccountId;
+            const accountLabel =
+              this.accounts().find((a) => a.id === String(resolvedAccountId))?.label ?? null;
+
+            return {
+              ...appointment,
+              accountId: resolvedAccountId,
+              ...(accountLabel ? { accountLabel } : {}),
+            };
+          });
         } catch {
           return [];
         }
@@ -557,6 +564,8 @@ export class ScheduleFacadeService {
       isBreak: appointment.isBreak === true,
       occurrenceDate: this.getAppointmentDate(appointment),
       originalItemId: appointment.id ?? null,
+      ...(appointment.accountId ? { accountId: String(appointment.accountId) } : {}),
+      ...(appointment.accountLabel ? { accountLabel: String(appointment.accountLabel) } : {}),
       totalChunks: null,
     } as ScheduleEntry;
   }
@@ -625,6 +634,9 @@ export class ScheduleFacadeService {
             occurrenceDate: date,
             originalItemId: appointment.id ?? null,
             totalChunks: null,
+            ...(appointment.accountId ? { accountId: String(appointment.accountId) } : {}),
+            ...(appointment.accountLabel ? { accountLabel: String(appointment.accountLabel) } : {}),
+            ...(rrule ? { rrule } : {}),
           }) as ScheduleEntry,
       );
   }
