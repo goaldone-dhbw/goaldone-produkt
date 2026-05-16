@@ -12,7 +12,7 @@ public record TimeSlot(
 
     private static final int BUFFER = 15;
 
-    public int getSlotDuration() {
+    public int durationMinutes() {
         return (int) ChronoUnit.MINUTES.between(startTime, endTime);
     }
 
@@ -24,6 +24,6 @@ public record TimeSlot(
      * @return True, if the requested minutes fit in the time slot by also applying the lower buffer. False otherwise
      */
     public boolean canFit(int requestedDurationMinutes) {
-        return (getSlotDuration() + BUFFER) >= requestedDurationMinutes;
+        return (durationMinutes() + BUFFER) >= requestedDurationMinutes;
     }
 }
