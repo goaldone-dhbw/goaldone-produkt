@@ -68,7 +68,7 @@ public class ScheduleService {
             List<CompletableFuture<ScheduleResponse>> futures = accountIds.stream()
                     .map(accountId ->
                             CompletableFuture.supplyAsync(
-                                            () -> generateSchedule(jwt, accountId, request.getFrom(), timeoutMilliseconds), executor
+                                            () -> generateSchedule(jwt, accountId, request.getFrom().toLocalDate(), timeoutMilliseconds), executor
                                     )
                                     // If task takes too long -> complete with null instead of blocking
                                     .completeOnTimeout(createErrorResponse("Schedule generation timed out"), timeoutMilliseconds, TimeUnit.MILLISECONDS) //TODO: adjust timeout
@@ -107,7 +107,7 @@ public class ScheduleService {
             long timeoutMilliseconds) {
 
         try  {
-            return generateSchedule(jwt, accountId, generateScheduleRequest.getFrom(), timeoutMilliseconds);
+            return generateSchedule(jwt, accountId, generateScheduleRequest.getFrom().toLocalDate(), timeoutMilliseconds);
         } catch (Exception ex) {
             return createErrorResponse("Schedule generation failed: " + ex.getMessage());
         }

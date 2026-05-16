@@ -118,10 +118,6 @@ export class ScheduleFacadeService {
     () => this.scheduleEntries().length > 0 || this.workingTimes().length > 0,
   );
 
-  readonly hasSchedule = computed(
-    () => this.scheduleEntries().length > 0 || this.workingTimes().length > 0,
-  );
-
   readonly warnings = computed<ScheduleWarning[]>(() => this.scheduleResponse()?.warnings ?? []);
 
   readonly unscheduledTasks = computed<UnscheduledTask[]>(
@@ -775,9 +771,6 @@ export class ScheduleFacadeService {
     const seen = new Set<string>();
 
     return entries.filter((entry) => {
-      const key = [
-        entry.entryId ?? '',
-        entry.originalItemId ?? '',
       const rawEntry = entry as any;
 
       const sourceId =
@@ -854,9 +847,19 @@ export class ScheduleFacadeService {
 
   private getGenerationStartDate(): string {
     const range = this.lastRange() ?? this.getCurrentWeekRange();
-    const today = this.toIsoDate(new Date());
 
-    return range.from < today ? today : range.from;
+    const now = new Date();
+    const today = this.toIsoDate(now);
+
+    let date: Date;
+
+    if (range.from < today) {
+      date = now;
+    } else {
+      date = new Date(`${range.from}T00:00:00Z`);
+    }
+
+    return date.toISOString();
   }
 
   private getCurrentWeekRange(): { from: string; to: string } {

@@ -237,11 +237,9 @@ export class CalenderComponent {
     eventMinHeight: 28,
     eventShortHeight: 34,
     slotEventOverlap: false,
-    
+
     slotMinTime: DEFAULT_SLOT_MIN_TIME,
     slotMaxTime: DEFAULT_SLOT_MAX_TIME,
-
-    eventDisplay: 'block',
 
     eventTimeFormat: {
       hour: '2-digit',
@@ -536,7 +534,8 @@ export class CalenderComponent {
     const minutes = String(date.getMinutes()).padStart(2, '0');
 
     return `${hours}:${minutes}`;
-    
+  }
+
   private findTaskById(
     accountLists: TaskAccountListResponse[],
     taskId: string,
@@ -708,8 +707,7 @@ export class CalenderComponent {
 
   private getTaskId(entry: ScheduleEntry): string {
     const rawEntry = entry as any;
-
-    return `${title || fallback}${chunkSuffix}`;
+    return rawEntry.id ?? "unknown";
   }
 
   private getEventClassNames(entry: ScheduleEntry): string[] {
@@ -745,30 +743,6 @@ export class CalenderComponent {
     const end = this.timeToMinutes(entry.endTime);
 
     return Math.max(end - start, 0);
-  }
-
-  private getWorkingIntervalsForDate(date: string): TimeInterval[] {
-    const dayName = this.getDayName(date);
-
-    const intervals = this.workingTimes()
-      .filter((workingTime) => this.workingTimeContainsDay(workingTime, dayName))
-      .map((workingTime): TimeInterval => {
-        return {
-          start: this.timeToMinutes(workingTime.startTime),
-          end: this.timeToMinutes(workingTime.endTime),
-        };
-      })
-      .filter((interval) => interval.end > interval.start)
-      .map((interval): TimeInterval => {
-        return {
-          start: Math.max(interval.start, this.timeToMinutes(SLOT_MIN_TIME)),
-          end: Math.min(interval.end, this.timeToMinutes(SLOT_MAX_TIME)),
-        };
-      })
-      .filter((interval) => interval.end > interval.start)
-      .sort((a, b) => a.start - b.start);
-
-    return this.mergeIntervals(intervals);
   }
 
   private workingTimeContainsDay(
@@ -876,58 +850,6 @@ export class CalenderComponent {
       .replace(/Ü/g, 'UE');
   }
 
-  private getNonWorkingIntervals(workingIntervals: TimeInterval[]): TimeInterval[] {
-    const slotStart = this.timeToMinutes(SLOT_MIN_TIME);
-    const slotEnd = this.timeToMinutes(SLOT_MAX_TIME);
-
-    if (workingIntervals.length === 0) {
-      return [{ start: slotStart, end: slotEnd }];
-    }
-
-    const nonWorkingIntervals: TimeInterval[] = [];
-    let cursor = slotStart;
-
-    for (const interval of workingIntervals) {
-      if (interval.start > cursor) {
-        nonWorkingIntervals.push({
-          start: cursor,
-          end: interval.start,
-        });
-      }
-
-      cursor = Math.max(cursor, interval.end);
-    }
-
-    if (cursor < slotEnd) {
-      nonWorkingIntervals.push({
-        start: cursor,
-        end: slotEnd,
-      });
-    }
-
-    return nonWorkingIntervals.filter((interval) => interval.end > interval.start);
-  }
-
-  private mergeIntervals(intervals: TimeInterval[]): TimeInterval[] {
-    if (intervals.length === 0) {
-      return [];
-    }
-
-    const merged: TimeInterval[] = [];
-
-    for (const interval of intervals) {
-      const last = merged[merged.length - 1];
-
-      if (!last || interval.start > last.end) {
-        merged.push({ ...interval });
-        continue;
-      }
-
-      last.end = Math.max(last.end, interval.end);
-    }
-
-    return merged;
-  }
 
   private getTaskStatus(entry: ScheduleEntry): TaskStatus {
     const rawEntry = entry as any;
@@ -1066,26 +988,6 @@ export class CalenderComponent {
     return map[day];
   }
 
-  private getEventClassNames(entry: ScheduleEntry): string[] {
-    if (this.isBreakEntry(entry)) {
-      return ['schedule-event--break'];
-    }
-
-    if (this.isAppointmentEntry(entry)) {
-      return ['schedule-event--appointment'];
-    }
-
-    if (entry.isCompleted) {
-      return ['schedule-event--completed'];
-    }
-
-    if (entry.isPinned) {
-      return ['schedule-event--pinned'];
-    }
-
-    return ['schedule-event--task'];
-  }
-
   private computeEffectiveSlotRange(): { slotMinTime: string; slotMaxTime: string } {
     const defaultMin = this.timeToMinutes(DEFAULT_SLOT_MIN_TIME);
     const defaultMax = this.timeToMinutes(DEFAULT_SLOT_MAX_TIME);
@@ -1175,111 +1077,6 @@ export class CalenderComponent {
     }
 
     return [interval];
-  }
-
-  private workingTimeContainsDay(
-    workingTime: ScheduleWorkingTime,
-    dayName: CalendarDayName,
-  ): boolean {
-    const normalizedDays = this.normalizeWorkingDays(workingTime.days);
-    return normalizedDays.has(dayName);
-  }
-
-  private normalizeWorkingDays(days: string[] | null | undefined): Set<CalendarDayName> {
-    const result = new Set<CalendarDayName>();
-
-    if (!days) {
-      return result;
-    }
-
-    for (const rawDay of days) {
-      const expandedDays = this.expandDayValue(String(rawDay));
-
-      for (const day of expandedDays) {
-        result.add(day);
-      }
-    }
-
-    return result;
-  }
-
-  private expandDayValue(rawValue: string): CalendarDayName[] {
-    const parts = rawValue
-      .split(',')
-      .map((part) => part.trim())
-      .filter(Boolean);
-
-    if (parts.length > 1) {
-      return parts.flatMap((part) => this.expandDayValue(part));
-    }
-
-    const value = this.normalizeDayToken(rawValue);
-
-    if (!value) {
-      return [];
-    }
-
-    const directMatch = DAY_ALIASES[value];
-
-    if (directMatch) {
-      return [directMatch];
-    }
-
-    const rangeMatch = this.expandDayRange(value);
-
-    if (rangeMatch.length > 0) {
-      return rangeMatch;
-    }
-
-    return [];
-  }
-
-  private expandDayRange(value: string): CalendarDayName[] {
-    const normalizedRange = value
-      .replace(/[–—]/g, '-')
-      .replace(/_/g, '-')
-      .replace(/BIS/g, '-')
-      .replace(/TO/g, '-');
-
-    const rangeParts = normalizedRange
-      .split('-')
-      .map((part) => part.trim())
-      .filter(Boolean);
-
-    if (rangeParts.length !== 2) {
-      return [];
-    }
-
-    const startDay = DAY_ALIASES[rangeParts[0]];
-    const endDay = DAY_ALIASES[rangeParts[1]];
-
-    if (!startDay || !endDay) {
-      return [];
-    }
-
-    const startIndex = DAY_ORDER.indexOf(startDay);
-    const endIndex = DAY_ORDER.indexOf(endDay);
-
-    if (startIndex === -1 || endIndex === -1) {
-      return [];
-    }
-
-    if (startIndex <= endIndex) {
-      return DAY_ORDER.slice(startIndex, endIndex + 1);
-    }
-
-    return [...DAY_ORDER.slice(startIndex), ...DAY_ORDER.slice(0, endIndex + 1)];
-  }
-
-  private normalizeDayToken(value: string): string {
-    return value
-      .trim()
-      .toUpperCase()
-      .replace(/\./g, '')
-      .replace(/\s+/g, '')
-      .replace(/Ä/g, 'AE')
-      .replace(/Ö/g, 'OE')
-      .replace(/Ü/g, 'UE');
   }
 
   private getNonWorkingIntervals(workingIntervals: TimeInterval[]): TimeInterval[] {
