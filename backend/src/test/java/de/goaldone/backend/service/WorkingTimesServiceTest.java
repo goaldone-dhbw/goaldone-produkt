@@ -125,6 +125,7 @@ class WorkingTimesServiceTest {
         request.setStartTime("10:00");
         request.setEndTime("18:00");
 
+        when(userAccountRepository.findByZitadelSub("zitadel-sub")).thenReturn(Optional.of(currentAccount));
         when(workingTimeRepository.findById(wtId)).thenReturn(Optional.of(existing));
         when(workingTimeRepository.existsOverlappingSlotExcluding(eq(identityId), eq(wtId), any(), any(), any())).thenReturn(false);
         when(workingTimeRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
