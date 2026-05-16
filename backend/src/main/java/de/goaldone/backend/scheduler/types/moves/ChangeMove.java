@@ -31,9 +31,7 @@ public class ChangeMove extends Move {
      */
     @Override
     public SolverState apply(SolverState current) {
-        List<ScheduledChunk> unpinned = current.scheduledChunks().stream()
-                .filter(sc -> !sc.chunk().isPinned())
-                .toList();
+        List<ScheduledChunk> unpinned = current.scheduledChunks();
 
         if (unpinned.isEmpty() || current.freeSlots().isEmpty()) {
             return null;
