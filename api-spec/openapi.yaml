@@ -1892,13 +1892,13 @@ components:
       properties:
         from:
           type: string
-          format: date
+          format: date-time
           description: |
-            Startdatum der Planung (ISO 8601). Der Algorithmus plant ab
+            Startdatum und Uhrzeit der Planung. Der Algorithmus plant ab
             diesem Datum so viele Tage wie nötig, bis alle Tasks eingeplant
             sind oder die Kapazität erschöpft ist. Das Enddatum ergibt sich
             dynamisch aus der Response (`to`-Feld).
-          example: "2026-04-07"
+          example: "2026-04-07T08:30:00"
 
     # ----------------------------------------------------------
     # Schedule – Response (Single Account)
