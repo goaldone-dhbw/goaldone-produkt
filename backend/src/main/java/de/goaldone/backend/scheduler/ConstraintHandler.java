@@ -4,7 +4,10 @@ import de.goaldone.backend.model.ScheduleWarning;
 import de.goaldone.backend.scheduler.types.HardConstraint;
 import de.goaldone.backend.scheduler.types.SoftConstraint;
 import de.goaldone.backend.scheduler.types.constraints.DeadlineConstraint;
+import de.goaldone.backend.scheduler.types.constraints.DependencyConstraint;
+import de.goaldone.backend.scheduler.types.constraints.NotBeforeConstraint;
 import de.goaldone.backend.scheduler.types.constraints.PauseAfterReachedCognitiveLoadConstraint;
+import de.goaldone.backend.scheduler.types.constraints.PauseBetweenChunksConstraint;
 import de.goaldone.backend.scheduler.types.model.SolverState;
 
 import java.util.ArrayList;
@@ -25,17 +28,13 @@ public class ConstraintHandler {
         this.hardConstraints = new ArrayList<>();
 
         // Hard constraints
-        DeadlineConstraint deadlineConstraint = new DeadlineConstraint();
-
-        this.hardConstraints.add(deadlineConstraint);
-        //TODO: Add constraints
+        this.hardConstraints.add(new DeadlineConstraint());
+        this.hardConstraints.add(new NotBeforeConstraint());
+        this.hardConstraints.add(new DependencyConstraint());
 
         // Soft constraints
-        PauseAfterReachedCognitiveLoadConstraint pauseAfterReachedCognitiveLoadConstraint =
-                new PauseAfterReachedCognitiveLoadConstraint(3);
-
-        this.softConstraints.add(pauseAfterReachedCognitiveLoadConstraint);
-        //TODO: Add constraints
+        this.softConstraints.add(new PauseAfterReachedCognitiveLoadConstraint());
+        this.softConstraints.add(new PauseBetweenChunksConstraint());
     }
 
     /**

@@ -7,19 +7,19 @@ import de.goaldone.backend.scheduler.types.model.SolverState;
 
 import java.time.LocalDateTime;
 
-public class DeadlineConstraint extends HardConstraint {
+public class NotBeforeConstraint extends HardConstraint {
 
     @Override
     public void updateConstraint(SolverState schedule) {
         this.isViolated = false;
 
         for (ScheduledChunk scheduledChunk : schedule.scheduledChunks()) {
-            LocalDateTime deadline = scheduledChunk.chunk().deadline();
-            if (deadline == null) {
+            LocalDateTime notBefore = scheduledChunk.chunk().notBefore();
+            if (notBefore == null) {
                 continue;
             }
-            LocalDateTime scheduledEnd = LocalDateTime.of(scheduledChunk.date(), scheduledChunk.endTime());
-            if (scheduledEnd.isAfter(deadline)) {
+            LocalDateTime scheduledStart = LocalDateTime.of(scheduledChunk.date(), scheduledChunk.startTime());
+            if (scheduledStart.isBefore(notBefore)) {
                 this.isViolated = true;
                 return;
             }
@@ -29,8 +29,9 @@ public class DeadlineConstraint extends HardConstraint {
     @Override
     public ScheduleWarning getWarning() {
         return new ScheduleWarning(
-            ScheduleWarning.TypeEnum.DEADLINE_VIOLATED,
-            "One or more tasks are scheduled after their deadline."
+            ScheduleWarning.TypeEnum.NOT_BEFORE_VIOLATED,
+            "One or more tasks are scheduled before their 'not before' date."
         );
     }
 }
+
