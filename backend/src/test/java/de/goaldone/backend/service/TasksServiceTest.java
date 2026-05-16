@@ -29,6 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isA;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -118,6 +119,7 @@ class TasksServiceTest {
     }
 
     @Test
+    @SuppressWarnings("unchecked")
     void getTasks_withFilters_returnsFilteredTasks() {
         UUID accountId = UUID.randomUUID();
         Jwt jwt = mockJwt();
@@ -132,7 +134,7 @@ class TasksServiceTest {
         entity.setCognitiveLoad(CognitiveLoad.HIGH);
         entity.setDeadline(Instant.parse("2026-06-01T10:00:00Z"));
 
-        when(taskRepository.findAll(any(Specification.class), any(Sort.class)))
+        when(taskRepository.findAll(isA(Specification.class), isA(Sort.class)))
                 .thenReturn(List.of(entity));
 
         List<TaskResponse> results = tasksService.getTasks(

@@ -3,6 +3,7 @@ package de.goaldone.backend.service;
 import de.goaldone.backend.entity.UserAccountEntity;
 import de.goaldone.backend.entity.WorkingTimeEntity;
 import de.goaldone.backend.model.*;
+import de.goaldone.backend.model.DayOfWeek;
 import de.goaldone.backend.repository.UserAccountRepository;
 import de.goaldone.backend.scheduler.types.model.SchedulingContext;
 import de.goaldone.backend.scheduler.types.model.TimeSlot;
@@ -13,9 +14,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.oauth2.jwt.Jwt;
 
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalTime;
+import java.time.*;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
