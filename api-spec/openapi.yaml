@@ -426,8 +426,6 @@ paths:
       summary: Plan für einen Account generieren
       description: |
         Löst den Planungsalgorithmus für den angegebenen Account aus.
-        Bereits gepinnte Einträge (`isPinned: true`) bleiben an ihrem Platz,
-        alle anderen Chunks werden neu verteilt.
       operationId: generateSingleAccountSchedule
       security:
         - bearerAuth: [ ]
@@ -1975,7 +1973,7 @@ components:
     # ----------------------------------------------------------
     ScheduleEntry:
       type: object
-      required: [ source, date, startTime, endTime, type, isCompleted, isPinned, originalItemTitle ]
+      required: [ source, date, startTime, endTime, type, isCompleted, isBreak, originalItemTitle ]
       description: |
         Ein Zeitblock im Kalender. Kann ein persistierter DB-Eintrag
         (`source: ONE_TIME`) oder ein virtuell berechnetes Vorkommen
@@ -2031,12 +2029,9 @@ components:
           type: boolean
           default: false
           description: Ob dieser Block als erledigt markiert wurde.
-        isPinned:
+        isPause:
           type: boolean
           default: false
-          description: |
-            Ob dieser Block vom Nutzer fixiert wurde.
-            Gepinnte Einträge werden bei Neuplanung nicht verschoben.
 
         # --- Task-spezifische Felder ---
         originalItemId:
