@@ -570,7 +570,7 @@ public class CPMAlgorithm {
 
             LocalDateTime earliestStart;
             if (task.getDontScheduleBefore() == null) {
-                earliestStart = context.fromDate().
+                earliestStart = context.fromDate().toLocalDate().
                         atTime(context.workingTimes().getFirst().getStartTime());
             } else {
                 earliestStart = task.getDontScheduleBefore().toLocalDateTime();
