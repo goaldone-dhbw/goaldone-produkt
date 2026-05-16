@@ -61,6 +61,7 @@ type AppointmentDetail = {
   kind: 'Pause' | 'Fixer Termin';
   accountLabel: string;
   date: string;
+  originalStartDate: string;
   startTime: string;
   endTime: string;
   time: string;
@@ -384,6 +385,7 @@ export class CalenderComponent {
 
   async saveAppointment(): Promise<void> {
     const form = this.appointmentEditForm();
+    const appointment = this.selectedAppointment();
 
     if (!form) {
       return;
@@ -418,18 +420,54 @@ export class CalenderComponent {
     this.appointmentError.set('');
 
     try {
-      const payload = this.createAppointmentUpdatePayload(form);
+      const shouldSplitRecurringAppointment =
+        appointment?.isRecurring === true &&
+        appointment.isBreak === false &&
+        Boolean(appointment.originalStartDate) &&
+        form.date > appointment.originalStartDate;
 
-      // DIREKT HIER – vor dem API-Call:
-      console.log('=== saveAppointment ===');
-      console.log('accountId:', form.accountId);
-      console.log('appointmentId:', form.id);
-      console.log('payload:', JSON.stringify(payload, null, 2));
+      if (shouldSplitRecurringAppointment) {
+        const dayBefore = this.getDateBefore(form.date);
 
-      await firstValueFrom(
-        this.appointmentsService.updateAppointment(form.accountId, form.id, payload),
-      );
+        const oldRule =
+          appointment.rule && appointment.rule.trim()
+            ? appointment.rule
+            : this.createWeeklyRule(appointment.days);
 
+        const oldPayload: AppointmentCreate = {
+          title: appointment.title.trim(),
+          isBreak: appointment.isBreak,
+          appointmentType: 'RECURRING',
+          date: appointment.originalStartDate || null,
+          startTime: appointment.startTime.substring(0, 5),
+          endTime: appointment.endTime.substring(0, 5),
+          rrule: this.appendUntilToRrule(oldRule, dayBefore),
+        };
+
+        await firstValueFrom(
+          this.appointmentsService.updateAppointment(form.accountId, form.id, oldPayload),
+        );
+
+        const newPayload: AppointmentCreate = {
+          title: form.title.trim(),
+          isBreak: form.isBreak,
+          appointmentType: 'RECURRING',
+          date: form.date || null,
+          startTime: form.startTime.substring(0, 5),
+          endTime: form.endTime.substring(0, 5),
+          rrule: this.createWeeklyRule(form.days),
+        };
+
+        await firstValueFrom(
+          this.appointmentsService.createAppointment(form.accountId, newPayload),
+        );
+      } else {
+        const payload = this.createAppointmentUpdatePayload(form);
+
+        await firstValueFrom(
+          this.appointmentsService.updateAppointment(form.accountId, form.id, payload),
+        );
+      }
 
       this.closeAppointmentDialog();
       this.appointmentSaved.emit();
@@ -640,9 +678,11 @@ export class CalenderComponent {
         this.getOptionalString(entry, 'organizationName') ||
         this.getOptionalString(entry, 'organizationLabel') ||
         this.getOptionalString(entry, 'accountName') ||
-        rawEntry.accountId ||
         '-',
       date: entry.occurrenceDate ?? '-',
+      originalStartDate:
+        this.getOptionalString(entry, 'originalStartDate') ||
+        (isRecurring ? '' : entry.occurrenceDate ?? ''),
       startTime: this.formatTime(entry.startTime),
       endTime: this.formatTime(entry.endTime),
       time: `${this.formatTime(entry.startTime)} - ${this.formatTime(entry.endTime)}`,
@@ -1214,5 +1254,23 @@ export class CalenderComponent {
     const day = String(date.getDate()).padStart(2, '0');
 
     return `${year}-${month}-${day}`;
+  }
+
+  private getDateBefore(date: string): string {
+    const [y, m, d] = date.split('-').map(Number);
+    const day = new Date(y, m - 1, d);
+    day.setDate(day.getDate() - 1);
+    return this.toIsoDate(day);
+  }
+
+  private appendUntilToRrule(rrule: string, untilDate: string): string {
+    const withoutUntil = rrule
+      .split(';')
+      .filter((part) => !part.toUpperCase().startsWith('UNTIL='))
+      .join(';');
+
+    const compact = untilDate.replaceAll('-', '');
+
+    return `${withoutUntil};UNTIL=${compact}`;
   }
 }

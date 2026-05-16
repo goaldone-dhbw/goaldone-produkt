@@ -25,12 +25,20 @@ type AppointmentItem = Appointment & {
   accountLabel: string;
 };
 
+type AppointmentGroup = {
+  key: string;
+  title: string;
+  accountLabel: string;
+  appointments: AppointmentItem[];
+};
+
 type AccountOption = {
   id: string;
   label: string;
 };
 
 type AppointmentFormType = 'ONCE' | 'RECURRING';
+
 
 @Component({
   selector: 'app-appointments-page',
@@ -54,6 +62,9 @@ export class AppointmentsPage {
 
   readonly accounts = signal<AccountOption[]>([]);
   readonly appointments = signal<AppointmentItem[]>([]);
+  readonly expandedAppointmentGroups = signal<Set<string>>(new Set());
+  readonly appointmentGroups = computed(() => this.groupAppointments(this.appointments()));
+
   readonly isLoading = signal(false);
   readonly isSaving = signal(false);
   readonly isDialogOpen = signal(false);
@@ -528,5 +539,57 @@ export class AppointmentsPage {
     }
 
     return fallback;
+  }
+
+  private getAppointmentGroupKey(appointment: AppointmentItem): string {
+    const title = (appointment.title ?? '').trim().toLowerCase();
+    const accountId = String(appointment.accountId ?? '');
+    const type = appointment.isBreak ? 'BREAK' : 'APPOINTMENT';
+
+    return `${accountId}|${type}|${title}`;
+  }
+
+  private groupAppointments(appointments: AppointmentItem[]): AppointmentGroup[] {
+    const groups = new Map<string, AppointmentGroup>();
+
+    for (const appointment of appointments) {
+      const key = this.getAppointmentGroupKey(appointment);
+      const existingGroup = groups.get(key);
+
+      if (existingGroup) {
+        existingGroup.appointments.push(appointment);
+        continue;
+      }
+
+      groups.set(key, {
+        key,
+        title: appointment.title ?? 'Termin',
+        accountLabel: appointment.accountLabel ?? '-',
+        appointments: [appointment],
+      });
+    }
+
+    return Array.from(groups.values()).map((group) => ({
+      ...group,
+      appointments: group.appointments.sort((left, right) =>
+        this.getAppointmentSortValue(left).localeCompare(this.getAppointmentSortValue(right)),
+      ),
+    }));
+  }
+
+  toggleAppointmentGroup(key: string): void {
+    const next = new Set(this.expandedAppointmentGroups());
+
+    if (next.has(key)) {
+      next.delete(key);
+    } else {
+      next.add(key);
+    }
+
+    this.expandedAppointmentGroups.set(next);
+  }
+
+  isAppointmentGroupExpanded(key: string): boolean {
+    return this.expandedAppointmentGroups().has(key);
   }
 }
