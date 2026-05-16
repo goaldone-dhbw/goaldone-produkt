@@ -40,7 +40,8 @@ Es gibt zwei Arten von Pausen:
 5. Speichern Sie die Pause.
 
 ## Einschränkungen
-- **Manuelle Erfassung:** Arbeitszeiten und Pausen müssen aktuell manuell in GoalDone eingetragen werden. Eine automatische Synchronisation mit externen Kalendern erfolgt in dieser Ansicht nicht direkt.
+- **Manuelle Erfassung:** Arbeitszeiten und Pausen müssen aktuell manuell in GoalDone eingetragen werden. 
+Eine automatische Synchronisation mit externen Kalendern erfolgt nicht.
 
 ## Querverweise
 - [Aufgabenverwaltung](Aufgaben.md)
