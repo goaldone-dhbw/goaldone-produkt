@@ -17,7 +17,7 @@ Diese Anleitung beschreibt die Produktivinstallation von GoalDone auf einem Serv
 Um einen reibungslosen Betrieb von GoalDone (einschließlich der IAM-Lösung Zitadel und der PostgreSQL-Datenbank) zu gewährleisten, müssen folgende Mindestanforderungen erfüllt sein:
 
 ### Hardware-Mindestanforderungen
-*   **Arbeitsspeicher (RAM):** Mindestens 4 GB (Empfohlen: 8 GB für bessere Performance).
+*   **Arbeitsspeicher (RAM):** Mindestens 3 GB frei (Empfohlen: 6-8 GB für bessere Performance).
 *   **Prozessor (CPU):** Mindestens 2 CPU-Kerne.
 *   **Festplattenspeicher:** Mindestens 20 GB freier Speicherplatz (SSD empfohlen).
 

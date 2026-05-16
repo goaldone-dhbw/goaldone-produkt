@@ -28,10 +28,6 @@ Wenn eine Aufgabe länger dauert als ein verfügbares Zeitfenster (oder Ihre Kon
 ## Wiederkehrende Aufgaben
 Aufgaben, die sich regelmäßig wiederholen (z. B. "Wöchentliches Reporting"), erscheinen automatisch an den entsprechenden Tagen in Ihrem Kalender, sobald sie vom System für diesen Zeitraum eingeplant wurden. Sie müssen diese nicht jede Woche neu erstellen.
 
-## Vorschau der Wochenansicht
-![Screenshot der Wochenansicht mit Aufgaben, Terminen und Pausen](placeholder_wochenansicht.png)
-*(Platzhalter: Hier wird ein aktueller Screenshot der Wochenansicht eingefügt)*
-
 ## Querverweise
 *   [Arbeitszeiten definieren](Arbeitszeiten.md)
 *   [Aufgaben verwalten](Aufgaben.md)
