@@ -199,8 +199,10 @@ export class CalenderComponent {
       const cal = this.calendarRef();
       if (cal) {
         const api = cal.getApi();
-        api.setOption('slotMinTime', range.slotMinTime);
-        api.setOption('slotMaxTime', range.slotMaxTime);
+        if (api) {
+          api.setOption('slotMinTime', range.slotMinTime);
+          api.setOption('slotMaxTime', range.slotMaxTime);
+        }
       }
     });
   }
