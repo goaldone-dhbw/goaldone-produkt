@@ -23,6 +23,7 @@
           class="w-full sm:w-48"
           placeholder="Suchen..."
           [(ngModel)]="filters.searchTerm"
+          (input)="onFilterInput()"
           aria-label="Suchen in Titel und Beschreibung"
         />
 
@@ -92,6 +93,7 @@
           [showButtons]="false"
           placeholder="max. Dauer (min)"
           ariaLabel="Maximale Dauer in Minuten angeben"
+          (onInput)="onFilterInput()"
           class="w-40">
         </p-inputNumber>
 
@@ -119,14 +121,6 @@
           </ng-template>
         </p-select>
 
-        <button
-          pButton
-          type="button"
-          label="Filtern"
-          icon="pi pi-filter"
-          (click)="applyFilterStateToUrl()">
-        </button>
-        
         @if (hasActiveFilters()) {
           <button
             pButton
