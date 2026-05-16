@@ -2,12 +2,14 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  effect,
   inject,
   input,
   output,
   signal,
+  viewChild,
 } from '@angular/core';
-import { FullCalendarModule } from '@fullcalendar/angular';
+import { FullCalendarComponent, FullCalendarModule } from '@fullcalendar/angular';
 import { CalendarOptions, DatesSetArg, EventClickArg, EventInput } from '@fullcalendar/core';
 import deLocale from '@fullcalendar/core/locales/de';
 import dayGridPlugin from '@fullcalendar/daygrid';
@@ -82,8 +84,8 @@ type AppointmentEditForm = {
   days: WeekdayCode[];
 };
 
-const SLOT_MIN_TIME = '06:00:00';
-const SLOT_MAX_TIME = '22:00:00';
+const DEFAULT_SLOT_MIN_TIME = '06:00:00';
+const DEFAULT_SLOT_MAX_TIME = '22:00:00';
 
 const DEFAULT_WORKING_TIME_START = '08:00:00';
 const DEFAULT_WORKING_TIME_END = '17:00:00';
@@ -158,6 +160,7 @@ const DAY_ALIASES: Record<string, CalendarDayName> = {
 export class CalenderComponent {
   private readonly tasksService = inject(TasksService);
   private readonly appointmentsService = inject(AppointmentsService);
+  private readonly calendarRef = viewChild(FullCalendarComponent);
 
   readonly entries = input<ScheduleEntry[]>([]);
   readonly workingTimes = input<ScheduleWorkingTime[]>([]);
@@ -187,6 +190,22 @@ export class CalenderComponent {
   ];
 
   private readonly visibleRange = signal<ScheduleCalendarRange | null>(null);
+
+  readonly effectiveSlotRange = computed(() => this.computeEffectiveSlotRange());
+
+  constructor() {
+    effect(() => {
+      const range = this.effectiveSlotRange();
+      const cal = this.calendarRef();
+      if (cal) {
+        const api = cal.getApi();
+        if (api) {
+          api.setOption('slotMinTime', range.slotMinTime);
+          api.setOption('slotMaxTime', range.slotMaxTime);
+        }
+      }
+    });
+  }
 
   readonly calendarEvents = computed<EventInput[]>(() => {
     const nonWorkingTimeEvents = this.mapNonWorkingTimesToBackgroundEvents();
@@ -228,8 +247,8 @@ export class CalenderComponent {
     height: 'auto',
     contentHeight: 'auto',
 
-    slotMinTime: SLOT_MIN_TIME,
-    slotMaxTime: SLOT_MAX_TIME,
+    slotMinTime: DEFAULT_SLOT_MIN_TIME,
+    slotMaxTime: DEFAULT_SLOT_MAX_TIME,
 
     eventDisplay: 'block',
 
@@ -785,6 +804,40 @@ export class CalenderComponent {
     return ['schedule-event--task'];
   }
 
+  private computeEffectiveSlotRange(): { slotMinTime: string; slotMaxTime: string } {
+    const defaultMin = this.timeToMinutes(DEFAULT_SLOT_MIN_TIME);
+    const defaultMax = this.timeToMinutes(DEFAULT_SLOT_MAX_TIME);
+
+    let earliest = defaultMin;
+    let latest = defaultMax;
+
+    for (const entry of this.entries()) {
+      if (entry.startTime) {
+        earliest = Math.min(earliest, this.timeToMinutes(entry.startTime));
+      }
+      if (entry.endTime) {
+        latest = Math.max(latest, this.timeToMinutes(entry.endTime));
+      }
+    }
+
+    for (const wt of this.workingTimes()) {
+      if (wt.startTime) {
+        earliest = Math.min(earliest, this.timeToMinutes(wt.startTime));
+      }
+      if (wt.endTime) {
+        latest = Math.max(latest, this.timeToMinutes(wt.endTime));
+      }
+    }
+
+    earliest = Math.floor(earliest / 60) * 60;
+    latest = Math.ceil(latest / 60) * 60;
+
+    return {
+      slotMinTime: this.minutesToTime(earliest),
+      slotMaxTime: this.minutesToTime(Math.min(latest, 24 * 60)),
+    };
+  }
+
   private getWorkingIntervalsForDate(date: string): TimeInterval[] {
     const configuredWorkingTimes = this.workingTimes();
 
@@ -804,9 +857,10 @@ export class CalenderComponent {
       })
       .filter((interval) => interval.end > interval.start)
       .map((interval): TimeInterval => {
+        const range = this.effectiveSlotRange();
         return {
-          start: Math.max(interval.start, this.timeToMinutes(SLOT_MIN_TIME)),
-          end: Math.min(interval.end, this.timeToMinutes(SLOT_MAX_TIME)),
+          start: Math.max(interval.start, this.timeToMinutes(range.slotMinTime)),
+          end: Math.min(interval.end, this.timeToMinutes(range.slotMaxTime)),
         };
       })
       .filter((interval) => interval.end > interval.start)
@@ -822,14 +876,15 @@ export class CalenderComponent {
       return [];
     }
 
+    const range = this.effectiveSlotRange();
     const interval: TimeInterval = {
       start: Math.max(
         this.timeToMinutes(DEFAULT_WORKING_TIME_START),
-        this.timeToMinutes(SLOT_MIN_TIME),
+        this.timeToMinutes(range.slotMinTime),
       ),
       end: Math.min(
         this.timeToMinutes(DEFAULT_WORKING_TIME_END),
-        this.timeToMinutes(SLOT_MAX_TIME),
+        this.timeToMinutes(range.slotMaxTime),
       ),
     };
 
@@ -946,8 +1001,9 @@ export class CalenderComponent {
   }
 
   private getNonWorkingIntervals(workingIntervals: TimeInterval[]): TimeInterval[] {
-    const slotStart = this.timeToMinutes(SLOT_MIN_TIME);
-    const slotEnd = this.timeToMinutes(SLOT_MAX_TIME);
+    const range = this.effectiveSlotRange();
+    const slotStart = this.timeToMinutes(range.slotMinTime);
+    const slotEnd = this.timeToMinutes(range.slotMaxTime);
 
     if (workingIntervals.length === 0) {
       return [{ start: slotStart, end: slotEnd }];
