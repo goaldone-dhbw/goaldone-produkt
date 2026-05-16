@@ -102,7 +102,7 @@ public class ConstraintHandler {
 
         // Add warning for unscheduled tasks
         ArrayList<ScheduleWarning> scheduleWarnings = addUnscheduledWarning(
-                schedule.unscheduledChunks().size()
+                schedule.unscheduledTasks().size()
         );
 
         // Update the constraints for the given schedule
