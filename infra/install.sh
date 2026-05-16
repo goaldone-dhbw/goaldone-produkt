@@ -85,12 +85,7 @@ if [ "$(id -u)" -eq 0 ]; then
     exit 1
 fi
 
-printf '%b' "$(get_timestamp) ${BLUE}⏳ Continue with GoalDone installation? (y/n): ${NC}"
-read -r answer < /dev/tty || answer=""
-if [ "$answer" != "y" ] && [ "$answer" != "Y" ]; then
-    show_info "Installation cancelled."
-    exit 0
-fi
+show_info "Starting GoalDone installation... (Ctrl+C to cancel)"
 
 # ==============================================================================
 # Download Scripts
