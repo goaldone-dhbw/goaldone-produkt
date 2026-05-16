@@ -9,13 +9,16 @@ import de.goaldone.backend.model.WorkingTimeResponse;
 import de.goaldone.backend.model.WorkingTimeUpdateRequest;
 import de.goaldone.backend.repository.UserAccountRepository;
 import de.goaldone.backend.repository.WorkingTimeRepository;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 
 import java.time.Instant;
 import java.time.LocalTime;
@@ -27,6 +30,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -38,13 +42,9 @@ class WorkingTimesServiceTest {
     @Mock
     private WorkingTimeRepository workingTimeRepository;
 
-    @Mock
-    private UserIdentityService userIdentityService;
-
     @InjectMocks
     private WorkingTimesService workingTimesService;
 
-    private Jwt jwt;
     private UserAccountEntity currentAccount;
     private UUID identityId;
     private UUID accountId;
@@ -53,8 +53,12 @@ class WorkingTimesServiceTest {
     void setUp() {
         identityId = UUID.randomUUID();
         accountId = UUID.randomUUID();
-        jwt = mock(Jwt.class);
-        when(jwt.getSubject()).thenReturn("zitadel-sub");
+
+        Jwt jwt = Jwt.withTokenValue("token")
+                .header("alg", "none")
+                .claim("sub", "zitadel-sub")
+                .build();
+        SecurityContextHolder.getContext().setAuthentication(new JwtAuthenticationToken(jwt));
 
         currentAccount = new UserAccountEntity();
         currentAccount.setId(accountId);
@@ -62,6 +66,11 @@ class WorkingTimesServiceTest {
         currentAccount.setOrganizationId(UUID.randomUUID());
 
         lenient().when(userAccountRepository.findByZitadelSub("zitadel-sub")).thenReturn(Optional.of(currentAccount));
+    }
+
+    @AfterEach
+    void tearDown() {
+        SecurityContextHolder.clearContext();
     }
 
     @Test
@@ -72,13 +81,11 @@ class WorkingTimesServiceTest {
         request.setStartTime("09:00");
         request.setEndTime("17:00");
 
-        when(userIdentityService.hasUserAccessToAccount(jwt, accountId)).thenReturn(true);
         when(userAccountRepository.findById(accountId)).thenReturn(Optional.of(currentAccount));
         when(workingTimeRepository.existsOverlappingSlot(eq(identityId), any(), any(), any())).thenReturn(false);
-        
         when(workingTimeRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-        WorkingTimeResponse response = workingTimesService.createWorkingTime(jwt, request);
+        WorkingTimeResponse response = workingTimesService.createWorkingTime(request);
 
         assertThat(response).isNotNull();
         assertThat(response.getDays()).containsExactlyInAnyOrder(DayOfWeek.MONDAY, DayOfWeek.WEDNESDAY);
@@ -95,11 +102,10 @@ class WorkingTimesServiceTest {
         request.setStartTime("09:00");
         request.setEndTime("17:00");
 
-        when(userIdentityService.hasUserAccessToAccount(jwt, accountId)).thenReturn(true);
         when(userAccountRepository.findById(accountId)).thenReturn(Optional.of(currentAccount));
         when(workingTimeRepository.existsOverlappingSlot(eq(identityId), any(), any(), any())).thenReturn(true);
 
-        assertThatThrownBy(() -> workingTimesService.createWorkingTime(jwt, request))
+        assertThatThrownBy(() -> workingTimesService.createWorkingTime(request))
             .isInstanceOf(WorkingTimeOverlapException.class);
     }
 
@@ -119,11 +125,12 @@ class WorkingTimesServiceTest {
         request.setStartTime("10:00");
         request.setEndTime("18:00");
 
+        when(userAccountRepository.findByZitadelSub("zitadel-sub")).thenReturn(Optional.of(currentAccount));
         when(workingTimeRepository.findById(wtId)).thenReturn(Optional.of(existing));
         when(workingTimeRepository.existsOverlappingSlotExcluding(eq(identityId), eq(wtId), any(), any(), any())).thenReturn(false);
         when(workingTimeRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-        WorkingTimeResponse response = workingTimesService.updateWorkingTime(jwt, wtId, request);
+        WorkingTimeResponse response = workingTimesService.updateWorkingTime(wtId, request);
 
         assertThat(response.getDays()).containsExactlyInAnyOrder(DayOfWeek.MONDAY, DayOfWeek.TUESDAY);
         assertThat(response.getStartTime()).isEqualTo("10:00");

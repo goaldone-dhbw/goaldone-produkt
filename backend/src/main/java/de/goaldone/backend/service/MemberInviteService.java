@@ -3,7 +3,6 @@ package de.goaldone.backend.service;
 import de.goaldone.backend.client.ZitadelManagementClient;
 import de.goaldone.backend.entity.OrganizationEntity;
 import de.goaldone.backend.exception.EmailAlreadyInUseException;
-import de.goaldone.backend.exception.NotMemberOfOrganizationException;
 import de.goaldone.backend.exception.UserAlreadyActiveException;
 import de.goaldone.backend.exception.ZitadelApiException;
 import de.goaldone.backend.model.InviteMemberRequest;
@@ -12,8 +11,6 @@ import de.goaldone.backend.repository.OrganizationRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 
 import java.util.UUID;
@@ -25,7 +22,6 @@ public class MemberInviteService {
 
     private final ZitadelManagementClient zitadelManagementClient;
     private final OrganizationRepository organizationRepository;
-    private final UserIdentityService userIdentityService;
 
     @Value("${zitadel.goaldone.project-id}")
     private String goaldoneProjectId;
@@ -34,8 +30,6 @@ public class MemberInviteService {
     private String mainOrgId;
 
     public void inviteMember(UUID orgId, InviteMemberRequest request) {
-        validateCallerBelongsToOrg(orgId);
-
         if (zitadelManagementClient.emailExists(request.getEmail())) {
             throw new EmailAlreadyInUseException(request.getEmail());
         }
@@ -75,8 +69,6 @@ public class MemberInviteService {
     }
 
     public void reinviteMember(UUID orgId, String zitadelUserId) {
-        validateCallerBelongsToOrg(orgId);
-
         var userOpt = zitadelManagementClient.getUser(zitadelUserId);
         if (userOpt.isEmpty()) {
             throw new RuntimeException("User not found in Zitadel: " + zitadelUserId);
@@ -93,10 +85,4 @@ public class MemberInviteService {
         zitadelManagementClient.createInviteCode(zitadelUserId);
     }
 
-    private void validateCallerBelongsToOrg(UUID orgId) {
-        Jwt jwt = (Jwt) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        if (!userIdentityService.hasUserAccessToOrganization(jwt, orgId)) {
-            throw new NotMemberOfOrganizationException("Caller does not belong to organization: " + orgId);
-        }
-    }
 }

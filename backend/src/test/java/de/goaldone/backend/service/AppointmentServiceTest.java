@@ -14,7 +14,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
@@ -35,18 +34,8 @@ class AppointmentServiceTest {
     @Mock
     private AppointmentRepository appointmentRepository;
 
-    @Mock
-    private UserIdentityService userIdentityService;
-
     @InjectMocks
     private AppointmentService appointmentService;
-
-    private Jwt mockJwt() {
-        return Jwt.withTokenValue("token")
-                .header("alg", "none")
-                .claim("sub", "user-1")
-                .build();
-    }
 
     private AppointmentCreate buildBreakRequest(String title, String startTime, String endTime) {
         AppointmentCreate req = new AppointmentCreate();
@@ -66,10 +55,8 @@ class AppointmentServiceTest {
     @Test
     void createAppointment_validBreak_returnsCreatedAppointment() {
         UUID accountId = UUID.randomUUID();
-        Jwt jwt = mockJwt();
         AppointmentCreate req = buildBreakRequest("Mittag", "12:00", "13:00");
 
-        when(userIdentityService.hasUserAccessToAccount(jwt, accountId)).thenReturn(true);
         when(appointmentRepository.save(any(AppointmentEntity.class)))
                  .thenAnswer(invocation -> {
                     AppointmentEntity e = invocation.getArgument(0);
@@ -77,7 +64,7 @@ class AppointmentServiceTest {
                     return e;
                 });
 
-        Appointment result = appointmentService.createAppointment(accountId, req, jwt);
+        Appointment result = appointmentService.createAppointment(accountId, req);
 
         assertEquals("Mittag", result.getTitle());
         assertTrue(result.getIsBreak());
@@ -100,15 +87,13 @@ class AppointmentServiceTest {
     @Test
     void listAppointments_twoExistingBreaks_returnsBothInResponse() {
         UUID accountId = UUID.randomUUID();
-        Jwt jwt = mockJwt();
 
         AppointmentEntity e1 = buildEntity(accountId, "Mittag", "12:00", "13:00", true);
         AppointmentEntity e2 = buildEntity(accountId, "Kaffeepause", "15:00", "15:15", true);
 
-        when(userIdentityService.hasUserAccessToAccount(jwt, accountId)).thenReturn(true);
         when(appointmentRepository.findByAccountId(accountId)).thenReturn(List.of(e1, e2));
 
-        AppointmentListResponse response = appointmentService.listAppointments(accountId, jwt);
+        AppointmentListResponse response = appointmentService.listAppointments(accountId);
 
         assertEquals(2, response.getAppointments().size());
     }
@@ -121,7 +106,6 @@ class AppointmentServiceTest {
     void updateAppointment_validRequest_replacesAllFields() {
         UUID accountId = UUID.randomUUID();
         UUID appointmentId = UUID.randomUUID();
-        Jwt jwt = mockJwt();
 
         AppointmentEntity existing = buildEntity(accountId, "Alt", "10:00", "11:00", true);
         existing.setId(appointmentId);
@@ -129,13 +113,12 @@ class AppointmentServiceTest {
 
         AppointmentCreate update = buildBreakRequest("Neu", "12:00", "13:00");
 
-        when(userIdentityService.hasUserAccessToAccount(jwt, accountId)).thenReturn(true);
         when(appointmentRepository.findByIdAndAccountId(appointmentId, accountId))
                 .thenReturn(Optional.of(existing));
         when(appointmentRepository.save(any(AppointmentEntity.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        Appointment result = appointmentService.updateAppointment(accountId, appointmentId, update, jwt);
+        Appointment result = appointmentService.updateAppointment(accountId, appointmentId, update);
 
         assertEquals("Neu", result.getTitle());
         assertEquals("12:00", result.getStartTime());
@@ -154,16 +137,14 @@ class AppointmentServiceTest {
     void deleteAppointment_existingAppointment_deletesFromRepository() {
         UUID accountId = UUID.randomUUID();
         UUID appointmentId = UUID.randomUUID();
-        Jwt jwt = mockJwt();
 
         AppointmentEntity entity = buildEntity(accountId, "Mittag", "12:00", "13:00", true);
         entity.setId(appointmentId);
 
-        when(userIdentityService.hasUserAccessToAccount(jwt, accountId)).thenReturn(true);
         when(appointmentRepository.findByIdAndAccountId(appointmentId, accountId))
                 .thenReturn(Optional.of(entity));
 
-        appointmentService.deleteAppointment(accountId, appointmentId, jwt);
+        appointmentService.deleteAppointment(accountId, appointmentId);
 
         verify(appointmentRepository).delete(entity);
     }
@@ -175,13 +156,10 @@ class AppointmentServiceTest {
     @Test
     void createAppointment_endTimeBeforeStartTime_throwsBadRequest() {
         UUID accountId = UUID.randomUUID();
-        Jwt jwt = mockJwt();
         AppointmentCreate req = buildBreakRequest("Mittag", "14:00", "13:30");
 
-        when(userIdentityService.hasUserAccessToAccount(jwt, accountId)).thenReturn(true);
-
         ResponseStatusException ex = assertThrows(ResponseStatusException.class,
-                () -> appointmentService.createAppointment(accountId, req, jwt));
+                () -> appointmentService.createAppointment(accountId, req));
 
         assertEquals(HttpStatus.BAD_REQUEST, ex.getStatusCode());
         assertNotNull(ex.getReason());
@@ -195,13 +173,10 @@ class AppointmentServiceTest {
     @Test
     void createAppointment_missingTitle_throwsBadRequest() {
         UUID accountId = UUID.randomUUID();
-        Jwt jwt = mockJwt();
         AppointmentCreate req = buildBreakRequest(null, "12:00", "13:00");
 
-        when(userIdentityService.hasUserAccessToAccount(jwt, accountId)).thenReturn(true);
-
         ResponseStatusException ex = assertThrows(ResponseStatusException.class,
-                () -> appointmentService.createAppointment(accountId, req, jwt));
+                () -> appointmentService.createAppointment(accountId, req));
 
         assertEquals(HttpStatus.BAD_REQUEST, ex.getStatusCode());
         assertNotNull(ex.getReason());
@@ -211,33 +186,12 @@ class AppointmentServiceTest {
     @Test
     void createAppointment_blankTitle_throwsBadRequest() {
         UUID accountId = UUID.randomUUID();
-        Jwt jwt = mockJwt();
         AppointmentCreate req = buildBreakRequest("   ", "12:00", "13:00");
 
-        when(userIdentityService.hasUserAccessToAccount(jwt, accountId)).thenReturn(true);
-
         ResponseStatusException ex = assertThrows(ResponseStatusException.class,
-                () -> appointmentService.createAppointment(accountId, req, jwt));
+                () -> appointmentService.createAppointment(accountId, req));
 
         assertEquals(HttpStatus.BAD_REQUEST, ex.getStatusCode());
-    }
-
-    // -------------------------------------------------------------------------
-    // Negative: fehlender Zugriff → 403
-    // -------------------------------------------------------------------------
-
-    @Test
-    void createAppointment_noAccountAccess_throwsForbidden() {
-        UUID accountId = UUID.randomUUID();
-        Jwt jwt = mockJwt();
-        AppointmentCreate req = buildBreakRequest("Mittag", "12:00", "13:00");
-
-        when(userIdentityService.hasUserAccessToAccount(jwt, accountId)).thenReturn(false);
-
-        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
-                () -> appointmentService.createAppointment(accountId, req, jwt));
-
-        assertEquals(HttpStatus.FORBIDDEN, ex.getStatusCode());
     }
 
     // -------------------------------------------------------------------------
@@ -248,15 +202,13 @@ class AppointmentServiceTest {
     void updateAppointment_notFound_throwsNotFound() {
         UUID accountId = UUID.randomUUID();
         UUID appointmentId = UUID.randomUUID();
-        Jwt jwt = mockJwt();
         AppointmentCreate req = buildBreakRequest("Mittag", "12:00", "13:00");
 
-        when(userIdentityService.hasUserAccessToAccount(jwt, accountId)).thenReturn(true);
         when(appointmentRepository.findByIdAndAccountId(eq(appointmentId), eq(accountId)))
                 .thenReturn(Optional.empty());
 
         ResponseStatusException ex = assertThrows(ResponseStatusException.class,
-                () -> appointmentService.updateAppointment(accountId, appointmentId, req, jwt));
+                () -> appointmentService.updateAppointment(accountId, appointmentId, req));
 
         assertEquals(HttpStatus.NOT_FOUND, ex.getStatusCode());
     }
@@ -268,7 +220,6 @@ class AppointmentServiceTest {
     @Test
     void createAppointment_recurringWithoutRrule_throwsBadRequest() {
         UUID accountId = UUID.randomUUID();
-        Jwt jwt = mockJwt();
 
         AppointmentCreate req = new AppointmentCreate();
         req.setTitle("Täglich");
@@ -278,10 +229,8 @@ class AppointmentServiceTest {
         req.setStartTime("12:00");
         req.setEndTime("13:00");
 
-        when(userIdentityService.hasUserAccessToAccount(jwt, accountId)).thenReturn(true);
-
         ResponseStatusException ex = assertThrows(ResponseStatusException.class,
-                () -> appointmentService.createAppointment(accountId, req, jwt));
+                () -> appointmentService.createAppointment(accountId, req));
 
         assertEquals(HttpStatus.BAD_REQUEST, ex.getStatusCode());
         assertNotNull(ex.getReason());
@@ -295,7 +244,6 @@ class AppointmentServiceTest {
     @Test
     void createAppointment_overlappingRecurringBreaks_throwsOverlapException() {
         UUID accountId = UUID.randomUUID();
-        Jwt jwt = mockJwt();
 
         // Existing recurring break: Mon-Fri 12:00-13:00
         AppointmentEntity existing = buildEntity(accountId, "Mittag", "12:00", "13:00", true);
@@ -311,11 +259,10 @@ class AppointmentServiceTest {
         req.setStartTime("12:30");
         req.setEndTime("13:30");
 
-        when(userIdentityService.hasUserAccessToAccount(jwt, accountId)).thenReturn(true);
         when(appointmentRepository.findByAccountId(accountId)).thenReturn(List.of(existing));
 
         AppointmentOverlapException ex = assertThrows(AppointmentOverlapException.class,
-                () -> appointmentService.createAppointment(accountId, req, jwt));
+                () -> appointmentService.createAppointment(accountId, req));
 
         assertTrue(ex.getMessage().contains("Mittag"));
     }
@@ -327,7 +274,6 @@ class AppointmentServiceTest {
     @Test
     void createAppointment_overlappingOneTimeAppointments_throwsOverlapException() {
         UUID accountId = UUID.randomUUID();
-        Jwt jwt = mockJwt();
 
         // Existing one-time appointment on 2026-05-18 10:00-11:00
         AppointmentEntity existing = buildEntity(accountId, "Arzttermin", "10:00", "11:00", false);
@@ -344,11 +290,10 @@ class AppointmentServiceTest {
         req.setStartTime("10:30");
         req.setEndTime("11:30");
 
-        when(userIdentityService.hasUserAccessToAccount(jwt, accountId)).thenReturn(true);
         when(appointmentRepository.findByAccountId(accountId)).thenReturn(List.of(existing));
 
         AppointmentOverlapException ex = assertThrows(AppointmentOverlapException.class,
-                () -> appointmentService.createAppointment(accountId, req, jwt));
+                () -> appointmentService.createAppointment(accountId, req));
 
         assertTrue(ex.getMessage().contains("Arzttermin"));
     }
@@ -360,7 +305,6 @@ class AppointmentServiceTest {
     @Test
     void createAppointment_oneTimeOverlapsRecurring_throwsOverlapException() {
         UUID accountId = UUID.randomUUID();
-        Jwt jwt = mockJwt();
 
         // Existing recurring break on MO 12:00-13:00
         AppointmentEntity existing = buildEntity(accountId, "Mittagspause", "12:00", "13:00", true);
@@ -376,11 +320,10 @@ class AppointmentServiceTest {
         req.setStartTime("12:30");
         req.setEndTime("13:30");
 
-        when(userIdentityService.hasUserAccessToAccount(jwt, accountId)).thenReturn(true);
         when(appointmentRepository.findByAccountId(accountId)).thenReturn(List.of(existing));
 
         AppointmentOverlapException ex = assertThrows(AppointmentOverlapException.class,
-                () -> appointmentService.createAppointment(accountId, req, jwt));
+                () -> appointmentService.createAppointment(accountId, req));
 
         assertTrue(ex.getMessage().contains("Mittagspause"));
     }
@@ -388,7 +331,6 @@ class AppointmentServiceTest {
     @Test
     void createAppointment_recurringOverlapsOneTime_throwsOverlapException() {
         UUID accountId = UUID.randomUUID();
-        Jwt jwt = mockJwt();
 
         // Existing one-time appointment on Monday 2026-05-18 12:00-13:00
         AppointmentEntity existing = buildEntity(accountId, "Montags-Termin", "12:00", "13:00", false);
@@ -405,11 +347,10 @@ class AppointmentServiceTest {
         req.setStartTime("12:30");
         req.setEndTime("13:30");
 
-        when(userIdentityService.hasUserAccessToAccount(jwt, accountId)).thenReturn(true);
         when(appointmentRepository.findByAccountId(accountId)).thenReturn(List.of(existing));
 
         assertThrows(AppointmentOverlapException.class,
-                () -> appointmentService.createAppointment(accountId, req, jwt));
+                () -> appointmentService.createAppointment(accountId, req));
     }
 
     // -------------------------------------------------------------------------
@@ -419,7 +360,6 @@ class AppointmentServiceTest {
     @Test
     void createAppointment_noTimeOverlap_succeeds() {
         UUID accountId = UUID.randomUUID();
-        Jwt jwt = mockJwt();
 
         // Existing break 12:00-13:00
         AppointmentEntity existing = buildEntity(accountId, "Mittag", "12:00", "13:00", true);
@@ -430,7 +370,6 @@ class AppointmentServiceTest {
         AppointmentCreate req = buildBreakRequest("Kaffeepause", "15:00", "15:30");
         req.setRrule("FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR");
 
-        when(userIdentityService.hasUserAccessToAccount(jwt, accountId)).thenReturn(true);
         when(appointmentRepository.findByAccountId(accountId)).thenReturn(List.of(existing));
         when(appointmentRepository.save(any(AppointmentEntity.class)))
                 .thenAnswer(invocation -> {
@@ -439,7 +378,7 @@ class AppointmentServiceTest {
                     return e;
                 });
 
-        Appointment result = appointmentService.createAppointment(accountId, req, jwt);
+        Appointment result = appointmentService.createAppointment(accountId, req);
 
         assertEquals("Kaffeepause", result.getTitle());
     }
@@ -451,7 +390,6 @@ class AppointmentServiceTest {
     @Test
     void createAppointment_noDayOverlap_succeeds() {
         UUID accountId = UUID.randomUUID();
-        Jwt jwt = mockJwt();
 
         // Existing break on MO 12:00-13:00
         AppointmentEntity existing = buildEntity(accountId, "Montag Pause", "12:00", "13:00", true);
@@ -467,7 +405,6 @@ class AppointmentServiceTest {
         req.setStartTime("12:00");
         req.setEndTime("13:00");
 
-        when(userIdentityService.hasUserAccessToAccount(jwt, accountId)).thenReturn(true);
         when(appointmentRepository.findByAccountId(accountId)).thenReturn(List.of(existing));
         when(appointmentRepository.save(any(AppointmentEntity.class)))
                 .thenAnswer(invocation -> {
@@ -476,7 +413,7 @@ class AppointmentServiceTest {
                     return e;
                 });
 
-        Appointment result = appointmentService.createAppointment(accountId, req, jwt);
+        Appointment result = appointmentService.createAppointment(accountId, req);
 
         assertEquals("Freitag Pause", result.getTitle());
     }
@@ -489,7 +426,6 @@ class AppointmentServiceTest {
     void updateAppointment_sameAppointment_doesNotThrowOverlap() {
         UUID accountId = UUID.randomUUID();
         UUID appointmentId = UUID.randomUUID();
-        Jwt jwt = mockJwt();
 
         AppointmentEntity existing = buildEntity(accountId, "Mittag", "12:00", "13:00", true);
         existing.setId(appointmentId);
@@ -500,14 +436,13 @@ class AppointmentServiceTest {
         AppointmentCreate req = buildBreakRequest("Mittag Neu", "12:00", "13:00");
         req.setRrule("FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR");
 
-        when(userIdentityService.hasUserAccessToAccount(jwt, accountId)).thenReturn(true);
         when(appointmentRepository.findByAccountId(accountId)).thenReturn(List.of(existing));
         when(appointmentRepository.findByIdAndAccountId(appointmentId, accountId))
                 .thenReturn(Optional.of(existing));
         when(appointmentRepository.save(any(AppointmentEntity.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        Appointment result = appointmentService.updateAppointment(accountId, appointmentId, req, jwt);
+        Appointment result = appointmentService.updateAppointment(accountId, appointmentId, req);
 
         assertEquals("Mittag Neu", result.getTitle());
     }
@@ -531,4 +466,3 @@ class AppointmentServiceTest {
         return e;
     }
 }
-

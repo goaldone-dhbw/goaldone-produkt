@@ -11,7 +11,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.security.oauth2.jwt.Jwt;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -40,18 +39,8 @@ public class ScheduleServiceTest {
     @Mock
     private UserAccountRepository userAccountRepository;
 
-    @Mock
-    private UserIdentityService userIdentityService;
-
     @InjectMocks
     private ScheduleService scheduleService;
-
-    private Jwt mockJwt() {
-        return Jwt.withTokenValue("token")
-                .header("alg", "none")
-                .claim("sub", "user-1")
-                .build();
-    }
 
     private GenerateScheduleRequest createGenerateScheduleRequest(LocalDate fromDate) {
         GenerateScheduleRequest request = new GenerateScheduleRequest();
@@ -80,15 +69,13 @@ public class ScheduleServiceTest {
     @Test
     void invalidFromDate_returnsWarning() {
         UUID accountId = UUID.randomUUID();
-        Jwt jwt = mockJwt();
         GenerateScheduleRequest request = createGenerateScheduleRequest(LocalDate.now().minusDays(1));
 
         UserAccountEntity account = createUserAccount(accountId, "user-1");
 
         when(userAccountRepository.findById(accountId)).thenReturn(Optional.of(account));
-        when(userIdentityService.hasUserAccessToAccount(jwt, accountId)).thenReturn(true);
 
-        ScheduleResponse response = scheduleService.generateSingleAccountSchedule(jwt, accountId, request, 5000);
+        ScheduleResponse response = scheduleService.generateSingleAccountSchedule(accountId, request, 5000);
 
         assertEquals(1, response.getWarnings().size());
 
@@ -100,12 +87,11 @@ public class ScheduleServiceTest {
     @Test
     void accountNotFound_returnsWarning() {
         UUID accountId = UUID.randomUUID();
-        Jwt jwt = mockJwt();
         GenerateScheduleRequest request = createGenerateScheduleRequest(LocalDate.now().plusDays(1));
 
         when(userAccountRepository.findById(accountId)).thenReturn(Optional.empty());
 
-        ScheduleResponse response = scheduleService.generateSingleAccountSchedule(jwt, accountId, request, 5000);
+        ScheduleResponse response = scheduleService.generateSingleAccountSchedule(accountId, request, 5000);
 
         assertEquals(1, response.getWarnings().size());
 
@@ -114,37 +100,16 @@ public class ScheduleServiceTest {
         assertTrue(warning.getMessage().contains("Account not found"));
     }
 
-    @Test
-    void userHasNoAccess_returnsWarning() {
-        UUID accountId = UUID.randomUUID();
-        Jwt jwt = mockJwt();
-        GenerateScheduleRequest request = createGenerateScheduleRequest(LocalDate.now().plusDays(1));
-
-        UserAccountEntity account = createUserAccount(accountId, "different-user");
-
-        when(userAccountRepository.findById(accountId)).thenReturn(Optional.of(account));
-        when(userIdentityService.hasUserAccessToAccount(jwt, accountId)).thenReturn(false);
-
-        ScheduleResponse response = scheduleService.generateSingleAccountSchedule(jwt, accountId, request, 5000);
-
-        assertEquals(1, response.getWarnings().size());
-
-        ScheduleWarning warning = response.getWarnings().getFirst();
-        assertEquals(ScheduleWarning.TypeEnum.OTHER, warning.getType());
-        assertTrue(warning.getMessage().contains("does not have access"));
-    }
-
     // =========================
     // MULTI ACCOUNT VALIDATION
     // =========================
 
     @Test
     void emptyAccountList_returnsWarning() {
-        Jwt jwt = mockJwt();
         GenerateScheduleRequest request = createGenerateScheduleRequest(LocalDate.now().plusDays(1));
 
         List<ScheduleResponse> responses =
-                scheduleService.generateMultiAccountSchedule(jwt, List.of(), request, 5000);
+                scheduleService.generateMultiAccountSchedule(List.of(), request, 5000);
 
         assertEquals(1, responses.size());
         assertEquals(1, responses.getFirst().getWarnings().size());
@@ -159,7 +124,6 @@ public class ScheduleServiceTest {
         UUID validId = UUID.randomUUID();
         UUID invalidId = UUID.randomUUID();
 
-        Jwt jwt = mockJwt();
         GenerateScheduleRequest request = createGenerateScheduleRequest(LocalDate.now().plusDays(1));
 
         UserAccountEntity validAccount = createUserAccount(validId, "user-1");
@@ -167,13 +131,11 @@ public class ScheduleServiceTest {
         when(userAccountRepository.findById(validId)).thenReturn(Optional.of(validAccount));
         when(userAccountRepository.findByIdWithWorkingTimes(validId)).thenReturn(Optional.of(validAccount));
         when(userAccountRepository.findById(invalidId)).thenReturn(Optional.empty());
-        when(userIdentityService.hasUserAccessToAccount(jwt, validId))
-                .thenReturn(true);
-        when(taskService.getTasksForAccountId(jwt, validId)).thenReturn(List.of());
-        when(appointmentService.listAppointments(validId, jwt)).thenReturn(emptyAppointmentResponse());
+        when(taskService.getTasksForAccountId(validId)).thenReturn(List.of());
+        when(appointmentService.listAppointments(validId)).thenReturn(emptyAppointmentResponse());
 
         List<ScheduleResponse> responses =
-                scheduleService.generateMultiAccountSchedule(jwt, List.of(validId, invalidId), request, 5000);
+                scheduleService.generateMultiAccountSchedule(List.of(validId, invalidId), request, 5000);
 
         assertEquals(2, responses.size());
 
@@ -181,41 +143,6 @@ public class ScheduleServiceTest {
                 .filter(response -> response.getWarnings() != null)
                 .filter(response -> !response.getWarnings().isEmpty())
                 .filter(response -> response.getWarnings().getFirst().getMessage().contains("Account not found"))
-                .count();
-
-        assertEquals(1, warnings);
-    }
-
-    @Test
-    void multiAccount_withUnauthorizedAccount_returnsWarning() {
-        UUID validId = UUID.randomUUID();
-        UUID unauthorizedId = UUID.randomUUID();
-
-        Jwt jwt = mockJwt();
-        GenerateScheduleRequest request = createGenerateScheduleRequest(LocalDate.now().plusDays(1));
-
-        UserAccountEntity valid = createUserAccount(validId, "user-1");
-        UserAccountEntity unauthorized = createUserAccount(unauthorizedId, "other-user");
-
-        when(userAccountRepository.findById(validId)).thenReturn(Optional.of(valid));
-        when(userAccountRepository.findByIdWithWorkingTimes(validId)).thenReturn(Optional.of(valid));
-        when(userAccountRepository.findById(unauthorizedId)).thenReturn(Optional.of(unauthorized));
-        when(userIdentityService.hasUserAccessToAccount(jwt, validId))
-                .thenReturn(true);
-        when(userIdentityService.hasUserAccessToAccount(jwt, unauthorizedId))
-                .thenReturn(false);
-        when(taskService.getTasksForAccountId(jwt, validId)).thenReturn(List.of());
-        when(appointmentService.listAppointments(validId, jwt)).thenReturn(emptyAppointmentResponse());
-
-        List<ScheduleResponse> responses =
-                scheduleService.generateMultiAccountSchedule(jwt, List.of(validId, unauthorizedId), request, 5000);
-
-        assertEquals(2, responses.size());
-
-        long warnings = responses.stream()
-                .filter(response -> response.getWarnings() != null)
-                .filter(response -> !response.getWarnings().isEmpty())
-                .filter(response -> response.getWarnings().getFirst().getMessage().contains("does not have access"))
                 .count();
 
         assertEquals(1, warnings);
@@ -229,7 +156,6 @@ public class ScheduleServiceTest {
     @Test
     void createSchedulingContext_noWorkingTimes_returnsContextWithDefaultWorkingTimes(){
         UUID accountId = UUID.randomUUID();
-        Jwt jwt = mockJwt();
         LocalDate fromDate = LocalDate.now().plusDays(1);
 
         UserAccountEntity account = new UserAccountEntity();
@@ -238,10 +164,10 @@ public class ScheduleServiceTest {
         account.setWorkingTimes(List.of());
 
         when(userAccountRepository.findByIdWithWorkingTimes(accountId)).thenReturn(Optional.of(account));
-        when(taskService.getTasksForAccountId(jwt, accountId)).thenReturn(List.of());
-        when(appointmentService.listAppointments(accountId, jwt)).thenReturn(emptyAppointmentResponse());
+        when(taskService.getTasksForAccountId(accountId)).thenReturn(List.of());
+        when(appointmentService.listAppointments(accountId)).thenReturn(emptyAppointmentResponse());
 
-        SchedulingContext context = scheduleService.createSchedulingContext(jwt, accountId, fromDate);
+        SchedulingContext context = scheduleService.createSchedulingContext(accountId, fromDate);
 
         assertNotNull(context);
         assertEquals(fromDate, context.fromDate());
@@ -263,7 +189,6 @@ public class ScheduleServiceTest {
     @Test
     void createSchedulingContext_noAppointments_returnsFullWorkingHours() {
         UUID accountId = UUID.randomUUID();
-        Jwt jwt = mockJwt();
         LocalDate fromDate = LocalDate.of(2026, 5, 12);
 
         WorkingTimeEntity workingTime = new WorkingTimeEntity();
@@ -279,10 +204,10 @@ public class ScheduleServiceTest {
         account.setWorkingTimes(List.of(workingTime));
 
         when(userAccountRepository.findByIdWithWorkingTimes(accountId)).thenReturn(Optional.of(account));
-        when(taskService.getTasksForAccountId(jwt, accountId)).thenReturn(List.of());
-        when(appointmentService.listAppointments(accountId, jwt)).thenReturn(emptyAppointmentResponse());
+        when(taskService.getTasksForAccountId(accountId)).thenReturn(List.of());
+        when(appointmentService.listAppointments(accountId)).thenReturn(emptyAppointmentResponse());
 
-        SchedulingContext context = scheduleService.createSchedulingContext(jwt, accountId, fromDate);
+        SchedulingContext context = scheduleService.createSchedulingContext(accountId, fromDate);
 
         assertNotNull(context);
         assertFalse(context.availableSlots().isEmpty(), "Should have at least one slot");
@@ -296,7 +221,6 @@ public class ScheduleServiceTest {
     @Test
     void createSchedulingContext_withAppointments_returnsGapsBetweenAppointments() {
         UUID accountId = UUID.randomUUID();
-        Jwt jwt = mockJwt();
         LocalDate fromDate = LocalDate.of(2026, 5, 11);
 
         WorkingTimeEntity workingTime = new WorkingTimeEntity();
@@ -328,10 +252,10 @@ public class ScheduleServiceTest {
         account.setWorkingTimes(List.of(workingTime));
 
         when(userAccountRepository.findByIdWithWorkingTimes(accountId)).thenReturn(Optional.of(account));
-        when(taskService.getTasksForAccountId(jwt, accountId)).thenReturn(List.of());
-        when(appointmentService.listAppointments(accountId, jwt)).thenReturn(appointmentResponse);
+        when(taskService.getTasksForAccountId(accountId)).thenReturn(List.of());
+        when(appointmentService.listAppointments(accountId)).thenReturn(appointmentResponse);
 
-        SchedulingContext context = scheduleService.createSchedulingContext(jwt, accountId, fromDate);
+        SchedulingContext context = scheduleService.createSchedulingContext(accountId, fromDate);
 
         List<TimeSlot> slotsForFromDate = context.availableSlots()
                 .stream()
@@ -353,7 +277,6 @@ public class ScheduleServiceTest {
     @Test
     void createSchedulingContext_withRecurringBreak_returnsGapsBetweenAppointments() {
         UUID accountId = UUID.randomUUID();
-        Jwt jwt = mockJwt();
         LocalDate fromDate = LocalDate.of(2026, 5, 11); // Monday
 
         WorkingTimeEntity workingTime = new WorkingTimeEntity();
@@ -378,10 +301,10 @@ public class ScheduleServiceTest {
         account.setZitadelSub("user-1");
         account.setWorkingTimes(List.of(workingTime));
 
-        when(taskService.getTasksForAccountId(jwt, accountId)).thenReturn(List.of());
-        when(appointmentService.listAppointments(accountId, jwt)).thenReturn(appointmentResponse);
+        when(taskService.getTasksForAccountId(accountId)).thenReturn(List.of());
+        when(appointmentService.listAppointments(accountId)).thenReturn(appointmentResponse);
 
-        SchedulingContext context = scheduleService.createSchedulingContext(jwt, accountId, fromDate);
+        SchedulingContext context = scheduleService.createSchedulingContext(accountId, fromDate);
 
         List<TimeSlot> slotsForFromDate = context.availableSlots().stream()
                 .filter(timeSlot -> timeSlot.date() == fromDate)
@@ -399,7 +322,6 @@ public class ScheduleServiceTest {
     @Test
     void createSchedulingContext_multipleWeekdays_returnsMultipleSlotsPerWeek() {
         UUID accountId = UUID.randomUUID();
-        Jwt jwt = mockJwt();
         LocalDate fromDate = LocalDate.of(2026, 5, 11); // Monday
 
         WorkingTimeEntity workingTime = new WorkingTimeEntity();
@@ -419,10 +341,10 @@ public class ScheduleServiceTest {
         account.setWorkingTimes(List.of(workingTime));
 
         when(userAccountRepository.findByIdWithWorkingTimes(accountId)).thenReturn(Optional.of(account));
-        when(taskService.getTasksForAccountId(jwt, accountId)).thenReturn(List.of());
-        when(appointmentService.listAppointments(accountId, jwt)).thenReturn(emptyAppointmentResponse());
+        when(taskService.getTasksForAccountId(accountId)).thenReturn(List.of());
+        when(appointmentService.listAppointments(accountId)).thenReturn(emptyAppointmentResponse());
 
-        SchedulingContext context = scheduleService.createSchedulingContext(jwt, accountId, fromDate);
+        SchedulingContext context = scheduleService.createSchedulingContext(accountId, fromDate);
 
         assertNotNull(context);
         // Should have at least 12 slots (3 per day * 4 weeks)
@@ -432,7 +354,6 @@ public class ScheduleServiceTest {
     @Test
     void createSchedulingContext_multipleWorkingTimeDefinitions_returnsCombinedSlots() {
         UUID accountId = UUID.randomUUID();
-        Jwt jwt = mockJwt();
         LocalDate fromDate = LocalDate.of(2026, 5, 12); // Tuesday
 
         // First working time: Monday 09:00-17:00
@@ -457,10 +378,10 @@ public class ScheduleServiceTest {
         account.setWorkingTimes(List.of(workingTime1, workingTime2));
 
         when(userAccountRepository.findByIdWithWorkingTimes(accountId)).thenReturn(Optional.of(account));
-        when(taskService.getTasksForAccountId(jwt, accountId)).thenReturn(List.of());
-        when(appointmentService.listAppointments(accountId, jwt)).thenReturn(emptyAppointmentResponse());
+        when(taskService.getTasksForAccountId(accountId)).thenReturn(List.of());
+        when(appointmentService.listAppointments(accountId)).thenReturn(emptyAppointmentResponse());
 
-        SchedulingContext context = scheduleService.createSchedulingContext(jwt, accountId, fromDate);
+        SchedulingContext context = scheduleService.createSchedulingContext(accountId, fromDate);
 
         assertNotNull(context);
         // Should collect slots from both working time definitions (Monday and Tuesday slots)

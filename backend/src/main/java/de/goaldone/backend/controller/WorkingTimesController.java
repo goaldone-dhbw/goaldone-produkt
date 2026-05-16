@@ -5,7 +5,7 @@ import de.goaldone.backend.model.WorkingTimeCreateRequest;
 import de.goaldone.backend.model.WorkingTimeListResponse;
 import de.goaldone.backend.model.WorkingTimeResponse;
 import de.goaldone.backend.model.WorkingTimeUpdateRequest;
-import de.goaldone.backend.service.CurrentUserResolver;
+import de.goaldone.backend.security.AuthorizationFacade;
 import de.goaldone.backend.service.WorkingTimesService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -18,33 +18,30 @@ import java.util.UUID;
 public class WorkingTimesController implements WorkingTimesApi {
 
     private final WorkingTimesService workingTimesService;
-    private final CurrentUserResolver currentUserResolver;
+    private final AuthorizationFacade authorizationFacade;
 
     @Override
     public ResponseEntity<WorkingTimeListResponse> getWorkingTimes() {
-        var jwt = currentUserResolver.extractJwt();
-        WorkingTimeListResponse response = workingTimesService.getWorkingTimes(jwt);
+        WorkingTimeListResponse response = workingTimesService.getWorkingTimes();
         return ResponseEntity.ok(response);
     }
 
     @Override
     public ResponseEntity<WorkingTimeResponse> createWorkingTime(WorkingTimeCreateRequest workingTimeCreateRequest) {
-        var jwt = currentUserResolver.extractJwt();
-        WorkingTimeResponse response = workingTimesService.createWorkingTime(jwt, workingTimeCreateRequest);
+        authorizationFacade.requireAccountAccess(workingTimeCreateRequest.getAccountId());
+        WorkingTimeResponse response = workingTimesService.createWorkingTime(workingTimeCreateRequest);
         return ResponseEntity.status(201).body(response);
     }
 
     @Override
     public ResponseEntity<WorkingTimeResponse> updateWorkingTime(UUID id, WorkingTimeUpdateRequest workingTimeUpdateRequest) {
-        var jwt = currentUserResolver.extractJwt();
-        WorkingTimeResponse response = workingTimesService.updateWorkingTime(jwt, id, workingTimeUpdateRequest);
+        WorkingTimeResponse response = workingTimesService.updateWorkingTime(id, workingTimeUpdateRequest);
         return ResponseEntity.ok(response);
     }
 
     @Override
     public ResponseEntity<Void> deleteWorkingTime(UUID id) {
-        var jwt = currentUserResolver.extractJwt();
-        workingTimesService.deleteWorkingTime(jwt, id);
+        workingTimesService.deleteWorkingTime(id);
         return ResponseEntity.noContent().build();
     }
 }

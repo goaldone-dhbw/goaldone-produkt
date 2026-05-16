@@ -11,9 +11,7 @@ import de.goaldone.backend.scheduler.types.model.SchedulingResult;
 import de.goaldone.backend.scheduler.types.model.TimeSlot;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -38,52 +36,42 @@ public class ScheduleService {
     private final TasksService taskService;
     private final AppointmentService appointmentService;
     private final UserAccountRepository userAccountRepository;
-    private final @Lazy UserIdentityService userIdentityService;
     private final ScheduleMapper scheduleMapper = new ScheduleMapper();
 
     /**
      * Generates schedules for multiple accounts asynchronously.
      *
-     * @param jwt                 JWT token containing user information
      * @param accountIds          List of account IDs for which schedules should be generated
      * @param request             Request parameters, for example the start date
      * @param timeoutMilliseconds Maximum time to wait for each account's schedule generation
      * @return A list containing one schedule response per account
      */
     public List<ScheduleResponse> generateMultiAccountSchedule(
-            Jwt jwt,
             List<UUID> accountIds,
             GenerateScheduleRequest request,
             long timeoutMilliseconds) {
 
-        // No accounts linked to identity
         if (accountIds.isEmpty()) {
             return List.of(createErrorResponse("No accounts linked to user"));
         }
 
-        // Generate schedules in parallel
         try (ExecutorService executor = Executors.newFixedThreadPool(accountIds.size())) {
 
-            // Create schedule for each account simultaneously
             List<CompletableFuture<ScheduleResponse>> futures = accountIds.stream()
                     .map(accountId ->
                             CompletableFuture.supplyAsync(
-                                            () -> generateSchedule(jwt, accountId, request.getFrom(), timeoutMilliseconds), executor
+                                            () -> generateSchedule(accountId, request.getFrom(), timeoutMilliseconds), executor
                                     )
-                                    // If task takes too long -> complete with null instead of blocking
-                                    .completeOnTimeout(createErrorResponse("Schedule generation timed out"), timeoutMilliseconds, TimeUnit.MILLISECONDS) //TODO: adjust timeout
-
-                                    // Handle exceptions per task (prevents whole pipeline from failing)
+                                    .completeOnTimeout(createErrorResponse("Schedule generation timed out"), timeoutMilliseconds, TimeUnit.MILLISECONDS)
                                     .exceptionally(ex -> {
                                       log.error("Error generating schedule: {}", ex.getMessage(), ex);
                                       return createErrorResponse("Schedule generation failed: " + ex.getMessage());
                                     })
                     ).toList();
 
-            // Collect results
             return futures.stream()
-                    .map(CompletableFuture::join)   // non-blocking due to completeOnTimeout
-                    .filter(Objects::nonNull)       // remove timed-out or failed tasks
+                    .map(CompletableFuture::join)
+                    .filter(Objects::nonNull)
                     .toList();
         } catch (Exception e) {
             log.error("Failed to initialize account scheduling", e);
@@ -92,41 +80,37 @@ public class ScheduleService {
     }
 
     /**
-     * Generates schedule for a single account with exception handling
+     * Generates schedule for a single account with exception handling.
      *
-     * @param jwt                     JWT token containing user information
      * @param accountId               Specific account
      * @param generateScheduleRequest Request parameters
      * @param timeoutMilliseconds     Maximum time to wait for schedule generation before giving up (in milliseconds)
      * @return ScheduleResponse with schedule or error warnings
      */
     public ScheduleResponse generateSingleAccountSchedule(
-            Jwt jwt,
             UUID accountId,
             GenerateScheduleRequest generateScheduleRequest,
             long timeoutMilliseconds) {
 
         try  {
-            return generateSchedule(jwt, accountId, generateScheduleRequest.getFrom(), timeoutMilliseconds);
+            return generateSchedule(accountId, generateScheduleRequest.getFrom(), timeoutMilliseconds);
         } catch (Exception ex) {
             return createErrorResponse("Schedule generation failed: " + ex.getMessage());
         }
     }
 
     /**
-     * Orders the generation of a scheduling for an account
+     * Orders the generation of a scheduling for an account.
      *
      * @param accountId Specific account for which the schedule should be generated
-     * @param fromDate Date from which on the schedule should be generated
-     * @return Response containing
-     * - the generated schedule,
-     * - the scheduleScore,
-     * - constraint warnings
+     * @param fromDate  Date from which on the schedule should be generated
+     * @param timeoutMs Maximum time to wait for schedule generation
+     * @return Response containing the generated schedule, the scheduleScore, and constraint warnings
      */
-    public ScheduleResponse generateSchedule(Jwt jwt, UUID accountId, LocalDate fromDate, long timeoutMs) {
+    public ScheduleResponse generateSchedule(UUID accountId, LocalDate fromDate, long timeoutMs) {
 
-        validateRequest(jwt, accountId, fromDate);
-        SchedulingContext schedulingContext = createSchedulingContext(jwt, accountId, fromDate);
+        validateRequest(accountId, fromDate);
+        SchedulingContext schedulingContext = createSchedulingContext(accountId, fromDate);
         SchedulingResult bestResult = solver.createSchedule(schedulingContext, timeoutMs);
 
         return this.scheduleMapper.mapToScheduleResult(
@@ -134,27 +118,12 @@ public class ScheduleService {
         );
     }
 
-
-    /**
-     * Validate the request
-     * @param jwt Token
-     * @param accountId Account
-     * @param fromDate Start date for schedule generation
-     */
-    private void validateRequest(Jwt jwt, UUID accountId, LocalDate fromDate) {
-
-        // Check if account exists
+    private void validateRequest(UUID accountId, LocalDate fromDate) {
         Optional<UserAccountEntity> accountOpt = userAccountRepository.findById(accountId);
         if (accountOpt.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found: " + accountId);
         }
 
-        // Checks permissions
-        if (!userIdentityService.hasUserAccessToAccount(jwt, accountId)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "User " + jwt.getSubject() + " does not have access to account " + accountId);
-        }
-
-        // Validate fromDate (e.g. cannot be in the past)
         if (fromDate.isBefore(LocalDate.now())) {
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_CONTENT, "From date cannot be in the past");
         }
@@ -169,16 +138,15 @@ public class ScheduleService {
      * @param fromDate  Start date for the schedule
      * @return Scheduling context for the solver
      */
-    public SchedulingContext createSchedulingContext(Jwt jwt, UUID accountId, LocalDate fromDate) {
+    public SchedulingContext createSchedulingContext(UUID accountId, LocalDate fromDate) {
 
         List<TaskResponse> allTasks = new ArrayList<>();
-        for (TaskResponse task : taskService.getTasksForAccountId(jwt, accountId)) {
+        for (TaskResponse task : taskService.getTasksForAccountId(accountId)) {
             if (!task.getStatus().equals(TaskStatus.DONE)) {
                 allTasks.add(task);
             }
         }
 
-        // Load working times for this account
         List<WorkingTimeEntity> workingTimes = userAccountRepository.findByIdWithWorkingTimes(accountId)
                 .map(UserAccountEntity::getWorkingTimes)
                 .orElse(List.of());
@@ -191,8 +159,7 @@ public class ScheduleService {
             workingTimes = List.of(defaultWorkingTimes);
         }
 
-        // Get available timeslots
-        List<Appointment> allAppointments = appointmentService.listAppointments(accountId, jwt).getAppointments();
+        List<Appointment> allAppointments = appointmentService.listAppointments(accountId).getAppointments();
         List<TimeSlot> availableSlots = getAvailableTimeSlots(allAppointments, workingTimes, fromDate);
 
         // Create schedule context
