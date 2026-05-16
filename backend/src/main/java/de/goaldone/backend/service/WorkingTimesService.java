@@ -13,6 +13,7 @@ import de.goaldone.backend.model.WorkingTimeUpdateRequest;
 import de.goaldone.backend.repository.UserAccountRepository;
 import de.goaldone.backend.repository.WorkingTimeRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,32 +35,21 @@ public class WorkingTimesService {
 
     private final UserAccountRepository userAccountRepository;
     private final WorkingTimeRepository workingTimeRepository;
-    private final UserIdentityService userIdentityService;
 
     @Transactional
-    public WorkingTimeResponse createWorkingTime(Jwt jwt, WorkingTimeCreateRequest request) {
-        // Resolve current user
-        UserAccountEntity currentAccount = userAccountRepository.findByZitadelSub(jwt.getSubject())
-            .orElseThrow(() -> new WorkingTimeAccessDeniedException("Account not found"));
+    public WorkingTimeResponse createWorkingTime(WorkingTimeCreateRequest request) {
+        UserAccountEntity currentAccount = resolveCurrentAccount();
 
-        // Check access to target account
-        if (!userIdentityService.hasUserAccessToAccount(jwt, request.getAccountId())) {
-            throw new WorkingTimeAccessDeniedException("Der angemeldete Nutzer hat keinen Zugriff auf diesen Account.");
-        }
-
-        // Load target account
         UserAccountEntity targetAccount = userAccountRepository.findById(request.getAccountId())
             .orElseThrow(() -> new WorkingTimeAccessDeniedException(
                 "Die angegebene Unternehmenszugehoerigkeit gehoert nicht zum angemeldeten Nutzer."
             ));
 
-        // Validate days
         List<DayOfWeek> days = request.getDays();
         if (days == null || days.isEmpty()) {
             throw new WorkingTimeValidationException("Mindestens ein Wochentag muss ausgewählt sein.");
         }
 
-        // Parse times
         LocalTime startTime;
         LocalTime endTime;
         try {
@@ -69,12 +59,10 @@ public class WorkingTimesService {
             throw new WorkingTimeValidationException("Ungültiges Zeitformat. Erwartet: HH:mm");
         }
 
-        // Validate end time > start time
         if (!endTime.isAfter(startTime)) {
             throw new WorkingTimeValidationException("Endzeit muss nach der Startzeit liegen.");
         }
 
-        // Check for overlaps within the identity
         boolean overlaps = workingTimeRepository.existsOverlappingSlot(currentAccount.getUserIdentityId(), startTime, endTime, days);
 
         if (overlaps) {
@@ -97,18 +85,14 @@ public class WorkingTimesService {
     }
 
     @Transactional
-    public WorkingTimeResponse updateWorkingTime(Jwt jwt, UUID workingTimeId, WorkingTimeUpdateRequest request) {
-        // Resolve current user
-        UserAccountEntity currentAccount = userAccountRepository.findByZitadelSub(jwt.getSubject())
-            .orElseThrow(() -> new WorkingTimeAccessDeniedException("Account not found"));
+    public WorkingTimeResponse updateWorkingTime(UUID workingTimeId, WorkingTimeUpdateRequest request) {
+        UserAccountEntity currentAccount = resolveCurrentAccount();
 
-        // Validate days
         List<DayOfWeek> days = request.getDays();
         if (days == null || days.isEmpty()) {
             throw new WorkingTimeValidationException("Mindestens ein Wochentag muss ausgewählt sein.");
         }
 
-        // Parse times
         LocalTime startTime;
         LocalTime endTime;
         try {
@@ -118,7 +102,6 @@ public class WorkingTimesService {
             throw new WorkingTimeValidationException("Ungültiges Zeitformat. Erwartet: HH:mm");
         }
 
-        // Validate end time > start time
         if (!endTime.isAfter(startTime)) {
             throw new WorkingTimeValidationException("Endzeit muss nach der Startzeit liegen.");
         }
@@ -126,12 +109,10 @@ public class WorkingTimesService {
         WorkingTimeEntity existingTime = workingTimeRepository.findById(workingTimeId)
             .orElseThrow(() -> new WorkingTimeAccessDeniedException("Arbeitszeit nicht gefunden."));
 
-        // Check access: working time must belong to current user's identity
         if (!existingTime.getUserAccount().getUserIdentityId().equals(currentAccount.getUserIdentityId())) {
             throw new WorkingTimeAccessDeniedException("Kein Zugriff auf diese Arbeitszeit.");
         }
 
-        // Check for overlaps (excluding self)
         boolean overlaps = workingTimeRepository.existsOverlappingSlotExcluding(currentAccount.getUserIdentityId(), existingTime.getId(), startTime, endTime, days);
 
         if (overlaps) {
@@ -149,15 +130,12 @@ public class WorkingTimesService {
     }
 
     @Transactional
-    public void deleteWorkingTime(Jwt jwt, UUID workingTimeId) {
-        // Resolve current user
-        UserAccountEntity currentAccount = userAccountRepository.findByZitadelSub(jwt.getSubject())
-            .orElseThrow(() -> new WorkingTimeAccessDeniedException("Account not found"));
+    public void deleteWorkingTime(UUID workingTimeId) {
+        UserAccountEntity currentAccount = resolveCurrentAccount();
 
         WorkingTimeEntity existingTime = workingTimeRepository.findById(workingTimeId)
             .orElseThrow(() -> new WorkingTimeAccessDeniedException("Arbeitszeit nicht gefunden."));
 
-        // Check access: working time must belong to current user's identity
         if (!existingTime.getUserAccount().getUserIdentityId().equals(currentAccount.getUserIdentityId())) {
             throw new WorkingTimeAccessDeniedException("Kein Zugriff auf diese Arbeitszeit.");
         }
@@ -166,19 +144,14 @@ public class WorkingTimesService {
     }
 
     @Transactional(readOnly = true)
-    public WorkingTimeListResponse getWorkingTimes(Jwt jwt) {
-        // Resolve current user
-        UserAccountEntity currentAccount = userAccountRepository.findByZitadelSub(jwt.getSubject())
-            .orElseThrow(() -> new WorkingTimeAccessDeniedException("Account not found"));
+    public WorkingTimeListResponse getWorkingTimes() {
+        UserAccountEntity currentAccount = resolveCurrentAccount();
 
-        // Fetch all working times for this identity
         List<WorkingTimeEntity> allWorkingTimes =
             workingTimeRepository.findAllByUserAccountUserIdentityId(currentAccount.getUserIdentityId());
 
-        // Compute which working times are conflicting
         Set<UUID> conflictingIds = computeConflicting(allWorkingTimes);
 
-        // Map to responses
         List<WorkingTimeResponse> items = allWorkingTimes.stream()
             .map(wt -> mapToResponse(wt, conflictingIds.contains(wt.getId())))
             .toList();
@@ -186,6 +159,12 @@ public class WorkingTimesService {
         WorkingTimeListResponse response = new WorkingTimeListResponse();
         response.setItems(items);
         return response;
+    }
+
+    private UserAccountEntity resolveCurrentAccount() {
+        Jwt jwt = (Jwt) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        return userAccountRepository.findByZitadelSub(jwt.getSubject())
+            .orElseThrow(() -> new WorkingTimeAccessDeniedException("Account not found"));
     }
 
     private Set<UUID> computeConflicting(List<WorkingTimeEntity> all) {

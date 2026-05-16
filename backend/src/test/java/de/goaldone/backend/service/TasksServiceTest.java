@@ -15,7 +15,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
@@ -37,18 +36,8 @@ class TasksServiceTest {
     @Mock
     private TaskRepository taskRepository;
 
-    @Mock
-    private UserIdentityService userIdentityService;
-
     @InjectMocks
     private TasksService tasksService;
-
-    private Jwt mockJwt() {
-        return Jwt.withTokenValue("token")
-                .header("alg", "none")
-                .claim("sub", "user-1")
-                .build();
-    }
 
     @Test
     void createTask_validRequest_returnsCreatedTask() {
@@ -59,11 +48,9 @@ class TasksServiceTest {
         request.setStatus(TaskStatus.OPEN);
         request.setCognitiveLoad(CognitiveLoad.MODERATE);
 
-        Jwt jwt = mockJwt();
-        when(userIdentityService.hasUserAccessToAccount(eq(jwt), eq(request.getAccountId()))).thenReturn(true);
         when(taskRepository.save(any(TaskEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        var response = tasksService.createTask(request, jwt);
+        var response = tasksService.createTask(request);
 
         assertEquals("Dokumentation", response.getTitle());
         assertEquals(120, response.getDuration());
@@ -80,11 +67,8 @@ class TasksServiceTest {
         request.setCognitiveLoad(CognitiveLoad.LOW);
         request.setDuration(-10);
 
-        Jwt jwt = mockJwt();
-        when(userIdentityService.hasUserAccessToAccount(eq(jwt), eq(request.getAccountId()))).thenReturn(true);
-
         ResponseStatusException ex = assertThrows(ResponseStatusException.class,
-            () -> tasksService.createTask(request, jwt));
+            () -> tasksService.createTask(request));
 
         assertEquals(HttpStatus.BAD_REQUEST, ex.getStatusCode());
     }
@@ -93,7 +77,6 @@ class TasksServiceTest {
     void updateTask_statusChangeToDone_updatesStatus() {
         UUID accountId = UUID.randomUUID();
         UUID taskId = UUID.randomUUID();
-        Jwt jwt = mockJwt();
 
         TaskEntity existing = new TaskEntity();
         existing.setId(taskId);
@@ -104,7 +87,6 @@ class TasksServiceTest {
         existing.setCognitiveLoad(CognitiveLoad.MODERATE);
 
         when(taskRepository.findById(taskId)).thenReturn(Optional.of(existing));
-        when(userIdentityService.hasUserAccessToAccount(jwt, accountId)).thenReturn(true);
         when(taskRepository.save(any())).thenReturn(existing);
 
         TaskUpdateRequest request = new TaskUpdateRequest();
@@ -113,15 +95,15 @@ class TasksServiceTest {
         request.setStatus(TaskStatus.DONE);
         request.setCognitiveLoad(CognitiveLoad.MODERATE);
 
-        TaskResponse response = tasksService.updateTask(jwt, taskId, request);
+        List<UUID> accessibleAccounts = List.of(accountId);
+        TaskResponse response = tasksService.updateTask(taskId, request, accessibleAccounts);
         assertEquals(TaskStatus.DONE, response.getStatus());
     }
 
     @Test
     void getTasks_withFilters_returnsFilteredTasks() {
         UUID accountId = UUID.randomUUID();
-        Jwt jwt = mockJwt();
-        when(userIdentityService.accountIdsForUser(jwt)).thenReturn(List.of(accountId));
+        List<UUID> accountIds = List.of(accountId);
 
         TaskEntity entity = new TaskEntity();
         entity.setId(UUID.randomUUID());
@@ -136,7 +118,7 @@ class TasksServiceTest {
                 .thenReturn(List.of(entity));
 
         List<TaskResponse> results = tasksService.getTasks(
-                jwt, TaskStatus.OPEN, CognitiveLoad.HIGH,
+                accountIds, TaskStatus.OPEN, CognitiveLoad.HIGH,
                 java.time.LocalDateTime.parse("2026-05-01T00:00:00"), null,
                 30, 100,
                 "deadline", "desc", null
@@ -151,7 +133,6 @@ class TasksServiceTest {
         UUID accountId = UUID.randomUUID();
         UUID taskAId = UUID.randomUUID();
         UUID taskBId = UUID.randomUUID();
-        Jwt jwt = mockJwt();
 
         TaskEntity taskA = new TaskEntity();
         taskA.setId(taskAId);
@@ -178,13 +159,14 @@ class TasksServiceTest {
         request.setCognitiveLoad(CognitiveLoad.LOW);
         request.setDependencyIds(List.of(taskBId));
 
+        List<UUID> accessibleAccounts = List.of(accountId);
+
         when(taskRepository.findById(taskAId)).thenReturn(Optional.of(taskA));
-        when(userIdentityService.hasUserAccessToAccount(any(), eq(accountId))).thenReturn(true);
         when(taskRepository.findAllByIdInAndAccountId(anyCollection(), eq(accountId))).thenReturn(List.of(taskB));
         when(taskRepository.findAllByAccountIdOrderByIdAsc(accountId)).thenReturn(List.of(taskA, taskB));
 
         ResponseStatusException ex = assertThrows(ResponseStatusException.class,
-            () -> tasksService.updateTask(jwt, taskAId, request));
+            () -> tasksService.updateTask(taskAId, request, accessibleAccounts));
 
         assertEquals(HttpStatus.BAD_REQUEST, ex.getStatusCode());
     }

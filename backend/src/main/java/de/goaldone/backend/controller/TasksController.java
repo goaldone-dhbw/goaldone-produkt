@@ -7,11 +7,10 @@ import de.goaldone.backend.model.TaskCreateRequest;
 import de.goaldone.backend.model.TaskResponse;
 import de.goaldone.backend.model.TaskStatus;
 import de.goaldone.backend.model.TaskUpdateRequest;
-import de.goaldone.backend.service.CurrentUserResolver;
+import de.goaldone.backend.security.AuthorizationFacade;
 import de.goaldone.backend.service.TasksService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDateTime;
@@ -21,15 +20,14 @@ import java.util.UUID;
 /**
  * REST controller for managing tasks.
  * This controller handles HTTP requests for creating, updating, deleting, and retrieving tasks.
- * It implements the generated {@link TasksApi} interface and ensures that the current user's
- * identity is used for all operations.
+ * It implements the generated {@link TasksApi} interface.
  */
 @RestController
 @RequiredArgsConstructor
 public class TasksController implements TasksApi {
 
     private final TasksService tasksService;
-    private final CurrentUserResolver currentUserResolver;
+    private final AuthorizationFacade authorizationFacade;
 
     /**
      * Creates a new task based on the provided request body.
@@ -39,8 +37,8 @@ public class TasksController implements TasksApi {
      */
     @Override
     public ResponseEntity<TaskResponse> createTask(TaskCreateRequest taskCreateRequest) {
-        Jwt jwt = currentUserResolver.extractJwt();
-        TaskResponse createdTask = tasksService.createTask(taskCreateRequest, jwt);
+        authorizationFacade.requireAccountAccess(taskCreateRequest.getAccountId());
+        TaskResponse createdTask = tasksService.createTask(taskCreateRequest);
         return ResponseEntity.status(201).body(createdTask);
     }
 
@@ -52,8 +50,7 @@ public class TasksController implements TasksApi {
      */
     @Override
     public ResponseEntity<Void> deleteTask(UUID id) {
-        Jwt jwt = currentUserResolver.extractJwt();
-        tasksService.deleteTask(id, jwt);
+        tasksService.deleteTask(id, authorizationFacade.getAccessibleAccountIds());
         return ResponseEntity.noContent().build();
     }
 
@@ -65,8 +62,8 @@ public class TasksController implements TasksApi {
      */
     @Override
     public ResponseEntity<List<TaskResponse>> getTasksByAccount(UUID accountId) {
-        Jwt jwt = currentUserResolver.extractJwt();
-        List<TaskResponse> tasks = tasksService.getTasksForAccountId(jwt, accountId);
+        authorizationFacade.requireAccountAccess(accountId);
+        List<TaskResponse> tasks = tasksService.getTasksForAccountId(accountId);
         return ResponseEntity.ok(tasks);
     }
 
@@ -78,8 +75,7 @@ public class TasksController implements TasksApi {
      */
     @Override
     public ResponseEntity<List<TaskAccountListResponse>> getTasksForAllAccounts() {
-        Jwt jwt = currentUserResolver.extractJwt();
-        List<TaskAccountListResponse> tasks = tasksService.getTasksForAllAccounts(jwt);
+        List<TaskAccountListResponse> tasks = tasksService.getTasksForAllAccounts(authorizationFacade.getAccessibleAccountIds());
         return ResponseEntity.ok(tasks);
     }
 
@@ -92,8 +88,7 @@ public class TasksController implements TasksApi {
      */
     @Override
     public ResponseEntity<TaskResponse> updateTask(UUID id, TaskUpdateRequest taskUpdateRequest) {
-        Jwt jwt = currentUserResolver.extractJwt();
-        TaskResponse updatedTask = tasksService.updateTask(jwt, id, taskUpdateRequest);
+        TaskResponse updatedTask = tasksService.updateTask(id, taskUpdateRequest, authorizationFacade.getAccessibleAccountIds());
         return ResponseEntity.ok(updatedTask);
     }
 
@@ -113,10 +108,9 @@ public class TasksController implements TasksApi {
      */
     @Override
     public ResponseEntity<List<TaskResponse>> getTasks(TaskStatus status, CognitiveLoad cognitiveLoad, String deadlineFrom, String deadlineTo, Integer minDuration, Integer maxDuration, String sortBy, String sortDirection, String searchTerm) {
-        Jwt jwt = currentUserResolver.extractJwt();
         LocalDateTime from = deadlineFrom != null ? LocalDateTime.parse(deadlineFrom) : null;
         LocalDateTime to = deadlineTo != null ? LocalDateTime.parse(deadlineTo) : null;
-        List<TaskResponse> tasks = tasksService.getTasks(jwt, status, cognitiveLoad, from, to, minDuration, maxDuration, sortBy, sortDirection, searchTerm);
+        List<TaskResponse> tasks = tasksService.getTasks(authorizationFacade.getAccessibleAccountIds(), status, cognitiveLoad, from, to, minDuration, maxDuration, sortBy, sortDirection, searchTerm);
         return ResponseEntity.ok(tasks);
     }
 }

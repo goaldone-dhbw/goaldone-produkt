@@ -134,7 +134,6 @@ public class MemberManagementService {
      * @param request       the request containing the new role
      */
     public void changeMemberRole(UUID orgId, String zitadelUserId, ChangeRoleRequest request) {
-        validateCallerBelongsToOrg(orgId);
         MemberRole updatedRole = request.getRole();
 
         OrganizationEntity organization = organizationRepository.findById(orgId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Organization not found"));
@@ -200,8 +199,6 @@ public class MemberManagementService {
     }
 
     public void removeMember(UUID orgId, String zitadelUserId) {
-        validateCallerBelongsToOrg(orgId);
-
         String callerSub = getCallerSub();
         if (callerSub.equals(zitadelUserId)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "CANNOT_REMOVE_SELF");
@@ -256,18 +253,6 @@ public class MemberManagementService {
             }
         }
         return orgAdminCount;
-    }
-
-    /**
-     * Validates that the caller is a member of the given organization.
-     *
-     * @param orgId the ID of the organization to check
-     */
-    private void validateCallerBelongsToOrg(UUID orgId) {
-        Jwt jwt = (Jwt) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        if (!userIdentityService.hasUserAccessToOrganization(jwt, orgId)) {
-            throw new NotMemberOfOrganizationException("Caller does not belong to organization: " + orgId);
-        }
     }
 
     /**

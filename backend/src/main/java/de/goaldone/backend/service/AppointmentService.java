@@ -10,7 +10,6 @@ import de.goaldone.backend.repository.AppointmentRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -26,7 +25,7 @@ import java.util.stream.Collectors;
 
 /**
  * Service for managing appointments and breaks.
- * Handles CRUD operations, validation of time ranges, and account ownership checks.
+ * Handles CRUD operations, validation of time ranges, and overlap detection.
  */
 @Service
 @RequiredArgsConstructor
@@ -36,19 +35,16 @@ public class AppointmentService {
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm");
 
     private final AppointmentRepository appointmentRepository;
-    private final UserIdentityService userIdentityService;
 
     /**
      * Creates a new appointment or break for the given account.
      *
      * @param accountId The UUID of the account.
      * @param request   The {@link AppointmentCreate} payload.
-     * @param jwt       The authenticated user's JWT.
      * @return The created {@link Appointment}.
      */
     @Transactional
-    public Appointment createAppointment(UUID accountId, AppointmentCreate request, Jwt jwt) {
-        checkAccess(jwt, accountId);
+    public Appointment createAppointment(UUID accountId, AppointmentCreate request) {
         validateRequest(request);
         checkForOverlaps(accountId, request, null);
 
@@ -66,13 +62,10 @@ public class AppointmentService {
      * Lists all appointments for the given account.
      *
      * @param accountId The UUID of the account.
-     * @param jwt       The authenticated user's JWT.
      * @return An {@link AppointmentListResponse} containing all appointments.
      */
     @Transactional(readOnly = true)
-    public AppointmentListResponse listAppointments(UUID accountId, Jwt jwt) {
-        checkAccess(jwt, accountId);
-
+    public AppointmentListResponse listAppointments(UUID accountId) {
         var appointments = appointmentRepository.findByAccountId(accountId)
                 .stream()
                 .map(this::toModel)
@@ -86,12 +79,10 @@ public class AppointmentService {
      *
      * @param accountId     The UUID of the account.
      * @param appointmentId The UUID of the appointment.
-     * @param jwt           The authenticated user's JWT.
      * @return The found {@link Appointment}.
      */
     @Transactional(readOnly = true)
-    public Appointment getAppointment(UUID accountId, UUID appointmentId, Jwt jwt) {
-        checkAccess(jwt, accountId);
+    public Appointment getAppointment(UUID accountId, UUID appointmentId) {
         AppointmentEntity entity = findEntity(accountId, appointmentId);
         return toModel(entity);
     }
@@ -102,12 +93,10 @@ public class AppointmentService {
      * @param accountId     The UUID of the account.
      * @param appointmentId The UUID of the appointment to update.
      * @param request       The {@link AppointmentCreate} payload (full replace).
-     * @param jwt           The authenticated user's JWT.
      * @return The updated {@link Appointment}.
      */
     @Transactional
-    public Appointment updateAppointment(UUID accountId, UUID appointmentId, AppointmentCreate request, Jwt jwt) {
-        checkAccess(jwt, accountId);
+    public Appointment updateAppointment(UUID accountId, UUID appointmentId, AppointmentCreate request) {
         validateRequest(request);
         checkForOverlaps(accountId, request, appointmentId);
 
@@ -124,11 +113,9 @@ public class AppointmentService {
      *
      * @param accountId     The UUID of the account.
      * @param appointmentId The UUID of the appointment to delete.
-     * @param jwt           The authenticated user's JWT.
      */
     @Transactional
-    public void deleteAppointment(UUID accountId, UUID appointmentId, Jwt jwt) {
-        checkAccess(jwt, accountId);
+    public void deleteAppointment(UUID accountId, UUID appointmentId) {
         AppointmentEntity entity = findEntity(accountId, appointmentId);
         appointmentRepository.delete(entity);
         log.info("Deleted appointment {} for account {}", appointmentId, accountId);
@@ -137,12 +124,6 @@ public class AppointmentService {
     // -------------------------------------------------------------------------
     // Private helpers
     // -------------------------------------------------------------------------
-
-    private void checkAccess(Jwt jwt, UUID accountId) {
-        if (!userIdentityService.hasUserAccessToAccount(jwt, accountId)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "User does not have access to account " + accountId);
-        }
-    }
 
     private AppointmentEntity findEntity(UUID accountId, UUID appointmentId) {
         return appointmentRepository.findByIdAndAccountId(appointmentId, accountId)
@@ -181,12 +162,7 @@ public class AppointmentService {
 
     /**
      * Checks whether the new/updated appointment overlaps with any existing appointment
-     * of the same account. Supports ONE_TIME ↔ ONE_TIME, RECURRING ↔ RECURRING,
-     * and ONE_TIME ↔ RECURRING cross-checks.
-     *
-     * @param accountId The account to check against.
-     * @param request   The new appointment data.
-     * @param excludeId If non-null, exclude this appointment ID (used for updates).
+     * of the same account.
      */
     private void checkForOverlaps(UUID accountId, AppointmentCreate request, UUID excludeId) {
         LocalTime newStart = LocalTime.parse(request.getStartTime(), TIME_FORMATTER);
@@ -195,12 +171,10 @@ public class AppointmentService {
         List<AppointmentEntity> existing = appointmentRepository.findByAccountId(accountId);
 
         for (AppointmentEntity other : existing) {
-            // Skip self on update
             if (excludeId != null && excludeId.equals(other.getId())) {
                 continue;
             }
 
-            // Check time overlap: newStart < otherEnd && newEnd > otherStart
             boolean timeOverlap = newStart.isBefore(other.getEndTime())
                     && newEnd.isAfter(other.getStartTime());
 
@@ -208,7 +182,6 @@ public class AppointmentService {
                 continue;
             }
 
-            // Check day/date overlap
             boolean dayOverlap = hasDayOverlap(request, other);
 
             if (dayOverlap) {
@@ -224,29 +197,22 @@ public class AppointmentService {
         }
     }
 
-    /**
-     * Determines whether two appointments share at least one common day.
-     * Handles all combinations of ONE_TIME and RECURRING appointment types.
-     */
     private boolean hasDayOverlap(AppointmentCreate newAppt, AppointmentEntity existing) {
         AppointmentType newType = newAppt.getAppointmentType();
         AppointmentType existingType = existing.getAppointmentType();
 
         if (newType == AppointmentType.ONE_TIME && existingType == AppointmentType.ONE_TIME) {
-            // Both one-time: overlap only if same date
             return newAppt.getDate() != null
                     && existing.getDate() != null
                     && newAppt.getDate().equals(existing.getDate());
         }
 
         if (newType == AppointmentType.RECURRING && existingType == AppointmentType.RECURRING) {
-            // Both recurring: overlap if they share at least one BYDAY
             Set<DayOfWeek> newDays = parseByDays(newAppt.getRrule());
             Set<DayOfWeek> existingDays = parseByDays(existing.getRrule());
             return !Collections.disjoint(newDays, existingDays);
         }
 
-        // Cross: ONE_TIME vs RECURRING
         if (newType == AppointmentType.ONE_TIME && existingType == AppointmentType.RECURRING) {
             if (newAppt.getDate() == null) return false;
             Set<DayOfWeek> recurringDays = parseByDays(existing.getRrule());
@@ -262,10 +228,6 @@ public class AppointmentService {
         return false;
     }
 
-    /**
-     * Parses the BYDAY part of an RFC 5545 RRULE string into a set of {@link DayOfWeek} values.
-     * E.g. "FREQ=WEEKLY;BYDAY=MO,WE,FR" → {MONDAY, WEDNESDAY, FRIDAY}
-     */
     private Set<DayOfWeek> parseByDays(String rrule) {
         if (rrule == null || rrule.isBlank()) return Set.of();
 

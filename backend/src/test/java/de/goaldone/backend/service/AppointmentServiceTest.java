@@ -108,7 +108,7 @@ class AppointmentServiceTest {
         when(userIdentityService.hasUserAccessToAccount(jwt, accountId)).thenReturn(true);
         when(appointmentRepository.findByAccountId(accountId)).thenReturn(List.of(e1, e2));
 
-        AppointmentListResponse response = appointmentService.listAppointments(accountId, jwt);
+        AppointmentListResponse response = appointmentService.listAppointments(accountId);
 
         assertEquals(2, response.getAppointments().size());
     }
@@ -163,7 +163,7 @@ class AppointmentServiceTest {
         when(appointmentRepository.findByIdAndAccountId(appointmentId, accountId))
                 .thenReturn(Optional.of(entity));
 
-        appointmentService.deleteAppointment(accountId, appointmentId, jwt);
+        appointmentService.deleteAppointment(accountId, appointmentId);
 
         verify(appointmentRepository).delete(entity);
     }

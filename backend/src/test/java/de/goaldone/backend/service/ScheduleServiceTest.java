@@ -86,9 +86,8 @@ public class ScheduleServiceTest {
         UserAccountEntity account = createUserAccount(accountId, "user-1");
 
         when(userAccountRepository.findById(accountId)).thenReturn(Optional.of(account));
-        when(userIdentityService.hasUserAccessToAccount(jwt, accountId)).thenReturn(true);
 
-        ScheduleResponse response = scheduleService.generateSingleAccountSchedule(jwt, accountId, request, 5000);
+        ScheduleResponse response = scheduleService.generateSingleAccountSchedule(accountId, request, 5000);
 
         assertEquals(1, response.getWarnings().size());
 
@@ -105,7 +104,7 @@ public class ScheduleServiceTest {
 
         when(userAccountRepository.findById(accountId)).thenReturn(Optional.empty());
 
-        ScheduleResponse response = scheduleService.generateSingleAccountSchedule(jwt, accountId, request, 5000);
+        ScheduleResponse response = scheduleService.generateSingleAccountSchedule(accountId, request, 5000);
 
         assertEquals(1, response.getWarnings().size());
 
@@ -123,9 +122,8 @@ public class ScheduleServiceTest {
         UserAccountEntity account = createUserAccount(accountId, "different-user");
 
         when(userAccountRepository.findById(accountId)).thenReturn(Optional.of(account));
-        when(userIdentityService.hasUserAccessToAccount(jwt, accountId)).thenReturn(false);
 
-        ScheduleResponse response = scheduleService.generateSingleAccountSchedule(jwt, accountId, request, 5000);
+        ScheduleResponse response = scheduleService.generateSingleAccountSchedule(accountId, request, 5000);
 
         assertEquals(1, response.getWarnings().size());
 
@@ -144,7 +142,7 @@ public class ScheduleServiceTest {
         GenerateScheduleRequest request = createGenerateScheduleRequest(LocalDate.now().plusDays(1));
 
         List<ScheduleResponse> responses =
-                scheduleService.generateMultiAccountSchedule(jwt, List.of(), request, 5000);
+                scheduleService.generateMultiAccountSchedule(List.of(), request, 5000);
 
         assertEquals(1, responses.size());
         assertEquals(1, responses.getFirst().getWarnings().size());
@@ -167,13 +165,12 @@ public class ScheduleServiceTest {
         when(userAccountRepository.findById(validId)).thenReturn(Optional.of(validAccount));
         when(userAccountRepository.findByIdWithWorkingTimes(validId)).thenReturn(Optional.of(validAccount));
         when(userAccountRepository.findById(invalidId)).thenReturn(Optional.empty());
-        when(userIdentityService.hasUserAccessToAccount(jwt, validId))
                 .thenReturn(true);
-        when(taskService.getTasksForAccountId(jwt, validId)).thenReturn(List.of());
-        when(appointmentService.listAppointments(validId, jwt)).thenReturn(emptyAppointmentResponse());
+        when(taskService.getTasksForAccountId(validId)).thenReturn(List.of());
+        when(appointmentService.listAppointments(validId)).thenReturn(emptyAppointmentResponse());
 
         List<ScheduleResponse> responses =
-                scheduleService.generateMultiAccountSchedule(jwt, List.of(validId, invalidId), request, 5000);
+                scheduleService.generateMultiAccountSchedule(List.of(validId, invalidId), request, 5000);
 
         assertEquals(2, responses.size());
 
@@ -200,15 +197,13 @@ public class ScheduleServiceTest {
         when(userAccountRepository.findById(validId)).thenReturn(Optional.of(valid));
         when(userAccountRepository.findByIdWithWorkingTimes(validId)).thenReturn(Optional.of(valid));
         when(userAccountRepository.findById(unauthorizedId)).thenReturn(Optional.of(unauthorized));
-        when(userIdentityService.hasUserAccessToAccount(jwt, validId))
                 .thenReturn(true);
-        when(userIdentityService.hasUserAccessToAccount(jwt, unauthorizedId))
                 .thenReturn(false);
-        when(taskService.getTasksForAccountId(jwt, validId)).thenReturn(List.of());
-        when(appointmentService.listAppointments(validId, jwt)).thenReturn(emptyAppointmentResponse());
+        when(taskService.getTasksForAccountId(validId)).thenReturn(List.of());
+        when(appointmentService.listAppointments(validId)).thenReturn(emptyAppointmentResponse());
 
         List<ScheduleResponse> responses =
-                scheduleService.generateMultiAccountSchedule(jwt, List.of(validId, unauthorizedId), request, 5000);
+                scheduleService.generateMultiAccountSchedule(List.of(validId, unauthorizedId), request, 5000);
 
         assertEquals(2, responses.size());
 
@@ -238,10 +233,10 @@ public class ScheduleServiceTest {
         account.setWorkingTimes(List.of());
 
         when(userAccountRepository.findByIdWithWorkingTimes(accountId)).thenReturn(Optional.of(account));
-        when(taskService.getTasksForAccountId(jwt, accountId)).thenReturn(List.of());
-        when(appointmentService.listAppointments(accountId, jwt)).thenReturn(emptyAppointmentResponse());
+        when(taskService.getTasksForAccountId(accountId)).thenReturn(List.of());
+        when(appointmentService.listAppointments(accountId)).thenReturn(emptyAppointmentResponse());
 
-        SchedulingContext context = scheduleService.createSchedulingContext(jwt, accountId, fromDate);
+        SchedulingContext context = scheduleService.createSchedulingContext(accountId, fromDate);
 
         assertNotNull(context);
         assertEquals(fromDate, context.fromDate());
@@ -279,10 +274,10 @@ public class ScheduleServiceTest {
         account.setWorkingTimes(List.of(workingTime));
 
         when(userAccountRepository.findByIdWithWorkingTimes(accountId)).thenReturn(Optional.of(account));
-        when(taskService.getTasksForAccountId(jwt, accountId)).thenReturn(List.of());
-        when(appointmentService.listAppointments(accountId, jwt)).thenReturn(emptyAppointmentResponse());
+        when(taskService.getTasksForAccountId(accountId)).thenReturn(List.of());
+        when(appointmentService.listAppointments(accountId)).thenReturn(emptyAppointmentResponse());
 
-        SchedulingContext context = scheduleService.createSchedulingContext(jwt, accountId, fromDate);
+        SchedulingContext context = scheduleService.createSchedulingContext(accountId, fromDate);
 
         assertNotNull(context);
         assertFalse(context.availableSlots().isEmpty(), "Should have at least one slot");
@@ -328,10 +323,10 @@ public class ScheduleServiceTest {
         account.setWorkingTimes(List.of(workingTime));
 
         when(userAccountRepository.findByIdWithWorkingTimes(accountId)).thenReturn(Optional.of(account));
-        when(taskService.getTasksForAccountId(jwt, accountId)).thenReturn(List.of());
-        when(appointmentService.listAppointments(accountId, jwt)).thenReturn(appointmentResponse);
+        when(taskService.getTasksForAccountId(accountId)).thenReturn(List.of());
+        when(appointmentService.listAppointments(accountId)).thenReturn(appointmentResponse);
 
-        SchedulingContext context = scheduleService.createSchedulingContext(jwt, accountId, fromDate);
+        SchedulingContext context = scheduleService.createSchedulingContext(accountId, fromDate);
 
         List<TimeSlot> slotsForFromDate = context.availableSlots()
                 .stream()
@@ -378,10 +373,10 @@ public class ScheduleServiceTest {
         account.setZitadelSub("user-1");
         account.setWorkingTimes(List.of(workingTime));
 
-        when(taskService.getTasksForAccountId(jwt, accountId)).thenReturn(List.of());
-        when(appointmentService.listAppointments(accountId, jwt)).thenReturn(appointmentResponse);
+        when(taskService.getTasksForAccountId(accountId)).thenReturn(List.of());
+        when(appointmentService.listAppointments(accountId)).thenReturn(appointmentResponse);
 
-        SchedulingContext context = scheduleService.createSchedulingContext(jwt, accountId, fromDate);
+        SchedulingContext context = scheduleService.createSchedulingContext(accountId, fromDate);
 
         List<TimeSlot> slotsForFromDate = context.availableSlots().stream()
                 .filter(timeSlot -> timeSlot.date() == fromDate)
@@ -419,10 +414,10 @@ public class ScheduleServiceTest {
         account.setWorkingTimes(List.of(workingTime));
 
         when(userAccountRepository.findByIdWithWorkingTimes(accountId)).thenReturn(Optional.of(account));
-        when(taskService.getTasksForAccountId(jwt, accountId)).thenReturn(List.of());
-        when(appointmentService.listAppointments(accountId, jwt)).thenReturn(emptyAppointmentResponse());
+        when(taskService.getTasksForAccountId(accountId)).thenReturn(List.of());
+        when(appointmentService.listAppointments(accountId)).thenReturn(emptyAppointmentResponse());
 
-        SchedulingContext context = scheduleService.createSchedulingContext(jwt, accountId, fromDate);
+        SchedulingContext context = scheduleService.createSchedulingContext(accountId, fromDate);
 
         assertNotNull(context);
         // Should have at least 12 slots (3 per day * 4 weeks)
@@ -457,10 +452,10 @@ public class ScheduleServiceTest {
         account.setWorkingTimes(List.of(workingTime1, workingTime2));
 
         when(userAccountRepository.findByIdWithWorkingTimes(accountId)).thenReturn(Optional.of(account));
-        when(taskService.getTasksForAccountId(jwt, accountId)).thenReturn(List.of());
-        when(appointmentService.listAppointments(accountId, jwt)).thenReturn(emptyAppointmentResponse());
+        when(taskService.getTasksForAccountId(accountId)).thenReturn(List.of());
+        when(appointmentService.listAppointments(accountId)).thenReturn(emptyAppointmentResponse());
 
-        SchedulingContext context = scheduleService.createSchedulingContext(jwt, accountId, fromDate);
+        SchedulingContext context = scheduleService.createSchedulingContext(accountId, fromDate);
 
         assertNotNull(context);
         // Should collect slots from both working time definitions (Monday and Tuesday slots)

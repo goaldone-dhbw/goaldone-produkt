@@ -4,14 +4,11 @@ import de.goaldone.backend.api.OrgManagementApi;
 import de.goaldone.backend.model.CreateOrganizationRequest;
 import de.goaldone.backend.model.OrganizationListResponse;
 import de.goaldone.backend.model.OrganizationResponse;
-import de.goaldone.backend.service.CurrentUserResolver;
+import de.goaldone.backend.security.AuthorizationFacade;
 import de.goaldone.backend.service.OrganizationManagementService;
-import de.goaldone.backend.service.UserIdentityService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.server.ResponseStatusException;
 
 /**
  * REST controller for managing organization-related operations.
@@ -22,8 +19,7 @@ import org.springframework.web.server.ResponseStatusException;
 public class OrganizationManagementController implements OrgManagementApi {
 
     private final OrganizationManagementService organizationManagementService;
-    private final UserIdentityService userIdentityService;
-    private final CurrentUserResolver currentUserResolver;
+    private final AuthorizationFacade authorizationFacade;
 
     /**
      * Creates a new organization along with its first organization administrator.
@@ -34,7 +30,7 @@ public class OrganizationManagementController implements OrgManagementApi {
      */
     @Override
     public ResponseEntity<OrganizationResponse> createOrganization(CreateOrganizationRequest createOrganizationRequest) {
-        hasAccess();
+        authorizationFacade.requireSuperAdmin();
         OrganizationResponse response = organizationManagementService.createOrganization(createOrganizationRequest);
         return ResponseEntity.status(201).body(response);
     }
@@ -47,7 +43,7 @@ public class OrganizationManagementController implements OrgManagementApi {
      */
     @Override
     public ResponseEntity<OrganizationListResponse> listOrganizations() {
-        hasAccess();
+        authorizationFacade.requireSuperAdmin();
         return ResponseEntity.ok(organizationManagementService.listOrganizations());
     }
 
@@ -60,18 +56,8 @@ public class OrganizationManagementController implements OrgManagementApi {
      */
     @Override
     public ResponseEntity<Void> deleteOrganization(String zitadelOrgId) {
-        hasAccess();
+        authorizationFacade.requireSuperAdmin();
         organizationManagementService.deleteOrganization(zitadelOrgId);
         return ResponseEntity.noContent().build();
-    }
-
-    /**
-     * Private method to check if the current user has the required role of SUPER_ADMIN to
-     * perform organization management operations.
-     */
-    private void hasAccess() {
-        if(!userIdentityService.isUserSuperAdmin(currentUserResolver.extractJwt())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Insufficient permissions to manage organizations");
-        }
     }
 }

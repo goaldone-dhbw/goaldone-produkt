@@ -3,14 +3,12 @@ package de.goaldone.backend.controller;
 import de.goaldone.backend.api.SuperAdminManagementApi;
 import de.goaldone.backend.model.InviteSuperAdminRequest;
 import de.goaldone.backend.model.SuperAdminResponse;
-import de.goaldone.backend.service.CurrentUserResolver;
+import de.goaldone.backend.security.AuthorizationFacade;
 import de.goaldone.backend.service.SuperAdminService;
-import de.goaldone.backend.service.UserIdentityService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 
@@ -24,8 +22,7 @@ import java.util.List;
 public class SuperAdminController implements SuperAdminManagementApi {
 
     private final SuperAdminService superAdminService;
-    private final UserIdentityService userIdentityService;
-    private final CurrentUserResolver currentUserResolver;
+    private final AuthorizationFacade authorizationFacade;
 
     /**
      * Retrieves a list of all super administrators.
@@ -34,7 +31,7 @@ public class SuperAdminController implements SuperAdminManagementApi {
      */
     @Override
     public ResponseEntity<List<SuperAdminResponse>> listSuperAdmins() {
-        hasAccess();
+        authorizationFacade.requireSuperAdmin();
         return ResponseEntity.ok(superAdminService.listSuperAdmins());
     }
 
@@ -46,7 +43,7 @@ public class SuperAdminController implements SuperAdminManagementApi {
      */
     @Override
     public ResponseEntity<Void> inviteSuperAdmin(InviteSuperAdminRequest inviteSuperAdminRequest) {
-        hasAccess();
+        authorizationFacade.requireSuperAdmin();
         superAdminService.inviteSuperAdmin(inviteSuperAdminRequest);
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
@@ -59,17 +56,8 @@ public class SuperAdminController implements SuperAdminManagementApi {
      */
     @Override
     public ResponseEntity<Void> deleteSuperAdmin(String userId) {
-        hasAccess();
+        authorizationFacade.requireSuperAdmin();
         superAdminService.deleteSuperAdmin(userId);
         return ResponseEntity.noContent().build();
-    }
-
-    /**
-     * Checks if the user has the role super_admin
-     */
-    private void hasAccess() {
-        if(!userIdentityService.isUserSuperAdmin(currentUserResolver.extractJwt())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Insufficient permissions to manage super admins");
-        }
     }
 }
