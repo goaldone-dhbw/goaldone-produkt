@@ -2,7 +2,6 @@ package de.goaldone.backend.service;
 
 import de.goaldone.backend.client.ZitadelManagementClient;
 import de.goaldone.backend.entity.OrganizationEntity;
-import de.goaldone.backend.entity.UserAccountEntity;
 import de.goaldone.backend.exception.EmailAlreadyInUseException;
 import de.goaldone.backend.exception.NotMemberOfOrganizationException;
 import de.goaldone.backend.exception.UserAlreadyActiveException;
@@ -10,7 +9,6 @@ import de.goaldone.backend.exception.ZitadelApiException;
 import de.goaldone.backend.model.InviteMemberRequest;
 import de.goaldone.backend.model.MemberRole;
 import de.goaldone.backend.repository.OrganizationRepository;
-import de.goaldone.backend.repository.UserAccountRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -26,8 +24,8 @@ import java.util.UUID;
 public class MemberInviteService {
 
     private final ZitadelManagementClient zitadelManagementClient;
-    private final UserAccountRepository userAccountRepository;
     private final OrganizationRepository organizationRepository;
+    private final UserIdentityService userIdentityService;
 
     @Value("${zitadel.goaldone.project-id}")
     private String goaldoneProjectId;
@@ -36,13 +34,7 @@ public class MemberInviteService {
     private String mainOrgId;
 
     public void inviteMember(UUID orgId, InviteMemberRequest request) {
-        String callerSub = getCallerSub();
-        UserAccountEntity callerAccount = userAccountRepository.findByZitadelSub(callerSub)
-                .orElseThrow(() -> new NotMemberOfOrganizationException("Caller account not found"));
-
-        if (!callerAccount.getOrganizationId().equals(orgId)) {
-            throw new NotMemberOfOrganizationException("Caller does not belong to organization: " + orgId);
-        }
+        validateCallerBelongsToOrg(orgId);
 
         if (zitadelManagementClient.emailExists(request.getEmail())) {
             throw new EmailAlreadyInUseException(request.getEmail());
@@ -83,13 +75,7 @@ public class MemberInviteService {
     }
 
     public void reinviteMember(UUID orgId, String zitadelUserId) {
-        String callerSub = getCallerSub();
-        UserAccountEntity callerAccount = userAccountRepository.findByZitadelSub(callerSub)
-                .orElseThrow(() -> new NotMemberOfOrganizationException("Caller account not found"));
-
-        if (!callerAccount.getOrganizationId().equals(orgId)) {
-            throw new NotMemberOfOrganizationException("Caller does not belong to organization: " + orgId);
-        }
+        validateCallerBelongsToOrg(orgId);
 
         var userOpt = zitadelManagementClient.getUser(zitadelUserId);
         if (userOpt.isEmpty()) {
@@ -107,8 +93,10 @@ public class MemberInviteService {
         zitadelManagementClient.createInviteCode(zitadelUserId);
     }
 
-    private String getCallerSub() {
+    private void validateCallerBelongsToOrg(UUID orgId) {
         Jwt jwt = (Jwt) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        return jwt.getSubject();
+        if (!userIdentityService.hasUserAccessToOrganization(jwt, orgId)) {
+            throw new NotMemberOfOrganizationException("Caller does not belong to organization: " + orgId);
+        }
     }
 }

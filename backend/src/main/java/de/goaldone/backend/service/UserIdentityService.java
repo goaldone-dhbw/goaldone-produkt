@@ -11,6 +11,7 @@ import de.goaldone.backend.repository.OrganizationRepository;
 import de.goaldone.backend.repository.UserAccountRepository;
 import de.goaldone.backend.repository.WorkingTimeRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -25,6 +26,7 @@ import java.util.UUID;
  * Service for managing user identities and their associated accounts.
  * Provides methods to retrieve identities, list accounts for an identity, and build account list responses.
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class UserIdentityService {
@@ -233,7 +235,7 @@ public class UserIdentityService {
                     }
                     return MemberRole.fromValue(auth.getRoles().getFirst().getKey());
                 }).toList();
-
+        log.info("Roles for user {} in org {}: {}", account.get().getZitadelSub(), organizationId, roles);
         return !roles.isEmpty() && roles.contains(role);
     }
 
