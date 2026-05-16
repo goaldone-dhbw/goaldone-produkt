@@ -58,7 +58,7 @@ public class ScheduleMapper {
         return schedule
                 .scheduledChunks()
                 .stream()
-                .mapToInt(c -> c.slot().getSlotDuration())
+                .mapToInt(c -> c.slot().durationMinutes())
                 .sum();
     }
 
