@@ -10,9 +10,13 @@ import org.mockito.InjectMocks;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.time.*;
-import java.util.*;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.ArrayList;
+import java.util.List;
 
+import static de.goaldone.backend.scheduler.SchedulerTestHelper.*;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
@@ -353,69 +357,112 @@ class CPMAlgorithmTest {
     }
 
 
-    private TaskResponse task(int taskDuration) {
-        return task(taskDuration, List.of());
+    // -------------------------------------------------------------------------
+    // tryScheduleUnscheduled – Tests
+    // -------------------------------------------------------------------------
+
+    @Test
+    void tryScheduleUnscheduled_shouldDoNothing_whenNoUnscheduled() {
+        LocalDate date = LocalDate.of(2026, 5, 11);
+        List<WorkingTimeEntity> workingTime = List.of(working(List.of(DayOfWeek.MONDAY), 17));
+        SchedulingContext context = new SchedulingContext(date, List.of(), List.of(), null, workingTime);
+
+        SolverState state = new SolverState(List.of(), List.of(), List.of(), context);
+
+        SolverState result = algorithm.tryScheduleUnscheduled(state, context);
+
+        assertThat(result).isSameAs(state);
     }
 
-    private TaskResponse task(int taskDuration, List<UUID> dependencyIds) {
-        return task(taskDuration, dependencyIds, null, null);
-    }
+    @Test
+    void tryScheduleUnscheduled_shouldReschedule_whenSlotsFreedUp() {
+        LocalDate date = LocalDate.of(2026, 5, 11); // Monday
+        TaskResponse task = task(60);
+        List<WorkingTimeEntity> workingTime = List.of(working(List.of(DayOfWeek.MONDAY), 17));
 
-    private TaskResponse task(int taskDuration, List<UUID> dependencyIds, LocalDateTime dontScheduleBefore, LocalDate deadline) {
-        return task(taskDuration, dependencyIds, dontScheduleBefore, deadline, CognitiveLoad.LOW);
-    }
+        // Keine Slots → Task landet in unscheduledChunks
+        SchedulingContext context = new SchedulingContext(date, List.of(), List.of(task), null, workingTime);
+        SolverState initial = algorithm.generateInitialSchedule(context);
+        assertThat(initial.unscheduledChunks()).hasSize(1);
 
-    private TaskResponse task(int taskDuration, List<UUID> dependencyIds, LocalDateTime dontScheduleBefore, LocalDate deadline, CognitiveLoad cognitiveLoad) {
-
-        OffsetDateTime convertedDeadline;
-        if (deadline != null) {
-            convertedDeadline = OffsetDateTime.of(deadline, LocalTime.of(0,0), ZoneOffset.ofHours(0));
-        } else {
-            convertedDeadline = null;
-        }
-
-        OffsetDateTime convertedNotBefore;
-        if (dontScheduleBefore != null) {
-            convertedNotBefore = OffsetDateTime.of(dontScheduleBefore, ZoneOffset.ofHours(0));
-        } else {
-            convertedNotBefore = null;
-        }
-
-        return new TaskResponse()
-                .id(UUID.randomUUID())
-                .title("Task")
-                .description("Description")
-                .duration(taskDuration)
-                .deadline(convertedDeadline)
-                .status(TaskStatus.OPEN)
-                .cognitiveLoad(cognitiveLoad)
-                .customChunkSize(null)
-                .dontScheduleBefore(convertedNotBefore)
-                .dependencyIds(dependencyIds);
-    }
-
-    private TimeSlot slot(LocalDate date, int startHour, int endHour) {
-        return slot(date, startHour, 0, endHour, 0);
-    }
-
-    private TimeSlot slot(LocalDate date, int startHour, int startMin, int endHour, int endMin) {
-        return new TimeSlot(
-                date,
-                LocalTime.of(startHour, startMin),
-                LocalTime.of(endHour, endMin)
+        // Simuliert einen Move, der einen Slot freigemacht hat
+        TimeSlot freedSlot = slot(date, 9, 10);
+        SolverState stateWithFreeSlot = new SolverState(
+                initial.scheduledChunks(),
+                new ArrayList<>(List.of(freedSlot)),
+                initial.unscheduledChunks(),
+                context
         );
+
+        SolverState result = algorithm.tryScheduleUnscheduled(stateWithFreeSlot, context);
+
+        assertThat(result.unscheduledChunks()).isEmpty();
+        assertThat(result.scheduledChunks()).hasSize(1);
+        assertThat(result.scheduledChunks().getFirst().chunk().taskId()).isEqualTo(task.getId());
     }
 
-    private WorkingTimeEntity working(List<DayOfWeek> days, int end) {
-        WorkingTimeEntity entity = new WorkingTimeEntity();
-        entity.setId(UUID.randomUUID());
-        entity.setUserAccount(null);
-        entity.setOrganizationId(null);
-        entity.setDays(new HashSet<>(days));
-        entity.setStartTime(LocalTime.of(8, 0));
-        entity.setEndTime(LocalTime.of(end, 0));
-        entity.setCreatedAt(Instant.now());
-        return entity;
+    @Test
+    void tryScheduleUnscheduled_shouldRetainUnscheduled_whenStillNotFitting() {
+        LocalDate date = LocalDate.of(2026, 5, 11); // Monday
+        TaskResponse task = task(120); // braucht 120 min
+        List<WorkingTimeEntity> workingTime = List.of(working(List.of(DayOfWeek.MONDAY), 17));
+
+        SchedulingContext context = new SchedulingContext(date, List.of(), List.of(task), null, workingTime);
+        SolverState initial = algorithm.generateInitialSchedule(context);
+        assertThat(initial.unscheduledChunks()).hasSize(1);
+
+        // Freigemachter Slot ist zu klein (nur 30 min)
+        TimeSlot tooSmallSlot = slot(date, 9, 0, 9, 30);
+        SolverState stateWithSmallSlot = new SolverState(
+                initial.scheduledChunks(),
+                new ArrayList<>(List.of(tooSmallSlot)),
+                initial.unscheduledChunks(),
+                context
+        );
+
+        SolverState result = algorithm.tryScheduleUnscheduled(stateWithSmallSlot, context);
+
+        assertThat(result.unscheduledChunks()).hasSize(1);
+        assertThat(result.scheduledChunks()).isEmpty();
+    }
+
+    @Test
+    void tryScheduleUnscheduled_shouldPreservePreviouslyScheduledChunks() {
+        LocalDate date = LocalDate.of(2026, 5, 11); // Monday
+        TaskResponse alreadyScheduledTask = task(60);
+        TaskResponse unscheduledTask = task(60);
+        List<WorkingTimeEntity> workingTime = List.of(working(List.of(DayOfWeek.MONDAY), 17));
+
+        // Ersten Task normal einplanen
+        TimeSlot slotForFirst = slot(date, 9, 10);
+        SchedulingContext contextForFirst = new SchedulingContext(
+                date, List.of(slotForFirst), List.of(alreadyScheduledTask), null, workingTime);
+        SolverState firstScheduled = algorithm.generateInitialSchedule(contextForFirst);
+        assertThat(firstScheduled.scheduledChunks()).hasSize(1);
+
+        // Zweiten Task ist noch unscheduled – jetzt einen weiteren Slot hinzufügen
+        TimeSlot freedSlot = slot(date, 10, 11);
+        SchedulingContext contextWithBoth = new SchedulingContext(
+                date, List.of(slotForFirst, freedSlot),
+                List.of(alreadyScheduledTask, unscheduledTask), null, workingTime);
+
+        UnscheduledTask unscheduled = new UnscheduledTask(
+                unscheduledTask.getId(), unscheduledTask.getTitle(), null);
+        SolverState stateWithUnscheduled = new SolverState(
+                new ArrayList<>(firstScheduled.scheduledChunks()),
+                new ArrayList<>(List.of(freedSlot)),
+                new ArrayList<>(List.of(unscheduled)),
+                contextWithBoth
+        );
+
+        SolverState result = algorithm.tryScheduleUnscheduled(stateWithUnscheduled, contextWithBoth);
+
+        assertThat(result.unscheduledChunks()).isEmpty();
+        assertThat(result.scheduledChunks()).hasSize(2);
+        assertThat(result.scheduledChunks().stream()
+                .anyMatch(sc -> sc.chunk().taskId().equals(alreadyScheduledTask.getId()))).isTrue();
+        assertThat(result.scheduledChunks().stream()
+                .anyMatch(sc -> sc.chunk().taskId().equals(unscheduledTask.getId()))).isTrue();
     }
 
 }
