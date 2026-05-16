@@ -33,6 +33,8 @@ public class CPMAlgorithm {
     private final Chunker chunker = new Chunker();
     private final TaskSorter taskSorter = new TaskSorter();
 
+    private final boolean SUPER_DUPER_GREEDY_FLAG = true;
+
     private record TimeSlotTuple(TimeSlot occupiedSlot, TimeSlot breakSlot) {
     }
 
@@ -118,7 +120,9 @@ public class CPMAlgorithm {
                 .filter(slot -> slot.canFit(chunk.durationMinutes()))
                 .min(Comparator.comparing(TimeSlot::date).thenComparing(TimeSlot::startTime));
 
-        if (suitableSlot.isPresent()) {
+        if (suitableSlot.isPresent() && !SUPER_DUPER_GREEDY_FLAG) {
+            // This case is disabled if greedy flag is true
+
             TimeSlot slot = suitableSlot.get();
 
             TimeSlotTuple timeSlotTuple = updateTimeSlots(slot, chunk, additionalBreakMinutes);
@@ -220,7 +224,7 @@ public class CPMAlgorithm {
 
         int maxChunkSize = switch (task.getCognitiveLoad()) {
             case HIGH -> 120;
-            case MODERATE -> 480;
+            case MODERATE -> 240;
             default -> 24*60;       // default value: 24 hours
         };
 
