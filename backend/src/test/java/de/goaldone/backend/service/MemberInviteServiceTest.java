@@ -4,7 +4,6 @@ import com.zitadel.model.UserServiceUser;
 import com.zitadel.model.UserServiceUserState;
 import de.goaldone.backend.client.ZitadelManagementClient;
 import de.goaldone.backend.entity.OrganizationEntity;
-import de.goaldone.backend.entity.UserAccountEntity;
 import de.goaldone.backend.exception.EmailAlreadyInUseException;
 import de.goaldone.backend.exception.NotMemberOfOrganizationException;
 import de.goaldone.backend.exception.UserAlreadyActiveException;
@@ -12,7 +11,6 @@ import de.goaldone.backend.exception.ZitadelApiException;
 import de.goaldone.backend.model.InviteMemberRequest;
 import de.goaldone.backend.model.MemberRole;
 import de.goaldone.backend.repository.OrganizationRepository;
-import de.goaldone.backend.repository.UserAccountRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -28,8 +26,9 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.util.Optional;
 import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -38,9 +37,9 @@ class MemberInviteServiceTest {
     @Mock
     private ZitadelManagementClient zitadelManagementClient;
     @Mock
-    private UserAccountRepository userAccountRepository;
-    @Mock
     private OrganizationRepository organizationRepository;
+    @Mock
+    private UserIdentityService userIdentityService;
     @Mock
     private SecurityContext securityContext;
     @Mock
@@ -59,6 +58,8 @@ class MemberInviteServiceTest {
     @BeforeEach
     void setUp() {
         SecurityContextHolder.setContext(securityContext);
+        lenient().when(securityContext.getAuthentication()).thenReturn(authentication);
+        lenient().when(authentication.getPrincipal()).thenReturn(jwt);
         ReflectionTestUtils.setField(memberInviteService, "goaldoneProjectId", projectId);
         ReflectionTestUtils.setField(memberInviteService, "mainOrgId", mainOrgId);
     }
@@ -72,13 +73,7 @@ class MemberInviteServiceTest {
         request.setLastName("Mustermann");
         request.setRole(MemberRole.USER);
 
-        when(securityContext.getAuthentication()).thenReturn(authentication);
-        when(authentication.getPrincipal()).thenReturn(jwt);
-        when(jwt.getSubject()).thenReturn(callerSub);
-
-        UserAccountEntity callerAccount = new UserAccountEntity();
-        callerAccount.setOrganizationId(orgId);
-        when(userAccountRepository.findByZitadelSub(callerSub)).thenReturn(Optional.of(callerAccount));
+        when(userIdentityService.hasUserAccessToOrganization(jwt, orgId)).thenReturn(true);
 
         OrganizationEntity organization = new OrganizationEntity();
         organization.setZitadelOrgId("customer-org-id");
@@ -102,14 +97,7 @@ class MemberInviteServiceTest {
         InviteMemberRequest request = new InviteMemberRequest();
         request.setEmail("existing@example.com");
 
-        when(securityContext.getAuthentication()).thenReturn(authentication);
-        when(authentication.getPrincipal()).thenReturn(jwt);
-        when(jwt.getSubject()).thenReturn(callerSub);
-
-        UserAccountEntity callerAccount = new UserAccountEntity();
-        callerAccount.setOrganizationId(orgId);
-        when(userAccountRepository.findByZitadelSub(callerSub)).thenReturn(Optional.of(callerAccount));
-
+        when(userIdentityService.hasUserAccessToOrganization(jwt, orgId)).thenReturn(true);
         when(zitadelManagementClient.emailExists(request.getEmail())).thenReturn(true);
 
         // Act & Assert
@@ -124,13 +112,7 @@ class MemberInviteServiceTest {
         request.setFirstName("Max");
         request.setLastName("Mustermann");
 
-        when(securityContext.getAuthentication()).thenReturn(authentication);
-        when(authentication.getPrincipal()).thenReturn(jwt);
-        when(jwt.getSubject()).thenReturn(callerSub);
-
-        UserAccountEntity callerAccount = new UserAccountEntity();
-        callerAccount.setOrganizationId(orgId);
-        when(userAccountRepository.findByZitadelSub(callerSub)).thenReturn(Optional.of(callerAccount));
+        when(userIdentityService.hasUserAccessToOrganization(jwt, orgId)).thenReturn(true);
 
         OrganizationEntity organization = new OrganizationEntity();
         organization.setZitadelOrgId("zitadel-org-id");
@@ -147,16 +129,9 @@ class MemberInviteServiceTest {
     @Test
     void inviteMember_WrongOrganization() {
         // Arrange
-        UUID otherOrgId = UUID.randomUUID();
         InviteMemberRequest request = new InviteMemberRequest();
 
-        when(securityContext.getAuthentication()).thenReturn(authentication);
-        when(authentication.getPrincipal()).thenReturn(jwt);
-        when(jwt.getSubject()).thenReturn(callerSub);
-
-        UserAccountEntity callerAccount = new UserAccountEntity();
-        callerAccount.setOrganizationId(otherOrgId);
-        when(userAccountRepository.findByZitadelSub(callerSub)).thenReturn(Optional.of(callerAccount));
+        when(userIdentityService.hasUserAccessToOrganization(jwt, orgId)).thenReturn(false);
 
         // Act & Assert
         assertThrows(NotMemberOfOrganizationException.class, () -> memberInviteService.inviteMember(orgId, request));
@@ -166,13 +141,7 @@ class MemberInviteServiceTest {
     void reinviteMember_Success() throws Exception {
         // Arrange
         String zitadelUserId = "user-id";
-        when(securityContext.getAuthentication()).thenReturn(authentication);
-        when(authentication.getPrincipal()).thenReturn(jwt);
-        when(jwt.getSubject()).thenReturn(callerSub);
-
-        UserAccountEntity callerAccount = new UserAccountEntity();
-        callerAccount.setOrganizationId(orgId);
-        when(userAccountRepository.findByZitadelSub(callerSub)).thenReturn(Optional.of(callerAccount));
+        when(userIdentityService.hasUserAccessToOrganization(jwt, orgId)).thenReturn(true);
 
         UserServiceUser user = mock(UserServiceUser.class);
         when(user.getState()).thenReturn(UserServiceUserState.USER_STATE_INITIAL);
@@ -189,13 +158,7 @@ class MemberInviteServiceTest {
     void reinviteMember_UserAlreadyActive() throws Exception {
         // Arrange
         String zitadelUserId = "user-id";
-        when(securityContext.getAuthentication()).thenReturn(authentication);
-        when(authentication.getPrincipal()).thenReturn(jwt);
-        when(jwt.getSubject()).thenReturn(callerSub);
-
-        UserAccountEntity callerAccount = new UserAccountEntity();
-        callerAccount.setOrganizationId(orgId);
-        when(userAccountRepository.findByZitadelSub(callerSub)).thenReturn(Optional.of(callerAccount));
+        when(userIdentityService.hasUserAccessToOrganization(jwt, orgId)).thenReturn(true);
 
         UserServiceUser user = mock(UserServiceUser.class);
         when(user.getState()).thenReturn(UserServiceUserState.USER_STATE_ACTIVE);
