@@ -5,10 +5,11 @@ import de.goaldone.backend.model.Appointment;
 import de.goaldone.backend.model.TaskResponse;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 public record SchedulingContext(
-    LocalDate fromDate,
+    LocalDateTime fromDate,
     List<TimeSlot> availableSlots,
     List<TaskResponse> tasks,
     List<Appointment> allAppointments,

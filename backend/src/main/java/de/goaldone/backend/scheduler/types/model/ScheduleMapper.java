@@ -28,12 +28,12 @@ public class ScheduleMapper {
 
         response.generatedAt(OffsetDateTime.now());
         response.accountId(accountId);
-        response.from(context.fromDate());
+        response.from(context.fromDate().toLocalDate());
         response.score(schedule.score());
         response.setWarnings(schedule.scheduleWarnings());
 
         response.to(
-                getToDate(schedule.schedule(), context.fromDate())
+                getToDate(schedule.schedule(), context.fromDate().toLocalDate())
         );
 
         response.totalWorkMinutes(

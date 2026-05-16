@@ -3,6 +3,7 @@ package de.goaldone.backend.service;
 import de.goaldone.backend.entity.UserAccountEntity;
 import de.goaldone.backend.entity.WorkingTimeEntity;
 import de.goaldone.backend.model.*;
+import de.goaldone.backend.model.DayOfWeek;
 import de.goaldone.backend.repository.UserAccountRepository;
 import de.goaldone.backend.scheduler.Solver;
 import de.goaldone.backend.scheduler.types.model.ScheduleMapper;
@@ -11,14 +12,14 @@ import de.goaldone.backend.scheduler.types.model.SchedulingResult;
 import de.goaldone.backend.scheduler.types.model.TimeSlot;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cglib.core.Local;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.time.LocalDate;
-import java.time.LocalTime;
+import java.time.*;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
@@ -123,15 +124,39 @@ public class ScheduleService {
      * - the scheduleScore,
      * - constraint warnings
      */
-    public ScheduleResponse generateSchedule(Jwt jwt, UUID accountId, LocalDate fromDate, long timeoutMs) {
+    public ScheduleResponse generateSchedule(Jwt jwt, UUID accountId, OffsetDateTime fromDate, long timeoutMs) {
 
         validateRequest(jwt, accountId, fromDate);
-        SchedulingContext schedulingContext = createSchedulingContext(jwt, accountId, fromDate);
+
+        LocalDateTime scheduleFromDateTime = getScheduleFromDateTime(LocalDateTime.ofInstant(fromDate.toInstant(), ZoneId.systemDefault()));
+        SchedulingContext schedulingContext = createSchedulingContext(jwt, accountId, scheduleFromDateTime);
         SchedulingResult bestResult = solver.createSchedule(schedulingContext, timeoutMs);
 
         return this.scheduleMapper.mapToScheduleResult(
                 accountId, schedulingContext, bestResult
         );
+    }
+
+    /**
+     * Rounds a LocalDateTime to the nearest 30-minute interval.
+     *
+     * @param dateTime the date-time to round
+     * @return the rounded date-time
+     */
+    public LocalDateTime getScheduleFromDateTime(LocalDateTime dateTime) {
+        int minute = dateTime.getMinute();
+
+        LocalDateTime rounded = dateTime
+                .withSecond(0)
+                .withNano(0);
+
+        if (minute < 15) {
+            return rounded.withMinute(0);
+        } else if (minute < 45) {
+            return rounded.withMinute(30);
+        } else {
+            return rounded.plusHours(1).withMinute(0);
+        }
     }
 
 
@@ -141,7 +166,7 @@ public class ScheduleService {
      * @param accountId Account
      * @param fromDate Start date for schedule generation
      */
-    private void validateRequest(Jwt jwt, UUID accountId, LocalDate fromDate) {
+    private void validateRequest(Jwt jwt, UUID accountId, OffsetDateTime fromDate) {
 
         // Check if account exists
         Optional<UserAccountEntity> accountOpt = userAccountRepository.findById(accountId);
@@ -155,7 +180,8 @@ public class ScheduleService {
         }
 
         // Validate fromDate (e.g. cannot be in the past)
-        if (fromDate.isBefore(LocalDate.now())) {
+        OffsetDateTime utcTime = OffsetDateTime.now(ZoneOffset.UTC);
+        if (fromDate.isBefore(utcTime.minusSeconds(5))) {
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_CONTENT, "From date cannot be in the past");
         }
     }
@@ -169,7 +195,7 @@ public class ScheduleService {
      * @param fromDate  Start date for the schedule
      * @return Scheduling context for the solver
      */
-    public SchedulingContext createSchedulingContext(Jwt jwt, UUID accountId, LocalDate fromDate) {
+    public SchedulingContext createSchedulingContext(Jwt jwt, UUID accountId, LocalDateTime fromDate) {
 
         List<TaskResponse> allTasks = new ArrayList<>();
         for (TaskResponse task : taskService.getTasksForAccountId(jwt, accountId)) {
@@ -205,12 +231,12 @@ public class ScheduleService {
      * Calculate a list of available time slots to plan the task chunks into.
      * @param allAppointments All appointments scheduled for this account>
      * @param workingTimes List of working time definitions for the account
-     * @param fromDate Start date for calculating available slots
+     * @param scheduleFromDateTime Start date for calculating available slots
      * @return Available timeslots for multiple days starting from fromDate
      */
-    public List<TimeSlot> getAvailableTimeSlots(List<Appointment> allAppointments, List<WorkingTimeEntity> workingTimes, LocalDate fromDate) {
+    public List<TimeSlot> getAvailableTimeSlots(List<Appointment> allAppointments, List<WorkingTimeEntity> workingTimes, LocalDateTime scheduleFromDateTime) {
 
-        int nWeeks = getNWeeksAhead(fromDate, allAppointments);
+        int nWeeks = getNWeeksAhead(scheduleFromDateTime, allAppointments);
 
         List<TimeSlot> availableSlots = new ArrayList<>();
 
@@ -221,13 +247,189 @@ public class ScheduleService {
 
 
         // Get the Monday of the week for the fromDate
-        int weekDayInt = fromDate.getDayOfWeek().getValue();
+        int weekDayInt = scheduleFromDateTime.getDayOfWeek().getValue();
         int daysToMonday = (weekDayInt + 6) % 7; // Calculate how many days to go back to reach Monday
-        LocalDate currentDate = fromDate.minusDays(daysToMonday);
+        LocalDateTime currentDateTime = scheduleFromDateTime.minusDays(daysToMonday);
 
 
         // Create map (weekday -> working hour) for easier processing
-        Map<DayOfWeek, TimeSlot> mapping = workingTimes.stream()
+        Map<DayOfWeek, TimeSlot> workingHoursPerDay = createWorkingTimeMapping(workingTimes);
+
+        for (int i = 0; i <= nWeeks; i++) {
+            // Always go from Mon - Sun
+            for (DayOfWeek weekday : DayOfWeek.values()) {
+
+                if (dateIsBeforeScheduleFrom(currentDateTime, scheduleFromDateTime)) {
+                    // Skip days before scheduleFromDateTime
+                    currentDateTime = currentDateTime.plusDays(1);
+                    continue;
+                }
+
+                // Update time for day after fromDate
+                if (isDateAfterScheduleFrom(currentDateTime, scheduleFromDateTime)) {
+                    currentDateTime = currentDateTime.withHour(0).withMinute(0).withSecond(0);
+                }
+
+                if (reachedNWeeks(nWeeks, i) && reachedWeekday(currentDateTime, scheduleFromDateTime)) {
+                    // Stop if we have reached the weekday on which the schedule was started after planning for nWeeks
+                    break;
+                }
+
+                // Check if there are working times for this weekday
+                if (workingHoursPerDay.containsKey(weekday)) {
+
+                    // Get appointments for this specific date
+                    List<Appointment> dayAppointments = getAppointmentsForDay(allAppointments, currentDateTime.toLocalDate());
+                    // Merge overlapping appointments to avoid schedule generation issues
+                    dayAppointments = mergeOverlappingAppointments(dayAppointments);
+
+
+                    // Get working hours for this day
+                    TimeSlot workingHours = workingHoursPerDay.get(weekday);
+                    TimeSlot effectiveWorkingSlot = createEffectiveWorkingSlot(currentDateTime, workingHours);
+
+                    if (effectiveWorkingSlot == null) {
+                        // No time left for this day
+                        currentDateTime = currentDateTime.plusDays(1);
+                        continue;
+                    }
+                    LocalTime currentTime = effectiveWorkingSlot.startTime();
+                    LocalTime workEndTime = effectiveWorkingSlot.endTime();
+
+
+                    availableSlots.addAll(calculateFreeSlotsBetweenAppointments(
+                        currentDateTime.toLocalDate(), dayAppointments, currentTime, workEndTime
+                    ));
+                }
+                // Update current date
+                currentDateTime = currentDateTime.plusDays(1);
+            }
+        }
+        return availableSlots;
+    }
+
+    /**
+     * Calculates free time slots between appointments.
+     *
+     * @param targetDate Date for which the slots are calculated
+     * @param appointments Sorted appointments for the day
+     * @param startTime Start of available working time
+     * @return List of free slots
+     */
+    private List<TimeSlot> calculateFreeSlotsBetweenAppointments(
+            LocalDate targetDate,
+            List<Appointment> appointments,
+            LocalTime startTime,
+            LocalTime workEndTime
+    ) {
+
+        List<TimeSlot> freeSlots = new ArrayList<>();
+        LocalTime currentTime = startTime;
+
+        for (Appointment appointment : appointments) {
+
+            LocalTime appointmentStart = LocalTime.parse(appointment.getStartTime());
+            LocalTime appointmentEnd = LocalTime.parse(appointment.getEndTime());
+
+            // Gap before appointment
+            if (currentTime.isBefore(appointmentStart)) {
+                freeSlots.add(new TimeSlot(targetDate, currentTime, appointmentStart));
+            }
+
+            // Move current time forward
+            if (appointmentEnd.isAfter(currentTime)) {
+                currentTime = appointmentEnd;
+            }
+        }
+
+        // Add remaining time after last appointment until work end time
+        if (currentTime.isBefore(workEndTime)) {
+            freeSlots.add(new TimeSlot(targetDate, currentTime, workEndTime));
+        }
+
+        return freeSlots;
+    }
+
+    /**
+     * Creates the effective working slot for the current day.
+     * Ensures that planning on the start day only begins from the given start time.
+     *
+     * @param currentDateTime Current planning date/time
+     * @param workingHours Configured working hours for the day
+     * @return Effective working slot or null if no time is available
+     */
+    private TimeSlot createEffectiveWorkingSlot(LocalDateTime currentDateTime, TimeSlot workingHours) {
+
+        LocalTime currentTime = Collections.max(
+                List.of(currentDateTime.toLocalTime(), workingHours.startTime())
+        );
+
+        LocalTime workEndTime = workingHours.endTime();
+
+        // No remaining working time available
+        if (!currentTime.isBefore(workEndTime)) {
+            return null;
+        }
+
+        return new TimeSlot(
+                currentDateTime.toLocalDate(),
+                currentTime,
+                workEndTime
+        );
+    }
+
+    /**
+     * Checks whether the current date is the day after the scheduling start date.
+     *
+     * @param currentDateTime Current date/time
+     * @param scheduleFromDateTime Scheduling start date/time
+     * @return True if current date is the next day
+     */
+    private boolean isDateAfterScheduleFrom(LocalDateTime currentDateTime, LocalDateTime scheduleFromDateTime) {
+        return currentDateTime.toLocalDate().isEqual(scheduleFromDateTime.toLocalDate().plusDays(1));
+    }
+
+    /**
+     * Checks whether the target number of weeks has been reached.
+     *
+     * @param nWeeks Total number of weeks
+     * @param weekNr Current week number
+     * @return True if week limit was reached
+     */
+    private boolean reachedNWeeks(int nWeeks, int weekNr) {
+        return nWeeks <= weekNr;
+    }
+
+    /**
+     * Checks whether the target weekday after n weeks was reached.
+     *
+     * @param currentDateTime Current date/time
+     * @param scheduleFromDateTime Scheduling start date/time
+     * @return True if target date was reached
+     */
+    private boolean reachedWeekday(LocalDateTime currentDateTime, LocalDateTime scheduleFromDateTime) {
+        return currentDateTime.getDayOfWeek() == scheduleFromDateTime.getDayOfWeek();
+    }
+
+    /**
+     * Checks whether the current date/time is before the scheduling start.
+     *
+     * @param currentDateTime Current date/time
+     * @param scheduleFromDateTime Scheduling start date/time
+     * @return True if current date/time is before schedule start
+     */
+    private boolean dateIsBeforeScheduleFrom(LocalDateTime currentDateTime, LocalDateTime scheduleFromDateTime) {
+        return currentDateTime.isBefore(scheduleFromDateTime);
+    }
+
+    /**
+     * Creates a mapping from weekdays to working time slots.
+     *
+     * @param workingTimes Working time definitions
+     * @return Map containing working slots per weekday
+     */
+    private Map<DayOfWeek, TimeSlot> createWorkingTimeMapping(List<WorkingTimeEntity> workingTimes) {
+        return workingTimes.stream()
                 .flatMap(wt -> wt.getDays().stream()
                         .map(day -> Map.entry(
                                 day,
@@ -238,74 +440,6 @@ public class ScheduleService {
                         Map.Entry::getKey,
                         Map.Entry::getValue
                 ));
-
-
-        // Run for nWeeks
-        /*
-         * Planning logic for n weeks starting from a specific weekday:
-         * Example: Start on Tuesday, plan for 4 weeks
-         *
-         * Week 0: Tue - Sun (skip days before start date)
-         * Week 1: Mon - Sun
-         * Week 2: Mon - Sun
-         * Week 3: Mon - Sun
-         * Week 4: Mon - Tue (stop on the same weekday after n weeks)
-         */
-        for (int i = 0; i <= nWeeks; i++) {
-            // Always go from Mon - Sun
-            for (DayOfWeek weekday : DayOfWeek.values()) {
-
-                if (i == 0 && currentDate.isBefore(fromDate)) {
-                    // Skip days before fromDate in the first week
-                    currentDate = currentDate.plusDays(1);
-                    continue;
-                }
-
-                if (i == nWeeks && (currentDate.isAfter(fromDate.plusWeeks(nWeeks)) || currentDate.isEqual(fromDate.plusWeeks(nWeeks)))) {
-                    // Stop if we have reached the weekday on which the schedule was started after planning for nWeeks
-                    break;
-                }
-
-                // Check if there are working times for this weekday
-                if (mapping.containsKey(weekday)) {
-
-                    // Get appointments for this specific date
-                    List<Appointment> dayAppointments = getAppointmentsForDay(allAppointments, currentDate);
-
-                    TimeSlot workingHours = mapping.get(weekday);
-
-                    // Merge overlapping appointments to avoid schedule generation issues
-                    dayAppointments = mergeOverlappingAppointments(dayAppointments);
-
-                    // Calculate free slots between appointments
-                    LocalTime currentTime = workingHours.startTime();
-                    LocalTime workEndTime = workingHours.endTime();
-
-                    for (Appointment appointment : dayAppointments) {
-                        LocalTime appointmentStart = LocalTime.parse(appointment.getStartTime());
-                        LocalTime appointmentEnd = LocalTime.parse(appointment.getEndTime());
-
-                        // If there's a gap before the appointment
-                        if (currentTime.isBefore(appointmentStart)) {
-                            availableSlots.add(new TimeSlot(currentDate, currentTime, appointmentStart));
-                        }
-
-                        // Move current time past this appointment
-                        if (appointmentEnd.isAfter(currentTime)) {
-                            currentTime = appointmentEnd;
-                        }
-                    }
-
-                    // Add remaining time after last appointment until work end time
-                    if (currentTime.isBefore(workEndTime)) {
-                        availableSlots.add(new TimeSlot(currentDate, currentTime, workEndTime));
-                    }
-                }
-                // Update current
-                currentDate = currentDate.plusDays(1);
-            }
-        }
-        return availableSlots;
     }
 
     /**
@@ -316,7 +450,7 @@ public class ScheduleService {
      * @param allAppointments All appointments for this account
      * @return Minimal 4 or the number of weeks between fromDate and the date of the last appointment
      */
-    private int getNWeeksAhead(LocalDate fromDate, List<Appointment> allAppointments) {
+    private int getNWeeksAhead(LocalDateTime fromDate, List<Appointment> allAppointments) {
 
         List<Appointment> appointmentsWithDate = allAppointments.stream()
                 .filter(apt -> apt.getDate() != null)
@@ -326,7 +460,7 @@ public class ScheduleService {
         if (appointmentsWithDate.isEmpty()) return 4;
 
         LocalDate lastDate =  appointmentsWithDate.getLast().getDate();
-        int weeksBetween = (int) ChronoUnit.WEEKS.between(fromDate, lastDate) + 1;
+        int weeksBetween = (int) ChronoUnit.WEEKS.between(fromDate.toLocalDate(), lastDate) + 1;
 
         return Math.max(weeksBetween, 4);
     }
@@ -345,7 +479,6 @@ public class ScheduleService {
         )));
         return response;
     }
-
 
     /**
      * This method checks whether the appointment is scheduled for this day or not.
