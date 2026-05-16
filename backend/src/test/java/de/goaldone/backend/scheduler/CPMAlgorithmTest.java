@@ -237,7 +237,7 @@ class CPMAlgorithmTest {
         assertThat(result.scheduledChunks().size()).isEqualTo(1);
 
         ScheduledChunk scheduledChunk = result.scheduledChunks().getFirst();
-        assertThat(scheduledChunk.chunk().durationMinutes()).isEqualTo(task.getDuration());
+        assertThat(scheduledChunk.slot().getSlotDuration()).isEqualTo(availableSlots.getFirst().getSlotDuration());
     }
 
     @Test
