@@ -7,7 +7,6 @@ import de.goaldone.backend.scheduler.types.constraints.DeadlineConstraint;
 import de.goaldone.backend.scheduler.types.constraints.DependencyConstraint;
 import de.goaldone.backend.scheduler.types.constraints.NotBeforeConstraint;
 import de.goaldone.backend.scheduler.types.constraints.PauseAfterReachedCognitiveLoadConstraint;
-import de.goaldone.backend.scheduler.types.constraints.PauseBetweenChunksConstraint;
 import de.goaldone.backend.scheduler.types.model.SolverState;
 
 import java.util.ArrayList;
@@ -34,7 +33,6 @@ public class ConstraintHandler {
 
         // Soft constraints
         this.softConstraints.add(new PauseAfterReachedCognitiveLoadConstraint());
-        this.softConstraints.add(new PauseBetweenChunksConstraint());
     }
 
     /**

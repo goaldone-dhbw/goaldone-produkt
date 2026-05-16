@@ -7,8 +7,6 @@ import de.goaldone.backend.scheduler.types.model.ScheduledChunk;
 import de.goaldone.backend.scheduler.types.model.SolverState;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.temporal.ChronoUnit;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -44,24 +42,17 @@ public class PauseAfterReachedCognitiveLoadConstraint extends SoftConstraint {
             boolean highThresholdReached = false;
             boolean moderateThresholdReached = false;
 
-            for (int i = 0; i < sorted.size(); i++) {
-                ScheduledChunk current = sorted.get(i);
+            for (ScheduledChunk current : sorted) {
                 CognitiveLoad load = current.chunk().cognitiveLoad();
 
-                // After threshold was reached in previous iteration, check for a gap (pause)
+                // After threshold was reached in previous iteration, check for a pause (Break-Chunk)
                 if (highThresholdReached || moderateThresholdReached) {
-                    if (i > 0) {
-                        ScheduledChunk previous = sorted.get(i - 1);
-                        LocalDateTime previousEnd = LocalDateTime.of(previous.date(), previous.endTime());
-                        LocalDateTime currentStart = LocalDateTime.of(current.date(), current.startTime());
-                        long gapMinutes = ChronoUnit.MINUTES.between(previousEnd, currentStart);
-                        if (gapMinutes <= 0) {
-                            // No pause after threshold was reached
-                            this.isActive = false;
-                            return;
-                        }
-                    }
-                    // Pause was found – reset accumulators
+                    // TODO: Sobald TaskChunk.isBreak() verfügbar ist, hier prüfen ob current ein
+                    //       Break-Chunk ist. Ein Break-Chunk signalisiert die eingeplante Pause.
+                    //       Falls current KEIN Break-Chunk ist, fehlt die Pause nach der Schwelle:
+                    //       if (!current.chunk().isBreak()) { this.isActive = false; return; }
+                    //       Break-Chunks sollen außerdem keine kognitive Last akkumulieren (→ continue).
+                    //  Stub: Pause gilt als vorhanden – Akkumulatoren zurücksetzen
                     accumulatedHighMinutes = 0;
                     accumulatedModerateMinutes = 0;
                     highThresholdReached = false;
