@@ -33,8 +33,6 @@ public class CPMAlgorithm {
     private final Chunker chunker = new Chunker();
     private final TaskSorter taskSorter = new TaskSorter();
 
-    private final boolean SUPER_DUPER_GREEDY_FLAG = true;
-
     private record TimeSlotTuple(TimeSlot occupiedSlot, TimeSlot breakSlot) {
     }
 
@@ -120,25 +118,6 @@ public class CPMAlgorithm {
                 .filter(slot -> slot.canFit(chunk.durationMinutes()))
                 .min(Comparator.comparing(TimeSlot::date).thenComparing(TimeSlot::startTime));
 
-        if (suitableSlot.isPresent() && !SUPER_DUPER_GREEDY_FLAG) {
-            // This case is disabled if greedy flag is true
-
-            TimeSlot slot = suitableSlot.get();
-
-            TimeSlotTuple timeSlotTuple = updateTimeSlots(slot, chunk, additionalBreakMinutes);
-            List<ScheduledChunk> scheduledChunks = new ArrayList<>();
-            scheduledChunks.add(new ScheduledChunk(chunk, timeSlotTuple.occupiedSlot()));
-
-            if (timeSlotTuple.breakSlot() != null) {
-                scheduledChunks.add(new ScheduledChunk(
-                        createAutomatedBreakChunk(timeSlotTuple.breakSlot(), task.getId()),
-                        timeSlotTuple.breakSlot()
-                ));
-            }
-
-            return scheduledChunks;
-        }
-
         // At this point, no slot was large enough to accommodate this chunk
         // -> try further splitting
 
@@ -172,21 +151,7 @@ public class CPMAlgorithm {
                     slot.startTime().plusMinutes(usableMinutes)
             );
 
-            TaskChunk partialChunk = TaskChunk.builder()
-                    .taskTitle(chunk.taskTitle())
-                    .chunkId(chunk.chunkId())
-                    .taskId(chunk.taskId())
-                    .chunkIndex(chunk.chunkIndex())
-                    .totalChunks(chunk.totalChunks())
-                    .durationMinutes(usableMinutes)
-                    .topologicalLevel(chunk.topologicalLevel())
-                    .slackMinutes(chunk.slackMinutes())
-                    .cognitiveLoad(chunk.cognitiveLoad())
-                    .notBefore(chunk.notBefore())
-                    .deadline(chunk.deadline())
-                    .isPinned(chunk.isPinned())
-                    .dependsOnTaskIds(chunk.dependsOnTaskIds())
-                    .build();
+            TaskChunk partialChunk = getPartialChunk(chunk, usableMinutes);
 
             result.add(new ScheduledChunk(partialChunk, scheduledSlot));
 
@@ -208,6 +173,21 @@ public class CPMAlgorithm {
         }
 
         return result;
+    }
+
+    private TaskChunk getPartialChunk(TaskChunk chunk, int usableMinutes) {
+        return TaskChunk.builder()
+                .taskTitle(chunk.taskTitle())
+                .chunkId(chunk.chunkId())
+                .taskId(chunk.taskId())
+                .chunkIndex(chunk.chunkIndex())
+                .totalChunks(chunk.totalChunks())
+                .durationMinutes(usableMinutes)
+                .notBefore(chunk.notBefore())
+                .deadline(chunk.deadline())
+                .isBreak(chunk.isBreak())
+                .dependsOnTaskIds(chunk.dependsOnTaskIds())
+                .build();
     }
 
     private int getAdditionalTimeForAutomatedBreaks(TaskChunk chunk, TaskResponse task) {
@@ -344,12 +324,9 @@ public class CPMAlgorithm {
                     .chunkIndex(currentIndex)
                     .totalChunks(totalChunks)
                     .durationMinutes(chunk.durationMinutes())
-                    .topologicalLevel(chunk.topologicalLevel())
-                    .slackMinutes(chunk.slackMinutes())
-                    .cognitiveLoad(chunk.cognitiveLoad())
                     .notBefore(chunk.notBefore())
                     .deadline(chunk.deadline())
-                    .isPinned(chunk.isPinned())
+                    .isBreak(chunk.isBreak())
                     .dependsOnTaskIds(chunk.dependsOnTaskIds())
                     .build();
 
@@ -434,28 +411,6 @@ public class CPMAlgorithm {
     }
 
     /**
-     * Creates the automated break slot directly after the occupied work slot.
-     *
-     * @param targetSlot The parent slot in which the break should fit into
-     * @param occupiedSlot The work slot after which the break starts
-     * @param additionalBreakTime The break duration in minutes, or 0 if no break is needed
-     * @return The automated break slot, or null if break does not fit or is not needed
-     */
-    private TimeSlot createAutomatedBreakSlot(TimeSlot targetSlot, TimeSlot occupiedSlot, int additionalBreakTime) {
-        long timeLeft = Duration.between(targetSlot.endTime(), occupiedSlot.endTime()).abs().toMinutes();
-
-        if (additionalBreakTime == 0 || timeLeft <= 0) {
-            return null;
-        }
-
-        return new TimeSlot(
-                occupiedSlot.date(),
-                occupiedSlot.endTime(),
-                occupiedSlot.endTime().plusMinutes(Math.min(timeLeft, additionalBreakTime))
-        );
-    }
-
-    /**
      * Creates the remaining available slot after work and an optional automated break.
      *
      * @param targetSlot The original available slot
@@ -517,6 +472,28 @@ public class CPMAlgorithm {
     }
 
     /**
+     * Creates the automated break slot directly after the occupied work slot.
+     *
+     * @param targetSlot The parent slot in which the break should fit into
+     * @param occupiedSlot The work slot after which the break starts
+     * @param additionalBreakTime The break duration in minutes, or 0 if no break is needed
+     * @return The automated break slot, or null if break does not fit or is not needed
+     */
+    private TimeSlot createAutomatedBreakSlot(TimeSlot targetSlot, TimeSlot occupiedSlot, int additionalBreakTime) {
+        long timeLeft = Duration.between(targetSlot.endTime(), occupiedSlot.endTime()).abs().toMinutes();
+
+        if (additionalBreakTime == 0 || timeLeft <= 0) {
+            return null;
+        }
+
+        return new TimeSlot(
+                occupiedSlot.date(),
+                occupiedSlot.endTime(),
+                occupiedSlot.endTime().plusMinutes(Math.min(timeLeft, additionalBreakTime))
+        );
+    }
+
+    /**
      * @param breakSlot TimeSlot for the automated break
      * @param taskId TaskId of the parent task
      * @return TaskChunk with attributes for an automated break.
@@ -529,12 +506,9 @@ public class CPMAlgorithm {
                 .chunkIndex(0)
                 .totalChunks(1)
                 .durationMinutes(breakSlot.getSlotDuration())
-                .topologicalLevel(0)
-                .slackMinutes(0)
-                .cognitiveLoad(null)
                 .notBefore(null)
                 .deadline(null)
-                .isPinned(false)
+                .isBreak(true)
                 .dependsOnTaskIds(List.of())
                 .build();
     }
