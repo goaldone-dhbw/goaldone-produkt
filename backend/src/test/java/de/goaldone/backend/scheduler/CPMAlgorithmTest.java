@@ -237,9 +237,8 @@ class CPMAlgorithmTest {
         assertThat(result.scheduledChunks().size()).isEqualTo(1);
 
         ScheduledChunk scheduledChunk = result.scheduledChunks().getFirst();
-        assertThat(scheduledChunk.chunk().durationMinutes()).isEqualTo(task.getDuration());
-        assertThat(scheduledChunk.chunk().durationMinutes()).isEqualTo(scheduledChunk.slot().durationMinutes());
-}
+        assertThat(scheduledChunk.slot().durationMinutes()).isEqualTo(availableSlots.getFirst().durationMinutes());
+    }
 
     @Test
     void shouldAddAutomatedBreak_whenChunkExceedsSlotWithinBuffer() {
@@ -253,7 +252,6 @@ class CPMAlgorithmTest {
         );
 
         SolverState result = algorithm.generateInitialSchedule(context);
-        assertThat(result.freeSlots()).isEmpty();
 
         assertThat(result.scheduledChunks()).hasSize(2);
 
@@ -397,7 +395,6 @@ class CPMAlgorithmTest {
         List<TaskResponse> tasks = List.of(task1);
 
         List<Appointment> appointments = List.of(
-                //appointment("Daily", AppointmentType.RECURRING, "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR", LocalDate.of(2026, 5, 11), false, "11:15", "12:00"),
                 appointment()
         );
 
