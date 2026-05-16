@@ -44,7 +44,7 @@ public class ScheduleMapper {
                 getSchedule(schedule.schedule())
         );
 
-        response.unscheduledTasks(schedule.schedule().unscheduledChunks());
+        response.unscheduledTasks(schedule.schedule().unscheduledTasks());
         response.appointments(context.allAppointments());
 
         return response;

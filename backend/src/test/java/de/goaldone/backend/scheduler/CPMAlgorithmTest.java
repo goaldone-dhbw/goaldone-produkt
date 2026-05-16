@@ -284,7 +284,7 @@ class CPMAlgorithmTest {
         SolverState result = algorithm.generateInitialSchedule(context);
 
         assertThat(result).isNotNull();
-        assertThat(result.unscheduledChunks().size()).isEqualTo(1);
+        assertThat(result.unscheduledTasks().size()).isEqualTo(1);
         assertThat(result.scheduledChunks().getFirst().chunk().taskId()).isEqualTo(task1.getId());
     }
 
@@ -334,7 +334,7 @@ class CPMAlgorithmTest {
         SolverState result = algorithm.generateInitialSchedule(context);
 
         assertThat(result).isNotNull();
-        assertThat(result.unscheduledChunks().size()).isEqualTo(0);
+        assertThat(result.unscheduledTasks().size()).isEqualTo(0);
 
 
         List<TimeSlot> expected = List.of(
@@ -373,7 +373,7 @@ class CPMAlgorithmTest {
 
         SolverState result = algorithm.generateInitialSchedule(context);
 
-        assertThat(result.unscheduledChunks()).isEmpty();
+        assertThat(result.unscheduledTasks()).isEmpty();
     }
 
 
@@ -403,10 +403,67 @@ class CPMAlgorithmTest {
         SolverState result = algorithm.generateInitialSchedule(context);
 
         assertThat(result).isNotNull();
-        assertThat(result.unscheduledChunks()).isEmpty();
-
+        assertThat(result.unscheduledTasks()).isEmpty();
     }
 
+    @Test
+    void shouldAddAutomatedPause_whenCognitiveLoadReached_HIGH() {
+        LocalDateTime date = LocalDateTime.of(LocalDate.of(2026, 5, 11),  LocalTime.of(7, 0));
+        List<WorkingTimeEntity> workingTimeEntities = List.of(working(List.of(DayOfWeek.MONDAY), 18));
+        List<TaskResponse> tasks = List.of(task(480,  List.of(), null, null, CognitiveLoad.HIGH));
+        List<TimeSlot> availableSlots = new ArrayList<>(List.of(slot(date.toLocalDate(), 8, 18)));
+
+        SchedulingContext context = new SchedulingContext(
+                date, availableSlots, tasks, null, workingTimeEntities
+        );
+
+        SolverState result = algorithm.generateInitialSchedule(context);
+
+        assertThat(result).isNotNull();
+        assertThat(result.unscheduledTasks()).isEmpty();
+
+        List<TimeSlot> expectedSlots = new ArrayList<>();
+        expectedSlots.add(slot(date.toLocalDate(), 8,  0,  10, 0));
+        expectedSlots.add(slot(date.toLocalDate(), 10, 0,  10, 15));
+        expectedSlots.add(slot(date.toLocalDate(), 10, 15, 12, 15));
+        expectedSlots.add(slot(date.toLocalDate(), 12, 15, 12, 30));
+        expectedSlots.add(slot(date.toLocalDate(), 12, 30, 14, 30));
+        expectedSlots.add(slot(date.toLocalDate(), 14, 30, 14, 45));
+        expectedSlots.add(slot(date.toLocalDate(), 14, 45, 16, 45));
+        expectedSlots.add(slot(date.toLocalDate(), 16, 45, 17, 0));
+
+        for (int i = 0; i < expectedSlots.size(); i++) {
+            assertThat(result.scheduledChunks().get(i).slot()).isEqualTo(expectedSlots.get(i));
+        }
+    }
+
+    @Test
+    void shouldAddAutomatedPause_whenCognitiveLoadReached_MODERATE() {
+        LocalDateTime date = LocalDateTime.of(LocalDate.of(2026, 5, 11),  LocalTime.of(7, 0));
+        List<WorkingTimeEntity> workingTimeEntities = List.of(working(List.of(DayOfWeek.MONDAY), 18));
+        List<TaskResponse> tasks = List.of(task(480,  List.of(), null, null, CognitiveLoad.MODERATE));
+        List<TimeSlot> availableSlots = new ArrayList<>(List.of(slot(date.toLocalDate(), 8, 18)));
+
+        SchedulingContext context = new SchedulingContext(
+                date, availableSlots, tasks, null, workingTimeEntities
+        );
+
+        SolverState result = algorithm.generateInitialSchedule(context);
+
+        assertThat(result).isNotNull();
+        assertThat(result.unscheduledTasks()).isEmpty();
+
+        List<TimeSlot> expectedSlots = new ArrayList<>();
+        expectedSlots.add(slot(date.toLocalDate(), 8,  0,   12, 0)); // 4h
+        expectedSlots.add(slot(date.toLocalDate(), 12, 0,   12, 15)); // Pause
+        expectedSlots.add(slot(date.toLocalDate(), 12, 15,  16, 15)); // 4h
+        expectedSlots.add(slot(date.toLocalDate(), 16, 15,  16, 30)); // Pause
+
+
+        for (int i = 0; i < expectedSlots.size(); i++) {
+            assertThat(result.scheduledChunks().get(i).slot()).isEqualTo(expectedSlots.get(i));
+        }
+    }
 
     private Appointment appointment(String title, AppointmentType appointmentType, String rrule, LocalDate date, boolean isBreak, String startTime, String endTime) {
         return new Appointment()
