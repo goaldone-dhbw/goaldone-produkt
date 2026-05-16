@@ -10,14 +10,20 @@ import de.goaldone.backend.scheduler.types.model.TaskSlack;
 import de.goaldone.backend.scheduler.types.model.TimeSlot;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import java.time.LocalDateTime;
-import java.util.*;
 
+/**
+ * NOT thread safe – instance fields {@code tempAvailableTimeSlots} and
+ * {@code unscheduledReason} are mutated during scheduling and must not be
+ * shared across concurrent invocations.
+ */
 public class CPMAlgorithm {
 
     private ArrayList<TimeSlot> tempAvailableTimeSlots;
@@ -79,7 +85,7 @@ public class CPMAlgorithm {
             }
 
         }
-        return new SolverState (resultChunks, availableTimeSlots, unscheduledTask);
+        return new SolverState(resultChunks, availableTimeSlots, unscheduledTask, context);
     }
 
     /**
@@ -333,6 +339,81 @@ public class CPMAlgorithm {
                     target.startTime().plusMinutes(chunk.durationMinutes())
             );
         }
+    }
+
+    /**
+     * Tries to schedule tasks that were left unscheduled after the initial plan.
+     * This method is called exactly once before the move-loop.
+     * Uses the same CPM sort order as {@link #generateInitialSchedule}.
+     *
+     * <p>NOT thread safe – modifies {@code tempAvailableTimeSlots} and
+     * {@code unscheduledReason} instance fields.</p>
+     *
+     * @param state   the current solver state whose unscheduled tasks should be re-attempted
+     * @param context the original scheduling context (used for working times, fromDate and task list)
+     * @return updated SolverState with any newly scheduled chunks and a revised unscheduled list
+     */
+    SolverState tryScheduleUnscheduled(SolverState state, SchedulingContext context) {
+
+        if (state.unscheduledChunks() == null || state.unscheduledChunks().isEmpty()) {
+            return state;
+        }
+
+        // Collect the IDs of all still-unscheduled tasks
+        Set<UUID> unscheduledIds = state.unscheduledChunks().stream()
+                .map(UnscheduledTask::getTaskId)
+                .collect(Collectors.toSet());
+
+        List<TaskResponse> unscheduledTasks = context.tasks().stream()
+                .filter(t -> unscheduledIds.contains(t.getId()))
+                .toList();
+
+        if (unscheduledTasks.isEmpty()) {
+            return state;
+        }
+
+        // Chunk the unscheduled tasks
+        Map<UUID, TaskResponse> taskMap = unscheduledTasks.stream()
+                .collect(Collectors.toMap(TaskResponse::getId, t -> t));
+        Map<UUID, List<TaskChunk>> chunkMap = chunker.chunkTasks(unscheduledTasks, context.workingTimes());
+
+        // Sort using CPM order (same as generateInitialSchedule)
+        List<TaskSlack> taskSlacks = calculateSlack(context);
+        List<UUID> sortedTasks = taskSorter.sort(unscheduledTasks, taskSlacks);
+
+        // Work on a mutable copy of the current free slots
+        ArrayList<TimeSlot> availableTimeSlots = new ArrayList<>(state.freeSlots());
+        List<ScheduledChunk> newScheduledChunks = new ArrayList<>(state.scheduledChunks());
+        ArrayList<UnscheduledTask> stillUnscheduled = new ArrayList<>();
+
+        for (UUID taskId : sortedTasks) {
+            this.tempAvailableTimeSlots = new ArrayList<>(availableTimeSlots);
+            boolean totalTaskFit = true;
+
+            List<TaskChunk> chunks = chunkMap.get(taskId);
+            List<ScheduledChunk> tempResults = new ArrayList<>();
+            for (TaskChunk chunk : chunks) {
+                List<ScheduledChunk> scheduledChunk = findTimeSlotForChunk(chunk);
+                if (scheduledChunk.isEmpty()) {
+                    totalTaskFit = false;
+                    break;
+                }
+                tempResults.addAll(scheduledChunk);
+            }
+            tempResults = updateChunks(tempResults);
+
+            if (totalTaskFit) {
+                newScheduledChunks.addAll(tempResults);
+                availableTimeSlots = this.tempAvailableTimeSlots;
+            } else {
+                stillUnscheduled.add(new UnscheduledTask(
+                        taskId, taskMap.get(taskId).getTitle(), this.unscheduledReason
+                ));
+                this.unscheduledReason = null;
+            }
+        }
+
+        return new SolverState(newScheduledChunks, availableTimeSlots, stillUnscheduled, context);
     }
 
     /**

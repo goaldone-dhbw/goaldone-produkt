@@ -40,6 +40,10 @@ public class Solver {
         long endTime = System.currentTimeMillis() + timeoutMs - 500; // Subtract a small buffer to ensure we return before the timeout expires
 
         SolverState currentBest = this.cpmAlgorithm.generateInitialSchedule(context);
+
+        // Try to schedule any remaining unscheduled tasks exactly once before the move-loop.
+        currentBest = this.cpmAlgorithm.tryScheduleUnscheduled(currentBest, context);
+
         int currentScore = constraintHandler.calculateScore(currentBest);
         lateAcceptance.initialize(currentScore);
 
@@ -48,6 +52,13 @@ public class Solver {
             if (skip) break; //TODO: Demo release only
 
             SolverState newState = moveSelector.selectAndApply(currentBest);
+
+            // Skip invalid moves (e.g. no free slots / not enough chunks)
+            if (newState == null) {
+                lateAcceptance.updateHistory(currentScore);
+                continue;
+            }
+
             int newScore = constraintHandler.calculateScore(newState);
 
             MoveEvent latestMove = moveSelector.getLastMoveEvent();
@@ -59,11 +70,14 @@ public class Solver {
                 continue;
             }
 
-            // Late Acceptance check
+            // Late Acceptance check – updateHistory must be called every iteration
             if (lateAcceptance.validateMove(newScore, currentScore)) {
+                lateAcceptance.updateHistory(newScore);
                 currentBest = newState;
                 currentScore = newScore;
                 moveHistory.addMoveEvent(latestMove);
+            } else {
+                lateAcceptance.updateHistory(currentScore);
             }
         }
 
