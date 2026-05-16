@@ -365,6 +365,13 @@ install_terraform_manual() {
 }
 
 step_install_packages() {
+    export DEBIAN_FRONTEND=noninteractive
+
+    # Prevent needrestart from prompting about daemon restarts
+    if [[ -d /etc/needrestart/conf.d ]]; then
+        echo "\$nrconf{restart} = 'a';" > /etc/needrestart/conf.d/50-goaldone.conf
+    fi
+
     show_info "⏳ Configuring package repositories..."
     echo "[$(get_timestamp)] Starting package installation" >> "$LOG_FILE"
 
