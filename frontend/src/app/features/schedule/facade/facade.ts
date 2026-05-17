@@ -18,7 +18,6 @@ import {
 import {
   ScheduleCompletionApiService,
   ScheduleTaskCompletionRequest,
-  ScheduleTaskCompletionResponse,
 } from '../completion/schedule-completion-api.service';
 
 type AccountOption = {
@@ -427,11 +426,20 @@ export class ScheduleFacadeService {
     this.successMessage.set('');
 
     try {
+      const entry = this.scheduleEntries().find(
+        (e) => (e as any).entryId === request.scheduleEntryId,
+      );
+      const accountId = (entry as any)?.accountId as string | undefined;
+
+      if (!accountId) {
+        throw new Error('Account-ID für diesen Eintrag nicht gefunden.');
+      }
+
       const response = await firstValueFrom(
-        this.scheduleCompletionApi.completeTaskFromPlanner(request),
+        this.scheduleCompletionApi.completeTaskFromPlanner(request, accountId),
       );
 
-      this.applyTaskCompletionResponse(response);
+      this.replaceScheduleEntries(response.updatedEntries);
 
       this.successMessage.set(
         request.scope === 'TASK'
@@ -461,51 +469,6 @@ export class ScheduleFacadeService {
       value.originalItemId ||
       'Nicht eingeplante Aufgabe'
     );
-  }
-
-  private applyTaskCompletionResponse(response: ScheduleTaskCompletionResponse): void {
-    if (this.isMultiAccountScheduleResponse(response)) {
-      this.applyScheduleResponse(response);
-      return;
-    }
-
-    if (this.isScheduleResponse(response)) {
-      this.applyScheduleResponse(response);
-      return;
-    }
-
-    const updatedEntries = this.extractUpdatedScheduleEntries(response);
-
-    if (updatedEntries.length === 0) {
-      return;
-    }
-
-    this.replaceScheduleEntries(updatedEntries);
-  }
-
-  private extractUpdatedScheduleEntries(response: ScheduleTaskCompletionResponse): ScheduleEntry[] {
-    if (Array.isArray(response)) {
-      return response;
-    }
-
-    if (!response || typeof response !== 'object') {
-      return [];
-    }
-
-    const value = response as {
-      updatedEntries?: ScheduleEntry[] | null;
-      entries?: ScheduleEntry[] | null;
-    };
-
-    if (Array.isArray(value.updatedEntries)) {
-      return value.updatedEntries;
-    }
-
-    if (Array.isArray(value.entries)) {
-      return value.entries;
-    }
-
-    return [];
   }
 
   private replaceScheduleEntries(updatedEntries: ScheduleEntry[]): void {
@@ -541,40 +504,6 @@ export class ScheduleFacadeService {
     return firstId.length > 0 && secondId.length > 0 && firstId === secondId;
   }
 
-  private isScheduleResponse(
-    response: ScheduleTaskCompletionResponse,
-  ): response is ScheduleResponse {
-    if (!response || Array.isArray(response) || typeof response !== 'object') {
-      return false;
-    }
-
-    const value = response as ScheduleResponse;
-
-    return (
-      Array.isArray(value.entries) &&
-      ('accountId' in value ||
-        'generatedAt' in value ||
-        'from' in value ||
-        'to' in value ||
-        'totalWorkMinutes' in value ||
-        'score' in value ||
-        'warnings' in value ||
-        'unscheduledTasks' in value ||
-        'appointments' in value)
-    );
-  }
-
-  private isMultiAccountScheduleResponse(
-    response: ScheduleTaskCompletionResponse,
-  ): response is MultiAccountScheduleResponse {
-    return (
-      Boolean(response) &&
-      !Array.isArray(response) &&
-      typeof response === 'object' &&
-      Array.isArray((response as MultiAccountScheduleResponse).schedules)
-    );
-  }
-
   private removeAppointmentEntriesFromResponse(response: ScheduleResponse): ScheduleResponse {
     return {
       ...response,
@@ -590,7 +519,9 @@ export class ScheduleFacadeService {
     if (Array.isArray((response as MultiAccountScheduleResponse).schedules)) {
       const multiResponse = response as MultiAccountScheduleResponse;
 
-      const rawEntries = multiResponse.schedules.flatMap((schedule) => schedule.entries ?? []);
+      const rawEntries = multiResponse.schedules.flatMap((schedule) =>
+        (schedule.entries ?? []).map((entry) => ({ ...entry, accountId: schedule.accountId })),
+      );
 
       const responseAppointments = multiResponse.schedules.flatMap(
         (schedule) => schedule.appointments ?? [],
@@ -639,7 +570,10 @@ export class ScheduleFacadeService {
 
     const singleResponse = response as ScheduleResponse;
 
-    const rawEntries = singleResponse.entries ?? [];
+    const rawEntries = (singleResponse.entries ?? []).map((entry) => ({
+      ...entry,
+      accountId: singleResponse.accountId,
+    }));
     const responseAppointmentEntries = this.mapAppointmentsToScheduleEntries(
       (singleResponse as any).appointments ?? [],
     );
