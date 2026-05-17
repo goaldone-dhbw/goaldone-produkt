@@ -1,6 +1,6 @@
 {
   "name": "frontend",
-  "version": "0.3.26",
+  "version": "0.3.28",
   "scripts": {
     "ng": "ng",
     "setup-env": "node scripts/setup-env.js",
