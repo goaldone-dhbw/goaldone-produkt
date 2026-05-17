@@ -519,7 +519,7 @@ paths:
   # ============================================================
   # SCHEDULES – Mark Entry Done
   # ============================================================
-  /schedules/{accountId}/entries/{entryId}:
+  /schedule-entries/{entryId}:
     patch:
       tags: [ schedules ]
       summary: Mark a schedule entry as completed
@@ -528,11 +528,11 @@ paths:
         - `CHUNK`: sets isCompleted=true on the targeted entry only.
         - `TASK`: sets isCompleted=true on all entries sharing the same originalItemId
           within the account's active schedule, and sets TaskEntity.status = DONE.
+        The account is derived server-side from the entry — no accountId path parameter needed.
       operationId: markScheduleEntryDone
       security:
         - bearerAuth: [ ]
       parameters:
-        - $ref: '#/components/parameters/AccountIdPath'
         - name: entryId
           in: path
           required: true

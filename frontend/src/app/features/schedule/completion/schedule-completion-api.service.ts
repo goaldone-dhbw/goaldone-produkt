@@ -32,14 +32,11 @@ export class ScheduleCompletionApiService {
   private readonly schedulesService = inject(SchedulesService);
 
   /**
-   * Marks a schedule entry as done via PATCH /schedules/{accountId}/entries/{entryId}.
+   * Marks a schedule entry as done via PATCH /schedule-entries/{entryId}.
    */
-  completeTaskFromPlanner(
-    request: ScheduleTaskCompletionRequest,
-    accountId: string,
-  ): Observable<MarkScheduleEntryResponse> {
+  completeTaskFromPlanner(request: ScheduleTaskCompletionRequest): Observable<MarkScheduleEntryResponse> {
     const body: MarkScheduleEntryRequest = { scope: request.scope };
 
-    return this.schedulesService.markScheduleEntryDone(accountId, request.scheduleEntryId, body);
+    return this.schedulesService.markScheduleEntryDone(request.scheduleEntryId, body);
   }
 }

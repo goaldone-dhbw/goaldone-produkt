@@ -426,17 +426,8 @@ export class ScheduleFacadeService {
     this.successMessage.set('');
 
     try {
-      const entry = this.scheduleEntries().find(
-        (e) => (e as any).entryId === request.scheduleEntryId,
-      );
-      const accountId = (entry as any)?.accountId as string | undefined;
-
-      if (!accountId) {
-        throw new Error('Account-ID für diesen Eintrag nicht gefunden.');
-      }
-
       const response = await firstValueFrom(
-        this.scheduleCompletionApi.completeTaskFromPlanner(request, accountId),
+        this.scheduleCompletionApi.completeTaskFromPlanner(request),
       );
 
       this.replaceScheduleEntries(response.updatedEntries);

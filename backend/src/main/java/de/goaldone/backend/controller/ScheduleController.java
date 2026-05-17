@@ -107,11 +107,11 @@ public class ScheduleController implements SchedulesApi {
     }
 
     @Override
-    public ResponseEntity<MarkScheduleEntryResponse> markScheduleEntryDone(UUID accountId, UUID entryId,
+    public ResponseEntity<MarkScheduleEntryResponse> markScheduleEntryDone(UUID entryId,
                                                                            MarkScheduleEntryRequest markScheduleEntryRequest) {
         Jwt jwt = currentUserResolver.extractJwt();
         MarkScheduleEntryResponse response = scheduleService.markEntryDone(
-                jwt, accountId, entryId, markScheduleEntryRequest.getScope());
+                jwt, entryId, markScheduleEntryRequest.getScope());
         return ResponseEntity.ok(response);
     }
 
