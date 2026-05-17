@@ -2094,11 +2094,15 @@ components:
       properties:
         type:
           type: string
-          enum: [ DEADLINE_TIGHT, OVERLOADED_DAY, PIN_CONFLICT, OTHER ]
+          enum: [ DEADLINE_TIGHT, DEADLINE_VIOLATED, OVERLOADED_DAY, PIN_CONFLICT, NOT_BEFORE_VIOLATED, DEPENDENCY_VIOLATED, PAUSE_MISSING, OTHER ]
           description: |
             - `DEADLINE_TIGHT`: Task eingeplant, aber < 30 min Puffer bis zur Deadline.
-            - `OVERLOADED_DAY`: Ein Tag übersteigt die verfügbare Arbeitszeit.
+            - `DEADLINE_VIOLATED`: Task ist nach seiner Deadline eingeplant.
+            - `OVERLOADED_DAY`: Kognitive Last eines Tages überschreitet den zulässigen Schwellenwert ohne Pause.
             - `PIN_CONFLICT`: Gepinnter Eintrag überlappt mit einem anderen.
+            - `NOT_BEFORE_VIOLATED`: Task ist vor seinem "Nicht planen vor"-Zeitpunkt eingeplant.
+            - `DEPENDENCY_VIOLATED`: Ein abhängiger Task ist noch nicht abgeschlossen, bevor dieser Task beginnt.
+            - `PAUSE_MISSING`: Zwischen aufeinanderfolgenden Chunks fehlt die erforderliche 15-Minuten-Pause.
             - `OTHER`: Sonstige Warnung, z.B. aus unerwarteten Fehlern oder Randfällen.
         message:
           type: string
