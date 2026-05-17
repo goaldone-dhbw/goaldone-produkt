@@ -394,7 +394,7 @@ paths:
         Die Antwort enthält zwei Arten von Einträgen, erkennbar am `source`-Feld:
 
         - `source: ONE_TIME` – persistierte Einträge aus der Datenbank.
-          `entryId` ist gesetzt und wird für Aktionen (complete, pin, unpin) benötigt.
+          `entryId` ist gesetzt und wird für Aktionen benötigt.
 
         - `source: RECURRING` – virtuelle Vorkommen, on-the-fly aus
           Recurrence-Rules berechnet. `templateId` und `occurrenceDate` sind gesetzt.
@@ -490,7 +490,7 @@ paths:
       description: |
         Löst den Planungsalgorithmus für alle Accounts der Identity aus.
         Accounts werden sequentiell oder parallel verarbeitet
-        (Arbeitszeiten sind disjunkt). Gepinnte Einträge bleiben fixiert.
+        (Arbeitszeiten sind disjunkt).
       operationId: generateAllAccountsSchedule
       security:
         - bearerAuth: [ ]
@@ -1994,7 +1994,7 @@ components:
           nullable: true
           description: |
             Nur bei `source: ONE_TIME`.
-            Für PATCH-Aktionen (complete, pin, unpin).
+            Für PATCH-Aktionen
         # --- Zeitdaten ---
         occurrenceDate:
           type: string
@@ -2089,11 +2089,10 @@ components:
       properties:
         type:
           type: string
-          enum: [ DEADLINE_TIGHT, OVERLOADED_DAY, PIN_CONFLICT, OTHER ]
+          enum: [ DEADLINE_TIGHT, OVERLOADED_DAY, OTHER ]
           description: |
             - `DEADLINE_TIGHT`: Task eingeplant, aber < 30 min Puffer bis zur Deadline.
             - `OVERLOADED_DAY`: Ein Tag übersteigt die verfügbare Arbeitszeit.
-            - `PIN_CONFLICT`: Gepinnter Eintrag überlappt mit einem anderen.
             - `OTHER`: Sonstige Warnung, z.B. aus unerwarteten Fehlern oder Randfällen.
         message:
           type: string
