@@ -15,6 +15,12 @@ import {
   WorkingTimesService,
 } from '../../../api';
 
+import {
+  ScheduleCompletionApiService,
+  ScheduleTaskCompletionRequest,
+  ScheduleTaskCompletionResponse,
+} from '../completion/schedule-completion-api.service';
+
 type AccountOption = {
   id: string;
   label: string;
@@ -88,6 +94,7 @@ export class ScheduleFacadeService {
   private readonly userAccountsService = inject(UserAccountsService);
   private readonly workingTimesService = inject(WorkingTimesService);
   private readonly appointmentsService = inject(AppointmentsService);
+  private readonly scheduleCompletionApi = inject(ScheduleCompletionApiService);
 
   private readonly ALL_ACCOUNTS_ID = 'ALL';
   private readonly STORAGE_KEY = 'lastScheduleEntries';
@@ -254,8 +261,9 @@ export class ScheduleFacadeService {
       }
     }
 
-
-    if (accountId !== this.ALL_ACCOUNTS_ID && !this.canLoadExistingSchedule()) return;
+    if (accountId !== this.ALL_ACCOUNTS_ID && !this.canLoadExistingSchedule()) {
+      return;
+    }
 
     if (!this.hasSchedule()) {
       this.isLoadingSchedule.set(true);
@@ -268,8 +276,8 @@ export class ScheduleFacadeService {
         accountId === this.ALL_ACCOUNTS_ID
           ? await firstValueFrom(this.schedulesService.getAllAccountsSchedule(from, to))
           : await firstValueFrom(
-            this.schedulesService.getSingleAccountSchedule(accountId, from, to),
-          );
+              this.schedulesService.getSingleAccountSchedule(accountId, from, to),
+            );
 
       const appointmentEntries = await this.loadAppointmentEntries(accountId);
 
@@ -342,8 +350,8 @@ export class ScheduleFacadeService {
         accountId === this.ALL_ACCOUNTS_ID
           ? await firstValueFrom(this.schedulesService.generateAllAccountsSchedule(request))
           : await firstValueFrom(
-            this.schedulesService.generateSingleAccountSchedule(accountId, request),
-          );
+              this.schedulesService.generateSingleAccountSchedule(accountId, request),
+            );
 
       const appointmentEntries = await this.loadAppointmentEntries(accountId);
 
@@ -407,14 +415,41 @@ export class ScheduleFacadeService {
       (entry) => !(entry.type === 'APPOINTMENT' && entry.isBreak),
     );
 
-    const entries = this.sortScheduleEntries([
-      ...existingNonBreakEntries,
-      ...freshBreakEntries,
-    ]);
+    const entries = this.sortScheduleEntries([...existingNonBreakEntries, ...freshBreakEntries]);
 
     this.scheduleEntries.set(entries);
     this.saveToCache(entries);
   }
+
+  async completeTaskFromPlanner(request: ScheduleTaskCompletionRequest): Promise<void> {
+    this.errorMessage.set('');
+    this.infoMessage.set('');
+    this.successMessage.set('');
+
+    try {
+      const response = await firstValueFrom(
+        this.scheduleCompletionApi.completeTaskFromPlanner(request),
+      );
+
+      this.applyTaskCompletionResponse(response);
+
+      this.successMessage.set(
+        request.scope === 'TASK'
+          ? 'Die Aufgabe wurde als erledigt markiert.'
+          : 'Der Aufgabenabschnitt wurde als erledigt markiert.',
+      );
+    } catch (error) {
+      this.errorMessage.set(
+        this.getReadableErrorMessage(
+          error,
+          'Die Erledigt-Entscheidung konnte nicht gespeichert werden.',
+        ),
+      );
+
+      throw error;
+    }
+  }
+
   getUnscheduledTaskLabel(task: UnscheduledTask): string {
     const value = task as any;
 
@@ -427,12 +462,123 @@ export class ScheduleFacadeService {
       'Nicht eingeplante Aufgabe'
     );
   }
+
+  private applyTaskCompletionResponse(response: ScheduleTaskCompletionResponse): void {
+    if (this.isMultiAccountScheduleResponse(response)) {
+      this.applyScheduleResponse(response);
+      return;
+    }
+
+    if (this.isScheduleResponse(response)) {
+      this.applyScheduleResponse(response);
+      return;
+    }
+
+    const updatedEntries = this.extractUpdatedScheduleEntries(response);
+
+    if (updatedEntries.length === 0) {
+      return;
+    }
+
+    this.replaceScheduleEntries(updatedEntries);
+  }
+
+  private extractUpdatedScheduleEntries(response: ScheduleTaskCompletionResponse): ScheduleEntry[] {
+    if (Array.isArray(response)) {
+      return response;
+    }
+
+    if (!response || typeof response !== 'object') {
+      return [];
+    }
+
+    const value = response as {
+      updatedEntries?: ScheduleEntry[] | null;
+      entries?: ScheduleEntry[] | null;
+    };
+
+    if (Array.isArray(value.updatedEntries)) {
+      return value.updatedEntries;
+    }
+
+    if (Array.isArray(value.entries)) {
+      return value.entries;
+    }
+
+    return [];
+  }
+
+  private replaceScheduleEntries(updatedEntries: ScheduleEntry[]): void {
+    const currentEntries = this.scheduleEntries();
+
+    const nextEntries = currentEntries.map((currentEntry) => {
+      return (
+        updatedEntries.find((updatedEntry) =>
+          this.isSameScheduleEntry(currentEntry, updatedEntry),
+        ) ?? currentEntry
+      );
+    });
+
+    const sortedEntries = this.sortScheduleEntries(nextEntries);
+
+    this.scheduleEntries.set(sortedEntries);
+    this.saveToCache(sortedEntries);
+
+    const currentResponse = this.scheduleResponse();
+
+    if (currentResponse) {
+      this.scheduleResponse.set({
+        ...currentResponse,
+        entries: sortedEntries,
+      });
+    }
+  }
+
+  private isSameScheduleEntry(first: ScheduleEntry, second: ScheduleEntry): boolean {
+    const firstId = first.entryId ? String(first.entryId) : '';
+    const secondId = second.entryId ? String(second.entryId) : '';
+
+    return firstId.length > 0 && secondId.length > 0 && firstId === secondId;
+  }
+
+  private isScheduleResponse(
+    response: ScheduleTaskCompletionResponse,
+  ): response is ScheduleResponse {
+    if (!response || Array.isArray(response) || typeof response !== 'object') {
+      return false;
+    }
+
+    const value = response as ScheduleResponse;
+
+    return (
+      Array.isArray(value.entries) &&
+      ('accountId' in value ||
+        'generatedAt' in value ||
+        'from' in value ||
+        'to' in value ||
+        'totalWorkMinutes' in value ||
+        'score' in value ||
+        'warnings' in value ||
+        'unscheduledTasks' in value ||
+        'appointments' in value)
+    );
+  }
+
+  private isMultiAccountScheduleResponse(
+    response: ScheduleTaskCompletionResponse,
+  ): response is MultiAccountScheduleResponse {
+    return (
+      Boolean(response) &&
+      !Array.isArray(response) &&
+      typeof response === 'object' &&
+      Array.isArray((response as MultiAccountScheduleResponse).schedules)
+    );
+  }
+
   private removeAppointmentEntriesFromResponse(response: ScheduleResponse): ScheduleResponse {
     return {
       ...response,
-      entries: (response.entries ?? []).filter(
-        (entry) => entry.type !== 'APPOINTMENT',
-      ),
+      entries: (response.entries ?? []).filter((entry) => entry.type !== 'APPOINTMENT'),
       appointments: [],
     };
   }
@@ -545,8 +691,8 @@ export class ScheduleFacadeService {
     const accountIds =
       accountId === this.ALL_ACCOUNTS_ID
         ? this.accounts()
-          .map((account) => account.id)
-          .filter(Boolean)
+            .map((account) => account.id)
+            .filter(Boolean)
         : [accountId];
 
     if (accountIds.length === 0) {
@@ -628,9 +774,7 @@ export class ScheduleFacadeService {
 
   private mapSingleAppointment(appointment: any): ScheduleEntry {
     const accountId = appointment.accountId ? String(appointment.accountId) : null;
-    const accountLabel =
-      appointment.accountLabel ??
-      this.getAccountLabel(accountId);
+    const accountLabel = appointment.accountLabel ?? this.getAccountLabel(accountId);
 
     return {
       source: appointment.appointmentType ?? 'ONE_TIME',
@@ -665,9 +809,7 @@ export class ScheduleFacadeService {
     const startDate = this.getAppointmentDate(appointment);
 
     const accountId = appointment.accountId ? String(appointment.accountId) : null;
-    const accountLabel =
-      appointment.accountLabel ??
-      this.getAccountLabel(accountId);
+    const accountLabel = appointment.accountLabel ?? this.getAccountLabel(accountId);
 
     if (recurringDays.length === 0 && !isDaily) {
       return [];
@@ -823,7 +965,9 @@ export class ScheduleFacadeService {
       .find((part) => part.startsWith('BYDAY='))
       ?.substring('BYDAY='.length);
 
-    if (!byDay) return [];
+    if (!byDay) {
+      return [];
+    }
 
     return byDay
       .split(',')

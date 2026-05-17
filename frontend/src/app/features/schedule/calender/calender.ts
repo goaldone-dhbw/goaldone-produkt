@@ -5,6 +5,7 @@ import {
   effect,
   inject,
   input,
+  OnDestroy,
   output,
   signal,
   viewChild,
@@ -32,6 +33,11 @@ import {
 } from '../../../shared/task-edit-dialog/task-edit-dialog.component';
 
 import type { ScheduleWorkingTime } from '../facade/facade';
+import type {
+  ScheduleCompletionScope,
+  ScheduleTaskCompletionEvent,
+  ScheduleTaskCompletionRequest,
+} from '../completion/schedule-completion-api.service';
 
 export type ScheduleCalendarRange = {
   from: string;
@@ -162,7 +168,7 @@ const DAY_ALIASES: Record<string, CalendarDayName> = {
     class: 'block',
   },
 })
-export class CalenderComponent {
+export class CalenderComponent implements OnDestroy {
   private readonly tasksService = inject(TasksService);
   private readonly appointmentsService = inject(AppointmentsService);
   private readonly calendarRef = viewChild(FullCalendarComponent);
@@ -173,6 +179,7 @@ export class CalenderComponent {
   readonly rangeChanged = output<ScheduleCalendarRange>();
   readonly taskSaved = output<void>();
   readonly appointmentSaved = output<void>();
+  readonly taskCompletionRequested = output<ScheduleTaskCompletionEvent>();
 
   readonly selectedTask = signal<TaskItem | null>(null);
   readonly isTaskDialogOpen = signal(false);
@@ -183,6 +190,11 @@ export class CalenderComponent {
   readonly isAppointmentEditMode = signal(false);
   readonly isSavingAppointment = signal(false);
   readonly appointmentError = signal('');
+
+  readonly pendingTaskCompletionEntry = signal<ScheduleEntry | null>(null);
+  readonly isTaskCompletionDialogOpen = signal(false);
+  readonly isSavingTaskCompletion = signal(false);
+  readonly taskCompletionError = signal('');
 
   readonly weekdayOptions: { value: WeekdayCode; label: string }[] = [
     { value: 'MO', label: 'Mo' },
@@ -195,6 +207,7 @@ export class CalenderComponent {
   ];
 
   private readonly visibleRange = signal<ScheduleCalendarRange | null>(null);
+  private completionCheckTimerId: ReturnType<typeof setTimeout> | null = null;
 
   readonly effectiveSlotRange = computed(() => this.computeEffectiveSlotRange());
 
@@ -209,6 +222,11 @@ export class CalenderComponent {
           api.setOption('slotMaxTime', range.slotMaxTime);
         }
       }
+    });
+
+    effect(() => {
+      this.entries();
+      this.scheduleNextTaskCompletionCheck();
     });
   }
 
@@ -327,6 +345,7 @@ export class CalenderComponent {
 
     this.isAppointmentEditMode.set(true);
   }
+
   cancelAppointmentEdit(): void {
     this.isAppointmentEditMode.set(false);
     this.appointmentEditForm.set(null);
@@ -336,6 +355,90 @@ export class CalenderComponent {
   onTaskSaved(): void {
     this.closeTaskDialog();
     this.taskSaved.emit();
+  }
+
+  ngOnDestroy(): void {
+    this.clearTaskCompletionTimer();
+  }
+
+  getTaskCompletionDialogTitle(): string {
+    const entry = this.pendingTaskCompletionEntry();
+
+    if (!entry) {
+      return 'Aufgabe';
+    }
+
+    return this.getEntryTitle(entry);
+  }
+
+  getTaskCompletionDialogTime(): string {
+    const entry = this.pendingTaskCompletionEntry();
+
+    if (!entry) {
+      return '';
+    }
+
+    return `${this.formatTime(entry.startTime)} - ${this.formatTime(entry.endTime)}`;
+  }
+
+  getTaskCompletionDialogChunkLabel(): string {
+    const entry = this.pendingTaskCompletionEntry();
+
+    if (
+      !entry ||
+      entry.chunkIndex === null ||
+      entry.chunkIndex === undefined ||
+      entry.totalChunks === null ||
+      entry.totalChunks === undefined ||
+      entry.totalChunks <= 1
+    ) {
+      return 'Dieser geplante Aufgabenblock ist abgelaufen.';
+    }
+
+    return `Chunk ${entry.chunkIndex + 1} von ${entry.totalChunks} ist abgelaufen.`;
+  }
+
+  confirmPendingTaskCompletion(scope: ScheduleCompletionScope): void {
+    const entry = this.pendingTaskCompletionEntry();
+
+    if (!entry) {
+      return;
+    }
+
+    const request = this.createTaskCompletionRequest(entry, scope);
+
+    if (!request) {
+      this.taskCompletionError.set(
+        'Dieser Aufgabenblock hat noch keine ScheduleEntry-ID. Das Backend muss zuerst eine eindeutige scheduleEntryId für jeden geplanten Eintrag liefern.',
+      );
+      return;
+    }
+
+    this.isSavingTaskCompletion.set(true);
+    this.taskCompletionError.set('');
+
+    this.taskCompletionRequested.emit({
+      request,
+      resolve: () => {
+        this.isSavingTaskCompletion.set(false);
+        this.closeTaskCompletionDialog();
+        this.scheduleNextTaskCompletionCheck();
+      },
+      reject: (message?: string) => {
+        this.isSavingTaskCompletion.set(false);
+        this.taskCompletionError.set(
+          message || 'Die Erledigt-Entscheidung konnte nicht gespeichert werden.',
+        );
+        this.scheduleNextTaskCompletionCheck();
+      },
+    });
+  }
+
+  private closeTaskCompletionDialog(): void {
+    this.isTaskCompletionDialogOpen.set(false);
+    this.pendingTaskCompletionEntry.set(null);
+    this.isSavingTaskCompletion.set(false);
+    this.taskCompletionError.set('');
   }
 
   getInputValue(event: Event): string {
@@ -389,7 +492,7 @@ export class CalenderComponent {
 
   async saveAppointment(): Promise<void> {
     const form = this.appointmentEditForm();
-    const appointment = this.selectedAppointment(); // ← diese Zeile fehlt
+    const appointment = this.selectedAppointment();
 
     if (!form) return;
 
@@ -423,7 +526,6 @@ export class CalenderComponent {
 
     try {
       if (appointment?.isRecurring === true && !appointment.isBreak) {
-        // Split nur bei fixen Terminen
         const dayBefore = this.getDateBefore(appointment.date);
 
         const oldRule =
@@ -459,7 +561,6 @@ export class CalenderComponent {
           this.appointmentsService.createAppointment(form.accountId, newPayload),
         );
       } else {
-        // Pausen und ONE_TIME: einfaches Update
         const payload = this.createAppointmentUpdatePayload(form);
         await firstValueFrom(
           this.appointmentsService.updateAppointment(form.accountId, form.id, payload),
@@ -481,7 +582,7 @@ export class CalenderComponent {
       title: form.title.trim(),
       isBreak: form.isBreak,
       appointmentType: form.isRecurring ? 'RECURRING' : 'ONE_TIME',
-      date: form.isRecurring ? null : form.date || null, // NEU
+      date: form.isRecurring ? null : form.date || null,
       startTime: form.startTime.substring(0, 5),
       endTime: form.endTime.substring(0, 5),
       rrule: form.isRecurring ? this.createWeeklyRule(form.days) : null,
@@ -710,7 +811,10 @@ export class CalenderComponent {
 
     const durationInMinutes = this.getEntryDurationInMinutes(entry);
 
-    if (durationInMinutes <= COMPACT_EVENT_MAX_MINUTES && durationInMinutes > TINY_EVENT_MAX_MINUTES) {
+    if (
+      durationInMinutes <= COMPACT_EVENT_MAX_MINUTES &&
+      durationInMinutes > TINY_EVENT_MAX_MINUTES
+    ) {
       classNames.push('schedule-event--compact');
     }
 
@@ -1113,6 +1217,121 @@ export class CalenderComponent {
     }
 
     return merged;
+  }
+
+  private scheduleNextTaskCompletionCheck(): void {
+    this.clearTaskCompletionTimer();
+
+    const delay = this.getDelayUntilNextTaskCompletionCheck();
+
+    this.completionCheckTimerId = setTimeout(() => {
+      this.checkForDueTaskCompletionPrompt();
+      this.scheduleNextTaskCompletionCheck();
+    }, delay);
+  }
+
+  private clearTaskCompletionTimer(): void {
+    if (this.completionCheckTimerId) {
+      clearTimeout(this.completionCheckTimerId);
+      this.completionCheckTimerId = null;
+    }
+  }
+
+  private getDelayUntilNextTaskCompletionCheck(): number {
+    if (this.isTaskCompletionDialogOpen()) {
+      return 30_000;
+    }
+
+    const now = new Date();
+    const nextRelevantEntry = this.getNextRelevantTaskCompletionEntry(now, true);
+
+    if (!nextRelevantEntry) {
+      return 60_000;
+    }
+
+    const endTime = this.getEntryEndDate(nextRelevantEntry).getTime();
+    const delay = endTime - now.getTime();
+
+    return Math.min(Math.max(delay, 0), 60_000);
+  }
+
+  private checkForDueTaskCompletionPrompt(): void {
+    if (this.isTaskCompletionDialogOpen()) {
+      return;
+    }
+
+    const nextDueEntry = this.getNextRelevantTaskCompletionEntry(new Date(), false);
+
+    if (!nextDueEntry) {
+      return;
+    }
+
+    this.pendingTaskCompletionEntry.set(nextDueEntry);
+    this.taskCompletionError.set('');
+    this.isTaskCompletionDialogOpen.set(true);
+  }
+
+  private getNextRelevantTaskCompletionEntry(
+    now: Date,
+    includeFutureEntries: boolean,
+  ): ScheduleEntry | null {
+    const candidates = this.entries()
+      .filter((entry) => entry.type === 'TASK')
+      .filter((entry) => this.isValidEntry(entry))
+      .filter((entry) => this.hasScheduleEntryId(entry))
+      .filter((entry) => !this.isTaskEntryCompleted(entry))
+      .filter((entry) => {
+        if (includeFutureEntries) {
+          return true;
+        }
+
+        return this.getEntryEndDate(entry).getTime() <= now.getTime();
+      })
+      .sort((first, second) => {
+        return this.getEntryEndDate(first).getTime() - this.getEntryEndDate(second).getTime();
+      });
+
+    return candidates[0] ?? null;
+  }
+
+  private isTaskEntryCompleted(entry: ScheduleEntry): boolean {
+    const rawEntry = entry as any;
+
+    return entry.isCompleted === true || rawEntry.status === 'DONE';
+  }
+
+  private getEntryEndDate(entry: ScheduleEntry): Date {
+    return new Date(`${entry.occurrenceDate}T${this.normalizeTime(entry.endTime)}`);
+  }
+
+  private createTaskCompletionRequest(
+    entry: ScheduleEntry,
+    scope: ScheduleCompletionScope,
+  ): ScheduleTaskCompletionRequest | null {
+    const scheduleEntryId = this.getScheduleEntryId(entry);
+
+    if (!scheduleEntryId) {
+      return null;
+    }
+
+    return {
+      scope,
+      scheduleEntryId,
+    };
+  }
+
+  private hasScheduleEntryId(entry: ScheduleEntry): boolean {
+    return this.getScheduleEntryId(entry) !== null;
+  }
+
+  private getScheduleEntryId(entry: ScheduleEntry): string | null {
+    if (entry.entryId === null || entry.entryId === undefined) {
+      return null;
+    }
+
+    const value = String(entry.entryId).trim();
+
+    return value.length > 0 ? value : null;
   }
 
   private handleDatesSet(arg: DatesSetArg): void {
