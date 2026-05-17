@@ -55,12 +55,12 @@ public class SchedulePlanEntity {
     @Column(name = "score", nullable = false)
     private Integer score;
 
-    /** Jackson-serialized JSON array of ScheduleWarning objects. TEXT for H2/PostgreSQL compatibility. */
-    @Column(name = "warnings_json", columnDefinition = "TEXT")
+    /** Jackson-serialized JSON array of ScheduleWarning objects. CLOB maps to TEXT in H2 and PostgreSQL. */
+    @Column(name = "warnings_json", columnDefinition = "CLOB")
     private String warningsJson;
 
-    /** Jackson-serialized JSON array of UnscheduledTask objects. TEXT for H2/PostgreSQL compatibility. */
-    @Column(name = "unscheduled_tasks_json", columnDefinition = "TEXT")
+    /** Jackson-serialized JSON array of UnscheduledTask objects. CLOB maps to TEXT in H2 and PostgreSQL. */
+    @Column(name = "unscheduled_tasks_json", columnDefinition = "CLOB")
     private String unscheduledTasksJson;
 
     /** All schedule entries belonging to this plan. Cascade ensures entries are deleted with the plan. */
