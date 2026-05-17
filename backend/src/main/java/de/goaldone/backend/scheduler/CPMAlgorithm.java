@@ -355,7 +355,6 @@ public class CPMAlgorithm {
 
             currentIndex += 1;
             result.add(new ScheduledChunk(chunk, timeSlot));
-
         }
         return result;
     }
