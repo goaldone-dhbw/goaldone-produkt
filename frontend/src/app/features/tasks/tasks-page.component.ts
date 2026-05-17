@@ -16,7 +16,6 @@ import { ButtonModule } from 'primeng/button';
 import { DatePickerModule } from 'primeng/datepicker';
 import { SelectModule } from 'primeng/select';
 import { InputTextModule } from 'primeng/inputtext';
-import { InputNumberModule } from 'primeng/inputnumber';
 import { FormsModule } from '@angular/forms';
 import {
   CognitiveLoad,
@@ -44,7 +43,6 @@ type TaskFilters = {
   deadlineTo: Date | null;
   accountId: string | null;
   searchTerm: string | null;
-  maxDuration: number | null;
 };
 
 type HideableSelect = {
@@ -61,7 +59,6 @@ type HideableSelect = {
     SelectModule,
     DatePickerModule,
     InputTextModule,
-    InputNumberModule,
     Tooltip,
     TaskEditDialogComponent,
     BasePopupComponent,
@@ -119,7 +116,6 @@ export class TasksPageComponent implements OnInit {
       difficulty: params.difficulty || null,
       accountId: params.accountId || null,
       searchTerm: params.searchTerm || null,
-      maxDuration: params.maxDuration ? parseInt(params.maxDuration, 10) : null,
       deadlineFrom: params.deadlineFrom
         ? this.parseLocalDateNativeString(params.deadlineFrom)
         : null,
@@ -180,7 +176,7 @@ export class TasksPageComponent implements OnInit {
           fromStr,
           toStr,
           undefined,
-          this.filters.maxDuration || undefined,
+          undefined,
           undefined,
           undefined,
           this.filters.searchTerm || undefined,
@@ -239,8 +235,7 @@ export class TasksPageComponent implements OnInit {
       this.filters.deadlineFrom !== null ||
       this.filters.deadlineTo !== null ||
       this.filters.accountId !== null ||
-      this.filters.searchTerm !== null ||
-      this.filters.maxDuration !== null
+      this.filters.searchTerm !== null
     );
   }
 
@@ -254,7 +249,6 @@ export class TasksPageComponent implements OnInit {
     if (this.filters.difficulty) queryParams.difficulty = this.filters.difficulty;
     if (this.filters.accountId) queryParams.accountId = this.filters.accountId;
     if (this.filters.searchTerm) queryParams.searchTerm = this.filters.searchTerm;
-    if (this.filters.maxDuration) queryParams.maxDuration = this.filters.maxDuration;
     if (this.filters.deadlineFrom)
       queryParams.deadlineFrom = this.formatLocalDateNativeString(this.filters.deadlineFrom);
     if (this.filters.deadlineTo)
@@ -512,7 +506,6 @@ export class TasksPageComponent implements OnInit {
     deadlineTo: null,
     accountId: null,
     searchTerm: null,
-    maxDuration: null,
   };
 
   dateRange: Date[] = [];
@@ -622,7 +615,6 @@ export class TasksPageComponent implements OnInit {
       deadlineTo: null,
       accountId: null,
       searchTerm: null,
-      maxDuration: null,
     };
 
     this.dateRange = [];
