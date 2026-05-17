@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+    http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="010-create-schedule-plan-tables" author="claude">
+
+        <!-- schedule_plans: one row per account, UNIQUE on account_id (replace-on-regenerate model) -->
+        <createTable tableName="schedule_plans">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" primaryKeyName="pk_schedule_plans"/>
+            </column>
+            <column name="account_id" type="UUID">
+                <constraints nullable="false" unique="true" uniqueConstraintName="uq_schedule_plans_account_id"/>
+            </column>
+            <column name="generated_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="from_date" type="DATE">
+                <constraints nullable="false"/>
+            </column>
+            <column name="to_date" type="DATE">
+                <constraints nullable="false"/>
+            </column>
+            <column name="total_work_minutes" type="INTEGER">
+                <constraints nullable="false"/>
+            </column>
+            <column name="score" type="INTEGER">
+                <constraints nullable="false"/>
+            </column>
+            <!-- TEXT (not JSONB) for H2 + PostgreSQL compatibility (D-02) -->
+            <column name="warnings_json" type="TEXT"/>
+            <column name="unscheduled_tasks_json" type="TEXT"/>
+        </createTable>
+
+        <!-- schedule_entries: one row per scheduled task chunk -->
+        <createTable tableName="schedule_entries">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" primaryKeyName="pk_schedule_entries"/>
+            </column>
+            <column name="plan_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="account_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <!-- LocalDateTime stored as TIMESTAMP (D-03) -->
+            <column name="start_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="end_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="entry_type" type="VARCHAR(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="is_break" type="BOOLEAN">
+                <constraints nullable="false"/>
+            </column>
+            <column name="is_completed" type="BOOLEAN">
+                <constraints nullable="false"/>
+            </column>
+            <column name="original_item_id" type="UUID"/>
+            <column name="original_item_title" type="VARCHAR(500)"/>
+            <column name="chunk_index" type="INTEGER"/>
+            <column name="total_chunks" type="INTEGER"/>
+            <column name="occurrence_date" type="DATE">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <!-- FK: schedule_entries.plan_id → schedule_plans.id (CASCADE DELETE) -->
+        <addForeignKeyConstraint
+            baseTableName="schedule_entries"
+            baseColumnNames="plan_id"
+            referencedTableName="schedule_plans"
+            referencedColumnNames="id"
+            constraintName="fk_schedule_entries_plan_id"
+            onDelete="CASCADE"/>
+
+        <!-- Indexes for efficient lookup by account_id and original_item_id -->
+        <createIndex tableName="schedule_entries" indexName="idx_schedule_entries_account_id">
+            <column name="account_id"/>
+        </createIndex>
+
+        <createIndex tableName="schedule_entries" indexName="idx_schedule_entries_original_item_id">
+            <column name="original_item_id"/>
+        </createIndex>
+
+    </changeSet>
+</databaseChangeLog>
