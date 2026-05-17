@@ -151,6 +151,14 @@ public class CPMAlgorithm {
         return result;
     }
 
+    /**
+     * Calculates how many minutes of a task can be planned into a slot.
+     * Extends the slot if the remaining duration is within the allowed buffer.
+     *
+     * @param slotDuration the available duration of the slot in minutes
+     * @param remainingMinutes the remaining task duration in minutes
+     * @return the usable duration in minutes
+     */
     private int calculateUsableMinutes(int slotDuration, int remainingMinutes) {
         int usableMinutes = Math.min(slotDuration, remainingMinutes);
 
@@ -164,6 +172,14 @@ public class CPMAlgorithm {
         return usableMinutes;
     }
 
+    /**
+     * Creates a partial task chunk with the specified duration
+     * while preserving the original chunk metadata.
+     *
+     * @param chunk the original task chunk
+     * @param usableMinutes the duration of the partial chunk in minutes
+     * @return a new partial task chunk
+     */
     private TaskChunk getPartialChunk(TaskChunk chunk, int usableMinutes) {
         return TaskChunk.builder()
                 .taskTitle(chunk.taskTitle())
@@ -180,13 +196,28 @@ public class CPMAlgorithm {
                 .build();
     }
 
+    /**
+     * Creates a partial time slot with the given duration,
+     * starting from the original slot start time.
+     *
+     * @param slot the original time slot
+     * @param usableMinutes the duration of the partial slot in minutes
+     * @return a new partial time slot
+     */
     private TimeSlot getPartialSlot(TimeSlot slot, int usableMinutes) {
         return new TimeSlot(
                 slot.date(), slot.startTime(), slot.startTime().plusMinutes(usableMinutes)
         );
     }
 
-
+    /**
+     * Returns the duration of an automatically inserted break
+     * if the chunk fully fits and the cognitive load limit is reached.
+     *
+     * @param chunk the task chunk to evaluate
+     * @param remainingMinutes remaining unplanned minutes of the chunk
+     * @return the additional break duration in minutes, otherwise {@code 0}
+     */
     private int getAdditionalTimeForAutomatedBreaks(TaskChunk chunk, int  remainingMinutes) {
 
         // Chunk not fully planned
@@ -201,6 +232,14 @@ public class CPMAlgorithm {
         return 0;
     }
 
+    /**
+     * Checks whether the maximum recommended duration
+     * for the given cognitive load has been reached.
+     *
+     * @param cognitiveLoad the cognitive load level
+     * @param plannedMinutes the planned duration in minutes
+     * @return {@code true} if the limit is reached, otherwise {@code false}
+     */
     private boolean cognitiveLoadReached(CognitiveLoad cognitiveLoad, int plannedMinutes) {
         int maxChunkSize = switch (cognitiveLoad) {
             case HIGH -> 120;
@@ -298,7 +337,7 @@ public class CPMAlgorithm {
     public List<ScheduledChunk> updateChunks(List<ScheduledChunk> scheduledChunks) {
 
         int totalChunks = (int) scheduledChunks.stream()
-                .filter(scheduledChunk -> !isAutomatedBreak(scheduledChunk.chunk()))
+                .filter(scheduledChunk -> !scheduledChunk.chunk().isBreak())
                 .count();
         List<ScheduledChunk> result = new ArrayList<>();
 
@@ -312,7 +351,7 @@ public class CPMAlgorithm {
             TaskChunk chunk = scheduledChunk.chunk();
             TimeSlot timeSlot = scheduledChunk.slot();
 
-            if (isAutomatedBreak(chunk)) {
+            if (chunk.isBreak()) {
                 result.add(scheduledChunk);
                 continue;
             }
@@ -327,8 +366,6 @@ public class CPMAlgorithm {
 
     /**
      * Validates that the target slot and chunk can be used to update the available slot list.
-     * A chunk may exceed the target slot by up to {@link #MAX_BUFFER} minutes so small final remainders
-     * do not have to be split into a separate scheduled chunk.
      *
      * @param targetSlot The slot that will be removed or shortened
      * @param chunk The chunk that will occupy the slot
@@ -447,15 +484,6 @@ public class CPMAlgorithm {
     }
 
     /**
-     *
-     * @param chunk The chunk in question
-     * @return True, if the chunk is an automated break
-     */
-    private boolean isAutomatedBreak(TaskChunk chunk) {
-        return AUTOMATED_BREAK_TITLE.equals(chunk.taskTitle());
-    }
-
-    /**
      * Tries to schedule tasks that were left unscheduled after the initial plan.
      * This method is called exactly once before the move-loop.
      * Uses the same CPM sort order as {@link #generateInitialSchedule}.
@@ -531,9 +559,11 @@ public class CPMAlgorithm {
     }
 
     /**
-     * Forward pass: compute Earliest Start (ES) and Earliest End (EF) for each task.
-     * ES = max(notBefore, max(EF of predecessors))
-     * EF = ES + task duration in available work minutes
+     * Calculates the scheduling slack for each task based on
+     * its earliest possible start and latest possible finish.
+     *
+     * @param context the scheduling context containing tasks and working times
+     * @return a list of calculated task slack values
      */
     private List<TaskSlack> calculateSlack(SchedulingContext context) {
 
@@ -578,6 +608,4 @@ public class CPMAlgorithm {
         }
         return results;
     }
-
-
 }
