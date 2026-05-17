@@ -95,6 +95,11 @@ public class ScheduleMapper {
                 .sum();
     }
 
+    /**
+     * @param schedule The generated schedule
+     * @param fromDate The date from which on the plan is generated
+     * @return The date of the latest scheduled task
+     */
     private LocalDate getToDate(SolverState schedule, LocalDate fromDate) {
         Optional<LocalDate> latestDate = schedule.scheduledChunks().stream()
                 .map(c -> c.slot().date())
@@ -102,6 +107,10 @@ public class ScheduleMapper {
         return latestDate.orElse(fromDate);
     }
 
+    /**
+     * @param state The generated schedule
+     * @return ScheduledChunks mapped as List of ScheduleEntry
+     */
     private List<ScheduleEntry> getScheduleWithIds(SolverState state, Map<ScheduledChunk, UUID> chunkIdMap) {
         List<ScheduleEntry> schedule = new ArrayList<>();
         for (ScheduledChunk scheduledChunk : state.scheduledChunks()) {
@@ -111,6 +120,10 @@ public class ScheduleMapper {
         return schedule;
     }
 
+    /**
+     * @param scheduledChunk A single scheduled chunk
+     * @return A ScheduledChunk mapped as ScheduleEntry
+     */
     private ScheduleEntry toScheduleEntry(ScheduledChunk scheduledChunk, UUID entryId) {
         ScheduleEntry entry = new ScheduleEntry()
                 .originalItemTitle(scheduledChunk.chunk().taskTitle())

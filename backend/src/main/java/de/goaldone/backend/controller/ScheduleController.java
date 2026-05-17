@@ -20,6 +20,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
+
 @RestController
 @RequiredArgsConstructor
 public class ScheduleController implements SchedulesApi {
@@ -35,9 +36,17 @@ public class ScheduleController implements SchedulesApi {
                 .findAccountsForIdentity(userIdentityService.findIdentityFromAccount(jwt));
     }
 
+    /**
+     * Generates schedules for all accounts linked to the current user identity.
+     *
+     * @param generateScheduleRequest Request containing the schedule generation parameters.
+     * @return Schedule responses for all linked accounts.
+     */
     @Override
     public ResponseEntity<MultiAccountScheduleResponse> generateAllAccountsSchedule(GenerateScheduleRequest generateScheduleRequest) {
+
         Jwt jwt = currentUserResolver.extractJwt();
+
         List<UUID> accountIds = getAccountsLinkedToIdentity(jwt)
                 .stream()
                 .map(UserAccountEntity::getId)
@@ -49,6 +58,7 @@ public class ScheduleController implements SchedulesApi {
 
         MultiAccountScheduleResponse response = new MultiAccountScheduleResponse();
         response.setSchedules(scheduleResponses);
+
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
@@ -65,9 +75,19 @@ public class ScheduleController implements SchedulesApi {
         return ResponseEntity.ok(response);
     }
 
+    /**
+     *
+     * @param accountId Account for which the schedule will be generated(required)
+     * @param generateScheduleRequest  (required)
+     * @return Schedule for the given account
+     */
     @Override
     public ResponseEntity<ScheduleResponse> generateSingleAccountSchedule(UUID accountId, GenerateScheduleRequest generateScheduleRequest) {
+
+        // Extract token
         Jwt jwt = currentUserResolver.extractJwt();
+
+        // Generate schedule for account with timeout
         ScheduleResponse scheduleResponse = scheduleService.generateSingleAccountSchedule(
                 jwt, accountId, generateScheduleRequest, timeoutMilliseconds
         );
