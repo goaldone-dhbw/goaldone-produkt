@@ -216,7 +216,7 @@ export class CalenderComponent implements OnDestroy {
     { value: 'SA', label: 'Sa' },
     { value: 'SU', label: 'So' },
   ];
-
+  readonly allAvailableTaskItems = signal<TaskItem[]>([]);
   private readonly visibleRange = signal<ScheduleCalendarRange | null>(null);
   private completionCheckTimerId: ReturnType<typeof setTimeout> | null = null;
 
@@ -665,6 +665,7 @@ export class CalenderComponent implements OnDestroy {
     accountLists: TaskAccountListResponse[],
   ): TaskItem {
     const taskId = task.id ?? this.getTaskId(entry);
+    const accountId = this.findAccountIdForTask(accountLists, taskId);
 
     return {
       id: taskId,
@@ -673,8 +674,13 @@ export class CalenderComponent implements OnDestroy {
       duration: task.duration ?? this.calculateDurationInMinutes(entry),
       deadline: task.deadline ?? null,
       status: task.status ?? this.getTaskStatus(entry),
-      accountId: this.findAccountIdForTask(accountLists, taskId),
-      accountLabel: null,
+      accountId,
+      accountLabel:
+        this.findAccountLabelForTask(accountLists, taskId) ||
+        this.getOptionalString(entry, 'accountLabel') ||
+        this.getOptionalString(entry, 'organizationName') ||
+        this.getOptionalString(entry, 'organizationLabel') ||
+        this.getOptionalString(entry, 'accountName'),
       dependencyIds: task.dependencyIds ?? [],
       cognitiveLoad: task.cognitiveLoad ?? null,
       dontScheduleBefore: task.dontScheduleBefore ?? null,
@@ -1393,12 +1399,16 @@ export class CalenderComponent implements OnDestroy {
 
     if (!taskId) {
       this.selectedTask.set(this.mapScheduleEntryToTaskItem(entry));
+      this.allAvailableTaskItems.set(this.allTaskItems());
       this.isTaskDialogOpen.set(true);
       return;
     }
 
     try {
       const accountLists = await firstValueFrom(this.tasksService.getTasksForAllAccounts());
+
+      this.allAvailableTaskItems.set(this.mapAccountListsToTaskItems(accountLists));
+
       const task = this.findTaskById(accountLists, taskId);
 
       if (!task) {
@@ -1411,6 +1421,7 @@ export class CalenderComponent implements OnDestroy {
       this.isTaskDialogOpen.set(true);
     } catch {
       this.selectedTask.set(this.mapScheduleEntryToTaskItem(entry));
+      this.allAvailableTaskItems.set(this.allTaskItems());
       this.isTaskDialogOpen.set(true);
     }
   }
@@ -1514,5 +1525,62 @@ export class CalenderComponent implements OnDestroy {
     const compact = untilDate.replaceAll('-', '');
 
     return `${withoutUntil};UNTIL=${compact}`;
+  }
+  private findAccountLabelForTask(
+    accountLists: TaskAccountListResponse[],
+    taskId: string,
+  ): string | null {
+    for (const accountList of accountLists) {
+      const taskExists = accountList.tasks?.some((candidate) => candidate.id === taskId);
+
+      if (!taskExists) {
+        continue;
+      }
+
+      const rawAccountList = accountList as any;
+
+      return (
+        rawAccountList.organizationName ??
+        rawAccountList.accountLabel ??
+        rawAccountList.organizationLabel ??
+        rawAccountList.accountName ??
+        rawAccountList.label ??
+        rawAccountList.name ??
+        null
+      );
+    }
+
+    return null;
+  }
+  private mapAccountListsToTaskItems(accountLists: TaskAccountListResponse[]): TaskItem[] {
+    return accountLists.flatMap((accountList) => {
+      const rawAccountList = accountList as any;
+
+      const accountLabel =
+        rawAccountList.organizationName ??
+        rawAccountList.accountLabel ??
+        rawAccountList.organizationLabel ??
+        rawAccountList.accountName ??
+        rawAccountList.label ??
+        rawAccountList.name ??
+        null;
+
+      return (accountList.tasks ?? []).map((task): TaskItem => {
+        return {
+          id: task.id ?? '',
+          title: task.title?.trim() || 'Unbenannte Aufgabe',
+          description: task.description ?? null,
+          duration: task.duration ?? 0,
+          deadline: task.deadline ?? null,
+          status: task.status ?? 'OPEN',
+          accountId: accountList.accountId ?? null,
+          accountLabel,
+          dependencyIds: task.dependencyIds ?? [],
+          cognitiveLoad: task.cognitiveLoad ?? null,
+          dontScheduleBefore: task.dontScheduleBefore ?? null,
+          customChunkSize: task.customChunkSize ?? null,
+        };
+      });
+    });
   }
 }
