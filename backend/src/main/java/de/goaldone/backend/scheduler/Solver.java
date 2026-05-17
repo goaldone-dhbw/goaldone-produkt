@@ -49,6 +49,10 @@ public class Solver {
 
         while (System.currentTimeMillis() < endTime) {
 
+            if (currentScore == constraintHandler.getBestPossibleSchedule()) {
+                break;
+            }
+
             SolverState newState = moveSelector.selectAndApply(currentBest);
 
             // Skip invalid moves (e.g. no free slots / not enough chunks)
