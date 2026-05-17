@@ -547,8 +547,12 @@ paths:
             schema:
               $ref: '#/components/schemas/MarkScheduleEntryRequest'
       responses:
-        '204':
+        '200':
           description: Entry marked as completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MarkScheduleEntryResponse'
         '403':
           description: Account does not belong to the caller's identity
         '404':
@@ -2202,6 +2206,16 @@ components:
       properties:
         scope:
           $ref: '#/components/schemas/MarkScheduleEntryScope'
+
+    MarkScheduleEntryResponse:
+      type: object
+      required: [updatedEntries]
+      properties:
+        updatedEntries:
+          type: array
+          items:
+            $ref: '#/components/schemas/ScheduleEntry'
+          description: The schedule entries that were updated (one for CHUNK scope, multiple for TASK scope)
 
 security:
   - bearerAuth: [ ]
