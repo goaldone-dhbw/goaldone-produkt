@@ -88,15 +88,6 @@
           (onClear)="clearDateRangeFilter()">
         </p-datepicker>
 
-        <p-inputNumber
-          [(ngModel)]="filters.maxDuration"
-          [showButtons]="false"
-          placeholder="max. Dauer (min)"
-          ariaLabel="Maximale Dauer in Minuten angeben"
-          (onInput)="onFilterInput()"
-          class="w-40">
-        </p-inputNumber>
-
         <p-select
           #accountSelect
           styleClass="w-56"
