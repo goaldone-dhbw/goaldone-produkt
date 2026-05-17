@@ -1,5 +1,6 @@
 package de.goaldone.backend.scheduler;
 
+import de.goaldone.backend.model.CognitiveLoad;
 import de.goaldone.backend.scheduler.types.model.ScheduledChunk;
 import de.goaldone.backend.scheduler.types.model.SolverState;
 import de.goaldone.backend.scheduler.types.model.TaskChunk;
@@ -23,12 +24,11 @@ class SwapMoveTest {
         return new TimeSlot(DAY, LocalTime.of(startHour, 0), LocalTime.of(endHour, 0));
     }
 
-    private static TaskChunk chunk(UUID taskId, int durationMinutes, boolean pinned) {
+    private static TaskChunk chunk(UUID taskId, int durationMinutes) {
         return new TaskChunk(
                 UUID.randomUUID(), taskId, "Task",
-                0, 1, durationMinutes,
-                0, 0, null,
-                null, null, pinned, null
+                0, 1, durationMinutes, CognitiveLoad.LOW,
+                null, null, false, null
         );
     }
 
@@ -51,8 +51,8 @@ class SwapMoveTest {
     @Test
     void apply_swapsSlotsOfTwoUnpinnedChunks() {
         UUID taskId = UUID.randomUUID();
-        TaskChunk chunkA = chunk(taskId, 60, false);
-        TaskChunk chunkB = chunk(taskId, 60, false);
+        TaskChunk chunkA = chunk(taskId, 60);
+        TaskChunk chunkB = chunk(taskId, 60);
         TimeSlot slot3 = slot(9, 10);
         TimeSlot slot7 = slot(11, 12);
 
@@ -74,7 +74,7 @@ class SwapMoveTest {
     @Test
     void apply_returnsNull_whenFewerThanTwoUnpinnedChunks() {
         UUID taskId = UUID.randomUUID();
-        TaskChunk chunkA = chunk(taskId, 60, false);
+        TaskChunk chunkA = chunk(taskId, 60);
 
         assertNull(new SwapMove(fixed()).apply(state(
                 List.of(new ScheduledChunk(chunkA, slot(9, 10))),
@@ -83,23 +83,10 @@ class SwapMoveTest {
     }
 
     @Test
-    void apply_ignoresPinnedChunks() {
-        UUID taskId = UUID.randomUUID();
-        TaskChunk pinned   = chunk(taskId, 60, true);
-        TaskChunk unpinned = chunk(taskId, 60, false);
-
-        assertNull(new SwapMove(fixed()).apply(state(
-                List.of(new ScheduledChunk(pinned,   slot(9, 10)),
-                        new ScheduledChunk(unpinned, slot(11, 12))),
-                List.of()
-        )));
-    }
-
-    @Test
     void apply_returnsNull_whenTargetSlotTooShort() {
         UUID taskId = UUID.randomUUID();
-        TaskChunk chunkA = chunk(taskId, 60, false);
-        TaskChunk chunkB = chunk(taskId, 30, false);
+        TaskChunk chunkA = chunk(taskId, 60);
+        TaskChunk chunkB = chunk(taskId, 30);
 
         TimeSlot longSlot  = slot(9, 10);   // 60 min
         TimeSlot shortSlot = new TimeSlot(DAY, LocalTime.of(11, 0), LocalTime.of(11, 30)); // 30 min
@@ -114,8 +101,8 @@ class SwapMoveTest {
     @Test
     void apply_doesNotChangeFreeSlots() {
         UUID taskId = UUID.randomUUID();
-        TaskChunk chunkA = chunk(taskId, 60, false);
-        TaskChunk chunkB = chunk(taskId, 60, false);
+        TaskChunk chunkA = chunk(taskId, 60);
+        TaskChunk chunkB = chunk(taskId, 60);
         TimeSlot freeSlot = slot(14, 15);
 
         SolverState result = new SwapMove(fixed(0, 1)).apply(state(
@@ -131,8 +118,8 @@ class SwapMoveTest {
 
     @Test
     void apply_allowsSwap_acrossDifferentTasks() {
-        TaskChunk chunkA = chunk(UUID.randomUUID(), 60, false);
-        TaskChunk chunkB = chunk(UUID.randomUUID(), 60, false);
+        TaskChunk chunkA = chunk(UUID.randomUUID(), 60);
+        TaskChunk chunkB = chunk(UUID.randomUUID(), 60);
         TimeSlot slotA = slot(9, 10);
         TimeSlot slotB = slot(11, 12);
 
@@ -154,8 +141,8 @@ class SwapMoveTest {
     @Test
     void apply_doesNotMutateOriginalState() {
         UUID taskId = UUID.randomUUID();
-        TaskChunk chunkA = chunk(taskId, 60, false);
-        TaskChunk chunkB = chunk(taskId, 60, false);
+        TaskChunk chunkA = chunk(taskId, 60);
+        TaskChunk chunkB = chunk(taskId, 60);
 
         SolverState current = state(
                 List.of(new ScheduledChunk(chunkA, slot(9, 10)),

@@ -394,7 +394,7 @@ paths:
         Die Antwort enthält zwei Arten von Einträgen, erkennbar am `source`-Feld:
 
         - `source: ONE_TIME` – persistierte Einträge aus der Datenbank.
-          `entryId` ist gesetzt und wird für Aktionen (complete, pin, unpin) benötigt.
+          `entryId` ist gesetzt und wird für Aktionen benötigt.
 
         - `source: RECURRING` – virtuelle Vorkommen, on-the-fly aus
           Recurrence-Rules berechnet. `templateId` und `occurrenceDate` sind gesetzt.
@@ -426,8 +426,6 @@ paths:
       summary: Plan für einen Account generieren
       description: |
         Löst den Planungsalgorithmus für den angegebenen Account aus.
-        Bereits gepinnte Einträge (`isPinned: true`) bleiben an ihrem Platz,
-        alle anderen Chunks werden neu verteilt.
       operationId: generateSingleAccountSchedule
       security:
         - bearerAuth: [ ]
@@ -492,7 +490,7 @@ paths:
       description: |
         Löst den Planungsalgorithmus für alle Accounts der Identity aus.
         Accounts werden sequentiell oder parallel verarbeitet
-        (Arbeitszeiten sind disjunkt). Gepinnte Einträge bleiben fixiert.
+        (Arbeitszeiten sind disjunkt).
       operationId: generateAllAccountsSchedule
       security:
         - bearerAuth: [ ]
@@ -1892,13 +1890,13 @@ components:
       properties:
         from:
           type: string
-          format: date
+          format: date-time
           description: |
-            Startdatum der Planung (ISO 8601). Der Algorithmus plant ab
+            Startdatum und Uhrzeit der Planung. Der Algorithmus plant ab
             diesem Datum so viele Tage wie nötig, bis alle Tasks eingeplant
             sind oder die Kapazität erschöpft ist. Das Enddatum ergibt sich
             dynamisch aus der Response (`to`-Feld).
-          example: "2026-04-07"
+          example: "2026-04-07T08:30:00"
 
     # ----------------------------------------------------------
     # Schedule – Response (Single Account)
@@ -1975,7 +1973,7 @@ components:
     # ----------------------------------------------------------
     ScheduleEntry:
       type: object
-      required: [ source, date, startTime, endTime, type, isCompleted, isPinned, originalItemTitle ]
+      required: [ source, date, startTime, endTime, type, isCompleted, isBreak, originalItemTitle ]
       description: |
         Ein Zeitblock im Kalender. Kann ein persistierter DB-Eintrag
         (`source: ONE_TIME`) oder ein virtuell berechnetes Vorkommen
@@ -1996,7 +1994,7 @@ components:
           nullable: true
           description: |
             Nur bei `source: ONE_TIME`.
-            Für PATCH-Aktionen (complete, pin, unpin).
+            Für PATCH-Aktionen
         # --- Zeitdaten ---
         occurrenceDate:
           type: string
@@ -2031,12 +2029,9 @@ components:
           type: boolean
           default: false
           description: Ob dieser Block als erledigt markiert wurde.
-        isPinned:
+        isPause:
           type: boolean
           default: false
-          description: |
-            Ob dieser Block vom Nutzer fixiert wurde.
-            Gepinnte Einträge werden bei Neuplanung nicht verschoben.
 
         # --- Task-spezifische Felder ---
         originalItemId:
@@ -2094,12 +2089,11 @@ components:
       properties:
         type:
           type: string
-          enum: [ DEADLINE_TIGHT, DEADLINE_VIOLATED, OVERLOADED_DAY, PIN_CONFLICT, NOT_BEFORE_VIOLATED, DEPENDENCY_VIOLATED, PAUSE_MISSING, OTHER ]
+          enum: [ DEADLINE_TIGHT, DEADLINE_VIOLATED, OVERLOADED_DAY, NOT_BEFORE_VIOLATED, DEPENDENCY_VIOLATED, PAUSE_MISSING, OTHER ]
           description: |
             - `DEADLINE_TIGHT`: Task eingeplant, aber < 30 min Puffer bis zur Deadline.
             - `DEADLINE_VIOLATED`: Task ist nach seiner Deadline eingeplant.
             - `OVERLOADED_DAY`: Kognitive Last eines Tages überschreitet den zulässigen Schwellenwert ohne Pause.
-            - `PIN_CONFLICT`: Gepinnter Eintrag überlappt mit einem anderen.
             - `NOT_BEFORE_VIOLATED`: Task ist vor seinem "Nicht planen vor"-Zeitpunkt eingeplant.
             - `DEPENDENCY_VIOLATED`: Ein abhängiger Task ist noch nicht abgeschlossen, bevor dieser Task beginnt.
             - `PAUSE_MISSING`: Zwischen aufeinanderfolgenden Chunks fehlt die erforderliche 15-Minuten-Pause.

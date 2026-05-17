@@ -173,9 +173,7 @@ class ChunkSorterTest {
                 .chunkIndex(0)
                 .totalChunks(1)
                 .durationMinutes(60)
-                .topologicalLevel(0)
-                .slackMinutes(0)
-                .isPinned(false)
+                .isBreak(false)
                 .dependsOnTaskIds(dependencies)
                 .build();
     }

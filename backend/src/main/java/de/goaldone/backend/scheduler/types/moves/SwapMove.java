@@ -31,9 +31,7 @@ public class SwapMove extends Move {
      */
     @Override
     public SolverState apply(SolverState current) {
-        List<ScheduledChunk> unpinned = current.scheduledChunks().stream()
-                .filter(sc -> !sc.chunk().isPinned())
-                .toList();
+        List<ScheduledChunk> unpinned = current.scheduledChunks();
 
         if (unpinned.size() < 2) {
             return null;

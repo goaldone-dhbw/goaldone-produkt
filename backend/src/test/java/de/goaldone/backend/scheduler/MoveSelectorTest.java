@@ -1,5 +1,6 @@
 package de.goaldone.backend.scheduler;
 
+import de.goaldone.backend.model.CognitiveLoad;
 import de.goaldone.backend.scheduler.types.model.ScheduledChunk;
 import de.goaldone.backend.scheduler.types.model.SolverState;
 import de.goaldone.backend.scheduler.types.model.TaskChunk;
@@ -123,9 +124,7 @@ class MoveSelectorTest {
                 0,
                 1,
                 60,
-                0,
-                0,
-                null,
+                CognitiveLoad.LOW,
                 null,
                 null,
                 false,

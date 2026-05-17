@@ -1,5 +1,6 @@
 package de.goaldone.backend.scheduler;
 
+import de.goaldone.backend.model.CognitiveLoad;
 import de.goaldone.backend.scheduler.types.model.ScheduledChunk;
 import de.goaldone.backend.scheduler.types.model.SolverState;
 import de.goaldone.backend.scheduler.types.model.TaskChunk;
@@ -24,18 +25,16 @@ class PillarMoveTest {
         return new TimeSlot(DAY, LocalTime.of(startHour, 0), LocalTime.of(endHour, 0));
     }
 
-    private static TaskChunk chunk(UUID taskId, int chunkIndex,
-                                   boolean pinned, LocalDateTime notBefore, LocalDateTime deadline) {
+    private static TaskChunk chunk(UUID taskId, int chunkIndex, LocalDateTime notBefore, LocalDateTime deadline) {
         return new TaskChunk(
                 UUID.randomUUID(), taskId, "Task",
-                chunkIndex, 3, 60,
-                0, 0, null,
-                notBefore, deadline, pinned, null
+                chunkIndex, 3, 60, CognitiveLoad.LOW,
+                notBefore, deadline, false, List.of()
         );
     }
 
-    private static TaskChunk chunk(UUID taskId, int chunkIndex, boolean pinned) {
-        return chunk(taskId, chunkIndex, pinned, null, null);
+    private static TaskChunk chunk(UUID taskId, int chunkIndex) {
+        return chunk(taskId, chunkIndex, null, null);
     }
 
     private static SolverState state(List<ScheduledChunk> scheduled, List<TimeSlot> free) {
@@ -65,9 +64,9 @@ class PillarMoveTest {
     @Test
     void apply_shiftsAllChunksOfTask_byPositiveN() {
         UUID taskId = UUID.randomUUID();
-        TaskChunk chunkA = chunk(taskId, 0, false);
-        TaskChunk chunkB = chunk(taskId, 1, false);
-        TaskChunk chunkC = chunk(taskId, 2, false);
+        TaskChunk chunkA = chunk(taskId, 0);
+        TaskChunk chunkB = chunk(taskId, 1);
+        TaskChunk chunkC = chunk(taskId, 2);
 
         TimeSlot s8  = slot(8,  9);
         TimeSlot s9  = slot(9,  10);
@@ -96,8 +95,8 @@ class PillarMoveTest {
     @Test
     void apply_preservesOrderAndSpacing() {
         UUID taskId = UUID.randomUUID();
-        TaskChunk chunkA = chunk(taskId, 0, false);
-        TaskChunk chunkB = chunk(taskId, 1, false);
+        TaskChunk chunkA = chunk(taskId, 0);
+        TaskChunk chunkB = chunk(taskId, 1);
 
         TimeSlot s8  = slot(8,  9);
         TimeSlot s9  = slot(9,  10);
@@ -122,8 +121,8 @@ class PillarMoveTest {
     @Test
     void apply_returnsNull_whenTargetIndexOutOfBounds() {
         UUID taskId = UUID.randomUUID();
-        TaskChunk chunkA = chunk(taskId, 0, false);
-        TaskChunk chunkB = chunk(taskId, 1, false);
+        TaskChunk chunkA = chunk(taskId, 0);
+        TaskChunk chunkB = chunk(taskId, 1);
 
         TimeSlot s8 = slot(8, 9);
         TimeSlot s9 = slot(9, 10);
@@ -142,8 +141,8 @@ class PillarMoveTest {
         UUID taskId      = UUID.randomUUID();
         UUID otherTaskId = UUID.randomUUID();
 
-        TaskChunk chunkA = chunk(taskId,      0, false);
-        TaskChunk other  = chunk(otherTaskId, 0, false);
+        TaskChunk chunkA = chunk(taskId,      0);
+        TaskChunk other  = chunk(otherTaskId, 0);
 
         TimeSlot s8 = slot(8, 9);
         TimeSlot s9 = slot(9, 10); // belegt durch andere Task
@@ -162,7 +161,7 @@ class PillarMoveTest {
         UUID taskId = UUID.randomUUID();
         LocalDateTime deadline = LocalDateTime.of(DAY, LocalTime.of(10, 0)); // Ende spätestens 10:00
 
-        TaskChunk chunkA = chunk(taskId, 0, false, null, deadline);
+        TaskChunk chunkA = chunk(taskId, 0, null, deadline);
 
         TimeSlot s8  = slot(8,  9);
         TimeSlot s10 = slot(10, 11); // endet 11:00 → nach deadline
@@ -179,7 +178,7 @@ class PillarMoveTest {
         UUID taskId = UUID.randomUUID();
         LocalDateTime notBefore = LocalDateTime.of(DAY, LocalTime.of(10, 0));
 
-        TaskChunk chunkA = chunk(taskId, 0, false, notBefore, null);
+        TaskChunk chunkA = chunk(taskId, 0, notBefore, null);
 
         TimeSlot s8  = slot(8,  9);
         TimeSlot s9  = slot(9, 10);
@@ -191,32 +190,5 @@ class PillarMoveTest {
         );
 
         assertNull(new PillarMove(fixed(0, 0), 1).apply(current));
-    }
-
-    @Test
-    void apply_doesNotMovePinnedChunks() {
-        UUID taskId = UUID.randomUUID();
-        TaskChunk pinned   = chunk(taskId, 0, true);
-        TaskChunk unpinned = chunk(taskId, 1, false);
-
-        TimeSlot s8  = slot(8,  9);
-        TimeSlot s9  = slot(9,  10);
-        TimeSlot s10 = slot(10, 11);
-
-        SolverState current = state(
-                List.of(new ScheduledChunk(pinned,   s8),
-                        new ScheduledChunk(unpinned, s9)),
-                List.of(s10)
-        );
-
-        SolverState result = new PillarMove(fixed(0, 2), 1).apply(current);
-
-        assertNotNull(result);
-        assertTrue(result.scheduledChunks().stream()
-                .anyMatch(sc -> sc.chunk().chunkId().equals(pinned.chunkId())
-                        && sc.slot().equals(s8)));
-        assertTrue(result.scheduledChunks().stream()
-                .anyMatch(sc -> sc.chunk().chunkId().equals(unpinned.chunkId())
-                        && sc.slot().equals(s10)));
     }
 }

@@ -690,6 +690,38 @@ export class CalenderComponent {
     return (
       rawEntry.originalItemId ?? rawEntry.taskId ?? rawEntry.originalTaskId ?? entry.entryId ?? ''
     );
+    
+  private getEventClassNames(entry: ScheduleEntry): string[] {
+    const classNames: string[] = [];
+
+    if (this.isBreakEntry(entry)) {
+      classNames.push('schedule-event--break');
+    } else if (this.isAppointmentEntry(entry)) {
+      classNames.push('schedule-event--appointment');
+    } else if (entry.isCompleted) {
+      classNames.push('schedule-event--completed');
+    } else {
+      classNames.push('schedule-event--task');
+    }
+
+    const durationInMinutes = this.getEntryDurationInMinutes(entry);
+
+    if (durationInMinutes <= COMPACT_EVENT_MAX_MINUTES) {
+      classNames.push('schedule-event--compact');
+    }
+
+    if (durationInMinutes <= TINY_EVENT_MAX_MINUTES) {
+      classNames.push('schedule-event--tiny');
+    }
+
+    return classNames;
+  }
+
+  private getEntryDurationInMinutes(entry: ScheduleEntry): number {
+    const start = this.timeToMinutes(entry.startTime);
+    const end = this.timeToMinutes(entry.endTime);
+
+    return Math.max(end - start, 0);
   }
 
   private getTaskStatus(entry: ScheduleEntry): TaskStatus {

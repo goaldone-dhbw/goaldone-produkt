@@ -13,7 +13,7 @@ import java.util.List;
 public record SolverState(
         List<ScheduledChunk> scheduledChunks,
         List<TimeSlot> freeSlots,
-        List<UnscheduledTask> unscheduledChunks
+        List<UnscheduledTask> unscheduledTasks
 ) {
 
     /**
@@ -25,9 +25,9 @@ public record SolverState(
         return new SolverState(
                 new ArrayList<>(scheduledChunks),
                 new ArrayList<>(freeSlots),
-                unscheduledChunks == null
+                unscheduledTasks == null
                         ? null
-                        : new ArrayList<>(unscheduledChunks)
+                        : new ArrayList<>(unscheduledTasks)
         );
     }
 }

@@ -6,7 +6,6 @@ import de.goaldone.backend.scheduler.types.model.SolverState;
 import de.goaldone.backend.scheduler.types.model.TimeSlot;
 import java.util.List;
 import java.util.Random;
-import java.util.UUID;
 
 /**
  * Move, der einen zufällig ausgewählten nicht fixierten Chunk auf einen freien Slot verschiebt.
@@ -32,9 +31,7 @@ public class ChangeMove extends Move {
      */
     @Override
     public SolverState apply(SolverState current) {
-        List<ScheduledChunk> unpinned = current.scheduledChunks().stream()
-                .filter(sc -> !sc.chunk().isPinned())
-                .toList();
+        List<ScheduledChunk> unpinned = current.scheduledChunks();
 
         if (unpinned.isEmpty() || current.freeSlots().isEmpty()) {
             return null;
