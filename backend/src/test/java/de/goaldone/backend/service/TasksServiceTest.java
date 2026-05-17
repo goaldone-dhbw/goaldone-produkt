@@ -1,11 +1,15 @@
 package de.goaldone.backend.service;
 
+import de.goaldone.backend.entity.ScheduleEntryEntity;
+import de.goaldone.backend.entity.SchedulePlanEntity;
 import de.goaldone.backend.entity.TaskEntity;
 import de.goaldone.backend.model.CognitiveLoad;
 import de.goaldone.backend.model.TaskCreateRequest;
 import de.goaldone.backend.model.TaskResponse;
 import de.goaldone.backend.model.TaskStatus;
 import de.goaldone.backend.model.TaskUpdateRequest;
+import de.goaldone.backend.repository.ScheduleEntryRepository;
+import de.goaldone.backend.repository.SchedulePlanRepository;
 import de.goaldone.backend.repository.TaskRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -25,11 +29,15 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isA;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -40,6 +48,12 @@ class TasksServiceTest {
 
     @Mock
     private UserIdentityService userIdentityService;
+
+    @Mock
+    private SchedulePlanRepository schedulePlanRepository;
+
+    @Mock
+    private ScheduleEntryRepository scheduleEntryRepository;
 
     @InjectMocks
     private TasksService tasksService;
@@ -189,5 +203,124 @@ class TasksServiceTest {
             () -> tasksService.updateTask(jwt, taskAId, request));
 
         assertEquals(HttpStatus.BAD_REQUEST, ex.getStatusCode());
+    }
+
+    @Test
+    void updateTask_statusDone_marksScheduleEntriesCompleted() {
+        UUID accountId = UUID.randomUUID();
+        UUID taskId = UUID.randomUUID();
+        UUID planId = UUID.randomUUID();
+        Jwt jwt = mockJwt();
+
+        TaskEntity task = new TaskEntity();
+        task.setId(taskId);
+        task.setAccountId(accountId);
+        task.setTitle("Test");
+        task.setDuration(60);
+        task.setStatus(TaskStatus.OPEN);
+        task.setCognitiveLoad(de.goaldone.backend.model.CognitiveLoad.LOW);
+        task.setDependencies(new LinkedHashSet<>());
+
+        SchedulePlanEntity plan = new SchedulePlanEntity();
+        plan.setId(planId);
+
+        ScheduleEntryEntity entry1 = new ScheduleEntryEntity();
+        entry1.setIsCompleted(false);
+        ScheduleEntryEntity entry2 = new ScheduleEntryEntity();
+        entry2.setIsCompleted(false);
+
+        TaskUpdateRequest request = new TaskUpdateRequest();
+        request.setTitle("Test");
+        request.setDuration(60);
+        request.setStatus(TaskStatus.DONE);
+        request.setCognitiveLoad(CognitiveLoad.LOW);
+        request.setDependencyIds(List.of());
+
+        when(taskRepository.findById(taskId)).thenReturn(Optional.of(task));
+        when(userIdentityService.hasUserAccessToAccount(any(), eq(accountId))).thenReturn(true);
+        when(taskRepository.save(any())).thenReturn(task);
+        when(schedulePlanRepository.findByAccountId(accountId)).thenReturn(Optional.of(plan));
+        when(scheduleEntryRepository.findByPlanIdAndOriginalItemId(planId, taskId))
+                .thenReturn(List.of(entry1, entry2));
+        when(scheduleEntryRepository.saveAll(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        tasksService.updateTask(jwt, taskId, request);
+
+        assertTrue(entry1.getIsCompleted());
+        assertTrue(entry2.getIsCompleted());
+    }
+
+    @Test
+    void updateTask_statusReopened_marksScheduleEntriesIncomplete() {
+        UUID accountId = UUID.randomUUID();
+        UUID taskId = UUID.randomUUID();
+        UUID planId = UUID.randomUUID();
+        Jwt jwt = mockJwt();
+
+        TaskEntity task = new TaskEntity();
+        task.setId(taskId);
+        task.setAccountId(accountId);
+        task.setTitle("Test");
+        task.setDuration(60);
+        task.setStatus(TaskStatus.DONE);
+        task.setCognitiveLoad(de.goaldone.backend.model.CognitiveLoad.LOW);
+        task.setDependencies(new LinkedHashSet<>());
+
+        SchedulePlanEntity plan = new SchedulePlanEntity();
+        plan.setId(planId);
+
+        ScheduleEntryEntity entry = new ScheduleEntryEntity();
+        entry.setIsCompleted(true);
+
+        TaskUpdateRequest request = new TaskUpdateRequest();
+        request.setTitle("Test");
+        request.setDuration(60);
+        request.setStatus(TaskStatus.OPEN);
+        request.setCognitiveLoad(CognitiveLoad.LOW);
+        request.setDependencyIds(List.of());
+
+        when(taskRepository.findById(taskId)).thenReturn(Optional.of(task));
+        when(userIdentityService.hasUserAccessToAccount(any(), eq(accountId))).thenReturn(true);
+        when(taskRepository.save(any())).thenReturn(task);
+        when(schedulePlanRepository.findByAccountId(accountId)).thenReturn(Optional.of(plan));
+        when(scheduleEntryRepository.findByPlanIdAndOriginalItemId(planId, taskId))
+                .thenReturn(List.of(entry));
+        when(scheduleEntryRepository.saveAll(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        tasksService.updateTask(jwt, taskId, request);
+
+        assertFalse(entry.getIsCompleted());
+    }
+
+    @Test
+    void updateTask_noPlan_syncIsNoOp() {
+        UUID accountId = UUID.randomUUID();
+        UUID taskId = UUID.randomUUID();
+        Jwt jwt = mockJwt();
+
+        TaskEntity task = new TaskEntity();
+        task.setId(taskId);
+        task.setAccountId(accountId);
+        task.setTitle("Test");
+        task.setDuration(60);
+        task.setStatus(TaskStatus.OPEN);
+        task.setCognitiveLoad(de.goaldone.backend.model.CognitiveLoad.LOW);
+        task.setDependencies(new LinkedHashSet<>());
+
+        TaskUpdateRequest request = new TaskUpdateRequest();
+        request.setTitle("Test");
+        request.setDuration(60);
+        request.setStatus(TaskStatus.DONE);
+        request.setCognitiveLoad(CognitiveLoad.LOW);
+        request.setDependencyIds(List.of());
+
+        when(taskRepository.findById(taskId)).thenReturn(Optional.of(task));
+        when(userIdentityService.hasUserAccessToAccount(any(), eq(accountId))).thenReturn(true);
+        when(taskRepository.save(any())).thenReturn(task);
+        when(schedulePlanRepository.findByAccountId(accountId)).thenReturn(Optional.empty());
+
+        tasksService.updateTask(jwt, taskId, request);
+
+        verify(scheduleEntryRepository, never()).findByPlanIdAndOriginalItemId(any(), any());
     }
 }

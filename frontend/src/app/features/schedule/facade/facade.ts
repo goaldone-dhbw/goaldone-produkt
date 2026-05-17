@@ -325,6 +325,26 @@ export class ScheduleFacadeService {
     }
   }
 
+  async reloadCurrentSchedule(): Promise<void> {
+    const range = this.lastRange();
+    if (!range) return;
+
+    const accountId = this.selectedAccountId();
+    const appointmentEntries = await this.loadAppointmentEntries(accountId);
+
+    try {
+      const response =
+        accountId === this.ALL_ACCOUNTS_ID
+          ? await firstValueFrom(this.schedulesService.getAllAccountsSchedule(range.from, range.to))
+          : await firstValueFrom(
+              this.schedulesService.getSingleAccountSchedule(accountId, range.from, range.to),
+            );
+      this.applyScheduleResponse(response, appointmentEntries);
+    } catch {
+      // Kein Plan vorhanden — kein Fehler
+    }
+  }
+
   async generateSchedule(): Promise<void> {
     const accountId = this.selectedAccountId();
 
