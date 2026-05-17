@@ -15,5 +15,6 @@
     <include file="changes/008-create-working-times.xml" relativeToChangelogFile="true"/>
     <include file="changes/009-create-appointments-table.xml" relativeToChangelogFile="true"/>
     <include file="changes/010-create-schedule-plan-tables.xml" relativeToChangelogFile="true"/>
+    <include file="changes/011-add-automated-break-flag.xml" relativeToChangelogFile="true"/>
 
 </databaseChangeLog>

@@ -307,6 +307,10 @@ export class CalenderComponent implements OnDestroy {
         return [];
       }
 
+      if (entry.isAutomatedBreak) {
+        return [];
+      }
+
       if (entry.type === 'TASK' || entry.type === 'APPOINTMENT') {
         return ['cursor-pointer'];
       }
@@ -1369,6 +1373,10 @@ export class CalenderComponent implements OnDestroy {
     const entry = arg.event.extendedProps['entry'] as ScheduleEntry | undefined;
 
     if (!entry) {
+      return;
+    }
+
+    if (entry.isAutomatedBreak) {
       return;
     }
 

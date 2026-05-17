@@ -65,6 +65,10 @@ public class ScheduleEntryEntity {
     @Column(name = "is_break", nullable = false)
     private Boolean isBreak;
 
+    /** True if this break was automatically inserted by the scheduler (not user-created). */
+    @Column(name = "is_automated_break", nullable = false)
+    private Boolean isAutomatedBreak = false;
+
     /** Whether this entry has been marked as completed via the completion tracking endpoint. */
     @Column(name = "is_completed", nullable = false)
     private Boolean isCompleted = false;

@@ -82,6 +82,7 @@ public class ScheduleMapper {
                         ? ScheduleEntry.TypeEnum.TASK
                         : ScheduleEntry.TypeEnum.APPOINTMENT)
                 .isBreak(entity.getIsBreak())
+                .isAutomatedBreak(entity.getIsAutomatedBreak())
                 .isCompleted(entity.getIsCompleted())
                 .originalItemId(entity.getOriginalItemId())
                 .originalItemTitle(entity.getOriginalItemTitle())
@@ -125,14 +126,16 @@ public class ScheduleMapper {
      * @return A ScheduledChunk mapped as ScheduleEntry
      */
     private ScheduleEntry toScheduleEntry(ScheduledChunk scheduledChunk, UUID entryId) {
+        boolean isBreak = scheduledChunk.chunk().isBreak();
         ScheduleEntry entry = new ScheduleEntry()
                 .originalItemTitle(scheduledChunk.chunk().taskTitle())
                 .source(ScheduleEntry.SourceEnum.ONE_TIME)
                 .occurrenceDate(scheduledChunk.date())
                 .startTime(scheduledChunk.startTime().format(TIME_FORMATTER))
                 .endTime(scheduledChunk.endTime().format(TIME_FORMATTER))
-                .type(ScheduleEntry.TypeEnum.TASK)
-                .isBreak(false)
+                .type(isBreak ? ScheduleEntry.TypeEnum.APPOINTMENT : ScheduleEntry.TypeEnum.TASK)
+                .isBreak(isBreak)
+                .isAutomatedBreak(isBreak)
                 .isCompleted(false)
                 .originalItemId(scheduledChunk.chunk().taskId())
                 .chunkIndex(scheduledChunk.chunk().chunkIndex())
