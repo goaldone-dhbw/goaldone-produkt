@@ -221,8 +221,10 @@ public class ScheduleService {
             entry.setStartAt(LocalDateTime.of(chunk.date(), chunk.startTime()));
             entry.setEndAt(LocalDateTime.of(chunk.date(), chunk.endTime()));
             entry.setOccurrenceDate(chunk.date());
-            entry.setEntryType("TASK");
-            entry.setIsBreak(false);
+            boolean isBreak = chunk.chunk().isBreak();
+            entry.setEntryType(isBreak ? "APPOINTMENT" : "TASK");
+            entry.setIsBreak(isBreak);
+            entry.setIsAutomatedBreak(isBreak);
             entry.setIsCompleted(false);
             entry.setOriginalItemId(chunk.chunk().taskId());
             entry.setOriginalItemTitle(chunk.chunk().taskTitle());

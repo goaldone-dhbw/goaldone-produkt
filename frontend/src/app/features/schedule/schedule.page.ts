@@ -46,13 +46,13 @@ export class SchedulePage {
     await this.facade.loadSchedule(range.from, range.to);
   }
 
-  onPlannerTaskSaved(): void {
+  async onPlannerTaskSaved(): Promise<void> {
+    await this.facade.reloadCurrentSchedule();
     this.messageService.add({
-      severity: 'info',
+      severity: 'success',
       summary: 'Aufgabe gespeichert',
-      detail:
-        'Die Änderungen werden im Arbeitsplan erst berücksichtigt, wenn du die Planung erneut startest.',
-      life: 5000,
+      detail: 'Der Arbeitsplan wurde aktualisiert.',
+      life: 3000,
     });
   }
 

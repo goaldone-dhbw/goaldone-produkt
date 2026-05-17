@@ -2065,15 +2065,19 @@ components:
           description: |
             Nur relevant bei `type: APPOINTMENT`.
             `true` = Pause, `false` = normaler Termin (Meeting etc.)
+        isAutomatedBreak:
+          type: boolean
+          default: false
+          description: |
+            Nur relevant bei `type: APPOINTMENT` und `isBreak: true`.
+            `true` = automatisch vom Scheduler generierte Pause (nicht editierbar, nicht anklickbar).
+            `false` = manuell vom Nutzer erstellte Pause (Termin mit isBreak: true).
 
         # --- Status ---
         isCompleted:
           type: boolean
           default: false
           description: Ob dieser Block als erledigt markiert wurde.
-        isPause:
-          type: boolean
-          default: false
 
         # --- Task-spezifische Felder ---
         originalItemId:
