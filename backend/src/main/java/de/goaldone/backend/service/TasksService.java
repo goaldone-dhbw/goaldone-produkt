@@ -1,5 +1,6 @@
 package de.goaldone.backend.service;
 
+import de.goaldone.backend.entity.ScheduleEntryEntity;
 import de.goaldone.backend.entity.TaskEntity;
 import de.goaldone.backend.model.CognitiveLoad;
 import de.goaldone.backend.model.TaskAccountListResponse;
@@ -7,6 +8,8 @@ import de.goaldone.backend.model.TaskCreateRequest;
 import de.goaldone.backend.model.TaskResponse;
 import de.goaldone.backend.model.TaskStatus;
 import de.goaldone.backend.model.TaskUpdateRequest;
+import de.goaldone.backend.repository.ScheduleEntryRepository;
+import de.goaldone.backend.repository.SchedulePlanRepository;
 import de.goaldone.backend.repository.TaskRepository;
 import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Predicate;
@@ -46,6 +49,8 @@ public class TasksService {
 
     private final TaskRepository taskRepository;
     private final UserIdentityService userIdentityService;
+    private final SchedulePlanRepository schedulePlanRepository;
+    private final ScheduleEntryRepository scheduleEntryRepository;
 
     /**
      * Creates a new task based on the provided request and the user's JWT.
@@ -243,6 +248,7 @@ public class TasksService {
         checkDependenciesAndApply(task, request.getDependencyIds(), task.getAccountId(), true);
 
         TaskEntity persisted = taskRepository.save(task);
+        syncScheduleEntries(id, task.getAccountId(), request.getStatus());
         return toResponse(persisted);
     }
 
@@ -469,5 +475,25 @@ public class TasksService {
      */
     private OffsetDateTime toOffsetDateTime(Instant value) {
         return value == null ? null : OffsetDateTime.ofInstant(value, ZoneOffset.UTC);
+    }
+
+    /**
+     * Syncs the {@code isCompleted} flag on all schedule entries belonging to the given task
+     * so they reflect the task's new status. No-op if no active plan exists for the account.
+     *
+     * @param taskId    the task whose entries should be synced
+     * @param accountId the account owning the task
+     * @param newStatus the new task status
+     */
+    private void syncScheduleEntries(UUID taskId, UUID accountId, TaskStatus newStatus) {
+        schedulePlanRepository.findByAccountId(accountId).ifPresent(plan -> {
+            List<ScheduleEntryEntity> entries = scheduleEntryRepository
+                    .findByPlanIdAndOriginalItemId(plan.getId(), taskId);
+            boolean completed = newStatus == TaskStatus.DONE;
+            entries.forEach(entry -> entry.setIsCompleted(completed));
+            if (!entries.isEmpty()) {
+                scheduleEntryRepository.saveAll(entries);
+            }
+        });
     }
 }

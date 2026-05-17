@@ -202,9 +202,9 @@ export class CalenderComponent implements OnDestroy {
     if (!pending.totalChunks || pending.totalChunks <= 1) return true;
     if (!pending.originalItemId) return false;
     const siblings = this.entries().filter(
-      e => e.originalItemId === pending.originalItemId && e.entryId !== pending.entryId,
+      (e) => e.originalItemId === pending.originalItemId && e.entryId !== pending.entryId,
     );
-    return siblings.length > 0 && siblings.every(e => e.isCompleted);
+    return siblings.length > 0 && siblings.every((e) => e.isCompleted);
   });
 
   readonly weekdayOptions: { value: WeekdayCode; label: string }[] = [
@@ -304,6 +304,10 @@ export class CalenderComponent implements OnDestroy {
       const entry = arg.event.extendedProps['entry'] as ScheduleEntry | undefined;
 
       if (!entry) {
+        return [];
+      }
+
+      if (entry.isAutomatedBreak) {
         return [];
       }
 
@@ -446,7 +450,7 @@ export class CalenderComponent implements OnDestroy {
       reject: (message?: string) => {
         this.isSavingTaskCompletion.set(false);
         this.taskCompletionError.set(
-          message || 'Die Erledigt-Entscheidung konnte nicht gespeichert werden.',
+          message || 'Leider konnte die Aufgabe nicht als abgeschlossen markiert werden.',
         );
         this.scheduleNextTaskCompletionCheck();
       },
@@ -1369,6 +1373,10 @@ export class CalenderComponent implements OnDestroy {
     const entry = arg.event.extendedProps['entry'] as ScheduleEntry | undefined;
 
     if (!entry) {
+      return;
+    }
+
+    if (entry.isAutomatedBreak) {
       return;
     }
 
