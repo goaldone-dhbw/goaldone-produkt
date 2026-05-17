@@ -37,7 +37,7 @@ public class Solver {
      */
     public SchedulingResult createSchedule(SchedulingContext context, long timeoutMs) {
 
-        long endTime = System.currentTimeMillis() + timeoutMs - 500; // Subtract a small buffer to ensure we return before the timeout expires
+        long endTime = System.currentTimeMillis() + timeoutMs - 2000; // Subtract a buffer to ensure we return before the timeout expires
 
         SolverState currentBest = this.cpmAlgorithm.generateInitialSchedule(context);
 
@@ -47,9 +47,7 @@ public class Solver {
         int currentScore = constraintHandler.calculateScore(currentBest);
         lateAcceptance.initialize(currentScore);
 
-        boolean skip = true;
         while (System.currentTimeMillis() < endTime) {
-            if (skip) break; //TODO: Demo release only
 
             SolverState newState = moveSelector.selectAndApply(currentBest);
 
