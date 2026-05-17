@@ -27,7 +27,6 @@ describe('TasksPageComponent', () => {
     'cognitiveLoad',
     'deadlineFrom',
     'deadlineTo',
-    'maxDuration',
     'searchTerm',
   ] as const;
   const filterTestTasks: TaskResponse[] = [
@@ -470,23 +469,12 @@ describe('TasksPageComponent', () => {
     ]);
   });
 
-  it('soll Aufgaben nach maximaler Dauer filtern', async () => {
-    await flushInitialRequests([], { accounts: [] });
 
-    component.filters.maxDuration = 60;
-    await reloadTasksWithResponse(tasksForAccount([filterTestTasks[0], filterTestTasks[1]]), {
-      maxDuration: '60',
-    });
-
-    expect(component.tasks().map((task) => task.id)).toEqual(['t-open-low', 't-progress-high']);
-  });
-
-  it('soll Suchbegriff, Status und maximale Dauer kombinieren', async () => {
+  it('soll Suchbegriff und Status kombinieren', async () => {
     await flushInitialRequests([], { accounts: [] });
 
     component.filters.status = 'OPEN';
     component.filters.searchTerm = 'Bericht';
-    component.filters.maxDuration = 45;
     await reloadTasksWithResponse(
       tasksForAccount([
         {
@@ -500,7 +488,6 @@ describe('TasksPageComponent', () => {
       ]),
       {
         status: 'OPEN',
-        maxDuration: '45',
         searchTerm: 'Bericht',
       },
     );
@@ -515,7 +502,6 @@ describe('TasksPageComponent', () => {
     component.filters.difficulty = 'LOW';
     component.filters.accountId = secondAccountId;
     component.filters.searchTerm = 'Bericht';
-    component.filters.maxDuration = 45;
     component.filters.deadlineFrom = new Date('2026-05-10T00:00:00');
     component.filters.deadlineTo = new Date('2026-05-12T23:59:59');
 
@@ -528,7 +514,6 @@ describe('TasksPageComponent', () => {
         difficulty: 'LOW',
         accountId: secondAccountId,
         searchTerm: 'Bericht',
-        maxDuration: 45,
         deadlineFrom: '2026-05-10T00:00:00',
         deadlineTo: '2026-05-12T23:59:59',
       },
@@ -540,7 +525,6 @@ describe('TasksPageComponent', () => {
       cognitiveLoad: 'LOW',
       deadlineFrom: '2026-05-10T00:00:00',
       deadlineTo: '2026-05-12T23:59:59',
-      maxDuration: '45',
       searchTerm: 'Bericht',
     });
     tasksRequest.flush(
@@ -572,7 +556,6 @@ describe('TasksPageComponent', () => {
       difficulty: 'HIGH',
       accountId: secondAccountId,
       searchTerm: 'Bericht',
-      maxDuration: '60',
       deadlineFrom: '2026-05-12T00:00:00',
       deadlineTo: '2026-05-18T23:59:59',
     });
@@ -608,7 +591,6 @@ describe('TasksPageComponent', () => {
         cognitiveLoad: 'HIGH',
         deadlineFrom: '2026-05-12T00:00:00',
         deadlineTo: '2026-05-18T23:59:59',
-        maxDuration: '60',
         searchTerm: 'Bericht',
       },
     );
@@ -620,7 +602,6 @@ describe('TasksPageComponent', () => {
       deadlineTo: new Date('2026-05-18T23:59:59'),
       accountId: secondAccountId,
       searchTerm: 'Bericht',
-      maxDuration: 60,
     });
     expect(component.dateRange).toEqual([
       new Date('2026-05-12T00:00:00'),
@@ -727,7 +708,6 @@ describe('TasksPageComponent', () => {
     component.filters.difficulty = 'MODERATE';
     component.filters.accountId = accountId;
     component.filters.searchTerm = 'Bericht';
-    component.filters.maxDuration = 90;
     component.filters.deadlineFrom = new Date('2026-05-19T00:00:00');
     component.filters.deadlineTo = new Date('2026-05-21T23:59:59');
     component.dateRange = [component.filters.deadlineFrom, component.filters.deadlineTo];
@@ -746,7 +726,6 @@ describe('TasksPageComponent', () => {
       deadlineTo: null,
       accountId: null,
       searchTerm: null,
-      maxDuration: null,
     });
     expect(component.dateRange).toEqual([]);
     expect(component.listErrorMessage()).toBe('');
