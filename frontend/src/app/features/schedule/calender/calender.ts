@@ -196,6 +196,17 @@ export class CalenderComponent implements OnDestroy {
   readonly isSavingTaskCompletion = signal(false);
   readonly taskCompletionError = signal('');
 
+  readonly isLastOrOnlyChunkForPending = computed(() => {
+    const pending = this.pendingTaskCompletionEntry();
+    if (!pending) return false;
+    if (!pending.totalChunks || pending.totalChunks <= 1) return true;
+    if (!pending.originalItemId) return false;
+    const siblings = this.entries().filter(
+      e => e.originalItemId === pending.originalItemId && e.entryId !== pending.entryId,
+    );
+    return siblings.length > 0 && siblings.every(e => e.isCompleted);
+  });
+
   readonly weekdayOptions: { value: WeekdayCode; label: string }[] = [
     { value: 'MO', label: 'Mo' },
     { value: 'TU', label: 'Di' },
@@ -384,18 +395,26 @@ export class CalenderComponent implements OnDestroy {
   getTaskCompletionDialogChunkLabel(): string {
     const entry = this.pendingTaskCompletionEntry();
 
-    if (
-      !entry ||
+    if (!entry) {
+      return 'Dieser geplante Aufgabenblock ist abgelaufen.';
+    }
+
+    const isOnlyChunk =
       entry.chunkIndex === null ||
       entry.chunkIndex === undefined ||
       entry.totalChunks === null ||
       entry.totalChunks === undefined ||
-      entry.totalChunks <= 1
-    ) {
-      return 'Dieser geplante Aufgabenblock ist abgelaufen.';
+      entry.totalChunks <= 1;
+
+    if (isOnlyChunk) {
+      return 'Dies ist die einzige Einheit dieser Aufgabe.';
     }
 
-    return `Chunk ${entry.chunkIndex + 1} von ${entry.totalChunks} ist abgelaufen.`;
+    if (this.isLastOrOnlyChunkForPending()) {
+      return `Dies ist der letzte verbleibende Chunk (${entry.chunkIndex! + 1} von ${entry.totalChunks}).`;
+    }
+
+    return `Chunk ${entry.chunkIndex! + 1} von ${entry.totalChunks} ist abgelaufen.`;
   }
 
   confirmPendingTaskCompletion(scope: ScheduleCompletionScope): void {

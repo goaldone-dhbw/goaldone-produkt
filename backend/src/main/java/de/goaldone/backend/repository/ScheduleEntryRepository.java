@@ -15,4 +15,6 @@ public interface ScheduleEntryRepository extends JpaRepository<ScheduleEntryEnti
     Optional<ScheduleEntryEntity> findByIdAndAccountId(UUID id, UUID accountId);
     
     List<ScheduleEntryEntity> findByPlanIdAndOriginalItemId(UUID planId, UUID originalItemId);
+
+    long countByPlanIdAndOriginalItemIdAndIsCompletedFalse(UUID planId, UUID originalItemId);
 }

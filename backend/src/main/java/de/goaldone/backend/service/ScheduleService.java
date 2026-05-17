@@ -312,7 +312,31 @@ public class ScheduleService {
             }
         } else {
             targetEntry.setIsCompleted(true);
-            updatedEntities = List.of(scheduleEntryRepository.save(targetEntry));
+            scheduleEntryRepository.save(targetEntry);
+
+            boolean isSingleChunk = targetEntry.getTotalChunks() == null || targetEntry.getTotalChunks() <= 1;
+            boolean isLastChunk = !isSingleChunk
+                    && targetEntry.getOriginalItemId() != null
+                    && scheduleEntryRepository.countByPlanIdAndOriginalItemIdAndIsCompletedFalse(
+                            targetEntry.getPlan().getId(), targetEntry.getOriginalItemId()) == 0;
+
+            if (isSingleChunk || isLastChunk) {
+                // Last or only chunk: upgrade to full task completion
+                List<ScheduleEntryEntity> allTaskEntries = scheduleEntryRepository
+                        .findByPlanIdAndOriginalItemId(targetEntry.getPlan().getId(), targetEntry.getOriginalItemId());
+                allTaskEntries.forEach(entry -> entry.setIsCompleted(true));
+                updatedEntities = scheduleEntryRepository.saveAll(allTaskEntries);
+
+                if (targetEntry.getOriginalItemId() != null) {
+                    taskRepository.findByIdAndAccountId(targetEntry.getOriginalItemId(), accountId)
+                            .ifPresent(task -> {
+                                task.setStatus(TaskStatus.DONE);
+                                taskRepository.save(task);
+                            });
+                }
+            } else {
+                updatedEntities = List.of(targetEntry);
+            }
         }
 
         MarkScheduleEntryResponse response = new MarkScheduleEntryResponse();

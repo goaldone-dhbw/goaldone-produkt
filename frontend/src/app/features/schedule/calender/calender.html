@@ -214,23 +214,25 @@
         }
 
         <div class="space-y-3">
-          <button
-            type="button"
-            class="flex w-full items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-left transition hover:border-[#5f6f9f] hover:bg-[#5f6f9f]/5 disabled:cursor-not-allowed disabled:opacity-60"
-            [disabled]="isSavingTaskCompletion()"
-            (click)="confirmPendingTaskCompletion('CHUNK')"
-          >
-            <span>
-              <span class="block text-sm font-semibold text-slate-900">
-                Nur diesen Chunk erledigen
+          @if (!isLastOrOnlyChunkForPending()) {
+            <button
+              type="button"
+              class="flex w-full items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-left transition hover:border-[#5f6f9f] hover:bg-[#5f6f9f]/5 disabled:cursor-not-allowed disabled:opacity-60"
+              [disabled]="isSavingTaskCompletion()"
+              (click)="confirmPendingTaskCompletion('CHUNK')"
+            >
+              <span>
+                <span class="block text-sm font-semibold text-slate-900">
+                  Nur diesen Chunk erledigen
+                </span>
+                <span class="mt-1 block text-xs leading-5 text-slate-500">
+                  Das Backend speichert nur diesen Zeitblock als erledigt.
+                </span>
               </span>
-              <span class="mt-1 block text-xs leading-5 text-slate-500">
-                Das Frontend sendet die Entscheidung ans Backend. Das Backend speichert nur diesen Zeitblock als erledigt.
-              </span>
-            </span>
 
-            <i class="pi pi-angle-right text-slate-400"></i>
-          </button>
+              <i class="pi pi-angle-right text-slate-400"></i>
+            </button>
+          }
 
           <button
             type="button"
