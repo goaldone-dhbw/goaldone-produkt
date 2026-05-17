@@ -10,11 +10,13 @@ import de.goaldone.backend.model.ScheduleResponse;
 import de.goaldone.backend.service.CurrentUserResolver;
 import de.goaldone.backend.service.ScheduleService;
 import de.goaldone.backend.service.UserIdentityService;
+import de.goaldone.backend.service.WorkingTimeConflictService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -28,6 +30,7 @@ public class ScheduleController implements SchedulesApi {
     private final ScheduleService scheduleService;
     private final UserIdentityService userIdentityService;
     private final CurrentUserResolver currentUserResolver;
+    private final WorkingTimeConflictService workingTimeConflictService;
 
     private final long timeoutMilliseconds = 10000;
 
@@ -46,6 +49,7 @@ public class ScheduleController implements SchedulesApi {
     public ResponseEntity<MultiAccountScheduleResponse> generateAllAccountsSchedule(GenerateScheduleRequest generateScheduleRequest) {
 
         Jwt jwt = currentUserResolver.extractJwt();
+        rejectIfWorkingTimesConflict(jwt);
 
         List<UUID> accountIds = getAccountsLinkedToIdentity(jwt)
                 .stream()
@@ -86,6 +90,7 @@ public class ScheduleController implements SchedulesApi {
 
         // Extract token
         Jwt jwt = currentUserResolver.extractJwt();
+        rejectIfWorkingTimesConflict(jwt);
 
         // Generate schedule for account with timeout
         ScheduleResponse scheduleResponse = scheduleService.generateSingleAccountSchedule(
@@ -108,5 +113,16 @@ public class ScheduleController implements SchedulesApi {
         MarkScheduleEntryResponse response = scheduleService.markEntryDone(
                 jwt, accountId, entryId, markScheduleEntryRequest.getScope());
         return ResponseEntity.ok(response);
+    }
+
+    private void rejectIfWorkingTimesConflict(Jwt jwt) {
+        UUID identityId = userIdentityService.findIdentityFromAccount(jwt);
+
+        if (workingTimeConflictService.hasConflictsForIdentity(identityId)) {
+            throw new ResponseStatusException(
+                    HttpStatus.UNPROCESSABLE_CONTENT,
+                    "Arbeitszeiten überschneiden sich. Bitte setze zuerst eindeutige Arbeitszeiten."
+            );
+        }
     }
 }

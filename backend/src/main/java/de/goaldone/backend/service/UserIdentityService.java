@@ -9,7 +9,6 @@ import de.goaldone.backend.entity.UserAccountEntity;
 import de.goaldone.backend.model.*;
 import de.goaldone.backend.repository.OrganizationRepository;
 import de.goaldone.backend.repository.UserAccountRepository;
-import de.goaldone.backend.repository.WorkingTimeRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -34,7 +33,7 @@ public class UserIdentityService {
     private final UserAccountRepository userAccountRepository;
     private final OrganizationRepository organizationRepository;
     private final ZitadelManagementClient zitadelManagementClient;
-    private final WorkingTimeRepository workingTimeRepository;
+    private final WorkingTimeConflictService workingTimeConflictService;
 
     @Value("${zitadel.goaldone.org-id}")
     private String goaldoneOrgId;
@@ -90,7 +89,7 @@ public class UserIdentityService {
         UserAccountEntity currentAccount = getCurrentAccount(jwt);
 
         List<UserAccountEntity> accounts = findAccountsForIdentity(currentAccount.getUserIdentityId());
-        boolean hasConflicts = workingTimeRepository.hasConflictsForIdentity(currentAccount.getUserIdentityId());
+        boolean hasConflicts = workingTimeConflictService.hasConflictsForIdentity(currentAccount.getUserIdentityId());
 
         List<AccountResponse> responses = accounts.stream()
                 .map(account -> mapUserInfoToResponse(account, hasConflicts))
@@ -148,7 +147,7 @@ public class UserIdentityService {
 
         zitadelManagementClient.updateUser(localAccount.get().getZitadelSub(), updateRequest);
 
-        boolean hasConflicts = workingTimeRepository.hasConflictsForIdentity(localAccount.get().getUserIdentityId());
+        boolean hasConflicts = workingTimeConflictService.hasConflictsForIdentity(localAccount.get().getUserIdentityId());
         return mapUserInfoToResponse(localAccount.get(), hasConflicts);
     }
 
