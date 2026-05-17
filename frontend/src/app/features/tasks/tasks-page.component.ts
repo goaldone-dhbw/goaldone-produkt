@@ -3,13 +3,14 @@ import { HttpErrorResponse } from '@angular/common/http';
 import {
   ChangeDetectionStrategy,
   Component,
-  computed,
+  DestroyRef,
   inject,
   OnInit,
   signal,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Tooltip } from 'primeng/tooltip';
-import { firstValueFrom } from 'rxjs';
+import { debounceTime, firstValueFrom, Subject } from 'rxjs';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ButtonModule } from 'primeng/button';
 import { DatePickerModule } from 'primeng/datepicker';
@@ -76,6 +77,9 @@ export class TasksPageComponent implements OnInit {
   private readonly userAccountsService = inject(UserAccountsService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
+
+  private readonly filterInputSubject = new Subject<void>();
 
   readonly tasks = signal<TaskItem[]>([]);
   readonly totalTaskCount = signal(0);
@@ -93,12 +97,11 @@ export class TasksPageComponent implements OnInit {
   editingTask = signal<TaskItem | null>(null);
   deletingTask = signal<TaskItem | null>(null);
 
-  readonly currentAccount = computed<AccountOption | null>(() => {
-    const accounts = this.accounts();
-    return accounts.length === 1 ? accounts[0] : null;
-  });
-
   ngOnInit(): void {
+    this.filterInputSubject
+      .pipe(debounceTime(400), takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.applyFilterStateToUrl());
+
     void this.initializePage();
   }
 
@@ -545,12 +548,18 @@ export class TasksPageComponent implements OnInit {
     }
 
     this.onDateRangeChange();
+
+    // Erst anwenden, wenn der komplette Zeitraum ausgewählt wurde
+    if (this.filters.deadlineFrom && this.filters.deadlineTo) {
+      this.applyFilterStateToUrl();
+    }
   }
 
   clearDateRangeFilter(): void {
     this.dateRange = [];
     this.filters.deadlineFrom = null;
     this.filters.deadlineTo = null;
+    this.applyFilterStateToUrl();
   }
 
   private isSameOrBetweenDates(date: Date, start: Date, end: Date): boolean {
@@ -602,6 +611,7 @@ export class TasksPageComponent implements OnInit {
     }
 
     select.hide(true);
+    this.applyFilterStateToUrl();
   }
 
   resetFilters(): void {
@@ -621,20 +631,7 @@ export class TasksPageComponent implements OnInit {
     this.applyFilterStateToUrl();
   }
 
-  private openCreateDialogFromQueryParam(): void {
-    const shouldOpenCreateDialog = this.route.snapshot.queryParamMap.get('create') === 'true';
-
-    if (!shouldOpenCreateDialog) {
-      return;
-    }
-
-    this.openCreateDialog();
-
-    void this.router.navigate([], {
-      relativeTo: this.route,
-      queryParams: { create: null },
-      queryParamsHandling: 'merge',
-      replaceUrl: true,
-    });
+  onFilterInput(): void {
+    this.filterInputSubject.next();
   }
 }

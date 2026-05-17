@@ -52,109 +52,193 @@
         </div>
       } @else {
         <div class="divide-y divide-slate-200">
-          @for (appointment of appointments(); track appointment.id) {
+          @for (group of appointmentGroups(); track group.key) {
             <div class="px-6 py-5">
-              <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div class="min-w-0 flex-1">
-                  <div class="mb-2 flex flex-wrap items-center gap-2">
-                    <h3 class="text-lg font-semibold text-slate-900">
-                      {{ appointment.title }}
-                    </h3>
+              <div class="flex flex-col gap-4">
+                <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div class="min-w-0 flex-1">
+                    <div class="mb-2 flex flex-wrap items-center gap-2">
+                      <h3 class="text-lg font-semibold text-slate-900">
+                        {{ group.title }}
+                      </h3>
 
-                    <span
-                      class="inline-flex rounded-full border border-slate-200 bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700"
+                      <span
+                        class="inline-flex rounded-full border border-slate-200 bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700"
+                      >
+                Fixer Blocker
+              </span>
+
+                      @if (group.appointments.length > 1) {
+                        <span
+                          class="inline-flex rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700"
+                        >
+                  {{ group.appointments.length }} Varianten
+                </span>
+                      }
+                    </div>
+
+                    <div
+                      class="flex flex-col gap-2 text-sm text-slate-600 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-6"
                     >
-                      Fixer Blocker
-                    </span>
+                      <div class="flex items-center gap-2">
+                <span
+                  class="flex items-center gap-1 text-xs font-semibold uppercase text-slate-500"
+                >
+                  <i class="pi pi-building text-xs text-primary-icon"></i>
+                  Unternehmen / Verein
+                </span>
+                        <span>{{ group.accountLabel }}</span>
+                      </div>
 
+                      @if (group.appointments.length === 1) {
+                        @let appointment = group.appointments[0];
+
+                        <div class="flex items-center gap-2">
+                  <span
+                    class="flex items-center gap-1 text-xs font-semibold uppercase text-slate-500"
+                  >
+                    <i class="pi pi-calendar text-xs text-primary-icon"></i>
+                    @if (isRecurringAppointment(appointment)) {
+                      Wiederholt
+                    } @else {
+                      Datum
+                    }
+                  </span>
+                          <span>{{ formatAppointmentDateOrDays(appointment) }}</span>
+                        </div>
+
+                        @if (isRecurringAppointment(appointment) && appointment.date) {
+                          <div class="flex items-center gap-2">
+                    <span
+                      class="flex items-center gap-1 text-xs font-semibold uppercase text-slate-500"
+                    >
+                      <i class="pi pi-calendar-plus text-xs text-primary-icon"></i>
+                      Ab
+                    </span>
+                            <span>{{ formatDate(appointment.date) }}</span>
+                          </div>
+                        }
+
+                        @if (isRecurringAppointment(appointment) && getRecurringEndDate(appointment)) {
+                          <div class="flex items-center gap-2">
+                    <span
+                      class="flex items-center gap-1 text-xs font-semibold uppercase text-slate-500"
+                    >
+                      <i class="pi pi-calendar-minus text-xs text-primary-icon"></i>
+                      Bis
+                    </span>
+                            <span>{{ formatDate(getRecurringEndDate(appointment)) }}</span>
+                          </div>
+                        }
+
+                        <div class="flex items-center gap-2">
+                  <span
+                    class="flex items-center gap-1 text-xs font-semibold uppercase text-slate-500"
+                  >
+                    <i class="pi pi-clock text-xs text-primary-icon"></i>
+                    Zeit
+                  </span>
+                          <span>{{ appointment.startTime }} - {{ appointment.endTime }}</span>
+                        </div>
+                      }
+                    </div>
+                  </div>
+
+                  <div
+                    class="flex shrink-0 items-center gap-1 border-t border-slate-100 pt-3 sm:border-0 sm:pt-0"
+                  >
+                    @if (group.appointments.length > 1) {
+                      <p-button
+                        [label]="
+                  isAppointmentGroupExpanded(group.key)
+                    ? 'Varianten ausblenden'
+                    : 'Varianten anzeigen'
+                "
+                        [text]="true"
+                        severity="secondary"
+                        (onClick)="toggleAppointmentGroup(group.key)"
+                      ></p-button>
+                    } @else {
+                      @let appointment = group.appointments[0];
+
+                      <p-button
+                        icon="pi pi-pencil"
+                        [text]="true"
+                        severity="secondary"
+                        (onClick)="openEditDialog(appointment)"
+                        pTooltip="Bearbeiten"
+                      ></p-button>
+
+                      <p-button
+                        icon="pi pi-trash"
+                        [text]="true"
+                        severity="danger"
+                        (onClick)="deleteAppointment(appointment)"
+                        pTooltip="Löschen"
+                      ></p-button>
+                    }
+                  </div>
+                </div>
+
+                @if (group.appointments.length > 1 && isAppointmentGroupExpanded(group.key)) {
+                  <div class="space-y-2 rounded-xl border border-slate-100 bg-slate-50 p-3">
+                    @for (appointment of group.appointments; track appointment.id) {
+                      <div
+                        class="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                      >
+                        <div class="min-w-0">
+                          <div class="mb-1 flex flex-wrap items-center gap-2">
                     <span
                       class="inline-flex rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700"
                     >
                       {{ formatAppointmentType(appointment) }}
                     </span>
-                  </div>
 
-                  <div
-                    class="flex flex-col gap-2 text-sm text-slate-600 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-6"
-                  >
-                    <div class="flex items-center gap-2">
-                      <span
-                        class="flex items-center gap-1 text-xs font-semibold uppercase text-slate-500"
-                      >
-                        <i class="pi pi-calendar text-xs text-primary-icon"></i>
-                        @if (isRecurringAppointment(appointment)) {
-                          Wiederholt
-                        } @else {
-                          Datum
-                        }
+                            @if (isRecurringAppointment(appointment)) {
+                              <span class="text-sm font-medium text-slate-700">
+                        {{ formatAppointmentDateOrDays(appointment) }}
                       </span>
-                      <span>{{ formatAppointmentDateOrDays(appointment) }}</span>
-                    </div>
+                            } @else {
+                              <span class="text-sm font-medium text-slate-700">
+                        {{ formatDate(appointment.date) }}
+                      </span>
+                            }
+                          </div>
 
-                    @if (isRecurringAppointment(appointment) && appointment.date) {
-                      <div class="flex items-center gap-2">
-                        <span
-                          class="flex items-center gap-1 text-xs font-semibold uppercase text-slate-500"
-                        >
-                          <i class="pi pi-calendar-plus text-xs text-primary-icon"></i>
-                          Ab
-                        </span>
-                        <span>{{ formatDate(appointment.date) }}</span>
+                          <div class="flex flex-wrap gap-x-5 gap-y-1 text-sm text-slate-600">
+                            @if (isRecurringAppointment(appointment) && appointment.date) {
+                              <span>Ab {{ formatDate(appointment.date) }}</span>
+                            }
+
+                            @if (isRecurringAppointment(appointment) && getRecurringEndDate(appointment)) {
+                              <span>Bis {{ formatDate(getRecurringEndDate(appointment)) }}</span>
+                            }
+
+                            <span>{{ appointment.startTime }} - {{ appointment.endTime }}</span>
+                          </div>
+                        </div>
+
+                        <div class="flex shrink-0 items-center gap-1">
+                          <p-button
+                            icon="pi pi-pencil"
+                            [text]="true"
+                            severity="secondary"
+                            (onClick)="openEditDialog(appointment)"
+                            pTooltip="Diese Variante bearbeiten"
+                          ></p-button>
+
+                          <p-button
+                            icon="pi pi-trash"
+                            [text]="true"
+                            severity="danger"
+                            (onClick)="deleteAppointment(appointment)"
+                            pTooltip="Diese Variante löschen"
+                          ></p-button>
+                        </div>
                       </div>
                     }
-
-                    @if (isRecurringAppointment(appointment) && getRecurringEndDate(appointment)) {
-                      <div class="flex items-center gap-2">
-                        <span
-                          class="flex items-center gap-1 text-xs font-semibold uppercase text-slate-500"
-                        >
-                          <i class="pi pi-calendar-minus text-xs text-primary-icon"></i>
-                          Bis
-                        </span>
-                        <span>{{ formatDate(getRecurringEndDate(appointment)) }}</span>
-                      </div>
-                    }
-
-                    <div class="flex items-center gap-2">
-                      <span
-                        class="flex items-center gap-1 text-xs font-semibold uppercase text-slate-500"
-                      >
-                        <i class="pi pi-clock text-xs text-primary-icon"></i> Zeit
-                      </span>
-                      <span>{{ appointment.startTime }} - {{ appointment.endTime }}</span>
-                    </div>
-
-                    <div class="flex items-center gap-2">
-                      <span
-                        class="flex items-center gap-1 text-xs font-semibold uppercase text-slate-500"
-                      >
-                        <i class="pi pi-building text-xs text-primary-icon"></i> Unternehmen /
-                        Verein
-                      </span>
-                      <span>{{ appointment.accountLabel }}</span>
-                    </div>
                   </div>
-                </div>
-
-                <div
-                  class="flex shrink-0 items-center gap-1 border-t border-slate-100 pt-3 sm:border-0 sm:pt-0"
-                >
-                  <p-button
-                    icon="pi pi-pencil"
-                    [text]="true"
-                    severity="secondary"
-                    (onClick)="openEditDialog(appointment)"
-                    pTooltip="Bearbeiten"
-                  ></p-button>
-
-                  <p-button
-                    icon="pi pi-trash"
-                    [text]="true"
-                    severity="danger"
-                    (onClick)="deleteAppointment(appointment)"
-                    pTooltip="Löschen"
-                  ></p-button>
-                </div>
+                }
               </div>
             </div>
           }

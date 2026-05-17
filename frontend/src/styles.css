@@ -36,3 +36,10 @@
   width: max-content;
   max-width: none;
 }
+.fc-timegrid-event {
+  min-height: 42px;
+}
+
+.fc-timegrid-event .fc-event-main {
+  padding: 4px 6px;
+}

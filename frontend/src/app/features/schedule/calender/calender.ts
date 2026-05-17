@@ -18,6 +18,7 @@ import timeGridPlugin from '@fullcalendar/timegrid';
 import { firstValueFrom } from 'rxjs';
 
 import {
+  AppointmentCreate,
   AppointmentsService,
   ScheduleEntry,
   TaskAccountListResponse,
@@ -60,6 +61,7 @@ type AppointmentDetail = {
   kind: 'Pause' | 'Fixer Termin';
   accountLabel: string;
   date: string;
+  originalStartDate: string;
   startTime: string;
   endTime: string;
   time: string;
@@ -89,6 +91,9 @@ const DEFAULT_SLOT_MAX_TIME = '22:00:00';
 
 const DEFAULT_WORKING_TIME_START = '08:00:00';
 const DEFAULT_WORKING_TIME_END = '17:00:00';
+
+const COMPACT_EVENT_MAX_MINUTES = 30;
+const TINY_EVENT_MAX_MINUTES = 10;
 
 const DEFAULT_WORKING_DAYS = new Set<CalendarDayName>([
   'MONDAY',
@@ -251,6 +256,8 @@ export class CalenderComponent {
     slotMaxTime: DEFAULT_SLOT_MAX_TIME,
 
     eventDisplay: 'block',
+    slotEventOverlap: false,
+    eventMaxStack: 3,
 
     eventTimeFormat: {
       hour: '2-digit',
@@ -308,7 +315,7 @@ export class CalenderComponent {
       accountId: appointment.accountId,
       title: appointment.title,
       isBreak: appointment.isBreak,
-      date: appointment.date,
+      date: appointment.originalStartDate || appointment.date,
       startTime: appointment.startTime,
       endTime: appointment.endTime,
       isRecurring: appointment.isRecurring,
@@ -320,7 +327,6 @@ export class CalenderComponent {
 
     this.isAppointmentEditMode.set(true);
   }
-
   cancelAppointmentEdit(): void {
     this.isAppointmentEditMode.set(false);
     this.appointmentEditForm.set(null);
@@ -383,10 +389,9 @@ export class CalenderComponent {
 
   async saveAppointment(): Promise<void> {
     const form = this.appointmentEditForm();
+    const appointment = this.selectedAppointment(); // ← diese Zeile fehlt
 
-    if (!form) {
-      return;
-    }
+    if (!form) return;
 
     if (!form.id || !form.accountId) {
       this.appointmentError.set('Der Eintrag kann nicht gespeichert werden, weil die ID fehlt.');
@@ -398,7 +403,7 @@ export class CalenderComponent {
       return;
     }
 
-    if (!form.date || !form.startTime || !form.endTime) {
+    if ((!form.isRecurring && !form.date) || !form.startTime || !form.endTime) {
       this.appointmentError.set('Bitte gib Datum, Startzeit und Endzeit an.');
       return;
     }
@@ -417,36 +422,70 @@ export class CalenderComponent {
     this.appointmentError.set('');
 
     try {
-      const payload = this.createAppointmentUpdatePayload(form);
+      if (appointment?.isRecurring === true && !appointment.isBreak) {
+        // Split nur bei fixen Terminen
+        const dayBefore = this.getDateBefore(appointment.date);
 
-      await firstValueFrom(
-        this.appointmentsService.updateAppointment(form.accountId, form.id, payload as any),
-      );
+        const oldRule =
+          appointment.rule && appointment.rule.trim()
+            ? appointment.rule
+            : this.createWeeklyRule(appointment.days);
+
+        const oldPayload: AppointmentCreate = {
+          title: appointment.title.trim(),
+          isBreak: appointment.isBreak,
+          appointmentType: 'RECURRING',
+          date: form.date || null,
+          startTime: appointment.startTime.substring(0, 5),
+          endTime: appointment.endTime.substring(0, 5),
+          rrule: this.appendUntilToRrule(oldRule, dayBefore),
+        };
+
+        await firstValueFrom(
+          this.appointmentsService.updateAppointment(form.accountId, form.id, oldPayload),
+        );
+
+        const newPayload: AppointmentCreate = {
+          title: form.title.trim(),
+          isBreak: form.isBreak,
+          appointmentType: 'RECURRING',
+          date: appointment.date,
+          startTime: form.startTime.substring(0, 5),
+          endTime: form.endTime.substring(0, 5),
+          rrule: this.createWeeklyRule(form.days),
+        };
+
+        await firstValueFrom(
+          this.appointmentsService.createAppointment(form.accountId, newPayload),
+        );
+      } else {
+        // Pausen und ONE_TIME: einfaches Update
+        const payload = this.createAppointmentUpdatePayload(form);
+        await firstValueFrom(
+          this.appointmentsService.updateAppointment(form.accountId, form.id, payload),
+        );
+      }
 
       this.closeAppointmentDialog();
       this.appointmentSaved.emit();
-    } catch {
+    } catch (error) {
+      console.error('saveAppointment error:', error);
       this.appointmentError.set('Der Eintrag konnte nicht gespeichert werden.');
     } finally {
       this.isSavingAppointment.set(false);
     }
   }
 
-  private createAppointmentUpdatePayload(form: AppointmentEditForm): any {
-    const normalizedStartTime = this.normalizeTime(form.startTime);
-    const normalizedEndTime = this.normalizeTime(form.endTime);
-
-    const payload: any = {
+  private createAppointmentUpdatePayload(form: AppointmentEditForm): AppointmentCreate {
+    return {
       title: form.title.trim(),
-      date: form.date,
-      startTime: normalizedStartTime,
-      endTime: normalizedEndTime,
       isBreak: form.isBreak,
       appointmentType: form.isRecurring ? 'RECURRING' : 'ONE_TIME',
-      rule: form.isRecurring ? this.createWeeklyRule(form.days) : null,
+      date: form.isRecurring ? null : form.date || null, // NEU
+      startTime: form.startTime.substring(0, 5),
+      endTime: form.endTime.substring(0, 5),
+      rrule: form.isRecurring ? this.createWeeklyRule(form.days) : null,
     };
-
-    return payload;
   }
 
   private createWeeklyRule(days: WeekdayCode[]): string {
@@ -607,13 +646,20 @@ export class CalenderComponent {
 
   private mapScheduleEntryToAppointmentDetail(entry: ScheduleEntry): AppointmentDetail {
     const rawEntry = entry as any;
+
     const duration = this.calculateDurationInMinutes(entry);
     const rule = this.getOptionalString(entry, 'rule') || this.getOptionalString(entry, 'rrule');
     const isRecurring =
       rawEntry.source === 'RECURRING' || rawEntry.appointmentType === 'RECURRING' || Boolean(rule);
 
     return {
-      id: String(entry.originalItemId ?? entry.entryId ?? ''),
+      id: String(
+        entry.originalItemId ??
+          (entry.entryId && !String(entry.entryId).startsWith('recurring-')
+            ? entry.entryId
+            : null) ??
+          '',
+      ),
       accountId: String(rawEntry.accountId ?? ''),
       title:
         entry.originalItemTitle?.trim() || (this.isBreakEntry(entry) ? 'Pause' : 'Fixer Termin'),
@@ -623,9 +669,11 @@ export class CalenderComponent {
         this.getOptionalString(entry, 'organizationName') ||
         this.getOptionalString(entry, 'organizationLabel') ||
         this.getOptionalString(entry, 'accountName') ||
-        rawEntry.accountId ||
         '-',
       date: entry.occurrenceDate ?? '-',
+      originalStartDate:
+        this.getOptionalString(entry, 'originalStartDate') ||
+        (isRecurring ? '' : (entry.occurrenceDate ?? '')),
       startTime: this.formatTime(entry.startTime),
       endTime: this.formatTime(entry.endTime),
       time: `${this.formatTime(entry.startTime)} - ${this.formatTime(entry.endTime)}`,
@@ -645,6 +693,39 @@ export class CalenderComponent {
     return (
       rawEntry.originalItemId ?? rawEntry.taskId ?? rawEntry.originalTaskId ?? entry.entryId ?? ''
     );
+  }
+
+  private getEventClassNames(entry: ScheduleEntry): string[] {
+    const classNames: string[] = [];
+
+    if (this.isBreakEntry(entry)) {
+      classNames.push('schedule-event--break');
+    } else if (this.isAppointmentEntry(entry)) {
+      classNames.push('schedule-event--appointment');
+    } else if (entry.isCompleted) {
+      classNames.push('schedule-event--completed');
+    } else {
+      classNames.push('schedule-event--task');
+    }
+
+    const durationInMinutes = this.getEntryDurationInMinutes(entry);
+
+    if (durationInMinutes <= COMPACT_EVENT_MAX_MINUTES && durationInMinutes > TINY_EVENT_MAX_MINUTES) {
+      classNames.push('schedule-event--compact');
+    }
+
+    if (durationInMinutes <= TINY_EVENT_MAX_MINUTES) {
+      classNames.push('schedule-event--tiny');
+    }
+
+    return classNames;
+  }
+
+  private getEntryDurationInMinutes(entry: ScheduleEntry): number {
+    const start = this.timeToMinutes(entry.startTime);
+    const end = this.timeToMinutes(entry.endTime);
+
+    return Math.max(end - start, 0);
   }
 
   private getTaskStatus(entry: ScheduleEntry): TaskStatus {
@@ -782,26 +863,6 @@ export class CalenderComponent {
     };
 
     return map[day];
-  }
-
-  private getEventClassNames(entry: ScheduleEntry): string[] {
-    if (this.isBreakEntry(entry)) {
-      return ['schedule-event--break'];
-    }
-
-    if (this.isAppointmentEntry(entry)) {
-      return ['schedule-event--appointment'];
-    }
-
-    if (entry.isCompleted) {
-      return ['schedule-event--completed'];
-    }
-
-    if (entry.isPinned) {
-      return ['schedule-event--pinned'];
-    }
-
-    return ['schedule-event--task'];
   }
 
   private computeEffectiveSlotRange(): { slotMinTime: string; slotMaxTime: string } {
@@ -1128,7 +1189,7 @@ export class CalenderComponent {
   }
 
   private isBreakEntry(entry: ScheduleEntry): boolean {
-    return entry.isBreak === true;
+    return entry.isBreak;
   }
 
   private isAppointmentEntry(entry: ScheduleEntry): boolean {
@@ -1197,5 +1258,23 @@ export class CalenderComponent {
     const day = String(date.getDate()).padStart(2, '0');
 
     return `${year}-${month}-${day}`;
+  }
+
+  private getDateBefore(date: string): string {
+    const [y, m, d] = date.split('-').map(Number);
+    const day = new Date(y, m - 1, d);
+    day.setDate(day.getDate() - 1);
+    return this.toIsoDate(day);
+  }
+
+  private appendUntilToRrule(rrule: string, untilDate: string): string {
+    const withoutUntil = rrule
+      .split(';')
+      .filter((part) => !part.toUpperCase().startsWith('UNTIL='))
+      .join(';');
+
+    const compact = untilDate.replaceAll('-', '');
+
+    return `${withoutUntil};UNTIL=${compact}`;
   }
 }

@@ -213,6 +213,26 @@ export class ScheduleFacadeService {
 
     if (this.skipNextLoad()) {
       this.skipNextLoad.set(false);
+
+      const accountId = this.selectedAccountId();
+      const existingResponse = this.scheduleResponse();
+
+      if (accountId) {
+        await this.refreshAppointments();
+        const appointmentEntries = await this.loadAppointmentEntries(accountId);
+
+        if (existingResponse) {
+          this.applyScheduleResponse(
+            this.removeAppointmentEntriesFromResponse(existingResponse),
+            appointmentEntries,
+          );
+        } else if (appointmentEntries.length > 0) {
+          const entries = this.sortScheduleEntries(appointmentEntries);
+          this.scheduleEntries.set(entries);
+          this.saveToCache(entries);
+        }
+      }
+
       return;
     }
 
@@ -226,9 +246,14 @@ export class ScheduleFacadeService {
     if (!this.canLoadExistingSchedule()) {
       if (existingResponse) {
         const appointmentEntries = await this.loadAppointmentEntries(accountId);
-        this.applyScheduleResponse(existingResponse, appointmentEntries);
+
+        this.applyScheduleResponse(
+          this.removeAppointmentEntriesFromResponse(existingResponse),
+          appointmentEntries,
+        );
       }
     }
+
 
     if (accountId !== this.ALL_ACCOUNTS_ID && !this.canLoadExistingSchedule()) return;
 
@@ -243,8 +268,8 @@ export class ScheduleFacadeService {
         accountId === this.ALL_ACCOUNTS_ID
           ? await firstValueFrom(this.schedulesService.getAllAccountsSchedule(from, to))
           : await firstValueFrom(
-              this.schedulesService.getSingleAccountSchedule(accountId, from, to),
-            );
+            this.schedulesService.getSingleAccountSchedule(accountId, from, to),
+          );
 
       const appointmentEntries = await this.loadAppointmentEntries(accountId);
 
@@ -260,7 +285,10 @@ export class ScheduleFacadeService {
         const appointmentEntries = await this.loadAppointmentEntries(accountId);
 
         if (fallbackResponse) {
-          this.applyScheduleResponse(fallbackResponse, appointmentEntries);
+          this.applyScheduleResponse(
+            this.removeAppointmentEntriesFromResponse(fallbackResponse),
+            appointmentEntries,
+          );
         } else if (appointmentEntries.length > 0) {
           this.scheduleEntries.set(appointmentEntries);
           this.saveToCache(appointmentEntries);
@@ -314,8 +342,8 @@ export class ScheduleFacadeService {
         accountId === this.ALL_ACCOUNTS_ID
           ? await firstValueFrom(this.schedulesService.generateAllAccountsSchedule(request))
           : await firstValueFrom(
-              this.schedulesService.generateSingleAccountSchedule(accountId, request),
-            );
+            this.schedulesService.generateSingleAccountSchedule(accountId, request),
+          );
 
       const appointmentEntries = await this.loadAppointmentEntries(accountId);
 
@@ -347,6 +375,46 @@ export class ScheduleFacadeService {
     }
   }
 
+  async refreshAppointments(): Promise<void> {
+    const accountId = this.selectedAccountId();
+
+    if (!accountId) {
+      return;
+    }
+
+    const appointmentEntries = await this.loadAppointmentEntries(accountId);
+
+    const freshBreakEntries = appointmentEntries.filter(
+      (entry) => entry.type === 'APPOINTMENT' && entry.isBreak,
+    );
+
+    const currentResponse = this.scheduleResponse();
+
+    if (currentResponse) {
+      const responseWithoutOldBreaks: ScheduleResponse = {
+        ...currentResponse,
+        entries: (currentResponse.entries ?? []).filter(
+          (entry) => !(entry.type === 'APPOINTMENT' && entry.isBreak),
+        ),
+        appointments: [],
+      };
+
+      this.applyScheduleResponse(responseWithoutOldBreaks, freshBreakEntries);
+      return;
+    }
+
+    const existingNonBreakEntries = this.scheduleEntries().filter(
+      (entry) => !(entry.type === 'APPOINTMENT' && entry.isBreak),
+    );
+
+    const entries = this.sortScheduleEntries([
+      ...existingNonBreakEntries,
+      ...freshBreakEntries,
+    ]);
+
+    this.scheduleEntries.set(entries);
+    this.saveToCache(entries);
+  }
   getUnscheduledTaskLabel(task: UnscheduledTask): string {
     const value = task as any;
 
@@ -358,6 +426,15 @@ export class ScheduleFacadeService {
       value.originalItemId ||
       'Nicht eingeplante Aufgabe'
     );
+  }
+  private removeAppointmentEntriesFromResponse(response: ScheduleResponse): ScheduleResponse {
+    return {
+      ...response,
+      entries: (response.entries ?? []).filter(
+        (entry) => entry.type !== 'APPOINTMENT',
+      ),
+      appointments: [],
+    };
   }
 
   private applyScheduleResponse(
@@ -468,8 +545,8 @@ export class ScheduleFacadeService {
     const accountIds =
       accountId === this.ALL_ACCOUNTS_ID
         ? this.accounts()
-            .map((account) => account.id)
-            .filter(Boolean)
+          .map((account) => account.id)
+          .filter(Boolean)
         : [accountId];
 
     if (accountIds.length === 0) {
@@ -483,10 +560,16 @@ export class ScheduleFacadeService {
             this.appointmentsService.listAppointments(currentAccountId),
           );
 
-          return this.extractAppointmentItems(response).map((appointment) => ({
-            ...appointment,
-            accountId: appointment.accountId ?? currentAccountId,
-          }));
+          return this.extractAppointmentItems(response).map((appointment) => {
+            const resolvedAccountId = appointment.accountId ?? currentAccountId;
+            const accountLabel = this.getAccountLabel(resolvedAccountId);
+
+            return {
+              ...appointment,
+              accountId: String(resolvedAccountId),
+              accountLabel: accountLabel ?? null,
+            };
+          });
         } catch {
           return [];
         }
@@ -544,6 +627,11 @@ export class ScheduleFacadeService {
   }
 
   private mapSingleAppointment(appointment: any): ScheduleEntry {
+    const accountId = appointment.accountId ? String(appointment.accountId) : null;
+    const accountLabel =
+      appointment.accountLabel ??
+      this.getAccountLabel(accountId);
+
     return {
       source: appointment.appointmentType ?? 'ONE_TIME',
       startTime: appointment.startTime,
@@ -558,6 +646,8 @@ export class ScheduleFacadeService {
       occurrenceDate: this.getAppointmentDate(appointment),
       originalItemId: appointment.id ?? null,
       totalChunks: null,
+      ...(accountId ? { accountId } : {}),
+      ...(accountLabel ? { accountLabel: String(accountLabel) } : {}),
     } as ScheduleEntry;
   }
 
@@ -573,6 +663,11 @@ export class ScheduleFacadeService {
     const isDaily = this.isDailyRrule(rrule);
     const untilDate = this.parseUntilDateFromRrule(rrule);
     const startDate = this.getAppointmentDate(appointment);
+
+    const accountId = appointment.accountId ? String(appointment.accountId) : null;
+    const accountLabel =
+      appointment.accountLabel ??
+      this.getAccountLabel(accountId);
 
     if (recurringDays.length === 0 && !isDaily) {
       return [];
@@ -625,6 +720,10 @@ export class ScheduleFacadeService {
             occurrenceDate: date,
             originalItemId: appointment.id ?? null,
             totalChunks: null,
+            ...(accountId ? { accountId } : {}),
+            ...(accountLabel ? { accountLabel: String(accountLabel) } : {}),
+            ...(rrule ? { rrule } : {}),
+            ...(startDate ? { originalStartDate: startDate } : {}),
           }) as ScheduleEntry,
       );
   }
@@ -787,7 +886,7 @@ export class ScheduleFacadeService {
         entry.startTime ?? '',
         entry.endTime ?? '',
         entry.type ?? '',
-        entry.isBreak === true ? 'break' : 'normal',
+        entry.isBreak ? 'break' : 'normal',
       ].join('|');
 
       if (seen.has(key)) {
@@ -847,9 +946,19 @@ export class ScheduleFacadeService {
 
   private getGenerationStartDate(): string {
     const range = this.lastRange() ?? this.getCurrentWeekRange();
-    const today = this.toIsoDate(new Date());
 
-    return range.from < today ? today : range.from;
+    const now = new Date();
+    const today = this.toIsoDate(now);
+
+    let date: Date;
+
+    if (range.from < today) {
+      date = now;
+    } else {
+      date = new Date(`${range.from}T00:00:00Z`);
+    }
+
+    return date.toISOString();
   }
 
   private getCurrentWeekRange(): { from: string; to: string } {
@@ -952,5 +1061,13 @@ export class ScheduleFacadeService {
     }
 
     return '';
+  }
+
+  private getAccountLabel(accountId: string | null | undefined): string | null {
+    if (!accountId) {
+      return null;
+    }
+
+    return this.accounts().find((account) => account.id === String(accountId))?.label ?? null;
   }
 }

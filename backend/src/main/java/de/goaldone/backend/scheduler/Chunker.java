@@ -63,12 +63,10 @@ public class Chunker {
                     .chunkIndex(i)
                     .totalChunks(totalChunks)
                     .durationMinutes(chunkDurations.get(i))
-                    .topologicalLevel(0)
-                    .slackMinutes(0)
                     .cognitiveLoad(task.getCognitiveLoad())
                     .notBefore(notBefore)
                     .deadline(deadline)
-                    .isPinned(false)
+                    .isBreak(false)
                     .dependsOnTaskIds(dependsOnTaskIds)
                     .build());
         }

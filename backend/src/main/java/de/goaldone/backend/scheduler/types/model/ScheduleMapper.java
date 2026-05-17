@@ -28,12 +28,12 @@ public class ScheduleMapper {
 
         response.generatedAt(OffsetDateTime.now());
         response.accountId(accountId);
-        response.from(context.fromDate());
+        response.from(context.fromDate().toLocalDate());
         response.score(schedule.score());
         response.setWarnings(schedule.scheduleWarnings());
 
         response.to(
-                getToDate(schedule.schedule(), context.fromDate())
+                getToDate(schedule.schedule(), context.fromDate().toLocalDate())
         );
 
         response.totalWorkMinutes(
@@ -44,7 +44,7 @@ public class ScheduleMapper {
                 getSchedule(schedule.schedule())
         );
 
-        response.unscheduledTasks(schedule.schedule().unscheduledChunks());
+        response.unscheduledTasks(schedule.schedule().unscheduledTasks());
         response.appointments(context.allAppointments());
 
         return response;
@@ -104,7 +104,6 @@ public class ScheduleMapper {
                 .type(ScheduleEntry.TypeEnum.TASK)
                 .isBreak(false)
                 .isCompleted(false)
-                .isPinned(scheduledChunk.chunk().isPinned())
                 .originalItemId(scheduledChunk.chunk().taskId())
                 .chunkIndex(scheduledChunk.chunk().chunkIndex())
                 .totalChunks(scheduledChunk.chunk().totalChunks());
