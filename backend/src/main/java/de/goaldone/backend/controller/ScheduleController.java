@@ -3,6 +3,8 @@ package de.goaldone.backend.controller;
 import de.goaldone.backend.api.SchedulesApi;
 import de.goaldone.backend.entity.UserAccountEntity;
 import de.goaldone.backend.model.GenerateScheduleRequest;
+import de.goaldone.backend.model.MarkScheduleEntryRequest;
+import de.goaldone.backend.model.MarkScheduleEntryResponse;
 import de.goaldone.backend.model.MultiAccountScheduleResponse;
 import de.goaldone.backend.model.ScheduleResponse;
 import de.goaldone.backend.service.CurrentUserResolver;
@@ -33,8 +35,8 @@ public class ScheduleController implements SchedulesApi {
     private final long timeoutMilliseconds = 10000;
 
     private List<UserAccountEntity> getAccountsLinkedToIdentity(Jwt jwt) {
-        return userIdentityService.
-                findAccountsForIdentity(userIdentityService.findIdentityFromAccount(jwt));
+        return userIdentityService
+                .findAccountsForIdentity(userIdentityService.findIdentityFromAccount(jwt));
     }
 
     /**
@@ -66,10 +68,15 @@ public class ScheduleController implements SchedulesApi {
 
     @Override
     public ResponseEntity<MultiAccountScheduleResponse> getAllAccountsSchedule(LocalDate from, LocalDate to) {
-
-        // Validate goaldone user and its connected accounts using ids
-
-        return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();
+        Jwt jwt = currentUserResolver.extractJwt();
+        List<UUID> accountIds = getAccountsLinkedToIdentity(jwt)
+                .stream()
+                .map(UserAccountEntity::getId)
+                .toList();
+        List<ScheduleResponse> schedules = scheduleService.loadAllAccountsSchedules(jwt, accountIds);
+        MultiAccountScheduleResponse response = new MultiAccountScheduleResponse();
+        response.setSchedules(schedules);
+        return ResponseEntity.ok(response);
     }
 
     /**
@@ -89,13 +96,23 @@ public class ScheduleController implements SchedulesApi {
         ScheduleResponse scheduleResponse = scheduleService.generateSingleAccountSchedule(
                 jwt, accountId, generateScheduleRequest, timeoutMilliseconds
         );
-
         return ResponseEntity.status(HttpStatus.CREATED).body(scheduleResponse);
     }
 
     @Override
     public ResponseEntity<ScheduleResponse> getSingleAccountSchedule(UUID accountId, LocalDate from, LocalDate to) {
-        return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();
+        Jwt jwt = currentUserResolver.extractJwt();
+        ScheduleResponse response = scheduleService.loadSingleAccountSchedule(jwt, accountId);
+        return ResponseEntity.ok(response);
+    }
+
+    @Override
+    public ResponseEntity<MarkScheduleEntryResponse> markScheduleEntryDone(UUID accountId, UUID entryId,
+                                                                           MarkScheduleEntryRequest markScheduleEntryRequest) {
+        Jwt jwt = currentUserResolver.extractJwt();
+        MarkScheduleEntryResponse response = scheduleService.markEntryDone(
+                jwt, accountId, entryId, markScheduleEntryRequest.getScope());
+        return ResponseEntity.ok(response);
     }
 
     private void rejectIfWorkingTimesConflict(Jwt jwt) {

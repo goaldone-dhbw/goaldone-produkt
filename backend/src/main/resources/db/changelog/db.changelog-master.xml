@@ -14,5 +14,6 @@
     <include file="changes/007-fix-task-description-type.xml" relativeToChangelogFile="true"/>
     <include file="changes/008-create-working-times.xml" relativeToChangelogFile="true"/>
     <include file="changes/009-create-appointments-table.xml" relativeToChangelogFile="true"/>
+    <include file="changes/010-create-schedule-plan-tables.xml" relativeToChangelogFile="true"/>
 
 </databaseChangeLog>

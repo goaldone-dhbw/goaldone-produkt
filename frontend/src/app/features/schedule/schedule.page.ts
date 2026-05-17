@@ -9,6 +9,7 @@ import { ScheduleFacadeService } from './facade/facade';
 import { Toast } from 'primeng/toast';
 import { MessageService } from 'primeng/api';
 import { AccountStateService } from '../../core/services/account-state.service';
+import type { ScheduleTaskCompletionEvent } from './completion/schedule-completion-api.service';
 
 @Component({
   selector: 'app-schedule',
@@ -53,6 +54,36 @@ export class SchedulePage {
         'Die Änderungen werden im Arbeitsplan erst berücksichtigt, wenn du die Planung erneut startest.',
       life: 5000,
     });
+  }
+
+  async onTaskCompletionRequested(event: ScheduleTaskCompletionEvent): Promise<void> {
+    try {
+      await this.facade.completeTaskFromPlanner(event.request);
+
+      event.resolve();
+
+      this.messageService.add({
+        severity: 'success',
+        summary: 'Erledigt gespeichert',
+        detail:
+          event.request.scope === 'TASK'
+            ? 'Die gesamte Aufgabe wurde vom Backend als erledigt gespeichert.'
+            : 'Der Aufgabenabschnitt wurde vom Backend als erledigt gespeichert.',
+        life: 5000,
+      });
+    } catch {
+      const errorMessage =
+        'Die Erledigt-Entscheidung konnte nicht gespeichert werden. Bitte prüfe, ob der Backend-Endpunkt bereits verfügbar ist.';
+
+      event.reject(errorMessage);
+
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Speichern fehlgeschlagen',
+        detail: errorMessage,
+        life: 7000,
+      });
+    }
   }
 
   async onPlannerAppointmentSaved(): Promise<void> {
