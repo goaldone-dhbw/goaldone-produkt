@@ -177,7 +177,7 @@ class ScheduleControllerIT {
         SchedulePlanEntity plan = savePlan(testAccountId);
         ScheduleEntryEntity entry = saveEntry(plan, testAccountId, taskId, 0, 1); // totalChunks = 1
 
-        mockMvc.perform(patch("/schedules/" + testAccountId + "/entries/" + entry.getId())
+        mockMvc.perform(patch("/schedule-entries/" +entry.getId())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"scope\":\"CHUNK\"}")
                 .with(jwt().jwt(testJwt)))
@@ -210,7 +210,7 @@ class ScheduleControllerIT {
         // Chunk 2 is the last remaining
         ScheduleEntryEntity chunk2 = saveEntry(plan, testAccountId, taskId, 2, 3);
 
-        mockMvc.perform(patch("/schedules/" + testAccountId + "/entries/" + chunk2.getId())
+        mockMvc.perform(patch("/schedule-entries/" +chunk2.getId())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"scope\":\"CHUNK\"}")
                 .with(jwt().jwt(testJwt)))
@@ -234,7 +234,7 @@ class ScheduleControllerIT {
         ScheduleEntryEntity chunk1 = saveEntry(plan, testAccountId, taskId, 1, 3);
         ScheduleEntryEntity chunk2 = saveEntry(plan, testAccountId, taskId, 2, 3);
 
-        mockMvc.perform(patch("/schedules/" + testAccountId + "/entries/" + chunk1.getId())
+        mockMvc.perform(patch("/schedule-entries/" +chunk1.getId())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"scope\":\"CHUNK\"}")
                 .with(jwt().jwt(testJwt)))
@@ -261,7 +261,7 @@ class ScheduleControllerIT {
         ScheduleEntryEntity chunk0 = saveEntry(plan, testAccountId, taskId, 0, 2);
         ScheduleEntryEntity chunk1 = saveEntry(plan, testAccountId, taskId, 1, 2);
 
-        mockMvc.perform(patch("/schedules/" + testAccountId + "/entries/" + chunk0.getId())
+        mockMvc.perform(patch("/schedule-entries/" +chunk0.getId())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"scope\":\"TASK\"}")
                 .with(jwt().jwt(testJwt)))
@@ -278,7 +278,7 @@ class ScheduleControllerIT {
      */
     @Test
     void markEntry_entryNotFound_returns404() throws Exception {
-        mockMvc.perform(patch("/schedules/" + testAccountId + "/entries/" + UUID.randomUUID())
+        mockMvc.perform(patch("/schedule-entries/" +UUID.randomUUID())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"scope\":\"CHUNK\"}")
                 .with(jwt().jwt(testJwt)))
@@ -295,7 +295,7 @@ class ScheduleControllerIT {
         SchedulePlanEntity plan = savePlan(testAccountId);
         ScheduleEntryEntity entry = saveEntry(plan, testAccountId, UUID.randomUUID(), 0, 1);
 
-        mockMvc.perform(patch("/schedules/" + testAccountId + "/entries/" + entry.getId())
+        mockMvc.perform(patch("/schedule-entries/" +entry.getId())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"scope\":\"CHUNK\"}")
                 .with(jwt().jwt(otherJwt)))

@@ -284,16 +284,17 @@ public class ScheduleService {
     }
 
     @Transactional
-    public MarkScheduleEntryResponse markEntryDone(Jwt jwt, UUID accountId, UUID entryId,
-                                                   MarkScheduleEntryScope scope) {
+    public MarkScheduleEntryResponse markEntryDone(Jwt jwt, UUID entryId, MarkScheduleEntryScope scope) {
+        ScheduleEntryEntity targetEntry = scheduleEntryRepository.findById(entryId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "Schedule entry not found: " + entryId));
+
+        UUID accountId = targetEntry.getAccountId();
+
         if (!userIdentityService.hasUserAccessToAccount(jwt, accountId)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,
                     "User does not have access to account " + accountId);
         }
-
-        ScheduleEntryEntity targetEntry = scheduleEntryRepository.findByIdAndAccountId(entryId, accountId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
-                        "Schedule entry not found: " + entryId));
 
         List<ScheduleEntryEntity> updatedEntities;
 
