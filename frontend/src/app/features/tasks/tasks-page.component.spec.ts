@@ -376,7 +376,8 @@ describe('TasksPageComponent', () => {
     await flushInitialRequests([], { accounts: [] });
 
     component.filters.deadlineFrom = new Date('2026-05-12T00:00:00');
-    component.filters.deadlineTo = new Date('2026-05-18T23:59:59');
+    component.filters.deadlineTo = new Date('2026-05-18T00:00:00');
+
     await reloadTasksWithResponse(tasksForAccount([filterTestTasks[1]]), {
       deadlineFrom: '2026-05-12T00:00:00',
       deadlineTo: '2026-05-18T23:59:59',
@@ -385,19 +386,17 @@ describe('TasksPageComponent', () => {
     expect(component.tasks().map((task) => task.id)).toEqual(['t-progress-high']);
   });
 
-  it('soll Aufgaben ohne Deadline ausfiltern, wenn ein Deadline-Zeitraum gesetzt ist', async () => {
+  it('soll bei einem einzelnen Deadline-Datum einen Tageszeitraum an das Backend senden', async () => {
     await flushInitialRequests([], { accounts: [] });
 
-    component.filters.deadlineFrom = new Date('2026-05-01T00:00:00');
-    await reloadTasksWithResponse(tasksForAccount(filterTestTasks), {
-      deadlineFrom: '2026-05-01T00:00:00',
+    component.filters.deadlineFrom = new Date('2026-05-15T00:00:00');
+    component.filters.deadlineTo = null;
+    await reloadTasksWithResponse(tasksForAccount([filterTestTasks[1]]), {
+      deadlineFrom: '2026-05-15T00:00:00',
+      deadlineTo: '2026-05-15T23:59:59',
     });
 
-    expect(component.tasks().map((task) => task.id)).toEqual([
-      't-open-low',
-      't-progress-high',
-      't-done-moderate',
-    ]);
+    expect(component.tasks().map((task) => task.id)).toEqual(['t-progress-high']);
   });
 
   it('soll mehrere Filter kombinieren', async () => {
@@ -407,7 +406,7 @@ describe('TasksPageComponent', () => {
     component.filters.difficulty = 'MODERATE';
     component.filters.accountId = accountId;
     component.filters.deadlineFrom = new Date('2026-05-19T00:00:00');
-    component.filters.deadlineTo = new Date('2026-05-21T23:59:59');
+    component.filters.deadlineTo = new Date('2026-05-21T00:00:00');
     await reloadTasksWithResponse(
       [
         ...tasksForAccount([filterTestTasks[2]]),
@@ -469,7 +468,6 @@ describe('TasksPageComponent', () => {
     ]);
   });
 
-
   it('soll Suchbegriff und Status kombinieren', async () => {
     await flushInitialRequests([], { accounts: [] });
 
@@ -503,7 +501,7 @@ describe('TasksPageComponent', () => {
     component.filters.accountId = secondAccountId;
     component.filters.searchTerm = 'Bericht';
     component.filters.deadlineFrom = new Date('2026-05-10T00:00:00');
-    component.filters.deadlineTo = new Date('2026-05-12T23:59:59');
+    component.filters.deadlineTo = new Date('2026-05-12T00:00:00');
 
     component.applyFilterStateToUrl();
 
@@ -515,7 +513,7 @@ describe('TasksPageComponent', () => {
         accountId: secondAccountId,
         searchTerm: 'Bericht',
         deadlineFrom: '2026-05-10T00:00:00',
-        deadlineTo: '2026-05-12T23:59:59',
+        deadlineTo: '2026-05-12T00:00:00',
       },
       queryParamsHandling: '',
     });
@@ -557,7 +555,7 @@ describe('TasksPageComponent', () => {
       accountId: secondAccountId,
       searchTerm: 'Bericht',
       deadlineFrom: '2026-05-12T00:00:00',
-      deadlineTo: '2026-05-18T23:59:59',
+      deadlineTo: '2026-05-18T00:00:00',
     });
 
     await flushInitialRequests(
@@ -599,13 +597,13 @@ describe('TasksPageComponent', () => {
       status: 'IN_PROGRESS',
       difficulty: 'HIGH',
       deadlineFrom: new Date('2026-05-12T00:00:00'),
-      deadlineTo: new Date('2026-05-18T23:59:59'),
+      deadlineTo: new Date('2026-05-18T00:00:00'),
       accountId: secondAccountId,
       searchTerm: 'Bericht',
     });
     expect(component.dateRange).toEqual([
       new Date('2026-05-12T00:00:00'),
-      new Date('2026-05-18T23:59:59'),
+      new Date('2026-05-18T00:00:00'),
     ]);
     expect(component.tasks().map((task) => task.id)).toEqual(['t-query-param']);
   });
@@ -684,6 +682,7 @@ describe('TasksPageComponent', () => {
 
     const tasksRequest = expectTasksRequest({
       deadlineFrom: '2026-05-01T00:00:00',
+      deadlineTo: '2026-05-01T23:59:59',
     });
     tasksRequest.flush(tasksForAccount(filterTestTasks));
 
@@ -709,7 +708,7 @@ describe('TasksPageComponent', () => {
     component.filters.accountId = accountId;
     component.filters.searchTerm = 'Bericht';
     component.filters.deadlineFrom = new Date('2026-05-19T00:00:00');
-    component.filters.deadlineTo = new Date('2026-05-21T23:59:59');
+    component.filters.deadlineTo = new Date('2026-05-21T00:00:00');
     component.dateRange = [component.filters.deadlineFrom, component.filters.deadlineTo];
 
     component.resetFilters();

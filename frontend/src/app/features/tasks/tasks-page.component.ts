@@ -162,11 +162,15 @@ export class TasksPageComponent implements OnInit {
     this.isLoading.set(true);
 
     try {
-      const fromStr = this.filters.deadlineFrom
-        ? this.formatLocalDateNativeString(this.filters.deadlineFrom)
+      const selectedDeadlineFrom = this.filters.deadlineFrom;
+      const selectedDeadlineTo = this.filters.deadlineTo ?? this.filters.deadlineFrom;
+
+      const fromStr = selectedDeadlineFrom
+        ? this.formatLocalDateNativeString(this.toStartOfDay(selectedDeadlineFrom))
         : undefined;
-      const toStr = this.filters.deadlineTo
-        ? this.formatLocalDateNativeString(this.filters.deadlineTo)
+
+      const toStr = selectedDeadlineTo
+        ? this.formatLocalDateNativeString(this.toEndOfDay(selectedDeadlineTo))
         : undefined;
 
       const response = await firstValueFrom(
@@ -541,11 +545,7 @@ export class TasksPageComponent implements OnInit {
     }
 
     this.onDateRangeChange();
-
-    // Erst anwenden, wenn der komplette Zeitraum ausgewählt wurde
-    if (this.filters.deadlineFrom && this.filters.deadlineTo) {
-      this.applyFilterStateToUrl();
-    }
+    this.applyFilterStateToUrl();
   }
 
   clearDateRangeFilter(): void {
@@ -565,6 +565,30 @@ export class TasksPageComponent implements OnInit {
 
   private getDateOnlyTime(date: Date): number {
     return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+  }
+
+  private toStartOfDay(date: Date): Date {
+    return new Date(
+      date.getFullYear(),
+      date.getMonth(),
+      date.getDate(),
+      0,
+      0,
+      0,
+      0,
+    );
+  }
+
+  private toEndOfDay(date: Date): Date {
+    return new Date(
+      date.getFullYear(),
+      date.getMonth(),
+      date.getDate(),
+      23,
+      59,
+      59,
+      999,
+    );
   }
 
   toggleSelectFilter(
