@@ -92,7 +92,8 @@ class MoveSelectorTest {
         SolverState current = new SolverState(
                 new ArrayList<>(List.of(new ScheduledChunk(chunk, oldSlot))),
                 new ArrayList<>(List.of(newSlot)),
-                null
+                null,
+                SchedulerTestHelper.emptyContext()
         );
 
         MoveSelector selector = new MoveSelector(

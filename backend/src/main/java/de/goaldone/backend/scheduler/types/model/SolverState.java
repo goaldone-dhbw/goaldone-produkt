@@ -9,11 +9,14 @@ import java.util.List;
  * Beschreibt den aktuellen Zustand des Solvers.
  * @param scheduledChunks aktuell eingeplante Chunks
  * @param freeSlots aktuell freie Slots
+ * @param unscheduledTasks Liste der noch nicht eingeplanten Tasks
+ * @param context der unveränderliche Scheduling-Kontext (nicht kopiert, da Record)
  */
 public record SolverState(
         List<ScheduledChunk> scheduledChunks,
         List<TimeSlot> freeSlots,
-        List<UnscheduledTask> unscheduledTasks
+        List<UnscheduledTask> unscheduledTasks,
+        SchedulingContext context
 ) {
 
     /**
@@ -27,7 +30,8 @@ public record SolverState(
                 new ArrayList<>(freeSlots),
                 unscheduledTasks == null
                         ? null
-                        : new ArrayList<>(unscheduledTasks)
+                        : new ArrayList<>(unscheduledTasks),
+                context // SchedulingContext is a record and therefore immutable – no copy needed
         );
     }
 }
