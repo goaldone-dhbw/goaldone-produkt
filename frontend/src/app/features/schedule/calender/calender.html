@@ -172,6 +172,96 @@
   </div>
 </div>
 
+@if (isTaskCompletionDialogOpen()) {
+  @if (pendingTaskCompletionEntry(); as completionEntry) {
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 px-4 py-6">
+      <div class="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl">
+        <div class="mb-5 flex items-start gap-4">
+          <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-700">
+            <i class="pi pi-check-circle text-xl"></i>
+          </div>
+
+          <div>
+            <h2 class="text-xl font-bold text-slate-900">
+              Aufgabe abgeschlossen?
+            </h2>
+
+            <p class="mt-1 text-sm leading-6 text-slate-600">
+              Der geplante Zeitblock für diese Aufgabe ist abgelaufen.
+              Bitte wähle aus, was im Backend als erledigt gespeichert werden soll.
+            </p>
+          </div>
+        </div>
+
+        <div class="mb-5 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+          <div class="text-sm font-semibold text-slate-900">
+            {{ getTaskCompletionDialogTitle() }}
+          </div>
+
+          <div class="mt-1 text-sm text-slate-600">
+            {{ completionEntry.occurrenceDate }} · {{ getTaskCompletionDialogTime() }}
+          </div>
+
+          <div class="mt-1 text-xs font-medium text-slate-500">
+            {{ getTaskCompletionDialogChunkLabel() }}
+          </div>
+        </div>
+
+        @if (taskCompletionError()) {
+          <div class="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+            {{ taskCompletionError() }}
+          </div>
+        }
+
+        <div class="space-y-3">
+          <button
+            type="button"
+            class="flex w-full items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-left transition hover:border-[#5f6f9f] hover:bg-[#5f6f9f]/5 disabled:cursor-not-allowed disabled:opacity-60"
+            [disabled]="isSavingTaskCompletion()"
+            (click)="confirmPendingTaskCompletion('CHUNK')"
+          >
+            <span>
+              <span class="block text-sm font-semibold text-slate-900">
+                Nur diesen Chunk erledigen
+              </span>
+              <span class="mt-1 block text-xs leading-5 text-slate-500">
+                Das Frontend sendet die Entscheidung ans Backend. Das Backend speichert nur diesen Zeitblock als erledigt.
+              </span>
+            </span>
+
+            <i class="pi pi-angle-right text-slate-400"></i>
+          </button>
+
+          <button
+            type="button"
+            class="flex w-full items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-left transition hover:border-emerald-500 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+            [disabled]="isSavingTaskCompletion()"
+            (click)="confirmPendingTaskCompletion('TASK')"
+          >
+            <span>
+              <span class="block text-sm font-semibold text-emerald-900">
+                Ganze Aufgabe erledigen
+              </span>
+              <span class="mt-1 block text-xs leading-5 text-emerald-700">
+                Das Backend soll die gesamte Aufgabe und alle zugehörigen Chunks als erledigt speichern.
+              </span>
+            </span>
+
+            <i class="pi pi-check text-emerald-700"></i>
+          </button>
+        </div>
+
+        @if (isSavingTaskCompletion()) {
+          <div class="mt-4 flex items-center gap-2 text-sm text-slate-500">
+            <i class="pi pi-spin pi-spinner"></i>
+            Entscheidung wird gespeichert...
+          </div>
+        }
+      </div>
+    </div>
+  }
+}
+
 <app-task-edit-dialog
   [isOpen]="isTaskDialogOpen()"
   [task]="selectedTask()"
