@@ -1,5 +1,6 @@
 package de.goaldone.backend.scheduler;
 
+import de.goaldone.backend.model.CognitiveLoad;
 import de.goaldone.backend.scheduler.types.model.ScheduledChunk;
 import de.goaldone.backend.scheduler.types.model.SolverState;
 import de.goaldone.backend.scheduler.types.model.TaskChunk;
@@ -26,7 +27,7 @@ class SwapMoveTest {
     private static TaskChunk chunk(UUID taskId, int durationMinutes) {
         return new TaskChunk(
                 UUID.randomUUID(), taskId, "Task",
-                0, 1, durationMinutes,
+                0, 1, durationMinutes, CognitiveLoad.LOW,
                 null, null, false, null
         );
     }

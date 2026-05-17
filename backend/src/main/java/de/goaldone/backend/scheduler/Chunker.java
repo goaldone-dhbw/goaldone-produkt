@@ -63,6 +63,7 @@ public class Chunker {
                     .chunkIndex(i)
                     .totalChunks(totalChunks)
                     .durationMinutes(chunkDurations.get(i))
+                    .cognitiveLoad(task.getCognitiveLoad())
                     .notBefore(notBefore)
                     .deadline(deadline)
                     .isBreak(false)

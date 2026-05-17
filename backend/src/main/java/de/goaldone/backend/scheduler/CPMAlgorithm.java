@@ -112,7 +112,7 @@ public class CPMAlgorithm {
 
             if (remainingMinutes <= 0) break;
 
-            int usableMinutes = calculateUsableMinutes(slot, remainingMinutes);
+            int usableMinutes = calculateUsableMinutes(slot.durationMinutes(), remainingMinutes);
 
             // Fill slot with chunk
             TaskChunk partialChunk = getPartialChunk(chunk, usableMinutes);
@@ -127,7 +127,7 @@ public class CPMAlgorithm {
             Optional<TimeSlot> automatedBreakSlot = createAutomatedBreakSlot(slot, partialSlot, breakMinutes);
             if (automatedBreakSlot.isPresent()) {
                 TimeSlot breakSlot = automatedBreakSlot.get();
-                TaskChunk breakChunk = createAutomatedBreakChunk(breakSlot.durationMinutes(), task.getId());
+                TaskChunk breakChunk = createAutomatedBreakChunk(breakSlot.durationMinutes(), task);
                     result.add(new ScheduledChunk(breakChunk,breakSlot));
             }
 
@@ -145,8 +145,8 @@ public class CPMAlgorithm {
         return result;
     }
 
-    private int calculateUsableMinutes(TimeSlot slot, int remainingMinutes) {
-        int usableMinutes = Math.min(slot.durationMinutes(), remainingMinutes);
+    private int calculateUsableMinutes(int slotDuration, int remainingMinutes) {
+        int usableMinutes = Math.min(slotDuration, remainingMinutes);
 
         int remainder = remainingMinutes - usableMinutes;
 
@@ -311,19 +311,7 @@ public class CPMAlgorithm {
                 continue;
             }
 
-            chunk = TaskChunk.builder()
-                    .taskTitle(chunk.taskTitle())
-                    .chunkId(chunk.chunkId())
-                    .taskId(chunk.taskId())
-                    .chunkIndex(currentIndex)
-                    .totalChunks(totalChunks)
-                    .durationMinutes(chunk.durationMinutes())
-                    .cognitiveLoad(chunk.cognitiveLoad())
-                    .notBefore(chunk.notBefore())
-                    .deadline(chunk.deadline())
-                    .isBreak(chunk.isBreak())
-                    .dependsOnTaskIds(chunk.dependsOnTaskIds())
-                    .build();
+            chunk = updateTaskChunk(chunk, currentIndex, totalChunks);
 
             currentIndex += 1;
             result.add(new ScheduledChunk(chunk, timeSlot));
@@ -408,19 +396,43 @@ public class CPMAlgorithm {
         ));
     }
 
+
+    /**
+     * @param chunk The previous state of the task chunk
+     * @param currentIndex The new chunk index
+     * @param totalChunks The new number of total chunks
+     * @return The updated task chunk
+     */
+    private TaskChunk updateTaskChunk(TaskChunk chunk, int currentIndex, int totalChunks) {
+        return TaskChunk.builder()
+                .taskTitle(chunk.taskTitle())
+                .chunkId(chunk.chunkId())
+                .taskId(chunk.taskId())
+                .chunkIndex(currentIndex)
+                .totalChunks(totalChunks)
+                .durationMinutes(chunk.durationMinutes())
+                .cognitiveLoad(chunk.cognitiveLoad())
+                .notBefore(chunk.notBefore())
+                .deadline(chunk.deadline())
+                .isBreak(chunk.isBreak())
+                .dependsOnTaskIds(chunk.dependsOnTaskIds())
+                .build();
+    }
+
     /**
      * @param durationMinutes Duration of the break
-     * @param taskId TaskId of the parent task
+     * @param task The parent task
      * @return TaskChunk with attributes for an automated break.
      */
-    private TaskChunk createAutomatedBreakChunk(int durationMinutes, UUID taskId) {
+    private TaskChunk createAutomatedBreakChunk(int durationMinutes, TaskResponse task) {
         return TaskChunk.builder()
                 .taskTitle(AUTOMATED_BREAK_TITLE)
                 .chunkId(UUID.randomUUID())
-                .taskId(taskId)
+                .taskId(task.getId())
                 .chunkIndex(0)
                 .totalChunks(1)
                 .durationMinutes(durationMinutes)
+                .cognitiveLoad(task.getCognitiveLoad())
                 .notBefore(null)
                 .deadline(null)
                 .isBreak(true)

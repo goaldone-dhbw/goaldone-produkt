@@ -1,5 +1,6 @@
 package de.goaldone.backend.scheduler;
 
+import de.goaldone.backend.model.CognitiveLoad;
 import de.goaldone.backend.scheduler.types.model.ScheduledChunk;
 import de.goaldone.backend.scheduler.types.model.SolverState;
 import de.goaldone.backend.scheduler.types.model.TaskChunk;
@@ -27,7 +28,7 @@ class PillarMoveTest {
     private static TaskChunk chunk(UUID taskId, int chunkIndex, LocalDateTime notBefore, LocalDateTime deadline) {
         return new TaskChunk(
                 UUID.randomUUID(), taskId, "Task",
-                chunkIndex, 3, 60,
+                chunkIndex, 3, 60, CognitiveLoad.LOW,
                 notBefore, deadline, false, List.of()
         );
     }

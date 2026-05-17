@@ -719,8 +719,6 @@ export class CalenderComponent {
       classNames.push('schedule-event--appointment');
     } else if (entry.isCompleted) {
       classNames.push('schedule-event--completed');
-    } else if (entry.isPinned) {
-      classNames.push('schedule-event--pinned');
     } else {
       classNames.push('schedule-event--task');
     }
@@ -986,22 +984,6 @@ export class CalenderComponent {
     };
 
     return map[day];
-  }
-
-  private getEventClassNames(entry: ScheduleEntry): string[] {
-    if (this.isBreakEntry(entry)) {
-      return ['schedule-event--break'];
-    }
-
-    if (this.isAppointmentEntry(entry)) {
-      return ['schedule-event--appointment'];
-    }
-
-    if (entry.isCompleted) {
-      return ['schedule-event--completed'];
-    }
-
-    return ['schedule-event--task'];
   }
 
   private computeEffectiveSlotRange(): { slotMinTime: string; slotMaxTime: string } {

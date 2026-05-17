@@ -16,6 +16,7 @@ public record TaskChunk(
     int chunkIndex,
     int totalChunks,
     int durationMinutes,
+    CognitiveLoad cognitiveLoad,
     LocalDateTime notBefore,
     LocalDateTime deadline,
     boolean isBreak,
