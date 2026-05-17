@@ -1,9 +1,15 @@
 package de.goaldone.backend.service;
 
+import de.goaldone.backend.entity.ScheduleEntryEntity;
+import de.goaldone.backend.entity.SchedulePlanEntity;
+import de.goaldone.backend.entity.TaskEntity;
 import de.goaldone.backend.entity.UserAccountEntity;
 import de.goaldone.backend.entity.WorkingTimeEntity;
 import de.goaldone.backend.model.*;
 import de.goaldone.backend.model.DayOfWeek;
+import de.goaldone.backend.repository.ScheduleEntryRepository;
+import de.goaldone.backend.repository.SchedulePlanRepository;
+import de.goaldone.backend.repository.TaskRepository;
 import de.goaldone.backend.repository.UserAccountRepository;
 import de.goaldone.backend.scheduler.types.model.SchedulingContext;
 import de.goaldone.backend.scheduler.types.model.TimeSlot;
@@ -13,6 +19,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.*;
 import java.util.HashSet;
@@ -24,7 +31,11 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -41,6 +52,15 @@ public class ScheduleServiceTest {
 
     @Mock
     private UserIdentityService userIdentityService;
+
+    @Mock
+    private SchedulePlanRepository schedulePlanRepository;
+
+    @Mock
+    private ScheduleEntryRepository scheduleEntryRepository;
+
+    @Mock
+    private TaskRepository taskRepository;
 
     @InjectMocks
     private ScheduleService scheduleService;
@@ -517,5 +537,181 @@ public class ScheduleServiceTest {
         );
 
         assertEquals(expectedSlot, mondaySlots.getFirst());
+    }
+
+    // =========================
+    // MARK ENTRY DONE TESTS
+    // =========================
+
+    /**
+     * Builds a minimal ScheduleEntryEntity suitable for markEntryDone unit tests.
+     * All nullable fields are omitted; only non-null fields required by the mapper are set.
+     */
+    private ScheduleEntryEntity buildEntry(UUID id, UUID accountId, UUID planId,
+                                           UUID originalItemId, Integer chunkIndex, Integer totalChunks) {
+        SchedulePlanEntity plan = new SchedulePlanEntity();
+        plan.setId(planId);
+
+        ScheduleEntryEntity entry = new ScheduleEntryEntity();
+        entry.setId(id);
+        entry.setPlan(plan);
+        entry.setAccountId(accountId);
+        entry.setOriginalItemId(originalItemId);
+        entry.setChunkIndex(chunkIndex);
+        entry.setTotalChunks(totalChunks);
+        entry.setIsCompleted(false);
+        entry.setIsBreak(false);
+        entry.setEntryType("TASK");
+        entry.setStartAt(LocalDateTime.of(2026, 5, 19, 9, 0));
+        entry.setEndAt(LocalDateTime.of(2026, 5, 19, 10, 0));
+        entry.setOccurrenceDate(LocalDate.of(2026, 5, 19));
+        entry.setOriginalItemTitle("Test Task");
+        return entry;
+    }
+
+    @Test
+    void markEntryDone_noAccess_throwsForbidden() {
+        UUID accountId = UUID.randomUUID();
+        Jwt jwt = mockJwt();
+
+        when(userIdentityService.hasUserAccessToAccount(jwt, accountId)).thenReturn(false);
+
+        assertThrows(ResponseStatusException.class, () ->
+                scheduleService.markEntryDone(jwt, accountId, UUID.randomUUID(), MarkScheduleEntryScope.CHUNK));
+    }
+
+    @Test
+    void markEntryDone_entryNotFound_throwsNotFound() {
+        UUID accountId = UUID.randomUUID();
+        UUID entryId = UUID.randomUUID();
+        Jwt jwt = mockJwt();
+
+        when(userIdentityService.hasUserAccessToAccount(jwt, accountId)).thenReturn(true);
+        when(scheduleEntryRepository.findByIdAndAccountId(entryId, accountId)).thenReturn(Optional.empty());
+
+        assertThrows(ResponseStatusException.class, () ->
+                scheduleService.markEntryDone(jwt, accountId, entryId, MarkScheduleEntryScope.CHUNK));
+    }
+
+    @Test
+    void markEntryDone_taskScope_completesAllEntriesAndTask() {
+        UUID accountId = UUID.randomUUID();
+        UUID planId = UUID.randomUUID();
+        UUID originalItemId = UUID.randomUUID();
+        UUID entryId = UUID.randomUUID();
+        Jwt jwt = mockJwt();
+
+        ScheduleEntryEntity entry = buildEntry(entryId, accountId, planId, originalItemId, 0, 2);
+        ScheduleEntryEntity sibling = buildEntry(UUID.randomUUID(), accountId, planId, originalItemId, 1, 2);
+
+        TaskEntity task = new TaskEntity();
+        task.setId(originalItemId);
+        task.setStatus(TaskStatus.OPEN);
+
+        when(userIdentityService.hasUserAccessToAccount(jwt, accountId)).thenReturn(true);
+        when(scheduleEntryRepository.findByIdAndAccountId(entryId, accountId)).thenReturn(Optional.of(entry));
+        when(scheduleEntryRepository.findByPlanIdAndOriginalItemId(planId, originalItemId))
+                .thenReturn(List.of(entry, sibling));
+        when(scheduleEntryRepository.saveAll(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(taskRepository.findByIdAndAccountId(originalItemId, accountId)).thenReturn(Optional.of(task));
+
+        MarkScheduleEntryResponse response = scheduleService.markEntryDone(jwt, accountId, entryId, MarkScheduleEntryScope.TASK);
+
+        assertTrue(entry.getIsCompleted());
+        assertTrue(sibling.getIsCompleted());
+        assertEquals(TaskStatus.DONE, task.getStatus());
+        assertEquals(2, response.getUpdatedEntries().size());
+    }
+
+    @Test
+    void markEntryDone_chunkScope_singleChunk_upgradesEntireTask() {
+        UUID accountId = UUID.randomUUID();
+        UUID planId = UUID.randomUUID();
+        UUID originalItemId = UUID.randomUUID();
+        UUID entryId = UUID.randomUUID();
+        Jwt jwt = mockJwt();
+
+        ScheduleEntryEntity entry = buildEntry(entryId, accountId, planId, originalItemId, 0, 1);
+
+        TaskEntity task = new TaskEntity();
+        task.setId(originalItemId);
+        task.setStatus(TaskStatus.OPEN);
+
+        when(userIdentityService.hasUserAccessToAccount(jwt, accountId)).thenReturn(true);
+        when(scheduleEntryRepository.findByIdAndAccountId(entryId, accountId)).thenReturn(Optional.of(entry));
+        when(scheduleEntryRepository.save(entry)).thenReturn(entry);
+        when(scheduleEntryRepository.findByPlanIdAndOriginalItemId(planId, originalItemId))
+                .thenReturn(List.of(entry));
+        when(scheduleEntryRepository.saveAll(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(taskRepository.findByIdAndAccountId(originalItemId, accountId)).thenReturn(Optional.of(task));
+
+        MarkScheduleEntryResponse response = scheduleService.markEntryDone(jwt, accountId, entryId, MarkScheduleEntryScope.CHUNK);
+
+        assertTrue(entry.getIsCompleted());
+        assertEquals(TaskStatus.DONE, task.getStatus());
+        assertEquals(1, response.getUpdatedEntries().size());
+    }
+
+    @Test
+    void markEntryDone_chunkScope_lastRemainingChunk_upgradesEntireTask() {
+        UUID accountId = UUID.randomUUID();
+        UUID planId = UUID.randomUUID();
+        UUID originalItemId = UUID.randomUUID();
+        UUID entryId = UUID.randomUUID();
+        Jwt jwt = mockJwt();
+
+        ScheduleEntryEntity entry = buildEntry(entryId, accountId, planId, originalItemId, 2, 3);
+
+        ScheduleEntryEntity sibling1 = buildEntry(UUID.randomUUID(), accountId, planId, originalItemId, 0, 3);
+        sibling1.setIsCompleted(true);
+        ScheduleEntryEntity sibling2 = buildEntry(UUID.randomUUID(), accountId, planId, originalItemId, 1, 3);
+        sibling2.setIsCompleted(true);
+
+        TaskEntity task = new TaskEntity();
+        task.setId(originalItemId);
+        task.setStatus(TaskStatus.IN_PROGRESS);
+
+        when(userIdentityService.hasUserAccessToAccount(jwt, accountId)).thenReturn(true);
+        when(scheduleEntryRepository.findByIdAndAccountId(entryId, accountId)).thenReturn(Optional.of(entry));
+        when(scheduleEntryRepository.save(entry)).thenReturn(entry);
+        // After marking this entry completed, 0 incomplete entries remain
+        when(scheduleEntryRepository.countByPlanIdAndOriginalItemIdAndIsCompletedFalse(planId, originalItemId))
+                .thenReturn(0L);
+        when(scheduleEntryRepository.findByPlanIdAndOriginalItemId(planId, originalItemId))
+                .thenReturn(List.of(sibling1, sibling2, entry));
+        when(scheduleEntryRepository.saveAll(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(taskRepository.findByIdAndAccountId(originalItemId, accountId)).thenReturn(Optional.of(task));
+
+        MarkScheduleEntryResponse response = scheduleService.markEntryDone(jwt, accountId, entryId, MarkScheduleEntryScope.CHUNK);
+
+        assertTrue(entry.getIsCompleted());
+        assertTrue(sibling1.getIsCompleted());
+        assertTrue(sibling2.getIsCompleted());
+        assertEquals(TaskStatus.DONE, task.getStatus());
+        assertEquals(3, response.getUpdatedEntries().size());
+    }
+
+    @Test
+    void markEntryDone_chunkScope_middleChunk_marksOnlyEntryWithoutCompletingTask() {
+        UUID accountId = UUID.randomUUID();
+        UUID planId = UUID.randomUUID();
+        UUID originalItemId = UUID.randomUUID();
+        UUID entryId = UUID.randomUUID();
+        Jwt jwt = mockJwt();
+
+        ScheduleEntryEntity entry = buildEntry(entryId, accountId, planId, originalItemId, 1, 3);
+
+        when(userIdentityService.hasUserAccessToAccount(jwt, accountId)).thenReturn(true);
+        when(scheduleEntryRepository.findByIdAndAccountId(entryId, accountId)).thenReturn(Optional.of(entry));
+        when(scheduleEntryRepository.save(entry)).thenReturn(entry);
+        // 2 remaining incomplete entries — not the last chunk
+        when(scheduleEntryRepository.countByPlanIdAndOriginalItemIdAndIsCompletedFalse(planId, originalItemId))
+                .thenReturn(2L);
+
+        MarkScheduleEntryResponse response = scheduleService.markEntryDone(jwt, accountId, entryId, MarkScheduleEntryScope.CHUNK);
+
+        assertTrue(entry.getIsCompleted());
+        assertEquals(1, response.getUpdatedEntries().size());
+        verify(taskRepository, never()).findByIdAndAccountId(any(), any());
     }
 }
