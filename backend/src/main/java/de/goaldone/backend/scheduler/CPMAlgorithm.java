@@ -112,8 +112,6 @@ public class CPMAlgorithm {
 
             if (remainingMinutes <= 0) break;
 
-            int usableMinutes = Math.min(slot.durationMinutes(), remainingMinutes);
-
             int usableMinutes = calculateUsableMinutes(slot, remainingMinutes);
 
             // Fill slot with chunk
@@ -125,7 +123,7 @@ public class CPMAlgorithm {
             remainingMinutes -= usableMinutes;
 
             // Calculate optional break slot
-            int breakMinutes = getAdditionalTimeForAutomatedBreaks(chunk, task, remainingMinutes);
+            int breakMinutes = getAdditionalTimeForAutomatedBreaks(chunk, remainingMinutes);
             Optional<TimeSlot> automatedBreakSlot = createAutomatedBreakSlot(slot, partialSlot, breakMinutes);
             if (automatedBreakSlot.isPresent()) {
                 TimeSlot breakSlot = automatedBreakSlot.get();
@@ -168,6 +166,7 @@ public class CPMAlgorithm {
                 .chunkIndex(chunk.chunkIndex())
                 .totalChunks(chunk.totalChunks())
                 .durationMinutes(usableMinutes)
+                .cognitiveLoad(chunk.cognitiveLoad())
                 .notBefore(chunk.notBefore())
                 .deadline(chunk.deadline())
                 .isBreak(chunk.isBreak())
@@ -182,16 +181,14 @@ public class CPMAlgorithm {
     }
 
 
-
-
-    private int getAdditionalTimeForAutomatedBreaks(TaskChunk chunk, TaskResponse task, int  remainingMinutes) {
+    private int getAdditionalTimeForAutomatedBreaks(TaskChunk chunk, int  remainingMinutes) {
 
         // Chunk not fully planned
         if (remainingMinutes > 0) {
             return 0;
         }
 
-        if (cognitiveLoadReached(task.getCognitiveLoad(), chunk.durationMinutes())) {
+        if (cognitiveLoadReached(chunk.cognitiveLoad(), chunk.durationMinutes())) {
             return DEFAULT_AUTO_BREAK_DURATION;
         }
 
@@ -321,6 +318,7 @@ public class CPMAlgorithm {
                     .chunkIndex(currentIndex)
                     .totalChunks(totalChunks)
                     .durationMinutes(chunk.durationMinutes())
+                    .cognitiveLoad(chunk.cognitiveLoad())
                     .notBefore(chunk.notBefore())
                     .deadline(chunk.deadline())
                     .isBreak(chunk.isBreak())
