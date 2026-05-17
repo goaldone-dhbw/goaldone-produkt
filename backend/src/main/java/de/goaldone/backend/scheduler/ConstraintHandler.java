@@ -11,6 +11,7 @@ import de.goaldone.backend.scheduler.types.model.SolverState;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Supplier;
 
 public class ConstraintHandler {
 
@@ -18,6 +19,8 @@ public class ConstraintHandler {
     ArrayList<HardConstraint> hardConstraints;
 
     public final int invalidScheduleScore = -10000;
+
+    private final int bestPossibleSchedule;
 
     /**
      * Initializes all constraints and adds them to an arraylist
@@ -33,6 +36,17 @@ public class ConstraintHandler {
 
         // Soft constraints
         this.softConstraints.add(new PauseAfterReachedCognitiveLoadConstraint());
+
+        this.bestPossibleSchedule = calculateBestScore();
+
+    }
+
+    private int calculateBestScore() {
+        int sum = 0;
+        for (SoftConstraint softConstraint : softConstraints) {
+            sum += softConstraint.getValue();
+        }
+        return sum;
     }
 
     /**
@@ -140,5 +154,9 @@ public class ConstraintHandler {
         for (HardConstraint constraint : hardConstraints) {
             constraint.updateConstraint(scheduledTasks);
         }
+    }
+
+    public int getBestPossibleSchedule() {
+        return this.bestPossibleSchedule;
     }
 }
