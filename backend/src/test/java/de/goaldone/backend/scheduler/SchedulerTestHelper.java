@@ -107,7 +107,7 @@ public final class SchedulerTestHelper {
      */
     public static SchedulingContext emptyContext() {
         return new SchedulingContext(
-                LocalDate.of(2026, 1, 1),
+                LocalDateTime.of(2026, 1, 1, 0, 0),
                 List.of(),
                 List.of(),
                 null,

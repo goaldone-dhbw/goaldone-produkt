@@ -469,12 +469,12 @@ public class CPMAlgorithm {
      */
     SolverState tryScheduleUnscheduled(SolverState state, SchedulingContext context) {
 
-        if (state.unscheduledChunks() == null || state.unscheduledChunks().isEmpty()) {
+        if (state.unscheduledTasks() == null || state.unscheduledTasks().isEmpty()) {
             return state;
         }
 
         // Collect the IDs of all still-unscheduled tasks
-        Set<UUID> unscheduledIds = state.unscheduledChunks().stream()
+        Set<UUID> unscheduledIds = state.unscheduledTasks().stream()
                 .map(UnscheduledTask::getTaskId)
                 .collect(Collectors.toSet());
 
@@ -507,7 +507,7 @@ public class CPMAlgorithm {
             List<TaskChunk> chunks = chunkMap.get(taskId);
             List<ScheduledChunk> tempResults = new ArrayList<>();
             for (TaskChunk chunk : chunks) {
-                List<ScheduledChunk> scheduledChunk = findTimeSlotForChunk(chunk);
+                List<ScheduledChunk> scheduledChunk = findTimeSlotForChunk(chunk, taskMap.get(taskId));
                 if (scheduledChunk.isEmpty()) {
                     totalTaskFit = false;
                     break;

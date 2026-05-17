@@ -58,7 +58,7 @@ class NotBeforeConstraintTest {
     private static final LocalDate DATE = LocalDate.of(2026, 5, 11);
 
     private SolverState stateWith(ScheduledChunk chunk) {
-        return new SolverState(List.of(chunk), List.of(), List.of());
+        return new SolverState(List.of(chunk), List.of(), List.of(), null);
     }
 
     private ScheduledChunk chunk(int startHour, int endHour, LocalDateTime notBefore) {
