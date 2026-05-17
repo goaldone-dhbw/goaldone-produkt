@@ -92,6 +92,9 @@ const DEFAULT_SLOT_MAX_TIME = '22:00:00';
 const DEFAULT_WORKING_TIME_START = '08:00:00';
 const DEFAULT_WORKING_TIME_END = '17:00:00';
 
+const COMPACT_EVENT_MAX_MINUTES = 30;
+const TINY_EVENT_MAX_MINUTES = 10;
+
 const DEFAULT_WORKING_DAYS = new Set<CalendarDayName>([
   'MONDAY',
   'TUESDAY',
@@ -386,7 +389,7 @@ export class CalenderComponent {
 
   async saveAppointment(): Promise<void> {
     const form = this.appointmentEditForm();
-    const appointment = this.selectedAppointment();  // ← diese Zeile fehlt
+    const appointment = this.selectedAppointment(); // ← diese Zeile fehlt
 
     if (!form) return;
 
@@ -432,7 +435,7 @@ export class CalenderComponent {
           title: appointment.title.trim(),
           isBreak: appointment.isBreak,
           appointmentType: 'RECURRING',
-          date: null,
+          date: form.date || null,
           startTime: appointment.startTime.substring(0, 5),
           endTime: appointment.endTime.substring(0, 5),
           rrule: this.appendUntilToRrule(oldRule, dayBefore),
@@ -478,7 +481,7 @@ export class CalenderComponent {
       title: form.title.trim(),
       isBreak: form.isBreak,
       appointmentType: form.isRecurring ? 'RECURRING' : 'ONE_TIME',
-      date: form.isRecurring ? null : (form.date || null),  // NEU
+      date: form.isRecurring ? null : form.date || null, // NEU
       startTime: form.startTime.substring(0, 5),
       endTime: form.endTime.substring(0, 5),
       rrule: form.isRecurring ? this.createWeeklyRule(form.days) : null,
@@ -652,10 +655,10 @@ export class CalenderComponent {
     return {
       id: String(
         entry.originalItemId ??
-        (entry.entryId && !String(entry.entryId).startsWith('recurring-')
-          ? entry.entryId
-          : null) ??
-        ''
+          (entry.entryId && !String(entry.entryId).startsWith('recurring-')
+            ? entry.entryId
+            : null) ??
+          '',
       ),
       accountId: String(rawEntry.accountId ?? ''),
       title:
@@ -670,7 +673,7 @@ export class CalenderComponent {
       date: entry.occurrenceDate ?? '-',
       originalStartDate:
         this.getOptionalString(entry, 'originalStartDate') ||
-        (isRecurring ? '' : entry.occurrenceDate ?? ''),
+        (isRecurring ? '' : (entry.occurrenceDate ?? '')),
       startTime: this.formatTime(entry.startTime),
       endTime: this.formatTime(entry.endTime),
       time: `${this.formatTime(entry.startTime)} - ${this.formatTime(entry.endTime)}`,
@@ -690,7 +693,8 @@ export class CalenderComponent {
     return (
       rawEntry.originalItemId ?? rawEntry.taskId ?? rawEntry.originalTaskId ?? entry.entryId ?? ''
     );
-    
+  }
+
   private getEventClassNames(entry: ScheduleEntry): string[] {
     const classNames: string[] = [];
 
@@ -706,7 +710,7 @@ export class CalenderComponent {
 
     const durationInMinutes = this.getEntryDurationInMinutes(entry);
 
-    if (durationInMinutes <= COMPACT_EVENT_MAX_MINUTES) {
+    if (durationInMinutes <= COMPACT_EVENT_MAX_MINUTES && durationInMinutes > TINY_EVENT_MAX_MINUTES) {
       classNames.push('schedule-event--compact');
     }
 
@@ -859,26 +863,6 @@ export class CalenderComponent {
     };
 
     return map[day];
-  }
-
-  private getEventClassNames(entry: ScheduleEntry): string[] {
-    if (this.isBreakEntry(entry)) {
-      return ['schedule-event--break'];
-    }
-
-    if (this.isAppointmentEntry(entry)) {
-      return ['schedule-event--appointment'];
-    }
-
-    if (entry.isCompleted) {
-      return ['schedule-event--completed'];
-    }
-
-    if (entry.isPinned) {
-      return ['schedule-event--pinned'];
-    }
-
-    return ['schedule-event--task'];
   }
 
   private computeEffectiveSlotRange(): { slotMinTime: string; slotMaxTime: string } {
@@ -1205,7 +1189,7 @@ export class CalenderComponent {
   }
 
   private isBreakEntry(entry: ScheduleEntry): boolean {
-    return entry.isBreak === true;
+    return entry.isBreak;
   }
 
   private isAppointmentEntry(entry: ScheduleEntry): boolean {

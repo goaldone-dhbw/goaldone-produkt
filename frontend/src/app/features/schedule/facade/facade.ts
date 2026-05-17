@@ -218,6 +218,7 @@ export class ScheduleFacadeService {
       const existingResponse = this.scheduleResponse();
 
       if (accountId) {
+        await this.refreshAppointments();
         const appointmentEntries = await this.loadAppointmentEntries(accountId);
 
         if (existingResponse) {
@@ -384,7 +385,7 @@ export class ScheduleFacadeService {
     const appointmentEntries = await this.loadAppointmentEntries(accountId);
 
     const freshBreakEntries = appointmentEntries.filter(
-      (entry) => entry.type === 'APPOINTMENT' && entry.isBreak === true,
+      (entry) => entry.type === 'APPOINTMENT' && entry.isBreak,
     );
 
     const currentResponse = this.scheduleResponse();
@@ -393,7 +394,7 @@ export class ScheduleFacadeService {
       const responseWithoutOldBreaks: ScheduleResponse = {
         ...currentResponse,
         entries: (currentResponse.entries ?? []).filter(
-          (entry) => !(entry.type === 'APPOINTMENT' && entry.isBreak === true),
+          (entry) => !(entry.type === 'APPOINTMENT' && entry.isBreak),
         ),
         appointments: [],
       };
@@ -403,7 +404,7 @@ export class ScheduleFacadeService {
     }
 
     const existingNonBreakEntries = this.scheduleEntries().filter(
-      (entry) => !(entry.type === 'APPOINTMENT' && entry.isBreak === true),
+      (entry) => !(entry.type === 'APPOINTMENT' && entry.isBreak),
     );
 
     const entries = this.sortScheduleEntries([
@@ -885,7 +886,7 @@ export class ScheduleFacadeService {
         entry.startTime ?? '',
         entry.endTime ?? '',
         entry.type ?? '',
-        entry.isBreak === true ? 'break' : 'normal',
+        entry.isBreak ? 'break' : 'normal',
       ].join('|');
 
       if (seen.has(key)) {
@@ -945,9 +946,19 @@ export class ScheduleFacadeService {
 
   private getGenerationStartDate(): string {
     const range = this.lastRange() ?? this.getCurrentWeekRange();
-    const today = this.toIsoDate(new Date());
 
-    return range.from < today ? today : range.from;
+    const now = new Date();
+    const today = this.toIsoDate(now);
+
+    let date: Date;
+
+    if (range.from < today) {
+      date = now;
+    } else {
+      date = new Date(`${range.from}T00:00:00Z`);
+    }
+
+    return date.toISOString();
   }
 
   private getCurrentWeekRange(): { from: string; to: string } {
