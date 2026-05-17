@@ -267,8 +267,8 @@ export class ScheduleFacadeService {
         accountId === this.ALL_ACCOUNTS_ID
           ? await firstValueFrom(this.schedulesService.getAllAccountsSchedule(from, to))
           : await firstValueFrom(
-              this.schedulesService.getSingleAccountSchedule(accountId, from, to),
-            );
+            this.schedulesService.getSingleAccountSchedule(accountId, from, to),
+          );
 
       const appointmentEntries = await this.loadAppointmentEntries(accountId);
 
@@ -341,8 +341,8 @@ export class ScheduleFacadeService {
         accountId === this.ALL_ACCOUNTS_ID
           ? await firstValueFrom(this.schedulesService.generateAllAccountsSchedule(request))
           : await firstValueFrom(
-              this.schedulesService.generateSingleAccountSchedule(accountId, request),
-            );
+            this.schedulesService.generateSingleAccountSchedule(accountId, request),
+          );
 
       const appointmentEntries = await this.loadAppointmentEntries(accountId);
 
@@ -544,8 +544,8 @@ export class ScheduleFacadeService {
     const accountIds =
       accountId === this.ALL_ACCOUNTS_ID
         ? this.accounts()
-            .map((account) => account.id)
-            .filter(Boolean)
+          .map((account) => account.id)
+          .filter(Boolean)
         : [accountId];
 
     if (accountIds.length === 0) {
@@ -945,19 +945,9 @@ export class ScheduleFacadeService {
 
   private getGenerationStartDate(): string {
     const range = this.lastRange() ?? this.getCurrentWeekRange();
+    const today = this.toIsoDate(new Date());
 
-    const now = new Date();
-    const today = this.toIsoDate(now);
-
-    let date: Date;
-
-    if (range.from < today) {
-      date = now;
-    } else {
-      date = new Date(`${range.from}T00:00:00Z`);
-    }
-
-    return date.toISOString();
+    return range.from < today ? today : range.from;
   }
 
   private getCurrentWeekRange(): { from: string; to: string } {

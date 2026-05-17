@@ -1,14 +1,35 @@
-import { ChangeDetectionStrategy, Component, computed, effect, inject, input, output, signal, viewChild } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  effect,
+  inject,
+  input,
+  output,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { FullCalendarComponent, FullCalendarModule } from '@fullcalendar/angular';
-import { CalendarOptions, DatesSetArg, EventClickArg, EventContentArg, EventInput, EventMountArg } from '@fullcalendar/core';
+import { CalendarOptions, DatesSetArg, EventClickArg, EventInput } from '@fullcalendar/core';
 import deLocale from '@fullcalendar/core/locales/de';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import { firstValueFrom } from 'rxjs';
 
-import { AppointmentCreate, AppointmentsService, ScheduleEntry, TaskAccountListResponse, TaskResponse, TasksService, TaskStatus, } from '../../../api';
-import { TaskEditDialogComponent, TaskItem, } from '../../../shared/task-edit-dialog/task-edit-dialog.component';
+import {
+  AppointmentCreate,
+  AppointmentsService,
+  ScheduleEntry,
+  TaskAccountListResponse,
+  TaskResponse,
+  TasksService,
+  TaskStatus,
+} from '../../../api';
+import {
+  TaskEditDialogComponent,
+  TaskItem,
+} from '../../../shared/task-edit-dialog/task-edit-dialog.component';
 
 import type { ScheduleWorkingTime } from '../facade/facade';
 
@@ -31,8 +52,6 @@ type CalendarDayName =
   | 'FRIDAY'
   | 'SATURDAY';
 
-const COMPACT_EVENT_MAX_MINUTES = 30;
-const TINY_EVENT_MAX_MINUTES = 10;
 type WeekdayCode = 'MO' | 'TU' | 'WE' | 'TH' | 'FR' | 'SA' | 'SU';
 
 type AppointmentDetail = {
@@ -230,20 +249,12 @@ export class CalenderComponent {
     height: 'auto',
     contentHeight: 'auto',
 
-    slotDuration: '00:15:00',
-    slotLabelInterval: '01:00:00',
-    snapDuration: '00:05:00',
+    slotMinTime: DEFAULT_SLOT_MIN_TIME,
+    slotMaxTime: DEFAULT_SLOT_MAX_TIME,
 
     eventDisplay: 'block',
     slotEventOverlap: false,
     eventMaxStack: 3,
-    displayEventEnd: true,
-    eventMinHeight: 28,
-    eventShortHeight: 34,
-    slotEventOverlap: false,
-
-    slotMinTime: DEFAULT_SLOT_MIN_TIME,
-    slotMaxTime: DEFAULT_SLOT_MAX_TIME,
 
     eventTimeFormat: {
       hour: '2-digit',
@@ -273,8 +284,6 @@ export class CalenderComponent {
 
     datesSet: (arg) => this.handleDatesSet(arg),
     eventClick: (arg) => this.handleEventClick(arg),
-    eventContent: (arg) => this.renderEventContent(arg),
-    eventDidMount: (arg) => this.handleEventDidMount(arg),
   };
 
   closeTaskDialog(): void {
@@ -377,6 +386,7 @@ export class CalenderComponent {
 
   async saveAppointment(): Promise<void> {
     const form = this.appointmentEditForm();
+    const appointment = this.selectedAppointment();  // ← diese Zeile fehlt
 
     if (!form) return;
 
@@ -409,7 +419,6 @@ export class CalenderComponent {
     this.appointmentError.set('');
 
     try {
-      const appointment = this.selectedAppointment();
       if (appointment?.isRecurring === true && !appointment.isBreak) {
         // Split nur bei fixen Terminen
         const dayBefore = this.getDateBefore(appointment.date);
@@ -423,7 +432,7 @@ export class CalenderComponent {
           title: appointment.title.trim(),
           isBreak: appointment.isBreak,
           appointmentType: 'RECURRING',
-          date: form.date || null,
+          date: null,
           startTime: appointment.startTime.substring(0, 5),
           endTime: appointment.endTime.substring(0, 5),
           rrule: this.appendUntilToRrule(oldRule, dayBefore),
@@ -495,81 +504,6 @@ export class CalenderComponent {
         isBlocking: this.isBlockingEntry(entry),
       },
     };
-  }
-
-  private renderEventContent(arg: EventContentArg): { domNodes: Node[] } {
-    const isNonWorkingTime = arg.event.extendedProps['isNonWorkingTime'] === true;
-
-    if (arg.event.display === 'background' || isNonWorkingTime) {
-      return {
-        domNodes: [],
-      };
-    }
-
-    const wrapper = document.createElement('div');
-    wrapper.className = 'schedule-event-content';
-
-    const time = document.createElement('span');
-    time.className = 'schedule-event-time';
-    time.textContent = this.getEventTimeText(arg);
-
-    const separator = document.createElement('span');
-    separator.className = 'schedule-event-separator';
-    separator.textContent = '·';
-
-    const title = document.createElement('span');
-    title.className = 'schedule-event-title';
-    title.textContent = arg.event.title || '';
-
-    wrapper.append(time, separator, title);
-
-    return {
-      domNodes: [wrapper],
-    };
-  }
-
-  private handleEventDidMount(arg: EventMountArg): void {
-    if (arg.event.display === 'background') {
-      return;
-    }
-
-    const timeText = this.getEventTimeTextFromDates(arg.event.start, arg.event.end);
-    const title = arg.event.title || 'Eintrag';
-    const tooltip = timeText ? `${timeText} · ${title}` : title;
-
-    arg.el.setAttribute('title', tooltip);
-    arg.el.setAttribute('aria-label', tooltip);
-    arg.el.setAttribute('tabindex', '0');
-  }
-
-  private getEventTimeText(arg: EventContentArg): string {
-    if (arg.timeText) {
-      return arg.timeText.replace(/\s*-\s*/g, ' – ');
-    }
-
-    return this.getEventTimeTextFromDates(arg.event.start, arg.event.end);
-  }
-
-  private getEventTimeTextFromDates(start: Date | null, end: Date | null): string {
-    const startText = this.formatClockTime(start);
-    const endText = this.formatClockTime(end);
-
-    if (startText && endText) {
-      return `${startText} – ${endText}`;
-    }
-
-    return startText || endText;
-  }
-
-  private formatClockTime(date: Date | null): string {
-    if (!date) {
-      return '';
-    }
-
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-
-    return `${hours}:${minutes}`;
   }
 
   private findTaskById(
@@ -752,149 +686,11 @@ export class CalenderComponent {
 
   private getTaskId(entry: ScheduleEntry): string {
     const rawEntry = entry as any;
-    return rawEntry.id ?? "unknown";
+
+    return (
+      rawEntry.originalItemId ?? rawEntry.taskId ?? rawEntry.originalTaskId ?? entry.entryId ?? ''
+    );
   }
-
-  private getEventClassNames(entry: ScheduleEntry): string[] {
-    const classNames: string[] = [];
-
-    if (this.isBreakEntry(entry)) {
-      classNames.push('schedule-event--break');
-    } else if (this.isAppointmentEntry(entry)) {
-      classNames.push('schedule-event--appointment');
-    } else if (entry.isCompleted) {
-      classNames.push('schedule-event--completed');
-    } else if (entry.isPinned) {
-      classNames.push('schedule-event--pinned');
-    } else {
-      classNames.push('schedule-event--task');
-    }
-
-    const durationInMinutes = this.getEntryDurationInMinutes(entry);
-
-    if (durationInMinutes <= COMPACT_EVENT_MAX_MINUTES) {
-      classNames.push('schedule-event--compact');
-    }
-
-    if (durationInMinutes <= TINY_EVENT_MAX_MINUTES) {
-      classNames.push('schedule-event--tiny');
-    }
-
-    return classNames;
-  }
-
-  private getEntryDurationInMinutes(entry: ScheduleEntry): number {
-    const start = this.timeToMinutes(entry.startTime);
-    const end = this.timeToMinutes(entry.endTime);
-
-    return Math.max(end - start, 0);
-  }
-
-  private workingTimeContainsDay(
-    workingTime: ScheduleWorkingTime,
-    dayName: CalendarDayName,
-  ): boolean {
-    const normalizedDays = this.normalizeWorkingDays(workingTime.days);
-    return normalizedDays.has(dayName);
-  }
-
-  private normalizeWorkingDays(days: string[] | null | undefined): Set<CalendarDayName> {
-    const result = new Set<CalendarDayName>();
-
-    if (!days) {
-      return result;
-    }
-
-    for (const rawDay of days) {
-      const expandedDays = this.expandDayValue(String(rawDay));
-
-      for (const day of expandedDays) {
-        result.add(day);
-      }
-    }
-
-    return result;
-  }
-
-  private expandDayValue(rawValue: string): CalendarDayName[] {
-    const parts = rawValue
-      .split(',')
-      .map((part) => part.trim())
-      .filter(Boolean);
-
-    if (parts.length > 1) {
-      return parts.flatMap((part) => this.expandDayValue(part));
-    }
-
-    const value = this.normalizeDayToken(rawValue);
-
-    if (!value) {
-      return [];
-    }
-
-    const directMatch = DAY_ALIASES[value];
-
-    if (directMatch) {
-      return [directMatch];
-    }
-
-    const rangeMatch = this.expandDayRange(value);
-
-    if (rangeMatch.length > 0) {
-      return rangeMatch;
-    }
-
-    return [];
-  }
-
-  private expandDayRange(value: string): CalendarDayName[] {
-    const normalizedRange = value
-      .replace(/[–—]/g, '-')
-      .replace(/_/g, '-')
-      .replace(/BIS/g, '-')
-      .replace(/TO/g, '-');
-
-    const rangeParts = normalizedRange
-      .split('-')
-      .map((part) => part.trim())
-      .filter(Boolean);
-
-    if (rangeParts.length !== 2) {
-      return [];
-    }
-
-    const startDay = DAY_ALIASES[rangeParts[0]];
-    const endDay = DAY_ALIASES[rangeParts[1]];
-
-    if (!startDay || !endDay) {
-      return [];
-    }
-
-    const startIndex = DAY_ORDER.indexOf(startDay);
-    const endIndex = DAY_ORDER.indexOf(endDay);
-
-    if (startIndex === -1 || endIndex === -1) {
-      return [];
-    }
-
-    if (startIndex <= endIndex) {
-      return DAY_ORDER.slice(startIndex, endIndex + 1);
-    }
-
-    return [...DAY_ORDER.slice(startIndex), ...DAY_ORDER.slice(0, endIndex + 1)];
-  }
-
-  private normalizeDayToken(value: string): string {
-    return value
-      .trim()
-      .toUpperCase()
-      .replace(/\./g, '')
-      .replace(/\s+/g, '')
-      .replace(/Ä/g, 'AE')
-      .replace(/Ö/g, 'OE')
-      .replace(/Ü/g, 'UE');
-  }
-
 
   private getTaskStatus(entry: ScheduleEntry): TaskStatus {
     const rawEntry = entry as any;
@@ -1033,6 +829,26 @@ export class CalenderComponent {
     return map[day];
   }
 
+  private getEventClassNames(entry: ScheduleEntry): string[] {
+    if (this.isBreakEntry(entry)) {
+      return ['schedule-event--break'];
+    }
+
+    if (this.isAppointmentEntry(entry)) {
+      return ['schedule-event--appointment'];
+    }
+
+    if (entry.isCompleted) {
+      return ['schedule-event--completed'];
+    }
+
+    if (entry.isPinned) {
+      return ['schedule-event--pinned'];
+    }
+
+    return ['schedule-event--task'];
+  }
+
   private computeEffectiveSlotRange(): { slotMinTime: string; slotMaxTime: string } {
     const defaultMin = this.timeToMinutes(DEFAULT_SLOT_MIN_TIME);
     const defaultMax = this.timeToMinutes(DEFAULT_SLOT_MAX_TIME);
@@ -1122,6 +938,111 @@ export class CalenderComponent {
     }
 
     return [interval];
+  }
+
+  private workingTimeContainsDay(
+    workingTime: ScheduleWorkingTime,
+    dayName: CalendarDayName,
+  ): boolean {
+    const normalizedDays = this.normalizeWorkingDays(workingTime.days);
+    return normalizedDays.has(dayName);
+  }
+
+  private normalizeWorkingDays(days: string[] | null | undefined): Set<CalendarDayName> {
+    const result = new Set<CalendarDayName>();
+
+    if (!days) {
+      return result;
+    }
+
+    for (const rawDay of days) {
+      const expandedDays = this.expandDayValue(String(rawDay));
+
+      for (const day of expandedDays) {
+        result.add(day);
+      }
+    }
+
+    return result;
+  }
+
+  private expandDayValue(rawValue: string): CalendarDayName[] {
+    const parts = rawValue
+      .split(',')
+      .map((part) => part.trim())
+      .filter(Boolean);
+
+    if (parts.length > 1) {
+      return parts.flatMap((part) => this.expandDayValue(part));
+    }
+
+    const value = this.normalizeDayToken(rawValue);
+
+    if (!value) {
+      return [];
+    }
+
+    const directMatch = DAY_ALIASES[value];
+
+    if (directMatch) {
+      return [directMatch];
+    }
+
+    const rangeMatch = this.expandDayRange(value);
+
+    if (rangeMatch.length > 0) {
+      return rangeMatch;
+    }
+
+    return [];
+  }
+
+  private expandDayRange(value: string): CalendarDayName[] {
+    const normalizedRange = value
+      .replace(/[–—]/g, '-')
+      .replace(/_/g, '-')
+      .replace(/BIS/g, '-')
+      .replace(/TO/g, '-');
+
+    const rangeParts = normalizedRange
+      .split('-')
+      .map((part) => part.trim())
+      .filter(Boolean);
+
+    if (rangeParts.length !== 2) {
+      return [];
+    }
+
+    const startDay = DAY_ALIASES[rangeParts[0]];
+    const endDay = DAY_ALIASES[rangeParts[1]];
+
+    if (!startDay || !endDay) {
+      return [];
+    }
+
+    const startIndex = DAY_ORDER.indexOf(startDay);
+    const endIndex = DAY_ORDER.indexOf(endDay);
+
+    if (startIndex === -1 || endIndex === -1) {
+      return [];
+    }
+
+    if (startIndex <= endIndex) {
+      return DAY_ORDER.slice(startIndex, endIndex + 1);
+    }
+
+    return [...DAY_ORDER.slice(startIndex), ...DAY_ORDER.slice(0, endIndex + 1)];
+  }
+
+  private normalizeDayToken(value: string): string {
+    return value
+      .trim()
+      .toUpperCase()
+      .replace(/\./g, '')
+      .replace(/\s+/g, '')
+      .replace(/Ä/g, 'AE')
+      .replace(/Ö/g, 'OE')
+      .replace(/Ü/g, 'UE');
   }
 
   private getNonWorkingIntervals(workingIntervals: TimeInterval[]): TimeInterval[] {
@@ -1281,7 +1202,7 @@ export class CalenderComponent {
     return DAY_ORDER[dayIndex];
   }
 
-  private timeToMinutes(time: string | null | undefined): number {
+  private timeToMinutes(time: string): number {
     const [hours, minutes] = this.normalizeTime(time)
       .split(':')
       .map((part) => Number(part));
