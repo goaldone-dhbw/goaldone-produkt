@@ -1,25 +1,33 @@
 package de.goaldone.backend.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import de.goaldone.backend.entity.ScheduleEntryEntity;
+import de.goaldone.backend.entity.SchedulePlanEntity;
 import de.goaldone.backend.entity.UserAccountEntity;
 import de.goaldone.backend.entity.WorkingTimeEntity;
 import de.goaldone.backend.model.*;
 import de.goaldone.backend.model.DayOfWeek;
+import de.goaldone.backend.repository.ScheduleEntryRepository;
+import de.goaldone.backend.repository.SchedulePlanRepository;
+import de.goaldone.backend.repository.TaskRepository;
 import de.goaldone.backend.repository.UserAccountRepository;
 import de.goaldone.backend.scheduler.Solver;
 import de.goaldone.backend.scheduler.types.model.ScheduleMapper;
+import de.goaldone.backend.scheduler.types.model.ScheduledChunk;
 import de.goaldone.backend.scheduler.types.model.SchedulingContext;
 import de.goaldone.backend.scheduler.types.model.SchedulingResult;
 import de.goaldone.backend.scheduler.types.model.TimeSlot;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cglib.core.Local;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.*;
+import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
@@ -27,11 +35,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
-import java.util.concurrent.*;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class ScheduleService {
 
     Solver solver = new Solver();
@@ -40,7 +46,38 @@ public class ScheduleService {
     private final AppointmentService appointmentService;
     private final UserAccountRepository userAccountRepository;
     private final @Lazy UserIdentityService userIdentityService;
-    private final ScheduleMapper scheduleMapper = new ScheduleMapper();
+    private final SchedulePlanRepository schedulePlanRepository;
+    private final ScheduleEntryRepository scheduleEntryRepository;
+    private final TaskRepository taskRepository;
+    private final ObjectMapper objectMapper;
+    private final ScheduleMapper scheduleMapper;
+
+    @Autowired
+    public ScheduleService(TasksService taskService,
+                           AppointmentService appointmentService,
+                           UserAccountRepository userAccountRepository,
+                           @Lazy UserIdentityService userIdentityService,
+                           SchedulePlanRepository schedulePlanRepository,
+                           ScheduleEntryRepository scheduleEntryRepository,
+                           TaskRepository taskRepository) {
+        this.taskService = taskService;
+        this.appointmentService = appointmentService;
+        this.userAccountRepository = userAccountRepository;
+        this.userIdentityService = userIdentityService;
+        this.schedulePlanRepository = schedulePlanRepository;
+        this.scheduleEntryRepository = scheduleEntryRepository;
+        this.taskRepository = taskRepository;
+        this.objectMapper = new ObjectMapper();
+        this.scheduleMapper = new ScheduleMapper(this.objectMapper);
+    }
+
+    public ScheduleService(TasksService taskService,
+                           AppointmentService appointmentService,
+                           UserAccountRepository userAccountRepository,
+                           UserIdentityService userIdentityService) {
+        this(taskService, appointmentService, userAccountRepository, userIdentityService,
+                null, null, null);
+    }
 
     /**
      * Generates schedules for multiple accounts asynchronously.
@@ -101,6 +138,7 @@ public class ScheduleService {
      * @param timeoutMilliseconds     Maximum time to wait for schedule generation before giving up (in milliseconds)
      * @return ScheduleResponse with schedule or error warnings
      */
+    @Transactional
     public ScheduleResponse generateSingleAccountSchedule(
             Jwt jwt,
             UUID accountId,
@@ -124,6 +162,7 @@ public class ScheduleService {
      * - the scheduleScore,
      * - constraint warnings
      */
+    @Transactional
     public ScheduleResponse generateSchedule(Jwt jwt, UUID accountId, OffsetDateTime fromDate, long timeoutMs) {
 
         validateRequest(jwt, accountId, fromDate);
@@ -132,9 +171,191 @@ public class ScheduleService {
         SchedulingContext schedulingContext = createSchedulingContext(jwt, accountId, scheduleFromDateTime);
         SchedulingResult bestResult = solver.createSchedule(schedulingContext, timeoutMs);
 
-        return this.scheduleMapper.mapToScheduleResult(
-                accountId, schedulingContext, bestResult
+        Map<ScheduledChunk, UUID> chunkIdMap = persistScheduleAndGetIds(accountId, schedulingContext, bestResult);
+
+        return this.scheduleMapper.mapToScheduleResultWithIds(
+                accountId, schedulingContext, bestResult, chunkIdMap
         );
+    }
+
+    private Map<ScheduledChunk, UUID> persistScheduleAndGetIds(UUID accountId, SchedulingContext context,
+                                                               SchedulingResult result) {
+        if (schedulePlanRepository == null || scheduleEntryRepository == null) {
+            return result.schedule().scheduledChunks().stream()
+                    .collect(LinkedHashMap::new, (map, chunk) -> map.put(chunk, null), Map::putAll);
+        }
+
+        schedulePlanRepository.findByAccountId(accountId)
+                .ifPresent(existing -> {
+                    schedulePlanRepository.delete(existing);
+                    schedulePlanRepository.flush();
+                });
+
+        String warningsJson = toJson(result.scheduleWarnings());
+        String unscheduledJson = toJson(result.schedule().unscheduledTasks());
+
+        LocalDate fromDate = context.fromDate().toLocalDate();
+        LocalDate toDate = result.schedule().scheduledChunks().stream()
+                .map(c -> c.slot().date())
+                .max(LocalDate::compareTo)
+                .orElse(fromDate);
+        int totalWorkMinutes = result.schedule().scheduledChunks().stream()
+                .mapToInt(c -> c.slot().durationMinutes())
+                .sum();
+
+        SchedulePlanEntity plan = new SchedulePlanEntity();
+        plan.setAccountId(accountId);
+        plan.setGeneratedAt(Instant.now());
+        plan.setFromDate(fromDate);
+        plan.setToDate(toDate);
+        plan.setScore(result.score());
+        plan.setTotalWorkMinutes(totalWorkMinutes);
+        plan.setWarningsJson(warningsJson);
+        plan.setUnscheduledTasksJson(unscheduledJson);
+
+        List<ScheduleEntryEntity> entries = new ArrayList<>();
+        for (ScheduledChunk chunk : result.schedule().scheduledChunks()) {
+            ScheduleEntryEntity entry = new ScheduleEntryEntity();
+            entry.setPlan(plan);
+            entry.setAccountId(accountId);
+            entry.setStartAt(LocalDateTime.of(chunk.date(), chunk.startTime()));
+            entry.setEndAt(LocalDateTime.of(chunk.date(), chunk.endTime()));
+            entry.setOccurrenceDate(chunk.date());
+            entry.setEntryType("TASK");
+            entry.setIsBreak(false);
+            entry.setIsCompleted(false);
+            entry.setOriginalItemId(chunk.chunk().taskId());
+            entry.setOriginalItemTitle(chunk.chunk().taskTitle());
+            entry.setChunkIndex(chunk.chunk().chunkIndex());
+            entry.setTotalChunks(chunk.chunk().totalChunks());
+            entries.add(entry);
+        }
+        plan.setEntries(entries);
+
+        SchedulePlanEntity saved = schedulePlanRepository.saveAndFlush(plan);
+
+        Map<String, UUID> keyToId = new HashMap<>();
+        for (ScheduleEntryEntity savedEntry : saved.getEntries()) {
+            String key = savedEntry.getOriginalItemId() + ":" + savedEntry.getChunkIndex();
+            keyToId.put(key, savedEntry.getId());
+        }
+
+        Map<ScheduledChunk, UUID> chunkIdMap = new LinkedHashMap<>();
+        for (ScheduledChunk chunk : result.schedule().scheduledChunks()) {
+            String key = chunk.chunk().taskId() + ":" + chunk.chunk().chunkIndex();
+            chunkIdMap.put(chunk, keyToId.get(key));
+        }
+        return chunkIdMap;
+    }
+
+    @Transactional(readOnly = true)
+    public ScheduleResponse loadSingleAccountSchedule(Jwt jwt, UUID accountId) {
+        if (!userIdentityService.hasUserAccessToAccount(jwt, accountId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "User does not have access to account " + accountId);
+        }
+
+        SchedulePlanEntity plan = schedulePlanRepository.findByAccountId(accountId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "No schedule found for account: " + accountId));
+
+        List<ScheduleEntryEntity> entries = scheduleEntryRepository.findByPlanId(plan.getId());
+        List<Appointment> appointments = Optional.ofNullable(appointmentService.listAppointments(accountId, jwt).getAppointments())
+                .orElse(List.of());
+
+        return scheduleMapper.mapPlanToResponse(plan, entries, appointments);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ScheduleResponse> loadAllAccountsSchedules(Jwt jwt, List<UUID> accountIds) {
+        return accountIds.stream()
+                .map(accountId -> {
+                    try {
+                        return loadSingleAccountSchedule(jwt, accountId);
+                    } catch (ResponseStatusException e) {
+                        if (e.getStatusCode().value() == 404) {
+                            return null;
+                        }
+                        throw e;
+                    }
+                })
+                .filter(Objects::nonNull)
+                .toList();
+    }
+
+    @Transactional
+    public MarkScheduleEntryResponse markEntryDone(Jwt jwt, UUID accountId, UUID entryId,
+                                                   MarkScheduleEntryScope scope) {
+        if (!userIdentityService.hasUserAccessToAccount(jwt, accountId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "User does not have access to account " + accountId);
+        }
+
+        ScheduleEntryEntity targetEntry = scheduleEntryRepository.findByIdAndAccountId(entryId, accountId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "Schedule entry not found: " + entryId));
+
+        List<ScheduleEntryEntity> updatedEntities;
+
+        if (scope == MarkScheduleEntryScope.TASK) {
+            List<ScheduleEntryEntity> taskEntries = scheduleEntryRepository
+                    .findByPlanIdAndOriginalItemId(targetEntry.getPlan().getId(), targetEntry.getOriginalItemId());
+            taskEntries.forEach(entry -> entry.setIsCompleted(true));
+            updatedEntities = scheduleEntryRepository.saveAll(taskEntries);
+
+            if (targetEntry.getOriginalItemId() != null) {
+                taskRepository.findByIdAndAccountId(targetEntry.getOriginalItemId(), accountId)
+                        .ifPresent(task -> {
+                            task.setStatus(TaskStatus.DONE);
+                            taskRepository.save(task);
+                        });
+            }
+        } else {
+            targetEntry.setIsCompleted(true);
+            scheduleEntryRepository.save(targetEntry);
+
+            boolean isSingleChunk = targetEntry.getTotalChunks() == null || targetEntry.getTotalChunks() <= 1;
+            boolean isLastChunk = !isSingleChunk
+                    && targetEntry.getOriginalItemId() != null
+                    && scheduleEntryRepository.countByPlanIdAndOriginalItemIdAndIsCompletedFalse(
+                            targetEntry.getPlan().getId(), targetEntry.getOriginalItemId()) == 0;
+
+            if (isSingleChunk || isLastChunk) {
+                // Last or only chunk: upgrade to full task completion
+                List<ScheduleEntryEntity> allTaskEntries = scheduleEntryRepository
+                        .findByPlanIdAndOriginalItemId(targetEntry.getPlan().getId(), targetEntry.getOriginalItemId());
+                allTaskEntries.forEach(entry -> entry.setIsCompleted(true));
+                updatedEntities = scheduleEntryRepository.saveAll(allTaskEntries);
+
+                if (targetEntry.getOriginalItemId() != null) {
+                    taskRepository.findByIdAndAccountId(targetEntry.getOriginalItemId(), accountId)
+                            .ifPresent(task -> {
+                                task.setStatus(TaskStatus.DONE);
+                                taskRepository.save(task);
+                            });
+                }
+            } else {
+                updatedEntities = List.of(targetEntry);
+            }
+        }
+
+        MarkScheduleEntryResponse response = new MarkScheduleEntryResponse();
+        response.setUpdatedEntries(updatedEntities.stream()
+                .map(scheduleMapper::mapEntryEntityToDto)
+                .toList());
+        return response;
+    }
+
+    private String toJson(Object obj) {
+        if (obj == null) {
+            return null;
+        }
+        try {
+            return objectMapper.writeValueAsString(obj);
+        } catch (Exception e) {
+            log.warn("Failed to serialize to JSON: {}", e.getMessage());
+            return null;
+        }
     }
 
     /**

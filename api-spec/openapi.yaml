@@ -516,6 +516,48 @@ paths:
               schema:
                 $ref: '#/components/schemas/ScheduleValidationError'
 
+  # ============================================================
+  # SCHEDULES – Mark Entry Done
+  # ============================================================
+  /schedules/{accountId}/entries/{entryId}:
+    patch:
+      tags: [ schedules ]
+      summary: Mark a schedule entry as completed
+      description: |
+        Marks one or more schedule entries as completed depending on the scope:
+        - `CHUNK`: sets isCompleted=true on the targeted entry only.
+        - `TASK`: sets isCompleted=true on all entries sharing the same originalItemId
+          within the account's active schedule, and sets TaskEntity.status = DONE.
+      operationId: markScheduleEntryDone
+      security:
+        - bearerAuth: [ ]
+      parameters:
+        - $ref: '#/components/parameters/AccountIdPath'
+        - name: entryId
+          in: path
+          required: true
+          description: UUID of the schedule entry to mark as done
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MarkScheduleEntryRequest'
+      responses:
+        '200':
+          description: Entry marked as completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MarkScheduleEntryResponse'
+        '403':
+          description: Account does not belong to the caller's identity
+        '404':
+          description: Schedule entry not found
+
   /working-times:
     get:
       tags:
@@ -2143,6 +2185,37 @@ components:
                   type: string
                   format: uuid
                 description: Betroffene Task-IDs
+
+    # ----------------------------------------------------------
+    # Schedule Entry – Mark Done Request
+    # ----------------------------------------------------------
+    MarkScheduleEntryScope:
+      type: string
+      enum:
+        - CHUNK
+        - TASK
+      description: |
+        - `CHUNK`: Marks only the targeted schedule entry as completed.
+        - `TASK`: Marks all schedule entries sharing the same originalItemId as completed,
+          and additionally sets the underlying TaskEntity status to DONE.
+
+    MarkScheduleEntryRequest:
+      type: object
+      required:
+        - scope
+      properties:
+        scope:
+          $ref: '#/components/schemas/MarkScheduleEntryScope'
+
+    MarkScheduleEntryResponse:
+      type: object
+      required: [updatedEntries]
+      properties:
+        updatedEntries:
+          type: array
+          items:
+            $ref: '#/components/schemas/ScheduleEntry'
+          description: The schedule entries that were updated (one for CHUNK scope, multiple for TASK scope)
 
 security:
   - bearerAuth: [ ]
