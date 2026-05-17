@@ -39,6 +39,14 @@ public class AppointmentService {
     private final AppointmentRepository appointmentRepository;
     private final UserIdentityService userIdentityService;
 
+    /**
+     * Creates a new appointment or break for the given account.
+     *
+     * @param accountId The UUID of the account.
+     * @param request   The {@link AppointmentCreate} payload.
+     * @param jwt       The authenticated user's JWT.
+     * @return The created {@link Appointment}.
+     */
     @Transactional
     public Appointment createAppointment(UUID accountId, AppointmentCreate request, Jwt jwt) {
         checkAccess(jwt, accountId);
@@ -54,6 +62,13 @@ public class AppointmentService {
         return toModel(saved);
     }
 
+    /**
+     * Lists all appointments for the given account.
+     *
+     * @param accountId The UUID of the account.
+     * @param jwt       The authenticated user's JWT.
+     * @return An {@link AppointmentListResponse} containing all appointments.
+     */
     @Transactional(readOnly = true)
     public AppointmentListResponse listAppointments(UUID accountId, Jwt jwt) {
         checkAccess(jwt, accountId);
@@ -66,6 +81,14 @@ public class AppointmentService {
         return new AppointmentListResponse().appointments(appointments);
     }
 
+    /**
+     * Retrieves a single appointment by its ID, verifying account ownership.
+     *
+     * @param accountId     The UUID of the account.
+     * @param appointmentId The UUID of the appointment.
+     * @param jwt           The authenticated user's JWT.
+     * @return The found {@link Appointment}.
+     */
     @Transactional(readOnly = true)
     public Appointment getAppointment(UUID accountId, UUID appointmentId, Jwt jwt) {
         checkAccess(jwt, accountId);
@@ -73,6 +96,15 @@ public class AppointmentService {
         return toModel(entity);
     }
 
+    /**
+     * Fully replaces an existing appointment with the provided data.
+     *
+     * @param accountId     The UUID of the account.
+     * @param appointmentId The UUID of the appointment to update.
+     * @param request       The {@link AppointmentCreate} payload (full replace).
+     * @param jwt           The authenticated user's JWT.
+     * @return The updated {@link Appointment}.
+     */
     @Transactional
     public Appointment updateAppointment(UUID accountId, UUID appointmentId, AppointmentCreate request, Jwt jwt) {
         checkAccess(jwt, accountId);
@@ -86,6 +118,13 @@ public class AppointmentService {
         return toModel(saved);
     }
 
+    /**
+     * Permanently deletes an appointment.
+     *
+     * @param accountId     The UUID of the account.
+     * @param appointmentId The UUID of the appointment to delete.
+     * @param jwt           The authenticated user's JWT.
+     */
     @Transactional
     public void deleteAppointment(UUID accountId, UUID appointmentId, Jwt jwt) {
         checkAccess(jwt, accountId);
@@ -93,6 +132,10 @@ public class AppointmentService {
         appointmentRepository.delete(entity);
         log.info("Deleted appointment {} for account {}", appointmentId, accountId);
     }
+
+    // -------------------------------------------------------------------------
+    // Private helpers
+    // -------------------------------------------------------------------------
 
     private void checkAccess(Jwt jwt, UUID accountId) {
         if (!userIdentityService.hasUserAccessToAccount(jwt, accountId)) {
