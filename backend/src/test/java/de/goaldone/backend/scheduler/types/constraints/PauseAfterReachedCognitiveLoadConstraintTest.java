@@ -6,7 +6,6 @@ import de.goaldone.backend.scheduler.types.model.SolverState;
 import de.goaldone.backend.scheduler.types.model.TaskChunk;
 import de.goaldone.backend.scheduler.types.model.TimeSlot;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
@@ -34,8 +33,6 @@ class PauseAfterReachedCognitiveLoadConstraintTest {
         assertThat(constraint.isActive).isTrue();
     }
 
-    // TODO: enable test
-    @Disabled("Wartet auf TaskChunk.isBreak() – Pause wird künftig durch Break-Chunk statt Lücke signalisiert")
     @Test
     void shouldNotBeActive_whenHighThresholdReachedAndNoPause() {
         // 120 min HIGH, immediately followed by next chunk
@@ -45,8 +42,6 @@ class PauseAfterReachedCognitiveLoadConstraintTest {
         assertThat(constraint.isActive).isFalse();
     }
 
-    // TODO: enable test
-    @Disabled("Wartet auf TaskChunk.isBreak() – Pause wird künftig durch Break-Chunk statt Lücke signalisiert")
     @Test
     void shouldNotBeActive_whenAccumulatedHighExceedsThresholdWithoutPause() {
         // 2x 60 min HIGH back-to-back = 120 min, then immediate next chunk
@@ -57,8 +52,6 @@ class PauseAfterReachedCognitiveLoadConstraintTest {
         assertThat(constraint.isActive).isFalse();
     }
 
-    // TODO: enable test
-    @Disabled("Wartet auf TaskChunk.isBreak() – Pause wird künftig durch Break-Chunk statt Lücke signalisiert")
     @Test
     void shouldNotBeActive_whenModerateThresholdReachedWithoutPause() {
         // 240 min MODERATE back-to-back, then immediate next chunk
@@ -98,7 +91,7 @@ class PauseAfterReachedCognitiveLoadConstraintTest {
     private static final LocalDate DATE = LocalDate.of(2026, 5, 11);
 
     private static SolverState state(ScheduledChunk... chunks) {
-        return new SolverState(List.of(chunks), List.of(), List.of());
+        return new SolverState(List.of(chunks), List.of(), List.of(), null);
     }
 
     private static ScheduledChunk chunk(int startH, int startM, int endH, int endM, CognitiveLoad load) {

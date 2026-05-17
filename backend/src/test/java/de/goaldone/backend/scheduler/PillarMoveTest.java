@@ -38,7 +38,7 @@ class PillarMoveTest {
     }
 
     private static SolverState state(List<ScheduledChunk> scheduled, List<TimeSlot> free) {
-        return new SolverState(new ArrayList<>(scheduled), new ArrayList<>(free), null);
+        return new SolverState(new ArrayList<>(scheduled), new ArrayList<>(free), null, SchedulerTestHelper.emptyContext());
     }
 
     private static Random fixed(Integer... ints) {

@@ -57,7 +57,7 @@ class DeadlineConstraintTest {
     void shouldViolate_whenOneOfMultipleChunksExceedsDeadline() {
         ScheduledChunk ok = scheduledChunk(9, 10, LocalDateTime.of(2026, 5, 11, 17, 0));
         ScheduledChunk bad = scheduledChunk(14, 16, LocalDateTime.of(2026, 5, 11, 15, 0));
-        SolverState state = new SolverState(List.of(ok, bad), List.of(), List.of());
+        SolverState state = new SolverState(List.of(ok, bad), List.of(), List.of(), null);
         constraint.updateConstraint(state);
         assertThat(constraint.isViolated).isTrue();
     }
@@ -76,7 +76,7 @@ class DeadlineConstraintTest {
     private static final LocalDate DATE = LocalDate.of(2026, 5, 11);
 
     private SolverState stateWith(ScheduledChunk chunk) {
-        return new SolverState(List.of(chunk), List.of(), List.of());
+        return new SolverState(List.of(chunk), List.of(), List.of(), null);
     }
 
     private ScheduledChunk chunk(int startHour, int endHour, LocalDateTime deadline) {

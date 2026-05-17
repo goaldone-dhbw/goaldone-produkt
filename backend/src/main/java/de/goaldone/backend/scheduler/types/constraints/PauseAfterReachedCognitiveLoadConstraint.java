@@ -41,18 +41,22 @@ public class PauseAfterReachedCognitiveLoadConstraint extends SoftConstraint {
             int accumulatedModerateMinutes = 0;
             boolean highThresholdReached = false;
             boolean moderateThresholdReached = false;
+            ScheduledChunk previous = null;
 
             for (ScheduledChunk current : sorted) {
                 CognitiveLoad load = current.chunk().cognitiveLoad();
 
-                // After threshold was reached in previous iteration, check for a pause (Break-Chunk)
+                // After threshold was reached in previous iteration, check for a pause.
+                // A pause is either an explicit Break-Chunk or a time gap between consecutive chunks.
                 if (highThresholdReached || moderateThresholdReached) {
-                    // TODO: Sobald TaskChunk.isBreak() verfügbar ist, hier prüfen ob current ein
-                    //       Break-Chunk ist. Ein Break-Chunk signalisiert die eingeplante Pause.
-                    //       Falls current KEIN Break-Chunk ist, fehlt die Pause nach der Schwelle:
-                    //       if (!current.chunk().isBreak()) { this.isActive = false; return; }
-                    //       Break-Chunks sollen außerdem keine kognitive Last akkumulieren (→ continue).
-                    //  Stub: Pause gilt als vorhanden – Akkumulatoren zurücksetzen
+                    boolean hasPause = current.chunk().isBreak() || current.startTime().isAfter(previous.endTime());
+
+                    if (!hasPause) {
+                        this.isActive = false;
+                        return;
+                    }
+
+                    // Pause found – reset accumulators
                     accumulatedHighMinutes = 0;
                     accumulatedModerateMinutes = 0;
                     highThresholdReached = false;
@@ -73,6 +77,8 @@ public class PauseAfterReachedCognitiveLoadConstraint extends SoftConstraint {
                 if (accumulatedModerateMinutes >= MODERATE_LOAD_THRESHOLD_MINUTES) {
                     moderateThresholdReached = true;
                 }
+
+                previous = current;
             }
         }
     }
