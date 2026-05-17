@@ -27,7 +27,7 @@
           label="Planung starten"
           icon="pi pi-calendar"
           [loading]="facade.isGenerating()"
-          [disabled]="facade.isGenerating() || !facade.selectedAccountId()"
+          [disabled]="facade.isGenerating() || !facade.selectedAccountId() || accountStateService.hasConflicts()"
           (onClick)="onGenerateSchedule()"
         ></p-button>
       </div>

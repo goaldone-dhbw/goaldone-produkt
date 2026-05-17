@@ -8,6 +8,7 @@ import { CalenderComponent, ScheduleCalendarRange } from './calender/calender';
 import { ScheduleFacadeService } from './facade/facade';
 import { Toast } from 'primeng/toast';
 import { MessageService } from 'primeng/api';
+import { AccountStateService } from '../../core/services/account-state.service';
 
 @Component({
   selector: 'app-schedule',
@@ -19,9 +20,11 @@ import { MessageService } from 'primeng/api';
 })
 export class SchedulePage {
   readonly facade = inject(ScheduleFacadeService);
+  readonly accountStateService = inject(AccountStateService);
   private readonly messageService = inject(MessageService);
 
   constructor() {
+    this.accountStateService.refresh();
     void this.facade.initialize();
   }
 
@@ -31,6 +34,10 @@ export class SchedulePage {
   }
 
   async onGenerateSchedule(): Promise<void> {
+    if (this.accountStateService.hasConflicts()) {
+      return;
+    }
+
     await this.facade.generateSchedule();
   }
 
