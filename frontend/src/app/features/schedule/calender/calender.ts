@@ -303,7 +303,7 @@ export class CalenderComponent {
       accountId: appointment.accountId,
       title: appointment.title,
       isBreak: appointment.isBreak,
-      date: appointment.date,
+      date: appointment.originalStartDate || appointment.date,
       startTime: appointment.startTime,
       endTime: appointment.endTime,
       isRecurring: appointment.isRecurring,
@@ -377,11 +377,8 @@ export class CalenderComponent {
 
   async saveAppointment(): Promise<void> {
     const form = this.appointmentEditForm();
-    const appointment = this.selectedAppointment();
 
-    if (!form) {
-      return;
-    }
+    if (!form) return;
 
     if (!form.id || !form.accountId) {
       this.appointmentError.set('Der Eintrag kann nicht gespeichert werden, weil die ID fehlt.');
@@ -393,7 +390,7 @@ export class CalenderComponent {
       return;
     }
 
-    if (!form.date || !form.startTime || !form.endTime) {
+    if ((!form.isRecurring && !form.date) || !form.startTime || !form.endTime) {
       this.appointmentError.set('Bitte gib Datum, Startzeit und Endzeit an.');
       return;
     }
@@ -412,13 +409,10 @@ export class CalenderComponent {
     this.appointmentError.set('');
 
     try {
-      const shouldSplitRecurringAppointment =
-        appointment?.isRecurring === true &&
-        Boolean(appointment.originalStartDate) &&
-        form.date > appointment.originalStartDate;
-
-      if (shouldSplitRecurringAppointment) {
-        const dayBefore = this.getDateBefore(form.date);
+      const appointment = this.selectedAppointment();
+      if (appointment?.isRecurring === true && !appointment.isBreak) {
+        // Split nur bei fixen Terminen
+        const dayBefore = this.getDateBefore(appointment.date);
 
         const oldRule =
           appointment.rule && appointment.rule.trim()
@@ -429,7 +423,7 @@ export class CalenderComponent {
           title: appointment.title.trim(),
           isBreak: appointment.isBreak,
           appointmentType: 'RECURRING',
-          date: appointment.originalStartDate || null,
+          date: form.date || null,
           startTime: appointment.startTime.substring(0, 5),
           endTime: appointment.endTime.substring(0, 5),
           rrule: this.appendUntilToRrule(oldRule, dayBefore),
@@ -443,7 +437,7 @@ export class CalenderComponent {
           title: form.title.trim(),
           isBreak: form.isBreak,
           appointmentType: 'RECURRING',
-          date: form.date || null,
+          date: appointment.date,
           startTime: form.startTime.substring(0, 5),
           endTime: form.endTime.substring(0, 5),
           rrule: this.createWeeklyRule(form.days),
@@ -453,8 +447,8 @@ export class CalenderComponent {
           this.appointmentsService.createAppointment(form.accountId, newPayload),
         );
       } else {
+        // Pausen und ONE_TIME: einfaches Update
         const payload = this.createAppointmentUpdatePayload(form);
-
         await firstValueFrom(
           this.appointmentsService.updateAppointment(form.accountId, form.id, payload),
         );
@@ -475,7 +469,7 @@ export class CalenderComponent {
       title: form.title.trim(),
       isBreak: form.isBreak,
       appointmentType: form.isRecurring ? 'RECURRING' : 'ONE_TIME',
-      date: form.date || null,
+      date: form.isRecurring ? null : (form.date || null),  // NEU
       startTime: form.startTime.substring(0, 5),
       endTime: form.endTime.substring(0, 5),
       rrule: form.isRecurring ? this.createWeeklyRule(form.days) : null,
@@ -716,12 +710,6 @@ export class CalenderComponent {
   private mapScheduleEntryToAppointmentDetail(entry: ScheduleEntry): AppointmentDetail {
     const rawEntry = entry as any;
 
-    //temporär zum Debuggen:
-    console.log('entry.source:', entry.source);
-    console.log('rawEntry.date:', rawEntry.date);
-    console.log('rawEntry.rrule:', rawEntry.rrule);
-    console.log('rawEntry.accountLabel:', rawEntry.accountLabel);
-    console.log('entry.occurrenceDate:', entry.occurrenceDate);
     const duration = this.calculateDurationInMinutes(entry);
     const rule = this.getOptionalString(entry, 'rule') || this.getOptionalString(entry, 'rrule');
     const isRecurring =
