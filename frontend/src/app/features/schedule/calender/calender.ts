@@ -988,6 +988,22 @@ export class CalenderComponent {
     return map[day];
   }
 
+  private getEventClassNames(entry: ScheduleEntry): string[] {
+    if (this.isBreakEntry(entry)) {
+      return ['schedule-event--break'];
+    }
+
+    if (this.isAppointmentEntry(entry)) {
+      return ['schedule-event--appointment'];
+    }
+
+    if (entry.isCompleted) {
+      return ['schedule-event--completed'];
+    }
+
+    return ['schedule-event--task'];
+  }
+
   private computeEffectiveSlotRange(): { slotMinTime: string; slotMaxTime: string } {
     const defaultMin = this.timeToMinutes(DEFAULT_SLOT_MIN_TIME);
     const defaultMax = this.timeToMinutes(DEFAULT_SLOT_MAX_TIME);

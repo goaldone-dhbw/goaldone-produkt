@@ -224,6 +224,7 @@ class CPMAlgorithmTest {
 
         LocalDateTime date = LocalDateTime.of(LocalDate.of(2026, 5, 11),  LocalTime.of(7, 0));
         List<TimeSlot> availableSlots = List.of(slot(date.toLocalDate(), 9, 10));
+
         TaskResponse task = task(65);
         List<TaskResponse> tasks = List.of(task);
         List<WorkingTimeEntity> workingTime = List.of(working(List.of(DayOfWeek.MONDAY), 17));
@@ -234,6 +235,7 @@ class CPMAlgorithmTest {
 
         SolverState result = algorithm.generateInitialSchedule(context);
 
+        assertThat(result).isNotNull();
         assertThat(result.scheduledChunks().size()).isEqualTo(1);
 
         ScheduledChunk scheduledChunk = result.scheduledChunks().getFirst();
