@@ -44,7 +44,7 @@ public class AccountLinkingService {
     private final LinkTokenRepository linkTokenRepository;
     private final UserAccountRepository userAccountRepository;
     private final UserIdentityRepository userIdentityRepository;
-    private final WorkingTimeRepository workingTimeRepository;
+    private final WorkingTimeConflictService workingTimeConflictService;
     private final ZitadelManagementClient zitadelManagementClient;
     private final CurrentUserResolver currentUserResolver;
     private final OrganizationRepository organizationRepository;
@@ -173,7 +173,7 @@ public class AccountLinkingService {
         linkTokenRepository.delete(tokenEntity);
 
         // Check if there are conflicts after merging
-        boolean hasConflicts = workingTimeRepository.hasConflictsForIdentity(accountA.getUserIdentityId());
+        boolean hasConflicts = workingTimeConflictService.hasConflictsForIdentity(accountA.getUserIdentityId());
 
         log.info("Linked accounts {} and {} under identity {}, hasConflicts: {}",
             accountA.getId(), accountB.getId(), accountA.getUserIdentityId(), hasConflicts);

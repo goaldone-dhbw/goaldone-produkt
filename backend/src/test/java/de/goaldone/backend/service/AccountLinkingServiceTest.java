@@ -11,7 +11,6 @@ import de.goaldone.backend.model.LinkTokenResponse;
 import de.goaldone.backend.repository.LinkTokenRepository;
 import de.goaldone.backend.repository.UserAccountRepository;
 import de.goaldone.backend.repository.UserIdentityRepository;
-import de.goaldone.backend.repository.WorkingTimeRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -42,7 +41,7 @@ class AccountLinkingServiceTest {
     private UserIdentityRepository userIdentityRepository;
 
     @Mock
-    private WorkingTimeRepository workingTimeRepository;
+    private WorkingTimeConflictService workingTimeConflictService;
 
     @InjectMocks
     private AccountLinkingService accountLinkingService;
@@ -187,7 +186,7 @@ class AccountLinkingServiceTest {
             .thenReturn(List.of()); // Empty = no conflict
         when(userAccountRepository.findAllByUserIdentityId(identityB))
             .thenReturn(List.of(accountB, accountB2));
-        when(workingTimeRepository.hasConflictsForIdentity(identityA))
+        when(workingTimeConflictService.hasConflictsForIdentity(identityA))
             .thenReturn(false);
 
         boolean hasConflicts = accountLinkingService.confirmLink(linkToken, confirmingAccountId);
@@ -196,7 +195,7 @@ class AccountLinkingServiceTest {
         verify(userAccountRepository, times(2)).save(any(UserAccountEntity.class));
         verify(userIdentityRepository).deleteById(identityB);
         verify(linkTokenRepository).delete(token);
-        verify(workingTimeRepository).hasConflictsForIdentity(identityA);
+        verify(workingTimeConflictService).hasConflictsForIdentity(identityA);
         assertFalse(hasConflicts);
     }
 
