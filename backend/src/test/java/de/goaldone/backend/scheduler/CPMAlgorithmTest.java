@@ -5,6 +5,7 @@ import de.goaldone.backend.model.*;
 import de.goaldone.backend.model.DayOfWeek;
 import de.goaldone.backend.scheduler.types.model.*;
 import de.goaldone.backend.service.ScheduleService;
+import org.jspecify.annotations.NonNull;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -339,10 +340,18 @@ class CPMAlgorithmTest {
         assertThat(result).isNotNull();
         assertThat(result.unscheduledTasks().size()).isEqualTo(0);
 
+        List<TimeSlot> expected = getTimeSlots(date);
+
+        for (int i = 0; i < expected.size(); i++) {
+            assertThat(result.scheduledChunks().get(i).slot()).isEqualTo(expected.get(i));
+        }
+    }
+
+    private @NonNull List<TimeSlot> getTimeSlots(LocalDateTime date) {
         LocalDate today = date.toLocalDate();
         LocalDate tomorrow = today.plusDays(1);
 
-        List<TimeSlot> expected = List.of(
+        return List.of(
                 new TimeSlot(today,    LocalTime.of(8,  0),  LocalTime.of(12,0)),    // 4h
                 new TimeSlot(today,    LocalTime.of(12, 0),  LocalTime.of(12,15)),   // Pause
                 new TimeSlot(today,    LocalTime.of(12, 15), LocalTime.of(16,15)),   // 4h
@@ -350,10 +359,6 @@ class CPMAlgorithmTest {
                 new TimeSlot(today,    LocalTime.of(16, 30), LocalTime.of(17,0)),    // 0.5h
                 new TimeSlot(tomorrow, LocalTime.of(8,  0),  LocalTime.of(9,30))     // 1,5h
         );
-
-        for (int i = 0; i < expected.size(); i++) {
-            assertThat(result.scheduledChunks().get(i).slot()).isEqualTo(expected.get(i));
-        }
     }
 
     @Test
