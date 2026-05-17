@@ -719,8 +719,6 @@ export class CalenderComponent {
       classNames.push('schedule-event--appointment');
     } else if (entry.isCompleted) {
       classNames.push('schedule-event--completed');
-    } else if (entry.isPinned) {
-      classNames.push('schedule-event--pinned');
     } else {
       classNames.push('schedule-event--task');
     }
