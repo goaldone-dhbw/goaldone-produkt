@@ -4,7 +4,6 @@ import de.goaldone.backend.entity.WorkingTimeEntity;
 import de.goaldone.backend.model.Appointment;
 import de.goaldone.backend.model.TaskResponse;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 

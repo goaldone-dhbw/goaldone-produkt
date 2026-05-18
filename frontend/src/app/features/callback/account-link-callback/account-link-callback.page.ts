@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, inject, ChangeDetectorRef } from '@angular/core';
+import { ChangeDetectorRef, Component, inject, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 
@@ -28,34 +28,42 @@ import { UserAccountsService } from '../../../api';
         <!-- Confirmation state -->
         @if (confirmationData && !error) {
           <div class="space-y-4">
-            <p class="text-slate-700">
-              Der folgende Account wird verknüpft:
-            </p>
+            <p class="text-slate-700">Der folgende Account wird verknüpft:</p>
 
             <div class="p-4 bg-slate-50 border border-slate-200 rounded-lg space-y-3">
               <div class="flex items-center justify-center">
-                <span class="font-semibold text-slate-700">{{ confirmationData.currentEmail }}</span>
+                <span class="font-semibold text-slate-700">{{
+                  confirmationData.currentEmail
+                }}</span>
               </div>
               <div class="flex items-center justify-center">
                 <i class="pi pi-arrow-down text-slate-400"></i>
               </div>
               <div class="space-y-2">
-                <p class="text-xs font-semibold uppercase tracking-wide text-slate-500 text-center">Verknüpft mit:</p>
+                <p class="text-xs font-semibold uppercase tracking-wide text-slate-500 text-center">
+                  Verknüpft mit:
+                </p>
                 @for (email of confirmationData.initiatorEmails; track email) {
                   <div class="flex items-center justify-center">
-                    <span class="font-semibold text-emerald-700 bg-emerald-50 px-3 py-2 rounded">{{ email }}</span>
+                    <span class="font-semibold text-emerald-700 bg-emerald-50 px-3 py-2 rounded">{{
+                      email
+                    }}</span>
                   </div>
                 }
                 @if (confirmationData.initiatorEmails.length === 0) {
                   <div class="flex items-center justify-center">
-                    <span class="font-semibold text-slate-500 text-sm">(Keine bisherigen Verknüpfungen)</span>
+                    <span class="font-semibold text-slate-500 text-sm"
+                      >(Keine bisherigen Verknüpfungen)</span
+                    >
                   </div>
                 }
               </div>
             </div>
 
             @if (confirming) {
-              <div class="p-4 bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-2 text-blue-700">
+              <div
+                class="p-4 bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-2 text-blue-700"
+              >
                 <i class="pi pi-spin pi-spinner"></i>
                 <span>Verknüpfung wird durchgeführt...</span>
               </div>
@@ -137,7 +145,12 @@ export class AccountLinkCallbackPage implements OnInit {
 
       const linkToken = this.accountLinkingStorage.getLinkToken();
 
-      console.log('Callback complete. Link token:', linkToken ? 'exists' : 'missing', 'Account A token:', accountAToken ? 'exists' : 'missing');
+      console.log(
+        'Callback complete. Link token:',
+        linkToken ? 'exists' : 'missing',
+        'Account A token:',
+        accountAToken ? 'exists' : 'missing',
+      );
 
       if (!linkToken || !accountAToken) {
         this.accountLinkingStorage.clearPendingLink();
@@ -162,7 +175,8 @@ export class AccountLinkCallbackPage implements OnInit {
 
       if (linkInfo.inConflict) {
         this.inConflict = true;
-        this.error = 'Sie können nicht zwei Accounts aus derselben Organisation verknüpfen. Sie haben bereits einen Account in dieser Organisation.';
+        this.error =
+          'Sie können nicht zwei Accounts aus derselben Organisation verknüpfen. Sie haben bereits einen Account in dieser Organisation.';
         this.accountLinkingStorage.clearPendingLink();
         if (accountAToken) {
           this.authService.restoreAccessToken(accountAToken);
@@ -180,7 +194,12 @@ export class AccountLinkCallbackPage implements OnInit {
         initiatorEmails: linkInfo.initiatorEmails || [],
       };
 
-      console.log('Confirmation data set - Current:', linkInfo.currentEmail, 'Initiators:', linkInfo.initiatorEmails);
+      console.log(
+        'Confirmation data set - Current:',
+        linkInfo.currentEmail,
+        'Initiators:',
+        linkInfo.initiatorEmails,
+      );
       this.cdr.markForCheck();
     } catch (err) {
       console.error('Account linking callback failed:', err);
@@ -243,27 +262,6 @@ export class AccountLinkCallbackPage implements OnInit {
 
   async returnToApp(): Promise<void> {
     await this.router.navigate(['/app']);
-  }
-
-  private extractEmailFromToken(token: string): string {
-    try {
-      const parts = token.split('.');
-      if (parts.length !== 3) return '';
-
-      const decoded = JSON.parse(atob(parts[1]));
-      console.log('Token claims:', decoded);
-
-      return (
-        decoded.email ||
-        decoded.preferred_username ||
-        decoded['urn:zitadel:iam:user:resourceowner:name'] ||
-        decoded.sub ||
-        ''
-      );
-    } catch (err) {
-      console.error('Error decoding token:', err);
-      return '';
-    }
   }
 
   private mapLinkError(error: any): string {

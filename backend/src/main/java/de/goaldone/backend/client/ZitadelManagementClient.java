@@ -12,15 +12,12 @@ import de.goaldone.backend.model.MemberRole;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
-import org.springframework.web.server.ResponseStatusException;
 
-import java.lang.reflect.Member;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -437,7 +434,6 @@ public class ZitadelManagementClient {
      * Update a user's profile.
      * @param userId the ID of the user to update
      * @param updateRequest the update request containing the new profile information
-     * @return the updated user information
      */
     public void updateUser(String userId, AccountUpdateRequest updateRequest) {
         try {

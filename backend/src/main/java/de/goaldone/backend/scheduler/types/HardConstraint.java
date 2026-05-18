@@ -1,7 +1,5 @@
 package de.goaldone.backend.scheduler.types;
 
-import de.goaldone.backend.model.ScheduleWarning;
-
 public abstract class HardConstraint implements Constraint{
 
     public boolean isViolated;

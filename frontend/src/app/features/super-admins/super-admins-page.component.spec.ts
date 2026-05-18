@@ -1,12 +1,11 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { inject, Injectable } from '@angular/core';
 import { HttpClient, provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { ConfirmationService, MessageService } from 'primeng/api';
-import { Observable } from 'rxjs';
 
 import { BASE_PATH, OrgManagementService } from '../../api';
 import { SuperAdminsPageComponent } from './super-admins-page.component';
@@ -26,14 +25,6 @@ interface OrganizationListResponse {
 class FutureOrgManagementServiceMock {
   private readonly http = inject(HttpClient);
   private readonly basePath = inject(BASE_PATH);
-
-  listOrganizations(): Observable<OrganizationListResponse> {
-    return this.http.get<OrganizationListResponse>(`${this.basePath}/admins/organizations`);
-  }
-
-  deleteOrganization(zitadelOrganizationId: string): Observable<void> {
-    return this.http.delete<void>(`${this.basePath}/admins/organizations/${zitadelOrganizationId}`);
-  }
 }
 
 describe('SuperAdminsPageComponent', () => {

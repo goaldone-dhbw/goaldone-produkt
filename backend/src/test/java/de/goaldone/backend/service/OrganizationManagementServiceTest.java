@@ -1,12 +1,11 @@
 package de.goaldone.backend.service;
 
-import de.goaldone.backend.model.OrganizationResponse;
 import de.goaldone.backend.client.ZitadelManagementClient;
 import de.goaldone.backend.exception.ConflictException;
 import de.goaldone.backend.exception.ZitadelApiException;
 import de.goaldone.backend.model.CreateOrganizationRequest;
+import de.goaldone.backend.model.OrganizationResponse;
 import de.goaldone.backend.repository.OrganizationRepository;
-import de.goaldone.backend.repository.UserAccountRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InOrder;
@@ -17,7 +16,8 @@ import java.lang.reflect.Field;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)

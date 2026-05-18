@@ -1,12 +1,10 @@
 package de.goaldone.backend.service;
 
 import com.zitadel.model.*;
-import java.time.OffsetDateTime;
 import de.goaldone.backend.client.UserGrantDto;
 import de.goaldone.backend.client.ZitadelManagementClient;
 import de.goaldone.backend.entity.OrganizationEntity;
 import de.goaldone.backend.entity.UserAccountEntity;
-import de.goaldone.backend.exception.NotMemberOfOrganizationException;
 import de.goaldone.backend.model.ChangeRoleRequest;
 import de.goaldone.backend.model.MemberListResponse;
 import de.goaldone.backend.model.MemberRole;
@@ -26,6 +24,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;

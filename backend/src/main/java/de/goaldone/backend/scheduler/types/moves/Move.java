@@ -4,8 +4,6 @@ import de.goaldone.backend.scheduler.types.model.MoveEvent;
 import de.goaldone.backend.scheduler.types.model.SolverState;
 import lombok.Getter;
 
-import java.util.List;
-import java.util.UUID;
 
 /**
  * Abstrakte Basisklasse für Moves, die einen SolverState verändern können.

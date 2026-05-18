@@ -1,14 +1,11 @@
 package de.goaldone.backend.service;
 
-import com.nimbusds.openid.connect.sdk.assurance.evidences.Organization;
-import com.zitadel.model.OrganizationServiceListOrganizationsResponse;
 import com.zitadel.model.OrganizationServiceOrganization;
 import com.zitadel.model.UserServiceListUsersResponse;
 import com.zitadel.model.UserServiceUser;
 import de.goaldone.backend.client.ZitadelManagementClient;
 import de.goaldone.backend.entity.OrganizationEntity;
 import de.goaldone.backend.entity.UserAccountEntity;
-import de.goaldone.backend.exception.PartialDeletionException;
 import de.goaldone.backend.exception.ZitadelApiException;
 import de.goaldone.backend.model.MemberRole;
 import de.goaldone.backend.repository.OrganizationRepository;

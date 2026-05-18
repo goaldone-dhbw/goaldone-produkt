@@ -2,7 +2,6 @@ package de.goaldone.backend.service;
 
 import com.zitadel.model.AuthorizationServiceAuthorization;
 import com.zitadel.model.AuthorizationServiceRole;
-import com.zitadel.model.UserServiceUpdateUserResponse;
 import de.goaldone.backend.client.ZitadelManagementClient;
 import de.goaldone.backend.entity.OrganizationEntity;
 import de.goaldone.backend.entity.UserAccountEntity;

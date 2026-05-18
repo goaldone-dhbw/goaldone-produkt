@@ -11,7 +11,6 @@ import de.goaldone.backend.scheduler.types.model.SolverState;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Supplier;
 
 public class ConstraintHandler {
 

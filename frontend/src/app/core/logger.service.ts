@@ -18,12 +18,6 @@ export class LoggerService {
     this.level = this.parseLogLevel(environment.logLevel as string);
   }
 
-  debug(message: string, ...args: any[]): void {
-    if (this.level <= LogLevel.DEBUG) {
-      console.debug(`[DEBUG] ${message}`, ...args);
-    }
-  }
-
   info(message: string, ...args: any[]): void {
     if (this.level <= LogLevel.INFO) {
       console.info(`[INFO] ${message}`, ...args);

@@ -1,10 +1,8 @@
 package de.goaldone.backend.service;
 
-import com.zitadel.Zitadel;
 import com.zitadel.model.AuthorizationServiceAuthorization;
 import com.zitadel.model.AuthorizationServiceListAuthorizationsResponse;
 import com.zitadel.model.UserServiceListUsersResponse;
-import com.zitadel.model.UserServiceUser;
 import de.goaldone.backend.client.UserGrantDto;
 import de.goaldone.backend.client.ZitadelManagementClient;
 import de.goaldone.backend.entity.OrganizationEntity;
@@ -22,7 +20,6 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.lang.reflect.Member;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;

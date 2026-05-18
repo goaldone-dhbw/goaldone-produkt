@@ -25,7 +25,7 @@ import java.util.UUID;
  * Service for managing appointments and breaks.
  * Handles CRUD operations, validation of required fields and time ranges,
  * and account ownership checks.
- *
+ * <p>
  * Overlapping appointments and breaks are allowed. They are treated as
  * separate blocking entries for schedule generation.
  */

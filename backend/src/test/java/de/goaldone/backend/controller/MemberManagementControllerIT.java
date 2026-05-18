@@ -1,9 +1,7 @@
 package de.goaldone.backend.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.github.tomakehurst.wiremock.WireMockServer;
 import com.zitadel.model.*;
-import de.goaldone.backend.SharedWiremockSetup;
 import de.goaldone.backend.client.UserGrantDto;
 import de.goaldone.backend.client.ZitadelManagementClient;
 import de.goaldone.backend.entity.OrganizationEntity;

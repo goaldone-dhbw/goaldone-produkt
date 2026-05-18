@@ -52,7 +52,7 @@ public interface UserAccountRepository extends JpaRepository<UserAccountEntity, 
 
     /**
      * Finds all user accounts by their IDs.
-     * @param ids
+     * @param ids the IDs of the user accounts to find
      * @return A list of {@link UserAccountEntity} objects.
      */
     List<UserAccountEntity> findAllByIdIn(Collection<UUID> ids);

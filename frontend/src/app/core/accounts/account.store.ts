@@ -1,9 +1,8 @@
-import { Injectable, signal, computed } from '@angular/core';
+import { computed, Injectable, signal } from '@angular/core';
 import { Observable, of } from 'rxjs';
 import { map, tap } from 'rxjs/operators';
 import { UserAccountsService } from '../../api/api/userAccounts.service';
 import { AccountListResponse } from '../../api/model/accountListResponse';
-
 
 export interface Account {
   accountId: string;
@@ -49,9 +48,5 @@ export class AccountStore {
       }),
       map(() => void 0),
     );
-  }
-
-  clear(): void {
-    this.accounts.set([]);
   }
 }
