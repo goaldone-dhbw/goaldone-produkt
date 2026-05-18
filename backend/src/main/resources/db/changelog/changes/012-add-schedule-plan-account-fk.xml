@@ -6,6 +6,9 @@
     http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <changeSet id="012-add-schedule-plan-account-fk" author="claude">
+        <!-- Remove orphaned rows before adding the FK (dev/test data may reference deleted accounts). -->
+        <sql>DELETE FROM schedule_plans WHERE account_id NOT IN (SELECT id FROM user_accounts)</sql>
+
         <!-- Adds the missing FK so deleting a user_accounts row cascades to schedule_plans (and via
              fk_schedule_entries_plan_id further to schedule_entries). -->
         <addForeignKeyConstraint

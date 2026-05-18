@@ -8,7 +8,7 @@
   @if (accountStateService.hasConflicts()) {
     <p-message
       severity="warn"
-      text="Deine Arbeitszeiten überschneiden sich. Bitte setze eindeutige Arbeitszeiten unter Arbeitszeiten."
+      text="Deine Arbeitszeiten überschneiden sich. Hinweis: Für Organisationen ohne eigene Arbeitszeit wird automatisch 08:00–17:00 Uhr verwendet. Prüfe daher bitte die Arbeitszeiten aller verknüpften Organisationen und passe sie bei Bedarf an."
       [closable]="false"
       [styleClass]="'w-full'"
     />
