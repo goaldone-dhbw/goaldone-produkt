@@ -150,9 +150,6 @@ public class SuperAdminService {
             UserAccountEntity account = accountOpt.get();
             UUID identityId = account.getUserIdentityId();
 
-            // TODO: Cascade delete Tasks, Breaks, etc. (Stubs)
-            log.info("TODO: Cascade delete tasks for user {}", account.getId());
-
             userAccountRepository.delete(account);
 
             // Clean up identity if it was the last account
