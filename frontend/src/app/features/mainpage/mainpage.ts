@@ -135,7 +135,7 @@ export class MainPage implements OnInit {
       duration: t.duration ?? 0,
       deadline: t.deadline ?? null,
       status: t.status!,
-      accountId: null,
+      accountId: t.accountId ?? null,
       accountLabel: null,
       dependencyIds: t.dependencyIds ?? [],
       cognitiveLoad: t.cognitiveLoad ?? null,
