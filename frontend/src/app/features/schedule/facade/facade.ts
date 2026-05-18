@@ -359,7 +359,7 @@ export class ScheduleFacadeService {
     this.successMessage.set('');
 
     const request: GenerateScheduleRequest = {
-      from: this.getGenerationStartDate(),
+      from: this.getGenerationStartDateTime(),
     };
 
     try {
@@ -1033,21 +1033,8 @@ export class ScheduleFacadeService {
       });
   }
 
-  private getGenerationStartDate(): string {
-    const range = this.lastRange() ?? this.getCurrentWeekRange();
-
-    const now = new Date();
-    const today = this.toIsoDate(now);
-
-    let date: Date;
-
-    if (range.from < today) {
-      date = now;
-    } else {
-      date = new Date(`${range.from}T00:00:00Z`);
-    }
-
-    return date.toISOString();
+  private getGenerationStartDateTime(): string {
+    return new Date().toISOString();
   }
 
   private getCurrentWeekRange(): { from: string; to: string } {
