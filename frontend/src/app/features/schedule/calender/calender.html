@@ -140,7 +140,7 @@
 <app-task-edit-dialog
   [isOpen]="isTaskDialogOpen()"
   [task]="selectedTask()"
-  [allTasks]="allTaskItems()"
+  [allTasks]="allAvailableTaskItems()"
   mode="view"
   (isOpenChange)="isTaskDialogOpen.set($event)"
   (taskSaved)="onTaskSaved()"
