@@ -314,24 +314,52 @@
             <label for="deadline" class="block text-sm font-medium text-slate-800">
               Deadline
             </label>
-            <input
-              id="deadline"
-              type="datetime-local"
-              formControlName="deadline"
-              class="w-full h-12 rounded-xl border border-slate-300 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
-            />
+            <div class="relative">
+              <input
+                id="deadline"
+                type="datetime-local"
+                formControlName="deadline"
+                class="w-full h-12 rounded-xl border border-slate-300 bg-white px-4 pr-10 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+              />
+
+              @if (taskForm.get('deadline')?.value) {
+                <button
+                  type="button"
+                  class="absolute inset-y-0 right-0 flex items-center px-3 text-slate-400 transition hover:text-slate-700"
+                  aria-label="Deadline entfernen"
+                  title="Deadline entfernen"
+                  (click)="clearDateField('deadline')"
+                >
+                  <i class="pi pi-times text-sm"></i>
+                </button>
+              }
+            </div>
           </div>
 
           <div class="space-y-2">
             <label for="dontScheduleBefore" class="block text-sm font-medium text-slate-800">
               Nicht planen vor
             </label>
-            <input
-              id="dontScheduleBefore"
-              type="datetime-local"
-              formControlName="dontScheduleBefore"
-              class="w-full h-12 rounded-xl border border-slate-300 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
-            />
+            <div class="relative">
+              <input
+                id="dontScheduleBefore"
+                type="datetime-local"
+                formControlName="dontScheduleBefore"
+                class="w-full h-12 rounded-xl border border-slate-300 bg-white px-4 pr-10 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+              />
+
+              @if (taskForm.get('dontScheduleBefore')?.value) {
+                <button
+                  type="button"
+                  class="absolute inset-y-0 right-0 flex items-center px-3 text-slate-400 transition hover:text-slate-700"
+                  aria-label="Nicht planen vor entfernen"
+                  title="Nicht planen vor entfernen"
+                  (click)="clearDateField('dontScheduleBefore')"
+                >
+                  <i class="pi pi-times text-sm"></i>
+                </button>
+              }
+            </div>
           </div>
         </div>
 
