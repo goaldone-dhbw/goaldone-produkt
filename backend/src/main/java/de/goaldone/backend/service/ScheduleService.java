@@ -254,12 +254,12 @@ public class ScheduleService {
     public ScheduleResponse loadSingleAccountSchedule(Jwt jwt, UUID accountId) {
         if (!userIdentityService.hasUserAccessToAccount(jwt, accountId)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,
-                    "User does not have access to account " + accountId);
+                    "Der Nutzer hat kein Zugriff auf den Account.");
         }
 
         SchedulePlanEntity plan = schedulePlanRepository.findByAccountId(accountId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
-                        "No schedule found for account: " + accountId));
+                        "Für den Account wurde kein Plan gefunden."));
 
         List<ScheduleEntryEntity> entries = scheduleEntryRepository.findByPlanId(plan.getId());
         List<Appointment> appointments = Optional.ofNullable(appointmentService.listAppointments(accountId, jwt).getAppointments())
@@ -362,27 +362,34 @@ public class ScheduleService {
     }
 
     /**
-     * Rounds a LocalDateTime to the nearest 30-minute interval.
+     * Rounds a LocalDateTime up to the next 15-minute interval.
+     * Examples:
+     * 10:00 -> 10:00
+     * 10:01 -> 10:15
+     * 10:14 -> 10:15
+     * 10:15 -> 10:15
+     * 10:16 -> 10:30
      *
      * @param dateTime the date-time to round
      * @return the rounded date-time
      */
     public LocalDateTime getScheduleFromDateTime(LocalDateTime dateTime) {
-        int minute = dateTime.getMinute();
 
         LocalDateTime rounded = dateTime
                 .withSecond(0)
                 .withNano(0);
 
-        if (minute < 15) {
-            return rounded.withMinute(0);
-        } else if (minute < 45) {
-            return rounded.withMinute(30);
-        } else {
+        int minute = rounded.getMinute();
+
+        // Calculate next multiple of 15
+        int roundedMinute = ((minute + 14) / 15) * 15;
+
+        // Handle overflow to next hour
+        if (roundedMinute == 60) {
             return rounded.plusHours(1).withMinute(0);
         }
+        return rounded.withMinute(roundedMinute);
     }
-
 
     /**
      * Validate the request
@@ -404,6 +411,8 @@ public class ScheduleService {
         }
 
         // Validate fromDate (e.g. cannot be in the past)
+
+        System.out.println(fromDate);
         OffsetDateTime utcTime = OffsetDateTime.now(ZoneOffset.UTC);
         if (fromDate.isBefore(utcTime.minusSeconds(5))) {
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_CONTENT, "From date cannot be in the past");
