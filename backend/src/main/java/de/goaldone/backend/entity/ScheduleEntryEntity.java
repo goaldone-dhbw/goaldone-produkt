@@ -74,6 +74,13 @@ public class ScheduleEntryEntity {
     private Boolean isCompleted = false;
 
     /**
+     * Whether the completion dialog for this entry has been acknowledged by the user without
+     * actually completing it. Prevents the dialog from reappearing on subsequent page visits.
+     */
+    @Column(name = "is_acknowledged", nullable = false)
+    private Boolean isAcknowledged = false;
+
+    /**
      * The ID of the original Task or Appointment that this entry was generated from.
      * Used for TASK-scope completion (mark all entries with same originalItemId as done).
      */

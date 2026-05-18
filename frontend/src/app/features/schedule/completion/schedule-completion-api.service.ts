@@ -3,7 +3,7 @@ import { Observable } from 'rxjs';
 
 import { MarkScheduleEntryRequest, MarkScheduleEntryResponse, SchedulesService } from '../../../api';
 
-export type ScheduleCompletionScope = 'CHUNK' | 'TASK';
+export type ScheduleCompletionScope = 'CHUNK' | 'TASK' | 'ACKNOWLEDGE';
 
 export type ScheduleTaskCompletionRequest = {
   /**

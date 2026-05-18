@@ -84,6 +84,7 @@ public class ScheduleMapper {
                 .isBreak(entity.getIsBreak())
                 .isAutomatedBreak(entity.getIsAutomatedBreak())
                 .isCompleted(entity.getIsCompleted())
+                .isAcknowledged(entity.getIsAcknowledged())
                 .originalItemId(entity.getOriginalItemId())
                 .originalItemTitle(entity.getOriginalItemTitle())
                 .chunkIndex(entity.getChunkIndex())

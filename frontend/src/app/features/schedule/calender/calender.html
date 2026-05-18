@@ -124,6 +124,25 @@
 
             <i class="pi pi-check text-emerald-700"></i>
           </button>
+
+          <button
+            type="button"
+            class="flex w-full items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-left text-slate-500 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+            [disabled]="isSavingTaskCompletion()"
+            (click)="dismissPendingTaskCompletion()"
+          >
+            <span>
+              <span class="block text-sm font-semibold text-slate-600">
+                Dialog schließen — nicht mehr anzeigen
+              </span>
+              <span class="mt-1 block text-xs leading-5 text-slate-400">
+                Die Aufgabe bleibt offen. Dieser Dialog wird für diesen Zeitblock nicht mehr
+                angezeigt.
+              </span>
+            </span>
+
+            <i class="pi pi-times text-slate-400"></i>
+          </button>
         </div>
 
         @if (isSavingTaskCompletion()) {
