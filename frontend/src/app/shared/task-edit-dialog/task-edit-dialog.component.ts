@@ -480,12 +480,18 @@ export class TaskEditDialogComponent implements OnInit, OnChanges {
       title: value.title.trim(),
       description: value.description?.trim() || undefined,
       duration: this.getDurationInMinutes(value),
-      deadline: value.deadline ? new Date(value.deadline).toISOString() : undefined,
+
+      deadline: value.deadline
+        ? new Date(value.deadline).toISOString()
+        : null as any,
+
       status: value.status,
       cognitiveLoad: (value.cognitiveLoad || 'MODERATE') as CognitiveLoad,
+
       dontScheduleBefore: value.dontScheduleBefore
         ? new Date(value.dontScheduleBefore).toISOString()
-        : undefined,
+        : null as any,
+
       customChunkSize: value.customChunkSize ? Number(value.customChunkSize) : undefined,
       dependencyIds: value.dependencyIds ?? [],
     };
@@ -600,8 +606,20 @@ export class TaskEditDialogComponent implements OnInit, OnChanges {
   }
 
   private durationValidator(control: AbstractControl): ValidationErrors | null {
-    const durationHours = Number(control.get('durationHours')?.value ?? 0);
-    const durationMinutes = Number(control.get('durationMinutes')?.value ?? 0);
+    const durationHoursControl = control.get('durationHours');
+    const durationMinutesControl = control.get('durationMinutes');
+
+    const durationHours = Number(durationHoursControl?.value ?? 0);
+    const durationMinutes = Number(durationMinutesControl?.value ?? 0);
+
+    if (
+      durationHoursControl?.hasError('min') ||
+      durationHoursControl?.hasError('max') ||
+      durationMinutesControl?.hasError('min') ||
+      durationMinutesControl?.hasError('max')
+    ) {
+      return null;
+    }
 
     const totalDuration = durationHours * 60 + durationMinutes;
 
@@ -619,5 +637,15 @@ export class TaskEditDialogComponent implements OnInit, OnChanges {
   hasDurationMinutes(): boolean {
     const minutes = Number(this.taskForm.get('durationMinutes')?.value ?? 0);
     return minutes > 0;
+  }
+
+  clearDateField(fieldName: 'deadline' | 'dontScheduleBefore'): void {
+    const control = this.taskForm.get(fieldName);
+
+    control?.setValue('');
+    control?.markAsDirty();
+    control?.markAsTouched();
+
+    this.taskForm.updateValueAndValidity();
   }
 }
