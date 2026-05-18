@@ -104,10 +104,29 @@ export class TasksPageComponent implements OnInit {
 
   private async initializePage(): Promise<void> {
     await this.loadAccounts();
+
     this.route.queryParams.subscribe((params) => {
       this.parseQueryParams(params);
       void this.loadTasks();
+
+      this.handleCreateDialogQueryParam(params);
     });
+  }
+
+  private handleCreateDialogQueryParam(params: any): void {
+    if (params.create === 'true') {
+      this.openCreateDialog();
+
+      void this.router.navigate([], {
+        relativeTo: this.route,
+        queryParams: {
+          ...params,
+          create: null,
+        },
+        queryParamsHandling: 'merge',
+        replaceUrl: true,
+      });
+    }
   }
 
   private parseQueryParams(params: any): void {
