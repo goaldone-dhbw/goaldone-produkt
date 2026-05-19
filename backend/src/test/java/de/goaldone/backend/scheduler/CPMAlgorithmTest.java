@@ -22,6 +22,7 @@ import java.util.UUID;
 
 import static de.goaldone.backend.scheduler.SchedulerTestHelper.*;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.in;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
@@ -603,5 +604,40 @@ class CPMAlgorithmTest {
                 .anyMatch(sc -> sc.chunk().taskId().equals(alreadyScheduledTask.getId()))).isTrue();
         assertThat(result.scheduledChunks().stream()
                 .anyMatch(sc -> sc.chunk().taskId().equals(unscheduledTask.getId()))).isTrue();
+    }
+
+    @Test
+    void shouldScheduleInCorrectOrder_whenDependenciesExist() {
+        LocalDateTime date = LocalDateTime.of(2026, 5, 18, 0, 0);
+
+        TaskResponse taskA = task(120, List.of(), null, date.toLocalDate().plusWeeks(2), CognitiveLoad.MODERATE);
+        TaskResponse taskB = task(24*60, List.of(), null, date.toLocalDate().plusWeeks(2), CognitiveLoad.MODERATE);
+        TaskResponse taskC = task(120, List.of(taskA.getId()), null, date.toLocalDate().plusDays(1), CognitiveLoad.MODERATE);
+
+        List<TaskResponse> tasks = List.of(taskA, taskB, taskC);
+
+        List<WorkingTimeEntity> workingTimeEntities = List.of(working(
+                List.of(DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY, DayOfWeek.FRIDAY),
+                18));
+
+        List<TimeSlot> availableSlots = new ArrayList<>(List.of(
+                slot(date.toLocalDate().plusDays(0), 8, 18),
+                slot(date.toLocalDate().plusDays(1), 8, 18),
+                slot(date.toLocalDate().plusDays(2), 8, 18),
+                slot(date.toLocalDate().plusDays(3), 8, 18),
+                slot(date.toLocalDate().plusDays(4), 8, 18)
+        ));
+
+        SchedulingContext context = new SchedulingContext(date, availableSlots, tasks, null, workingTimeEntities);
+
+        SolverState initial = algorithm.generateInitialSchedule(context);
+
+        assertThat(initial).isNotNull();
+
+        assertThat(initial.unscheduledTasks()).hasSize(0);
+
+        assertThat(initial.scheduledChunks().getFirst().chunk().taskId()).isEqualTo(taskA.getId());
+        assertThat(initial.scheduledChunks().get(1).chunk().taskId()).isEqualTo(taskC.getId());
+
     }
 }

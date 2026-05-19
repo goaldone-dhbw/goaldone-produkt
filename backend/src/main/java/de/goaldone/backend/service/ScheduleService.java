@@ -167,7 +167,7 @@ public class ScheduleService {
 
         validateRequest(jwt, accountId, fromDate);
 
-        LocalDateTime scheduleFromDateTime = getScheduleFromDateTime(LocalDateTime.ofInstant(fromDate.toInstant(), ZoneId.systemDefault()));
+        LocalDateTime scheduleFromDateTime = getScheduleFromDateTime(LocalDateTime.ofInstant(fromDate.toInstant(), ZoneId.of("Europe/Berlin")));
         SchedulingContext schedulingContext = createSchedulingContext(jwt, accountId, scheduleFromDateTime);
         SchedulingResult bestResult = solver.createSchedule(schedulingContext, timeoutMs);
 
