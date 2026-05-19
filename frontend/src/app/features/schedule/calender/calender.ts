@@ -99,7 +99,9 @@ const DEFAULT_WORKING_TIME_START = '08:00:00';
 const DEFAULT_WORKING_TIME_END = '17:00:00';
 
 const COMPACT_EVENT_MAX_MINUTES = 30;
-const TINY_EVENT_MAX_MINUTES = 10;
+const TINY_EVENT_MAX_MINUTES = 15;
+const MICRO_EVENT_MAX_MINUTES = 5;
+const EVENT_DISPLAY_END_GAP_MS = 1000;
 
 const DEFAULT_WORKING_DAYS = new Set<CalendarDayName>([
   'MONDAY',
@@ -299,10 +301,17 @@ export class CalenderComponent implements OnDestroy {
 
     slotMinTime: DEFAULT_SLOT_MIN_TIME,
     slotMaxTime: DEFAULT_SLOT_MAX_TIME,
+    slotDuration: '00:15:00',
+    slotLabelInterval: '01:00:00',
+    snapDuration: '00:05:00',
 
     eventDisplay: 'block',
+    eventMinHeight: 4,
+    eventShortHeight: 28,
     slotEventOverlap: false,
     eventMaxStack: 3,
+    eventOrder: 'start,duration,title',
+    eventOrderStrict: true,
 
     eventTimeFormat: {
       hour: '2-digit',
@@ -315,6 +324,9 @@ export class CalenderComponent implements OnDestroy {
       minute: '2-digit',
       hour12: false,
     },
+
+    eventContent: (arg) => this.renderEventContent(arg),
+    eventDidMount: (arg) => this.decorateEventElement(arg),
 
     eventClassNames: (arg) => {
       const entry = arg.event.extendedProps['entry'] as ScheduleEntry | undefined;
@@ -647,20 +659,115 @@ export class CalenderComponent implements OnDestroy {
   }
 
   private mapScheduleEntryToEvent(entry: ScheduleEntry, index: number): EventInput {
+    const durationInMinutes = this.getEntryDurationInMinutes(entry);
+
     return {
       id: entry.entryId ?? `${entry.occurrenceDate}-${entry.startTime}-${entry.endTime}-${index}`,
       title: this.getEntryTitle(entry),
       start: `${entry.occurrenceDate}T${this.normalizeTime(entry.startTime)}`,
-      end: `${entry.occurrenceDate}T${this.normalizeTime(entry.endTime)}`,
+      // Nur die Darstellung bekommt einen minimalen Abstand zum nächsten Block.
+      // Die fachlichen Zeiten bleiben im Tooltip/Dialog unverändert.
+      end: this.getDisplayEndIso(entry),
       display: 'block',
       classNames: this.getEventClassNames(entry),
       extendedProps: {
         entry,
+        durationInMinutes,
         isBreak: this.isBreakEntry(entry),
         isAppointment: this.isAppointmentEntry(entry),
         isBlocking: this.isBlockingEntry(entry),
       },
     };
+  }
+
+  private renderEventContent(arg: any): { html: string } {
+    const entry = arg.event.extendedProps?.['entry'] as ScheduleEntry | undefined;
+
+    if (!entry) {
+      return { html: this.escapeHtml(arg.event.title ?? '') };
+    }
+
+    const durationInMinutes = this.getEntryDurationInMinutes(entry);
+    const density = this.getEventDensityClass(durationInMinutes);
+    const title = this.escapeHtml(this.getEntryTitle(entry));
+    const time = this.escapeHtml(
+      `${this.formatTime(entry.startTime)} - ${this.formatTime(entry.endTime)}`,
+    );
+
+    return {
+      html: `
+        <div class="schedule-event-content schedule-event-content--${density}">
+          <span class="schedule-event-time">${time}</span>
+          <span class="schedule-event-separator" aria-hidden="true">·</span>
+          <span class="schedule-event-title">${title}</span>
+        </div>
+      `,
+    };
+  }
+
+  private decorateEventElement(arg: any): void {
+    const entry = arg.event.extendedProps?.['entry'] as ScheduleEntry | undefined;
+
+    if (!entry) {
+      return;
+    }
+
+    const title = this.getEntryTitle(entry);
+    const time = `${this.formatTime(entry.startTime)} - ${this.formatTime(entry.endTime)}`;
+    const duration = this.formatDuration(this.getEntryDurationInMinutes(entry));
+    const tooltip = `${time} · ${title}${duration !== '-' ? ` · ${duration}` : ''}`;
+
+    arg.el.setAttribute('title', tooltip);
+    arg.el.setAttribute('aria-label', tooltip);
+  }
+
+  private getDisplayEndIso(entry: ScheduleEntry): string {
+    const fallbackEnd = `${entry.occurrenceDate}T${this.normalizeTime(entry.endTime)}`;
+
+    if (!entry.occurrenceDate || !entry.startTime || !entry.endTime) {
+      return fallbackEnd;
+    }
+
+    const start = new Date(`${entry.occurrenceDate}T${this.normalizeTime(entry.startTime)}`);
+    const end = new Date(fallbackEnd);
+
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) {
+      return fallbackEnd;
+    }
+
+    const durationMs = end.getTime() - start.getTime();
+
+    if (durationMs <= 60_000) {
+      return fallbackEnd;
+    }
+
+    const displayEnd = new Date(end.getTime() - EVENT_DISPLAY_END_GAP_MS);
+
+    if (displayEnd <= start) {
+      return fallbackEnd;
+    }
+
+    return this.formatLocalDateTime(displayEnd);
+  }
+
+  private formatLocalDateTime(date: Date): string {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const seconds = String(date.getSeconds()).padStart(2, '0');
+
+    return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+  }
+
+  private escapeHtml(value: string): string {
+    return value
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
   }
 
   private findTaskById(
@@ -869,19 +976,25 @@ export class CalenderComponent implements OnDestroy {
     }
 
     const durationInMinutes = this.getEntryDurationInMinutes(entry);
+    classNames.push(`schedule-event--${this.getEventDensityClass(durationInMinutes)}`);
 
-    if (
-      durationInMinutes <= COMPACT_EVENT_MAX_MINUTES &&
-      durationInMinutes > TINY_EVENT_MAX_MINUTES
-    ) {
-      classNames.push('schedule-event--compact');
+    return classNames;
+  }
+
+  private getEventDensityClass(durationInMinutes: number): 'normal' | 'compact' | 'tiny' | 'micro' {
+    if (durationInMinutes <= MICRO_EVENT_MAX_MINUTES) {
+      return 'micro';
     }
 
     if (durationInMinutes <= TINY_EVENT_MAX_MINUTES) {
-      classNames.push('schedule-event--tiny');
+      return 'tiny';
     }
 
-    return classNames;
+    if (durationInMinutes <= COMPACT_EVENT_MAX_MINUTES) {
+      return 'compact';
+    }
+
+    return 'normal';
   }
 
   private getEntryDurationInMinutes(entry: ScheduleEntry): number {
