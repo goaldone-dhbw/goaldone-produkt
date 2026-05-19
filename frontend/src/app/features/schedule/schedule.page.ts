@@ -62,15 +62,17 @@ export class SchedulePage {
 
       event.resolve();
 
-      this.messageService.add({
-        severity: 'success',
-        summary: 'Erledigt gespeichert',
-        detail:
-          event.request.scope === 'TASK'
-            ? 'Die gesamte Aufgabe wurde vom Backend als erledigt gespeichert.'
-            : 'Der Aufgabenabschnitt wurde vom Backend als erledigt gespeichert.',
-        life: 5000,
-      });
+      if (event.request.scope !== 'ACKNOWLEDGE') {
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Erledigt gespeichert',
+          detail:
+            event.request.scope === 'TASK'
+              ? 'Die gesamte Aufgabe wurde vom Backend als erledigt gespeichert.'
+              : 'Der Aufgabenabschnitt wurde vom Backend als erledigt gespeichert.',
+          life: 5000,
+        });
+      }
     } catch {
       const errorMessage =
         'Die Erledigt-Entscheidung konnte nicht gespeichert werden. Bitte prüfe, ob der Backend-Endpunkt bereits verfügbar ist.';

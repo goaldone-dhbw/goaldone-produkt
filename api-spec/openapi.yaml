@@ -2078,6 +2078,10 @@ components:
           type: boolean
           default: false
           description: Ob dieser Block als erledigt markiert wurde.
+        isAcknowledged:
+          type: boolean
+          default: false
+          description: Ob der Completion-Dialog für diesen Block bereits gezeigt und vom Nutzer geschlossen wurde, ohne ihn als erledigt zu markieren.
 
         # --- Task-spezifische Felder ---
         originalItemId:
@@ -2198,10 +2202,13 @@ components:
       enum:
         - CHUNK
         - TASK
+        - ACKNOWLEDGE
       description: |
         - `CHUNK`: Marks only the targeted schedule entry as completed.
         - `TASK`: Marks all schedule entries sharing the same originalItemId as completed,
           and additionally sets the underlying TaskEntity status to DONE.
+        - `ACKNOWLEDGE`: Marks the entry's completion dialog as acknowledged (isAcknowledged=true)
+          without changing isCompleted or task status. Prevents the dialog from reappearing.
 
     MarkScheduleEntryRequest:
       type: object

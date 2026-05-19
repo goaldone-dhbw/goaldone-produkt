@@ -56,8 +56,8 @@
             <h2 class="text-xl font-bold text-slate-900">Aufgabe abgeschlossen?</h2>
 
             <p class="mt-1 text-sm leading-6 text-slate-600">
-              Der geplante Zeitblock für diese Aufgabe ist abgelaufen. Bitte wähle aus, was im
-              Backend als erledigt gespeichert werden soll.
+              Der eingeplante Zeitblock für diese Aufgabe ist abgelaufen. Wähle aus, ob du mit der
+              Bearbeitung fertig bist oder nicht.
             </p>
           </div>
         </div>
@@ -118,11 +118,30 @@
               </span>
               <span class="mt-1 block text-xs leading-5 text-emerald-700">
                 Du bist komplett mit der Aufgabe fertig? Dann werden alle Zeitblöcke als erledigt
-                markiert.
+                markiert und die Aufgabe als abgeschlossen markiert.
               </span>
             </span>
 
             <i class="pi pi-check text-emerald-700"></i>
+          </button>
+
+          <button
+            type="button"
+            class="flex w-full items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-left text-slate-500 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+            [disabled]="isSavingTaskCompletion()"
+            (click)="dismissPendingTaskCompletion()"
+          >
+            <span>
+              <span class="block text-sm font-semibold text-slate-600">
+                Dialog schließen - nicht mehr anzeigen
+              </span>
+              <span class="mt-1 block text-xs leading-5 text-slate-400">
+                Die Aufgabe und der Zeitblock bleibt unabgeschlossen. Dieser Dialog wird für diesen
+                Zeitblock nicht mehr angezeigt.
+              </span>
+            </span>
+
+            <i class="pi pi-times text-slate-400"></i>
           </button>
         </div>
 
