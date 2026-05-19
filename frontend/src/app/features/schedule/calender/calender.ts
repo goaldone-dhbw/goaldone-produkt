@@ -196,6 +196,13 @@ export class CalenderComponent implements OnDestroy {
   readonly isSavingTaskCompletion = signal(false);
   readonly taskCompletionError = signal('');
 
+  /**
+   * Locally tracks entry IDs that were just processed (completed or acknowledged) before the
+   * entries signal has been updated by the backend response. Prevents the dialog from briefly
+   * re-opening with a stale entry when the 0ms timer fires before signal propagation completes.
+   */
+  private readonly processedEntryIds = new Set<string>();
+
   readonly isLastOrOnlyChunkForPending = computed(() => {
     const pending = this.pendingTaskCompletionEntry();
     if (!pending) return false;
@@ -238,6 +245,15 @@ export class CalenderComponent implements OnDestroy {
     effect(() => {
       this.entries();
       this.scheduleNextTaskCompletionCheck();
+    });
+
+    effect(() => {
+      for (const entryId of [...this.processedEntryIds]) {
+        const entry = this.entries().find((e) => String(e.entryId ?? '') === entryId);
+        if (entry && (entry.isCompleted || (entry as any).isAcknowledged)) {
+          this.processedEntryIds.delete(entryId);
+        }
+      }
     });
   }
 
@@ -440,9 +456,15 @@ export class CalenderComponent implements OnDestroy {
     this.isSavingTaskCompletion.set(true);
     this.taskCompletionError.set('');
 
+    const entryId = this.getScheduleEntryId(entry);
+
     this.taskCompletionRequested.emit({
       request,
       resolve: () => {
+        // Add to local set immediately to prevent re-show before the entries signal propagates.
+        if (entryId) {
+          this.processedEntryIds.add(entryId);
+        }
         this.isSavingTaskCompletion.set(false);
         this.closeTaskCompletionDialog();
         this.scheduleNextTaskCompletionCheck();
@@ -455,6 +477,14 @@ export class CalenderComponent implements OnDestroy {
         this.scheduleNextTaskCompletionCheck();
       },
     });
+  }
+
+  /**
+   * Acknowledges the pending completion dialog without marking the task as done.
+   * Sends an ACKNOWLEDGE request to the backend so the dialog is not shown again.
+   */
+  dismissPendingTaskCompletion(): void {
+    this.confirmPendingTaskCompletion('ACKNOWLEDGE');
   }
 
   private closeTaskCompletionDialog(): void {
@@ -1309,6 +1339,8 @@ export class CalenderComponent implements OnDestroy {
       .filter((entry) => this.isValidEntry(entry))
       .filter((entry) => this.hasScheduleEntryId(entry))
       .filter((entry) => !this.isTaskEntryCompleted(entry))
+      .filter((entry) => !(entry as any).isAcknowledged)
+      .filter((entry) => !this.processedEntryIds.has(String(entry.entryId ?? '')))
       .filter((entry) => {
         if (includeFutureEntries) {
           return true;

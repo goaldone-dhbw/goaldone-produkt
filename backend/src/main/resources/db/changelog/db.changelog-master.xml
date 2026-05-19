@@ -17,5 +17,6 @@
     <include file="changes/010-create-schedule-plan-tables.xml" relativeToChangelogFile="true"/>
     <include file="changes/011-add-automated-break-flag.xml" relativeToChangelogFile="true"/>
     <include file="changes/012-add-schedule-plan-account-fk.xml" relativeToChangelogFile="true"/>
+    <include file="changes/013-add-acknowledged-flag-to-schedule-entries.xml" relativeToChangelogFile="true"/>
 
 </databaseChangeLog>

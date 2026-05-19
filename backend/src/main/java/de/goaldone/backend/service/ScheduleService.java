@@ -300,7 +300,11 @@ public class ScheduleService {
 
         List<ScheduleEntryEntity> updatedEntities;
 
-        if (scope == MarkScheduleEntryScope.TASK) {
+        if (scope == MarkScheduleEntryScope.ACKNOWLEDGE) {
+            targetEntry.setIsAcknowledged(true);
+            scheduleEntryRepository.save(targetEntry);
+            updatedEntities = List.of(targetEntry);
+        } else if (scope == MarkScheduleEntryScope.TASK) {
             List<ScheduleEntryEntity> taskEntries = scheduleEntryRepository
                     .findByPlanIdAndOriginalItemId(targetEntry.getPlan().getId(), targetEntry.getOriginalItemId());
             taskEntries.forEach(entry -> entry.setIsCompleted(true));
