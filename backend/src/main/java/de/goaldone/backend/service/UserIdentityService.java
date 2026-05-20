@@ -34,6 +34,7 @@ public class UserIdentityService {
     private final OrganizationRepository organizationRepository;
     private final ZitadelManagementClient zitadelManagementClient;
     private final WorkingTimeConflictService workingTimeConflictService;
+    private final CurrentUserResolver currentUserResolver;
 
     @Value("${zitadel.goaldone.org-id}")
     private String goaldoneOrgId;
@@ -91,8 +92,9 @@ public class UserIdentityService {
         List<UserAccountEntity> accounts = findAccountsForIdentity(currentAccount.getUserIdentityId());
         boolean hasConflicts = workingTimeConflictService.hasConflictsForIdentity(currentAccount.getUserIdentityId());
 
+        UUID currentAccountId = currentAccount.getId();
         List<AccountResponse> responses = accounts.stream()
-                .map(account -> mapUserInfoToResponse(account, hasConflicts))
+                .map(account -> mapUserInfoToResponse(account, hasConflicts, currentAccountId))
                 .toList();
 
         AccountListResponse response = new AccountListResponse();
@@ -100,7 +102,7 @@ public class UserIdentityService {
         return response;
     }
 
-    private AccountResponse mapUserInfoToResponse(UserAccountEntity account, boolean hasConflicts) {
+    private AccountResponse mapUserInfoToResponse(UserAccountEntity account, boolean hasConflicts, UUID currentAccountId) {
         OrganizationEntity org = organizationRepository.findById(account.getOrganizationId())
                 .orElseThrow(() -> new IllegalStateException("Organization not found for account " + account.getId()));
         List<String> roles = zitadelManagementClient.getUserGrantRoles(
@@ -111,6 +113,7 @@ public class UserIdentityService {
         r.setOrganizationName(org.getName());
         r.setRoles(roles);
         r.setHasConflicts(hasConflicts);
+        r.setActive(account.getId().equals(currentAccountId));
 
         zitadelManagementClient.getUser(account.getZitadelSub()).ifPresent(user -> {
             if (user.getHuman() != null) {
@@ -148,7 +151,8 @@ public class UserIdentityService {
         zitadelManagementClient.updateUser(localAccount.get().getZitadelSub(), updateRequest);
 
         boolean hasConflicts = workingTimeConflictService.hasConflictsForIdentity(localAccount.get().getUserIdentityId());
-        return mapUserInfoToResponse(localAccount.get(), hasConflicts);
+        UUID currentAccountId = currentUserResolver.resolveCurrentAccount().getId();
+        return mapUserInfoToResponse(localAccount.get(), hasConflicts, currentAccountId);
     }
 
     /**

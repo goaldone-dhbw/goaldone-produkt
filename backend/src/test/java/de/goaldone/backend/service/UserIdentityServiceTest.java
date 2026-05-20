@@ -45,6 +45,9 @@ class UserIdentityServiceTest {
     @Mock
     private WorkingTimeConflictService workingTimeConflictService;
 
+    @Mock
+    private CurrentUserResolver currentUserResolver;
+
     @InjectMocks
     private UserIdentityService userIdentityService;
 
@@ -267,6 +270,8 @@ class UserIdentityServiceTest {
             .thenReturn(Optional.empty());
         when(workingTimeConflictService.hasConflictsForIdentity(identityId))
             .thenReturn(false);
+        when(currentUserResolver.resolveCurrentAccount())
+            .thenReturn(account);
 
         AccountResponse response = userIdentityService.updateAccount(accountId, request);
 
@@ -274,6 +279,7 @@ class UserIdentityServiceTest {
         assertEquals(accountId, response.getAccountId());
         assertEquals(orgId, response.getOrganizationId());
         assertEquals(orgName, response.getOrganizationName());
+        assertTrue(response.getActive());
         verify(zitadelManagementClient).updateUser(sub, request);
     }
 

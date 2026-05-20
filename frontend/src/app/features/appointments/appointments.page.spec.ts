@@ -21,6 +21,7 @@ describe('AppointmentsPage', () => {
     organizationName: 'GoalDone',
     roles: [],
     hasConflicts: false,
+    active: true,
   };
 
   const appointment: Appointment = {
