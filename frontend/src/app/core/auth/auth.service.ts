@@ -27,11 +27,28 @@ export class AuthService {
   }
 
   initLoginFlow(): void {
+    const pendingLogout =
+      localStorage.getItem('post_logout_pending') ||
+      localStorage.getItem('post_logout_pending_backup') ||
+      sessionStorage.getItem('post_logout_pending');
+
+    if (pendingLogout) {
+      localStorage.removeItem('post_logout_pending');
+      localStorage.removeItem('post_logout_pending_backup');
+      sessionStorage.removeItem('post_logout_pending');
+      this.oauthService.initLoginFlow('', { prompt: 'login' });
+      return;
+    }
     this.oauthService.initLoginFlow();
   }
 
   logout(): void {
-    this.oauthService.logOut();
+    localStorage.setItem('post_logout_pending', 'true');
+    localStorage.setItem('post_logout_pending_backup', 'true');
+    sessionStorage.setItem('post_logout_pending', 'true');
+    setTimeout(() => {
+      this.oauthService.logOut();
+    }, 100);
   }
 
   hasValidAccessToken(): boolean {
