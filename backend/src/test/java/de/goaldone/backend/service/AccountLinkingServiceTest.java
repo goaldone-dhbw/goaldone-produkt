@@ -9,6 +9,7 @@ import de.goaldone.backend.exception.NotLinkedException;
 import de.goaldone.backend.exception.SameOrganizationLinkNotAllowedException;
 import de.goaldone.backend.model.LinkTokenResponse;
 import de.goaldone.backend.repository.LinkTokenRepository;
+import de.goaldone.backend.repository.SchedulePlanRepository;
 import de.goaldone.backend.repository.UserAccountRepository;
 import de.goaldone.backend.repository.UserIdentityRepository;
 import org.junit.jupiter.api.Test;
@@ -42,6 +43,9 @@ class AccountLinkingServiceTest {
 
     @Mock
     private WorkingTimeConflictService workingTimeConflictService;
+
+    @Mock
+    private SchedulePlanRepository schedulePlanRepository;
 
     @InjectMocks
     private AccountLinkingService accountLinkingService;
@@ -192,6 +196,8 @@ class AccountLinkingServiceTest {
         boolean hasConflicts = accountLinkingService.confirmLink(linkToken, confirmingAccountId);
 
         // Verify all accounts from identity B are reassigned to identity A
+        verify(schedulePlanRepository).deleteByAccountId(confirmingAccountId);
+        verify(schedulePlanRepository).deleteByAccountId(accountB2Id);
         verify(userAccountRepository, times(2)).save(any(UserAccountEntity.class));
         verify(userIdentityRepository).deleteById(identityB);
         verify(linkTokenRepository).delete(token);
@@ -291,6 +297,9 @@ class AccountLinkingServiceTest {
         when(userAccountRepository.countByUserIdentityId(sharedIdentityId)).thenReturn(2L);
 
         accountLinkingService.unlink(currentAccountId, targetAccountId);
+
+        // Verify schedule plan was deleted
+        verify(schedulePlanRepository).deleteByAccountId(targetAccountId);
 
         // Verify new identity was created and saved
         ArgumentCaptor<UserIdentityEntity> identityCaptor = ArgumentCaptor.forClass(UserIdentityEntity.class);

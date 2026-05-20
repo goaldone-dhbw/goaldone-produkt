@@ -48,6 +48,7 @@ public class AccountLinkingService {
     private final ZitadelManagementClient zitadelManagementClient;
     private final CurrentUserResolver currentUserResolver;
     private final OrganizationRepository organizationRepository;
+    private final SchedulePlanRepository schedulePlanRepository;
 
     /**
      * Requests a new link token for the specified initiator account.
@@ -164,11 +165,12 @@ public class AccountLinkingService {
 
         // Merge: reassign all accounts from identity B to identity A, then delete identity B
         UUID identityBId = accountB.getUserIdentityId();
-        userAccountRepository.findAllByUserIdentityId(identityBId)
-            .forEach(acc -> {
-                acc.setUserIdentityId(accountA.getUserIdentityId());
-                userAccountRepository.save(acc);
-            });
+        List<UserAccountEntity> identityBAccounts = userAccountRepository.findAllByUserIdentityId(identityBId);
+        identityBAccounts.forEach(acc -> schedulePlanRepository.deleteByAccountId(acc.getId()));
+        identityBAccounts.forEach(acc -> {
+            acc.setUserIdentityId(accountA.getUserIdentityId());
+            userAccountRepository.save(acc);
+        });
         userIdentityRepository.deleteById(identityBId);
         linkTokenRepository.delete(tokenEntity);
 
@@ -212,6 +214,7 @@ public class AccountLinkingService {
         newIdentity.setCreatedAt(Instant.now());
         userIdentityRepository.save(newIdentity);
 
+        schedulePlanRepository.deleteByAccountId(targetAccountId);
         targetAccount.setUserIdentityId(newIdentity.getId());
         userAccountRepository.save(targetAccount);
 
