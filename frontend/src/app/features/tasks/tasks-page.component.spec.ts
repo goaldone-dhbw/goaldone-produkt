@@ -190,6 +190,7 @@ describe('TasksPageComponent', () => {
             organizationId: 'org-1',
             roles: [],
             hasConflicts: false,
+            active: true,
           },
         ],
       },
@@ -339,6 +340,7 @@ describe('TasksPageComponent', () => {
           organizationId: 'org-1',
           roles: [],
           hasConflicts: false,
+          active: true,
         },
         {
           accountId: secondAccountId,
@@ -346,6 +348,7 @@ describe('TasksPageComponent', () => {
           organizationId: 'org-2',
           roles: [],
           hasConflicts: false,
+          active: true,
         },
       ],
     });
@@ -581,6 +584,7 @@ describe('TasksPageComponent', () => {
             organizationId: 'org-2',
             roles: [],
             hasConflicts: false,
+            active: true,
           },
         ],
       },
