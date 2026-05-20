@@ -6,6 +6,7 @@ import { Password } from 'primeng/password';
 import { Message } from 'primeng/message';
 import { Tooltip } from 'primeng/tooltip';
 import { InputTextModule } from 'primeng/inputtext';
+import { TagModule } from 'primeng/tag';
 import { ActivatedRoute, Router } from '@angular/router';
 import { timeout, Subject } from 'rxjs';
 import { takeUntil, filter } from 'rxjs/operators';
@@ -34,6 +35,7 @@ import { AccountLinkConfirmService } from '../../core/services/account-link-conf
     Message,
     Tooltip,
     InputTextModule,
+    TagModule,
     BasePopupComponent,
   ],
   templateUrl: './user-settings.page.html',
@@ -436,16 +438,19 @@ export class UserSettingsPage implements OnInit, OnDestroy {
 
   /**
    * Returns the accountId of the account the current user is logged in with.
-   * Falls back to the first available account if no single "active" account
-   * can be determined from the loaded list.
+   * Matches via JWT organization ID; falls back to the first available account.
    */
   private get currentAccountId(): string | null {
-    if (this.accounts.length === 0) {
-      return null;
-    }
-    // Use the first account; extend this logic once the backend exposes a
-    // "current account" flag in the AccountResponse.
-    return this.accounts[0].accountId?.toString() ?? null;
+    const account = this.currentAccount;
+    return account?.accountId?.toString() ?? null;
+  }
+
+  /**
+   * Returns the AccountResponse for the account the current user is logged in with.
+   * Matches via JWT organization ID; falls back to the first available account.
+   */
+  get currentAccount(): AccountResponse | null {
+    return this.accounts.find(a => a.active) ?? null;
   }
 
   /** Loads all accounts linked to the current user identity. */

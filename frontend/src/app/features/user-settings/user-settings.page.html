@@ -156,6 +156,9 @@
                 <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2 mb-3">
                   <i class="pi pi-building text-primary-icon"></i>
                   {{ account.organizationName }}
+                  @if (account.accountId === currentAccount?.accountId) {
+                    <p-tag value="Aktiv" severity="success" [rounded]="true"></p-tag>
+                  }
                 </h3>
 
                 @if (account.roles && account.roles.length > 0) {
@@ -544,6 +547,14 @@
   (confirm)="confirmDeleteAccount()"
 >
   <div popup-content class="space-y-4">
+    <div class="p-4 bg-slate-50 border border-slate-200 rounded-lg text-sm">
+      <p class="text-slate-500 text-xs font-semibold uppercase tracking-wide mb-1">Account</p>
+      <p class="text-slate-800 font-medium">{{ currentAccount?.organizationName }}</p>
+      @if (currentAccount?.email) {
+        <p class="text-slate-600">{{ currentAccount?.email }}</p>
+      }
+    </div>
+
     <p class="text-rose-700 font-semibold">
       Diese Aktion kann nicht rückgängig gemacht werden.
     </p>

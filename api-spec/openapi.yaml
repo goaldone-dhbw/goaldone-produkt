@@ -1535,6 +1535,7 @@ components:
         - organizationName
         - roles
         - hasConflicts
+        - active
       properties:
         accountId:
           type: string
@@ -1558,6 +1559,9 @@ components:
         hasConflicts:
           type: boolean
           description: True if there are overlapping working time slots for this user identity
+        active:
+          type: boolean
+          description: True if this is the account the current user is authenticated with
 
     AccountListResponse:
       type: object
