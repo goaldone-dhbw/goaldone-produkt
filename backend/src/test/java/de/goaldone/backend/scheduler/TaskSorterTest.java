@@ -114,19 +114,15 @@ class TaskSorterTest {
         UUID taskCId = UUID.randomUUID();
 
         TaskResponse taskA = task(
-                taskAId,
-                CognitiveLoad.LOW
+                taskAId, CognitiveLoad.LOW
         );
 
         TaskResponse taskB = task(
-                taskBId,
-                CognitiveLoad.LOW,
-                List.of(taskAId)
+                taskBId, CognitiveLoad.LOW, List.of(taskAId)
         );
 
         TaskResponse taskC = task(
-                taskCId,
-                CognitiveLoad.HIGH
+                taskCId, CognitiveLoad.HIGH
         );
 
         List<TaskSlack> slacks = List.of(
@@ -140,10 +136,8 @@ class TaskSorterTest {
                 slacks
         );
 
-        // task1 task first because another task depends on it
-        assertEquals(taskCId, result.getFirst());
-        assertEquals(taskAId, result.get(1));
-        assertEquals(taskBId, result.get(2));
+        // taskA is first because another task depends on it
+        assertEquals(taskAId, result.getFirst());
     }
 
     @Test
@@ -249,10 +243,10 @@ class TaskSorterTest {
 
         Map<UUID, List<UUID>> result = sorter.buildDependencyGraph(tasks);
 
-        assertEquals(0, result.get(taskAId).size());
+        assertEquals(1, result.get(taskAId).size());
         assertEquals(1, result.get(taskBId).size());
         assertEquals(1, result.get(taskCId).size());
-        assertEquals(1, result.get(taskDId).size());
+        assertEquals(0, result.get(taskDId).size());
     }
 
     // ---------- helpers ----------

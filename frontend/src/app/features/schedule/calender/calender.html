@@ -1,5 +1,157 @@
 <div
-  class="w-full overflow-x-auto [--fc-border-color:#dbe3ef] [--fc-page-bg-color:#ffffff] [--fc-neutral-bg-color:#f8fafc] [--fc-today-bg-color:#5f6f9f1f] [&_.fc]:text-slate-900 [&_.fc_.fc-toolbar-title]:font-bold [&_.fc_.fc-toolbar-title]:text-slate-900 [&_.fc_.fc-button-primary]:border-[#5f6f9f] [&_.fc_.fc-button-primary]:bg-[#5f6f9f] [&_.fc_.fc-button-primary]:text-white [&_.fc_.fc-button-primary]:shadow-none [&_.fc_.fc-button-primary:hover]:border-[#4f5f8a] [&_.fc_.fc-button-primary:hover]:bg-[#4f5f8a] [&_.fc_.fc-button-primary:disabled]:border-slate-400 [&_.fc_.fc-button-primary:disabled]:bg-slate-400 [&_.fc_.fc-button-primary:disabled]:opacity-75 [&_.fc_.fc-button-primary:not(:disabled).fc-button-active]:border-slate-800 [&_.fc_.fc-button-primary:not(:disabled).fc-button-active]:bg-slate-800 [&_.fc_.fc-button-primary:not(:disabled):active]:border-slate-800 [&_.fc_.fc-button-primary:not(:disabled):active]:bg-slate-800 [&_.fc_.fc-day-today]:bg-[#5f6f9f1a]! [&_.fc_.fc-timegrid-col.fc-day-today]:bg-[#5f6f9f1a]! [&_.fc_.fc-timegrid-now-indicator-line]:border-[#059669] [&_.fc_.fc-timegrid-now-indicator-arrow]:border-[#059669] [&_.fc_.fc-timegrid-now-indicator-arrow]:border-t-transparent [&_.fc_.fc-timegrid-now-indicator-arrow]:border-b-transparent [&_.fc_.schedule-event--non-working]:opacity-100! [&_.fc_.schedule-event--non-working]:bg-slate-50/85! [&_.fc_.schedule-event--non-working]:bg-[linear-gradient(135deg,rgba(148,163,184,0.08)_25%,transparent_25%,transparent_50%,rgba(148,163,184,0.08)_50%,rgba(148,163,184,0.08)_75%,transparent_75%,transparent)]! [&_.fc_.schedule-event--non-working]:bg-size-[18px_18px]! [&_.fc_.fc-v-event]:overflow-hidden [&_.fc_.fc-v-event]:rounded-lg [&_.fc_.fc-v-event]:text-white [&_.fc_.fc-v-event]:shadow-[0_4px_10px_rgba(15,23,42,0.12)] [&_.fc_.fc-v-event]:cursor-pointer [&_.fc_.fc-v-event_.fc-event-main]:box-border [&_.fc_.fc-v-event_.fc-event-main]:h-full [&_.fc_.fc-v-event_.fc-event-main]:min-w-0 [&_.fc_.fc-v-event_.fc-event-main]:overflow-hidden [&_.fc_.fc-event-main]:px-[0.2rem] [&_.fc_.fc-event-main]:py-[0.15rem] [&_.fc_.schedule-event-content]:box-border [&_.fc_.schedule-event-content]:flex [&_.fc_.schedule-event-content]:h-full [&_.fc_.schedule-event-content]:w-full [&_.fc_.schedule-event-content]:min-w-0 [&_.fc_.schedule-event-content]:flex-col [&_.fc_.schedule-event-content]:justify-start [&_.fc_.schedule-event-content]:gap-0.5 [&_.fc_.schedule-event-content]:overflow-hidden [&_.fc_.schedule-event-content]:leading-tight [&_.fc_.schedule-event-time]:block [&_.fc_.schedule-event-time]:min-w-0 [&_.fc_.schedule-event-time]:truncate [&_.fc_.schedule-event-time]:text-xs [&_.fc_.schedule-event-time]:font-medium [&_.fc_.schedule-event-time]:leading-none [&_.fc_.schedule-event-time]:text-white/95 [&_.fc_.schedule-event-title]:block [&_.fc_.schedule-event-title]:min-w-0 [&_.fc_.schedule-event-title]:truncate [&_.fc_.schedule-event-title]:text-sm [&_.fc_.schedule-event-title]:font-semibold [&_.fc_.schedule-event-title]:leading-tight [&_.fc_.schedule-event-separator]:hidden [&_.fc_.schedule-event--compact_.fc-event-main]:px-1.5 [&_.fc_.schedule-event--compact_.fc-event-main]:py-0.5 [&_.fc_.schedule-event--compact_.schedule-event-content]:flex-row [&_.fc_.schedule-event--compact_.schedule-event-content]:items-center [&_.fc_.schedule-event--compact_.schedule-event-content]:gap-1 [&_.fc_.schedule-event--compact_.schedule-event-content]:whitespace-nowrap [&_.fc_.schedule-event--compact_.schedule-event-time]:shrink-0 [&_.fc_.schedule-event--compact_.schedule-event-time]:text-[0.72rem] [&_.fc_.schedule-event--compact_.schedule-event-title]:text-[0.82rem] [&_.fc_.schedule-event--compact_.schedule-event-separator]:inline [&_.fc_.schedule-event--compact_.schedule-event-separator]:shrink-0 [&_.fc_.schedule-event--compact_.schedule-event-separator]:text-[0.76rem] [&_.fc_.schedule-event--compact_.schedule-event-separator]:text-white/80 [&_.fc_.schedule-event--tiny_.fc-event-main]:px-1.5 [&_.fc_.schedule-event--tiny_.fc-event-main]:py-0 [&_.fc_.schedule-event--tiny_.schedule-event-content]:items-center [&_.fc_.schedule-event--tiny_.schedule-event-time]:hidden [&_.fc_.schedule-event--tiny_.schedule-event-separator]:hidden [&_.fc_.schedule-event--tiny_.schedule-event-title]:text-[0.78rem] [&_.fc_.schedule-event--tiny_.schedule-event-title]:leading-none [&_.fc_.schedule-event--task]:border-[#4f5f8a]! [&_.fc_.schedule-event--task]:bg-[#5f6f9f]! [&_.fc_.schedule-event--break]:border-red-700! [&_.fc_.schedule-event--break]:border-l-[5px]! [&_.fc_.schedule-event--break]:bg-red-600! [&_.fc_.schedule-event--appointment]:border-slate-800! [&_.fc_.schedule-event--appointment]:border-l-[5px]! [&_.fc_.schedule-event--appointment]:bg-slate-700! [&_.fc_.schedule-event--pinned]:border-amber-800! [&_.fc_.schedule-event--pinned]:bg-amber-700! [&_.fc_.schedule-event--completed]:border-green-800! [&_.fc_.schedule-event--completed]:bg-green-700! [&_.fc_.fc-timegrid-slot]:h-[2.2rem] [&_.fc_.fc-col-header-cell]:bg-white [&_.fc_.fc-timegrid-axis]:text-slate-700 [&_.fc_.fc-timegrid-slot-label]:text-slate-700"
+  class="w-full overflow-x-auto
+    [--fc-border-color:#dbe3ef]
+    [--fc-page-bg-color:#ffffff]
+    [--fc-neutral-bg-color:#f8fafc]
+    [--fc-today-bg-color:#5f6f9f1f]
+    [&_.fc]:text-slate-900
+    [&_.fc_.fc-toolbar-title]:font-bold
+    [&_.fc_.fc-toolbar-title]:text-slate-900
+    [&_.fc_.fc-button-primary]:border-[#5f6f9f]
+    [&_.fc_.fc-button-primary]:bg-[#5f6f9f]
+    [&_.fc_.fc-button-primary]:text-white
+    [&_.fc_.fc-button-primary]:shadow-none
+    [&_.fc_.fc-button-primary:hover]:border-[#4f5f8a]
+    [&_.fc_.fc-button-primary:hover]:bg-[#4f5f8a]
+    [&_.fc_.fc-button-primary:disabled]:border-slate-400
+    [&_.fc_.fc-button-primary:disabled]:bg-slate-400
+    [&_.fc_.fc-button-primary:disabled]:opacity-75
+    [&_.fc_.fc-button-primary:not(:disabled).fc-button-active]:border-slate-800
+    [&_.fc_.fc-button-primary:not(:disabled).fc-button-active]:bg-slate-800
+    [&_.fc_.fc-button-primary:not(:disabled):active]:border-slate-800
+    [&_.fc_.fc-button-primary:not(:disabled):active]:bg-slate-800
+    [&_.fc_.fc-day-today]:bg-[#5f6f9f1a]!
+    [&_.fc_.fc-timegrid-col.fc-day-today]:bg-[#5f6f9f1a]!
+    [&_.fc_.fc-timegrid-now-indicator-line]:border-[#059669]
+    [&_.fc_.fc-timegrid-now-indicator-arrow]:border-[#059669]
+    [&_.fc_.fc-timegrid-now-indicator-arrow]:border-t-transparent
+    [&_.fc_.fc-timegrid-now-indicator-arrow]:border-b-transparent
+
+    [&_.fc_.schedule-event--non-working]:opacity-100!
+    [&_.fc_.schedule-event--non-working]:bg-slate-50/85!
+    [&_.fc_.schedule-event--non-working]:bg-[linear-gradient(135deg,rgba(148,163,184,0.08)_25%,transparent_25%,transparent_50%,rgba(148,163,184,0.08)_50%,rgba(148,163,184,0.08)_75%,transparent_75%,transparent)]!
+    [&_.fc_.schedule-event--non-working]:bg-size-[18px_18px]!
+
+    [&_.fc_.fc-timegrid-slot]:h-[3.2rem]
+    [&_.fc_.fc-timegrid-slot-label]:text-slate-700
+    [&_.fc_.fc-timegrid-axis]:text-slate-700
+    [&_.fc_.fc-col-header-cell]:bg-white
+
+    [&_.fc_.fc-timegrid-event-harness]:px-[2px]
+    [&_.fc_.fc-timegrid-event-harness-inset_.fc-timegrid-event]:shadow-[0_2px_8px_rgba(15,23,42,0.14)]
+
+    [&_.fc_.fc-v-event]:box-border
+    [&_.fc_.fc-v-event]:overflow-hidden
+    [&_.fc_.fc-v-event]:rounded-md
+    [&_.fc_.fc-v-event]:border
+    [&_.fc_.fc-v-event]:border-solid
+    [&_.fc_.fc-v-event]:text-white
+    [&_.fc_.fc-v-event]:shadow-[0_2px_8px_rgba(15,23,42,0.14)]
+    [&_.fc_.fc-v-event]:cursor-pointer
+    [&_.fc_.fc-v-event]:min-h-0!
+
+    [&_.fc_.fc-v-event_.fc-event-main]:box-border
+    [&_.fc_.fc-v-event_.fc-event-main]:h-full
+    [&_.fc_.fc-v-event_.fc-event-main]:min-h-0!
+    [&_.fc_.fc-v-event_.fc-event-main]:min-w-0
+    [&_.fc_.fc-v-event_.fc-event-main]:overflow-hidden
+    [&_.fc_.fc-v-event_.fc-event-main-frame]:box-border
+    [&_.fc_.fc-v-event_.fc-event-main-frame]:flex
+    [&_.fc_.fc-v-event_.fc-event-main-frame]:h-full
+    [&_.fc_.fc-v-event_.fc-event-main-frame]:min-h-0!
+    [&_.fc_.fc-v-event_.fc-event-main-frame]:overflow-hidden
+    [&_.fc_.fc-v-event_.fc-event-main-frame]:leading-tight
+    [&_.fc_.fc-event-main]:px-1.5
+    [&_.fc_.fc-event-main]:py-1
+
+    [&_.fc_.schedule-event-content]:box-border
+    [&_.fc_.schedule-event-content]:flex
+    [&_.fc_.schedule-event-content]:h-full
+    [&_.fc_.schedule-event-content]:w-full
+    [&_.fc_.schedule-event-content]:min-h-0
+    [&_.fc_.schedule-event-content]:min-w-0
+    [&_.fc_.schedule-event-content]:overflow-hidden
+    [&_.fc_.schedule-event-content]:leading-tight
+
+    [&_.fc_.schedule-event-content--normal]:flex-col
+    [&_.fc_.schedule-event-content--normal]:justify-start
+    [&_.fc_.schedule-event-content--normal]:gap-0.5
+
+    [&_.fc_.schedule-event-content--compact]:flex-col
+    [&_.fc_.schedule-event-content--compact]:justify-start
+    [&_.fc_.schedule-event-content--compact]:gap-0.5
+
+    [&_.fc_.schedule-event-content--tiny]:flex-row
+    [&_.fc_.schedule-event-content--tiny]:items-center
+    [&_.fc_.schedule-event-content--tiny]:justify-center
+    [&_.fc_.schedule-event-content--tiny]:whitespace-nowrap
+
+    [&_.fc_.schedule-event-content--micro]:items-center
+    [&_.fc_.schedule-event-content--micro]:justify-center
+
+    [&_.fc_.schedule-event-time]:block
+    [&_.fc_.schedule-event-time]:min-w-0
+    [&_.fc_.schedule-event-time]:truncate
+    [&_.fc_.schedule-event-time]:text-[0.78rem]
+    [&_.fc_.schedule-event-time]:font-medium
+    [&_.fc_.schedule-event-time]:leading-none
+    [&_.fc_.schedule-event-time]:text-white/95
+
+    [&_.fc_.schedule-event-title]:block
+    [&_.fc_.schedule-event-title]:min-w-0
+    [&_.fc_.schedule-event-title]:truncate
+    [&_.fc_.schedule-event-title]:text-[0.95rem]
+    [&_.fc_.schedule-event-title]:font-semibold
+    [&_.fc_.schedule-event-title]:leading-tight
+
+    [&_.fc_.schedule-event-line]:block
+    [&_.fc_.schedule-event-line]:w-full
+    [&_.fc_.schedule-event-line]:min-w-0
+    [&_.fc_.schedule-event-line]:truncate
+    [&_.fc_.schedule-event-line]:text-center
+    [&_.fc_.schedule-event-line]:text-[0.78rem]
+    [&_.fc_.schedule-event-line]:font-semibold
+    [&_.fc_.schedule-event-line]:leading-none
+    [&_.fc_.schedule-event-line]:text-white
+
+    [&_.fc_.schedule-event-separator]:hidden
+
+    [&_.fc_.schedule-event--compact_.fc-event-main]:px-1.5
+    [&_.fc_.schedule-event--compact_.fc-event-main]:py-1
+    [&_.fc_.schedule-event--compact_.schedule-event-time]:text-[0.76rem]
+    [&_.fc_.schedule-event--compact_.schedule-event-title]:text-[0.9rem]
+
+    [&_.fc_.schedule-event--tiny_.fc-event-main]:px-1.5
+    [&_.fc_.schedule-event--tiny_.fc-event-main]:py-0!
+    [&_.fc_.schedule-event--tiny_.fc-event-main-frame]:items-center
+    [&_.fc_.schedule-event--tiny_.fc-event-main-frame]:justify-center
+    [&_.fc_.schedule-event--tiny_.schedule-event-line]:text-[0.78rem]
+    [&_.fc_.schedule-event--tiny_.schedule-event-line]:leading-none
+
+    [&_.fc_.schedule-event--micro]:rounded-[3px]!
+    [&_.fc_.schedule-event--micro]:shadow-none
+    [&_.fc_.schedule-event--micro_.fc-event-main]:p-0!
+    [&_.fc_.schedule-event--micro_.schedule-event-line]:hidden
+    [&_.fc_.schedule-event--micro_.schedule-event-time]:hidden
+    [&_.fc_.schedule-event--micro_.schedule-event-separator]:hidden
+    [&_.fc_.schedule-event--micro_.schedule-event-title]:sr-only
+
+    [&_.fc_.schedule-event--task]:border-[#4f5f8a]!
+    [&_.fc_.schedule-event--task]:bg-[#5f6f9f]!
+    [&_.fc_.schedule-event--break]:border-[#c98a63]!
+    [&_.fc_.schedule-event--break]:border-l-[4px]!
+    [&_.fc_.schedule-event--break]:bg-[#f3c7a8]!
+    [&_.fc_.schedule-event--break]:text-[#5f3b28]!
+    [&_.fc_.schedule-event--break_.schedule-event-time]:text-[#5f3b28]/90!
+    [&_.fc_.schedule-event--break_.schedule-event-title]:text-[#5f3b28]!
+    [&_.fc_.schedule-event--break_.schedule-event-line]:text-[#5f3b28]!
+    [&_.fc_.schedule-event--appointment]:border-slate-800!
+    [&_.fc_.schedule-event--appointment]:border-l-[4px]!
+    [&_.fc_.schedule-event--appointment]:bg-slate-700!
+    [&_.fc_.schedule-event--pinned]:border-amber-800!
+    [&_.fc_.schedule-event--pinned]:bg-amber-700!
+    [&_.fc_.schedule-event--completed]:border-green-800!
+    [&_.fc_.schedule-event--completed]:bg-green-700!"
 >
   <div class="min-w-[760px] rounded-2xl bg-white">
     <div class="space-y-3 border-b border-slate-200 px-4 py-3">
@@ -15,7 +167,7 @@
         </div>
 
         <div class="flex items-center gap-2">
-          <span class="h-3 w-3 rounded-full bg-red-600"></span>
+          <span class="h-3 w-3 rounded-full bg-[#f3c7a8] ring-1 ring-[#c98a63]"></span>
           <span>Pause</span>
         </div>
 

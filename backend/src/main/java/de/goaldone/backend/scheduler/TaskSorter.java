@@ -35,12 +35,13 @@ public class TaskSorter {
      * - A depends on B.
      * - B depends on C and D.
      * Result:
-     * A: [B]
-     * B: [C, D]
-     * C: []
-     * D: []
+     * A: []
+     * B: [A]
+     * C: [B]
+     * D: [B]
      */
     public Map<UUID, List<UUID>> buildDependencyGraph(List<TaskResponse> tasks) {
+
         Map<UUID, List<UUID>> graph = new HashMap<>();
 
         // Initialize empty lists for all tasks
@@ -48,15 +49,19 @@ public class TaskSorter {
             graph.put(task.getId(), new ArrayList<>());
         }
 
-        // For each task, add its dependencies
+        // Add dependent tasks to each dependency
         for (TaskResponse task : tasks) {
-            if (task.getDependencyIds() != null) {
-                for (UUID dependencyId : task.getDependencyIds()) {
-                    graph.get(task.getId()).add(dependencyId);
-                }
+
+            if (task.getDependencyIds() == null) {
+                continue;
+            }
+
+            for (UUID dependencyId : task.getDependencyIds()) {
+                // dependencyId -> task that depends on it
+                graph.computeIfAbsent(dependencyId, id -> new ArrayList<>())
+                        .add(task.getId());
             }
         }
-
         return graph;
     }
 
@@ -106,7 +111,8 @@ public class TaskSorter {
                 // 1. Tasks with most dependents first
                 .sorted(Comparator
                         .comparingInt((Map.Entry<UUID, List<UUID>> entry) ->
-                                entry.getValue().size())
+                                entry.getValue().size()).reversed()
+
 
                         // 2. Lowest slack first
                         .thenComparing(entry ->

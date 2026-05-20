@@ -1,8 +1,6 @@
 package de.goaldone.backend.scheduler;
 
-import de.goaldone.backend.model.CognitiveLoad;
-import de.goaldone.backend.model.TaskResponse;
-import de.goaldone.backend.model.UnscheduledTask;
+import de.goaldone.backend.model.*;
 import de.goaldone.backend.scheduler.types.model.ScheduledChunk;
 import de.goaldone.backend.scheduler.types.model.SchedulingContext;
 import de.goaldone.backend.scheduler.types.model.SolverState;
@@ -11,6 +9,7 @@ import de.goaldone.backend.scheduler.types.model.TaskSlack;
 import de.goaldone.backend.scheduler.types.model.TimeSlot;
 
 import java.time.Duration;
+import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -39,12 +38,16 @@ public class CPMAlgorithm {
     private final Chunker chunker = new Chunker();
     private final TaskSorter taskSorter = new TaskSorter();
 
+    SchedulingContext currentContext;
+
     /**
      * Creates initial schedule
      * @param context Scheduling context containing chunked tasks, free time slots, and the scheduling start date.
      * @return A first, heuristic generated schedule
      */
     public SolverState generateInitialSchedule(SchedulingContext context) {
+        this.currentContext = context;
+
         ArrayList<TimeSlot> availableTimeSlots = new ArrayList<>(context.availableSlots());
         ArrayList<UnscheduledTask> unscheduledTask = new ArrayList<>();
 
@@ -118,7 +121,7 @@ public class CPMAlgorithm {
 
             if (remainingMinutes <= 0) break;
 
-            int usableMinutes = calculateUsableMinutes(slot.durationMinutes(), remainingMinutes);
+            int usableMinutes = calculateUsableMinutes(slot, remainingMinutes);
 
             // Fill slot with chunk
             TaskChunk partialChunk = getPartialChunk(chunk, usableMinutes);
@@ -155,22 +158,95 @@ public class CPMAlgorithm {
      * Calculates how many minutes of a task can be planned into a slot.
      * Extends the slot if the remaining duration is within the allowed buffer.
      *
-     * @param slotDuration the available duration of the slot in minutes
+     * @param slot The time slot in question
      * @param remainingMinutes the remaining task duration in minutes
      * @return the usable duration in minutes
      */
-    private int calculateUsableMinutes(int slotDuration, int remainingMinutes) {
-        int usableMinutes = Math.min(slotDuration, remainingMinutes);
+    private int calculateUsableMinutes(TimeSlot slot, int remainingMinutes) {
+        int usableMinutes = Math.min(slot.durationMinutes(), remainingMinutes);
 
         int remainder = remainingMinutes - usableMinutes;
 
         // Extend slot if task only slightly bigger
-        if (remainder > 0 && remainder <= this.MAX_BUFFER) {
-            return remainingMinutes;
+        Appointment nextAppointment = getNextAppointment(slot);
+
+        // If there is no next appointment (then it's the end of the working day) a maximum of 15min
+        // can be added to complete the task
+        if (nextAppointment == null) {
+            if (remainder > 0 && remainder <= this.MAX_BUFFER) {
+                return remainingMinutes;
+            }
         }
 
         return usableMinutes;
     }
+
+    private Appointment getNextAppointment(TimeSlot slot) {
+        List<Appointment> appointments = this.currentContext.allAppointments();
+
+        if (appointments == null || appointments.isEmpty()) {
+            return null;
+        }
+
+        // Filter appointments on same day, with start time after slot end
+        return appointments.stream()
+                // Filter appointments on same day, with start time after slot end
+                .filter(apt -> {
+                    if (isAppointmentOnDate(slot.date(), apt)) {
+                        LocalTime aptStart = LocalTime.parse(apt.getStartTime());
+                        return aptStart.isAfter(slot.endTime()) || aptStart == slot.endTime();
+                    }
+                    return false;
+                })
+                // Find the first after
+                .min(Comparator.comparing(Appointment::getStartTime))
+                .orElse(null);
+    }
+
+    private boolean isAppointmentOnDate(LocalDate targetDate, Appointment appointment) {
+
+        // One time appointment
+        if (appointment.getAppointmentType() == AppointmentType.ONE_TIME) {
+            return appointment.getDate().equals(targetDate);
+        }
+
+        // Recurring appointment
+        String rrule = appointment.getRrule();
+        if (rrule == null || rrule.isBlank()) return false;
+
+        // Example:
+        // FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR
+        String[] ruleParts = rrule.split(";");
+        String byDayPart = null;
+
+        for (String part : ruleParts) {
+            if (part.startsWith("BYDAY=")) {
+                byDayPart = part.substring("BYDAY=".length());
+                break;
+            }
+        }
+
+        if (byDayPart == null || byDayPart.isBlank()) return false;
+
+        String targetDay = switch (targetDate.getDayOfWeek()) {
+            case MONDAY -> "MO";
+            case TUESDAY -> "TU";
+            case WEDNESDAY -> "WE";
+            case THURSDAY -> "TH";
+            case FRIDAY -> "FR";
+            case SATURDAY -> "SA";
+            case SUNDAY -> "SU";
+        };
+
+        String[] allowedDays = byDayPart.split(",");
+        for (String day : allowedDays) {
+            if (day.equals(targetDay)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
 
     /**
      * Creates a partial task chunk with the specified duration
