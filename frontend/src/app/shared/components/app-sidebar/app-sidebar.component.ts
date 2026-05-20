@@ -1,4 +1,4 @@
-import { Component, computed, inject, model } from '@angular/core';
+import { Component, computed, inject, model, OnInit } from '@angular/core';
 import { MenuItem } from 'primeng/api';
 import { Menu } from 'primeng/menu';
 import { Drawer } from 'primeng/drawer';
@@ -14,12 +14,12 @@ import { AuthService } from '../../../core/auth/auth.service';
   styleUrl: './app-sidebar.component.scss',
   imports: [Menu, Drawer, Button],
 })
-export class AppSidebarComponent {
+export class AppSidebarComponent implements OnInit {
   private accountStore = inject(AccountStore);
   private userAccountsService = inject(UserAccountsService);
   private authService = inject(AuthService);
 
-  constructor() {
+  ngOnInit(): void {
     this.userAccountsService.getMyAccounts().subscribe({
       next: (response) => {
         console.log('Accounts loaded:', response.accounts);

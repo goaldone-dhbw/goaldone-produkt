@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, ChangeDetectorRef, ChangeDetectionStrategy } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject, ChangeDetectorRef, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Button } from 'primeng/button';
@@ -7,7 +7,8 @@ import { Message } from 'primeng/message';
 import { Tooltip } from 'primeng/tooltip';
 import { InputTextModule } from 'primeng/inputtext';
 import { ActivatedRoute, Router } from '@angular/router';
-import { timeout } from 'rxjs';
+import { timeout, Subject } from 'rxjs';
+import { takeUntil, filter } from 'rxjs/operators';
 
 import { UserAccountsService, AccountResponse } from '../../api';
 import { AuthService } from '../../core/auth/auth.service';
@@ -38,7 +39,7 @@ import { AccountLinkConfirmService } from '../../core/services/account-link-conf
   templateUrl: './user-settings.page.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class UserSettingsPage implements OnInit {
+export class UserSettingsPage implements OnInit, OnDestroy {
   private userAccountsService = inject(UserAccountsService);
   private accountService = inject(UserSettingsAccountService);
   private accountLinkApi = inject(AccountLinkConfirmService);
@@ -47,6 +48,7 @@ export class UserSettingsPage implements OnInit {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private cdr = inject(ChangeDetectorRef);
+  private destroy$ = new Subject<void>();
 
   /** Indicates whether the linked accounts are currently being loaded. */
   loading = false;
@@ -160,8 +162,28 @@ export class UserSettingsPage implements OnInit {
 
   /** Loads all linked accounts after the component has been initialized. */
   ngOnInit(): void {
+    this.logoutLoading = false;
+    this.logoutError = null;
+    this.logoutDialogOpen = false;
     this.handleAccountLinkingResult();
     this.fetchAccounts();
+
+    this.route.queryParams
+      .pipe(
+        filter((params) => params['accountLinked'] !== undefined),
+        takeUntil(this.destroy$),
+      )
+      .subscribe(() => {
+        this.logoutLoading = false;
+        this.logoutError = null;
+        this.logoutDialogOpen = false;
+        this.handleAccountLinkingResult();
+      });
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
   /** Opens the account linking info dialog. */
@@ -295,6 +317,10 @@ export class UserSettingsPage implements OnInit {
     if (result === 'success') {
       this.success = 'Accounts erfolgreich verknüpft.';
       this.error = null;
+      this.logoutLoading = false;
+      this.logoutError = null;
+      this.logoutDialogOpen = false;
+      this.cdr.detectChanges();
       this.clearAccountLinkingQueryParams();
       return;
     }
@@ -302,6 +328,10 @@ export class UserSettingsPage implements OnInit {
     if (result === 'error') {
       this.error = reason ?? 'Verknüpfung fehlgeschlagen.';
       this.success = null;
+      this.logoutLoading = false;
+      this.logoutError = null;
+      this.logoutDialogOpen = false;
+      this.cdr.detectChanges();
       this.clearAccountLinkingQueryParams();
       return;
     }
@@ -423,24 +453,25 @@ export class UserSettingsPage implements OnInit {
     this.loading = true;
     this.error = null;
 
+    this.userAccountsService.getMyAccounts()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (data) => {
+          console.log('Accounts loaded:', data.accounts);
 
-    this.userAccountsService.getMyAccounts().subscribe({
-      next: (data) => {
-        console.log('Accounts loaded:', data.accounts);
+          this.accounts = data.accounts ?? [];
+          this.loading = false;
+          this.cdr.detectChanges();
+        },
+        error: (err) => {
+          this.error = this.getErrorMessage(err, 'Konten konnten nicht geladen werden.');
+          console.error('Accounts could not be loaded:', err);
 
-        this.accounts = data.accounts ?? [];
-        this.loading = false;
-        this.cdr.detectChanges();
-      },
-      error: (err) => {
-        this.error = this.getErrorMessage(err, 'Konten konnten nicht geladen werden.');
-        console.error('Accounts could not be loaded:', err);
-
-        this.error = err?.message || 'Die Accounts konnten nicht geladen werden.';
-        this.loading = false;
-        this.cdr.detectChanges();
-      },
-    });
+          this.error = err?.message || 'Die Accounts konnten nicht geladen werden.';
+          this.loading = false;
+          this.cdr.detectChanges();
+        },
+      });
   }
 
   /**
@@ -543,20 +574,22 @@ export class UserSettingsPage implements OnInit {
     this.logoutLoading = true;
     this.logoutError = null;
 
-    this.accountService.logout().subscribe({
-      next: () => {
-        this.logoutLoading = false;
-        this.logoutDialogOpen = false;
-        this.authService.logout();
-      },
-      error: (err) => {
-        // logout() returns of(undefined) and never errors, but keep the
-        // error handler for safety in case the implementation changes.
-        this.logoutError = this.getErrorMessage(err, 'Abmelden nicht möglich.');
-        this.logoutLoading = false;
-        this.cdr.detectChanges();
-      },
-    });
+    this.accountService.logout()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: () => {
+          this.logoutLoading = false;
+          this.logoutDialogOpen = false;
+          this.authService.logout();
+        },
+        error: (err) => {
+          // logout() returns of(undefined) and never errors, but keep the
+          // error handler for safety in case the implementation changes.
+          this.logoutError = this.getErrorMessage(err, 'Abmelden nicht möglich.');
+          this.logoutLoading = false;
+          this.cdr.detectChanges();
+        },
+      });
   }
 
   /** Opens the password change dialog. */

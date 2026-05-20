@@ -109,10 +109,18 @@ describe('AuthService', () => {
   });
 
   describe('logout', () => {
-    it('should call OAuthService.logOut', () => {
-      service.logout();
+    it('should call OAuthService.logOut', async () => {
+      vi.useFakeTimers();
 
-      expect(oauthService.logOut).toHaveBeenCalled();
+      try {
+        service.logout();
+
+        await vi.runAllTimersAsync();
+
+        expect(oauthService.logOut).toHaveBeenCalled();
+      } finally {
+        vi.useRealTimers();
+      }
     });
   });
 
