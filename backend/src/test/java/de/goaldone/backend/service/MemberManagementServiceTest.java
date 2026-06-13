@@ -13,6 +13,7 @@ import de.goaldone.backend.model.MemberRole;
 import de.goaldone.backend.model.MemberStatus;
 import de.goaldone.backend.repository.OrganizationRepository;
 import de.goaldone.backend.repository.UserAccountRepository;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -78,6 +79,11 @@ class MemberManagementServiceTest {
         java.lang.reflect.Field orgField = MemberManagementService.class.getDeclaredField("mainOrgId");
         orgField.setAccessible(true);
         orgField.set(memberManagementService, "main-org-id");
+    }
+
+    @AfterEach
+    void tearDown() {
+        SecurityContextHolder.clearContext();
     }
 
     @Test

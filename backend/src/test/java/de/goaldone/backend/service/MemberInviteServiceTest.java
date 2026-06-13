@@ -11,6 +11,7 @@ import de.goaldone.backend.exception.ZitadelApiException;
 import de.goaldone.backend.model.InviteMemberRequest;
 import de.goaldone.backend.model.MemberRole;
 import de.goaldone.backend.repository.OrganizationRepository;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -62,6 +63,11 @@ class MemberInviteServiceTest {
         lenient().when(authentication.getPrincipal()).thenReturn(jwt);
         ReflectionTestUtils.setField(memberInviteService, "goaldoneProjectId", projectId);
         ReflectionTestUtils.setField(memberInviteService, "mainOrgId", mainOrgId);
+    }
+
+    @AfterEach
+    void tearDown() {
+        SecurityContextHolder.clearContext();
     }
 
     @Test
